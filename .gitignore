@@ -56,3 +56,6 @@ logs/
 sparkcrawler_raw/
 synctacles_nrm/
 tests/scripts/test_unified_service.py
+
+# IDE/Editor local state
+.claude/
