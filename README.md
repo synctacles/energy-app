@@ -1,74 +1,58 @@
-# SYNCTACLES Development Repository
+# Energy Insights NL
 
-Development workspace for SYNCTACLES energy data aggregation platform.
+Real-time Dutch electricity grid data for Home Assistant automation.
 
-## Quick Start
+## What Makes This Different
 
-```bash
-cd /opt/github/synctacles-repo
-source venv/bin/activate
-pip install -r requirements.txt
-python test_setup.py
-```
+**Single integration for ALL Dutch energy data:**
+- ✅ Generation mix (wind/solar/gas/nuclear) - live breakdown
+- ✅ Grid balance (import/export) - optimize usage timing  
+- ✅ Load forecasts - plan ahead
+- ✅ Normalized data - no API complexity
 
-## Directory Structure
+**vs Other Solutions:**
+- ENTSO-E integration: Raw data only, no normalization
+- Energy prices integrations: Only prices, no grid data
+- Custom API scripts: Requires coding skills
 
-```
-sparkcrawler/          # Raw data collection engine
-  ├── parsers/         # XML/JSON parsers per data source
-  ├── collectors/      # API collectors
-  └── models/          # Data models
+**Key Benefits:**
+- 15-minute updates
+- Quality indicators (OK/STALE/NO_DATA)
+- Fallback sources (ENTSO-E → Energy-Charts)
+- Ready for automations (binary sensors)
 
-synctacles/            # Normalized API layer
-  ├── api/             # FastAPI endpoints
-  ├── models/          # Database models
-  └── services/        # Business logic
+## Pricing
 
-tests/                 # Unit & integration tests
-migrations/            # Database schema versions (Alembic)
-config/                # Configuration files
-logs/                  # Application logs
-```
+**Beta (Now):** Free - test and provide feedback
+**After Launch:** Paid subscription model
+**Early Contributor Perk:** 1 year free for beta participants who contribute
 
-## Environment Setup
+Details: [pricing page after launch]
 
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
+## Installation
 
-2. Edit `.env` with your API keys
+Via HACS (recommended):
+1. Add custom repository
+2. Search "Energy Insights NL"
+3. Configure with API endpoint
 
-3. Install dependencies:
-   ```bash
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+Manual: [link to docs]
 
-4. Test setup:
-   ```bash
-   python test_setup.py
-   ```
+## Use Cases
 
-## Development Workflow
+- EV charging when renewable % high
+- Appliance scheduling on low-load periods
+- Energy dashboards with live grid mix
+- Home automation based on grid balance
 
-```bash
-# Activate venv
-source venv/bin/activate
+## Technical
 
-# Make changes
-# ... code here ...
+- Data sources: ENTSO-E, TenneT, Energy-Charts
+- Update interval: 15 minutes
+- Sensors: 8 entities
+- Requirements: Home Assistant 2024.1+
 
-# Test locally
-python test_setup.py
+## Support
 
-# Commit
-git add .
-git commit -m "Feature: description"
-git push
-```
-
-## Resources
-
-- Production: `/opt/synctacles/`
-- Logs: `/var/log/synctacles-setup/`
+Discord: [link]
+Issues: GitHub Issues
