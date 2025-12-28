@@ -35,6 +35,9 @@ ehthumbs.db
 .env.local
 .env.*.local
 
+# Generated files (DO NOT COMMIT - created from templates at install time)
+custom_components/synctacles/manifest.json
+
 # Logs
 *.log
 logs/
