@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
-LOG_DIR = Path(os.getenv("SYNCTACLES_LOG_DIR", "/opt/synctacles/logs"))
+LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 INPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 
 engine = create_engine(DATABASE_URL)

@@ -37,7 +37,7 @@ if not api_key:
     print("ERROR: ENTSOE_API_KEY not found")
 
 # Logging setup
-LOG_DIR = Path(os.getenv("SYNCTACLES_LOG_DIR", "/opt/synctacles/logs"))
+LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(

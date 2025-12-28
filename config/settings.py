@@ -55,9 +55,6 @@ class Settings(BaseSettings):
     venv_path: str = os.getenv("VENV_PATH", "/opt/energy-insights/venv")
     data_path: str = os.getenv("DATA_PATH", "/var/lib/energy-insights")
 
-    # Legacy path variable for backwards compatibility
-    synctacles_log_dir: str = os.getenv("SYNCTACLES_LOG_DIR", "/opt/energy-insights/logs")
-
     # ============================================================================
     # SYSTEM USER CONFIGURATION
     # ============================================================================

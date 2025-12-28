@@ -21,7 +21,7 @@ from sparkcrawler_db.models import RawEntsoeA65
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
 
 # Log directory configuration
-LOG_DIR = Path(os.getenv("SYNCTACLES_LOG_DIR", "/opt/synctacles/logs"))
+LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 
 logging.basicConfig(
     level=logging.INFO,

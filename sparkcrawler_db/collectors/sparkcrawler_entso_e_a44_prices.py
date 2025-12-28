@@ -12,7 +12,7 @@ import pandas as pd
 import logging
 
 SCRIPT_DIR = Path(__file__).parent
-LOG_DIR = Path(os.getenv('SYNCTACLES_LOG_DIR', '/opt/synctacles/logs'))
+LOG_DIR = Path(os.getenv('LOG_PATH', '/var/log/energy-insights'))
 OUTPUT_DIR = LOG_DIR / 'collectors' / 'entso_e_raw'
 
 logging.basicConfig(

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BASE_URL = "https://api.energy-charts.info/price"
-LOG_DIR = Path(os.getenv("SYNCTACLES_LOG_DIR", "/opt/synctacles/logs"))
+LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 OUTPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 
 def fetch_prices(country: str = "NL", days: int = 2) -> dict:
