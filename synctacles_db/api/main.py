@@ -1,5 +1,5 @@
 """
-Energy Insights NL API
+Energy Data API
 FastAPI application entry point
 Environment-driven branding and configuration
 """
