@@ -168,7 +168,7 @@ setup_logging() {
     exec > >(tee -a "$LOG_FILE") 2>&1
 
     echo "======================================================="
-    echo "SYNCTACLES Server Setup v2.3.3"
+    echo "Application Server Setup"
     echo "Started: $(date)"
     echo "Log file: $LOG_FILE"
     echo "======================================================="
@@ -676,7 +676,7 @@ EOF
 #   FASE 2.5 — Database Initialization + API Keys
 # ========================================================
 fase2_database() {
-    header "FASE 2.5 — SYNCTACLES Database Setup"
+    header "FASE 2.5 — Database Setup"
 
     # Source ENV if available (allows runtime override)
     if [[ -f /root/.env ]]; then
@@ -1046,7 +1046,7 @@ fase3() {
     fi
 
     info "Current ${SERVICE_USER} key mode: $MODE"
-    show_authorized_keys "SYNCTACLES: $SYN_AUTH" "$SYN_AUTH"
+    show_authorized_keys "${SERVICE_USER} authorized keys: $SYN_AUTH" "$SYN_AUTH"
 
     if ! authkeys_has_keys "$SYN_AUTH"; then
         echo
@@ -1339,7 +1339,7 @@ EOF"
     echo
     echo "Next steps:"
     echo "1) Voeg deze key toe in GitHub: Settings → SSH and GPG keys → New SSH key"
-    echo "2) Title: 'SYNCTACLES Server ($(hostname))'"
+    echo "2) Title: 'Application Server ($(hostname))'"
     echo
 
     # Wait until key works (default: retry)
@@ -1362,60 +1362,60 @@ EOF"
         fi
     done
 
-    # Clone repo (as synctacles) - check for .git to verify actual repo clone
-    if [[ ! -d "$SYNCTACLES_DEV/.git" ]]; then
-        info "Cloning SYNCTACLES repository (as synctacles)..."
-        if sudo -u ${SERVICE_USER} git clone "$GITHUB_REPO_SSH" "$SYNCTACLES_DEV" 2>/dev/null; then
-            ok "Repository cloned: $SYNCTACLES_DEV"
+    # Clone repo (as service user) - check for .git to verify actual repo clone
+    if [[ ! -d "${GITHUB_REPO_DEV}/.git" ]]; then
+        info "Cloning application repository (as ${SERVICE_USER})..."
+        if sudo -u ${SERVICE_USER} git clone "$GITHUB_REPO" "${GITHUB_REPO_DEV}" 2>/dev/null; then
+            ok "Repository cloned: ${GITHUB_REPO_DEV}"
             # Allow root to access repo
-            git config --global --add safe.directory /opt/github/synctacles-repo
+            git config --global --add safe.directory "${GITHUB_REPO_DEV}"
             ok "Git safe.directory configured for root"
         else
             warn "GitHub clone failed (nog geen toegang of repo niet bereikbaar)."
-            warn "Manual step (as synctacles):"
-            warn "  sudo -u ${SERVICE_USER} git clone $GITHUB_REPO_SSH $SYNCTACLES_DEV"
+            warn "Manual step (as ${SERVICE_USER}):"
+            warn "  sudo -u ${SERVICE_USER} git clone $GITHUB_REPO ${GITHUB_REPO_DEV}"
         fi
     else
-        ok "Repository already exists: $SYNCTACLES_DEV"
-        info "KIES workflow: wijzigingen altijd in GitHub, daarna op server: sudo -u ${SERVICE_USER} git -C $SYNCTACLES_DEV pull origin main"
+        ok "Repository already exists: ${GITHUB_REPO_DEV}"
+        info "KIES workflow: wijzigingen altijd in GitHub, daarna op server: sudo -u ${SERVICE_USER} git -C ${GITHUB_REPO_DEV} pull origin main"
     fi
 
     # Repo ownership sanity
-    if [[ -d "$SYNCTACLES_DEV" ]]; then
-        chown -R synctacles:synctacles "$SYNCTACLES_DEV" 2>/dev/null || true
+    if [[ -d "${GITHUB_REPO_DEV}" ]]; then
+        chown -R ${SERVICE_USER}:${SERVICE_GROUP} "${GITHUB_REPO_DEV}" 2>/dev/null || true
         ok "Development directory ownership correct"
     fi
 
     # -----------------------------
     # 3.4.1 Copy requirements.txt to production (v2.3.0 FIX)
     # -----------------------------
-    if [[ -f "$SYNCTACLES_DEV/requirements.txt" ]]; then
+    if [[ -f "${GITHUB_REPO_DEV}/requirements.txt" ]]; then
         info "Copying requirements.txt from DEV to PROD..."
-        cp "$SYNCTACLES_DEV/requirements.txt" "$SYNCTACLES_PROD/requirements.txt"
-        chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYNCTACLES_PROD/requirements.txt"
-        ok "requirements.txt copied to $SYNCTACLES_PROD/"
+        cp "${GITHUB_REPO_DEV}/requirements.txt" "${INSTALL_PATH}/requirements.txt"
+        chown ${SERVICE_USER}:${SERVICE_GROUP} "${INSTALL_PATH}/requirements.txt"
+        ok "requirements.txt copied to ${INSTALL_PATH}/"
     else
-        warn "requirements.txt not found in $SYNCTACLES_DEV — FASE 4 may fail"
+        warn "requirements.txt not found in development directory — FASE 4 may fail"
     fi
 
     # Optional: symlink .env into repo (collectors may expect it)
-    if [[ -f "$SYNCTACLES_PROD/.env" && -d "$SYNCTACLES_DEV" ]]; then
-        ln -sf "$SYNCTACLES_PROD/.env" "$SYNCTACLES_DEV/.env" 2>/dev/null || true
-        chown -h synctacles:synctacles "$SYNCTACLES_DEV/.env" 2>/dev/null || true
-        ok ".env symlink in repo updated ($SYNCTACLES_DEV/.env)"
+    if [[ -f "${INSTALL_PATH}/.env" && -d "${GITHUB_REPO_DEV}" ]]; then
+        ln -sf "${INSTALL_PATH}/.env" "${GITHUB_REPO_DEV}/.env" 2>/dev/null || true
+        chown -h ${SERVICE_USER}:${SERVICE_GROUP} "${GITHUB_REPO_DEV}/.env" 2>/dev/null || true
+        ok ".env symlink in repo updated (${GITHUB_REPO_DEV}/.env)"
     fi
 
     # -----------------------------
     # 3.4.2 Directory overview
     # -----------------------------
     info "Directory structuur:"
-    echo "  Production:  $SYNCTACLES_PROD (runtime)"
-    echo "  Development: $SYNCTACLES_DEV (git sync)"
+    echo "  Production:  ${INSTALL_PATH} (runtime)"
+    echo "  Development: ${GITHUB_REPO_DEV} (git sync)"
 
     # Set ownership for production directory (runtime)
-    if [[ -d "$SYNCTACLES_PROD" ]]; then
-        chown -R synctacles:synctacles "$SYNCTACLES_PROD" 2>/dev/null || true
-        ok "Ownership van $SYNCTACLES_PROD ingesteld op synctacles:synctacles"
+    if [[ -d "${INSTALL_PATH}" ]]; then
+        chown -R ${SERVICE_USER}:${SERVICE_GROUP} "${INSTALL_PATH}" 2>/dev/null || true
+        ok "Ownership van ${INSTALL_PATH} ingesteld op ${SERVICE_USER}:${SERVICE_GROUP}"
     fi
 
     # -----------------------------
@@ -1577,7 +1577,7 @@ EOF
 #   FASE 4 — Python Environment
 # ========================================================
 fase4() {
-    header "FASE 4 — SYNCTACLES Python omgeving (venv)"
+    header "FASE 4 — Python Environment Setup (venv)"
 
     VENV_PATH="$SYNCTACLES_PROD/venv"
     REQUIREMENTS_FILE="$SYNCTACLES_PROD/requirements.txt"
@@ -1697,41 +1697,41 @@ fase5() {
     # -----------------------------
     # Verify VERSION file (v2.3.0 FIX)
     # -----------------------------
-    if [[ -f "/opt/synctacles/app/VERSION" ]]; then
-        APP_VERSION=$(cat /opt/synctacles/app/VERSION)
+    if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
+        APP_VERSION=$(cat ${INSTALL_PATH}/app/VERSION)
         ok "VERSION file found: $APP_VERSION"
     else
-        fail "VERSION file NOT FOUND in /opt/synctacles/app/"
+        fail "VERSION file NOT FOUND in ${INSTALL_PATH}/app/"
         fail "Zorg dat VERSION bestaat in de repo root"
         exit 1
     fi
 
     # Symlink .env into app (collectors expect it there)
-    if [[ -f "/opt/synctacles/.env" ]]; then
-        ln -sf /opt/synctacles/.env /opt/synctacles/app/.env 2>/dev/null || true
-        chown -h synctacles:synctacles /opt/synctacles/app/.env 2>/dev/null || true
+    if [[ -f "${INSTALL_PATH}/.env" ]]; then
+        ln -sf ${INSTALL_PATH}/.env ${INSTALL_PATH}/app/.env 2>/dev/null || true
+        chown -h ${SERVICE_USER}:${SERVICE_GROUP} ${INSTALL_PATH}/app/.env 2>/dev/null || true
         ok ".env accessible from app directory"
     fi
 
     # Add LOG_DIR to .env if missing (v2.3.0 FIX: use grep -q)
-    if [[ -f "/opt/synctacles/.env" ]]; then
-        if ! grep -q "^SYNCTACLES_LOG_DIR=" /opt/synctacles/.env 2>/dev/null; then
-            echo "SYNCTACLES_LOG_DIR=/opt/synctacles/logs" >> /opt/synctacles/.env
-            ok "SYNCTACLES_LOG_DIR added to .env"
+    if [[ -f "${INSTALL_PATH}/.env" ]]; then
+        if ! grep -q "^LOG_PATH=" ${INSTALL_PATH}/.env 2>/dev/null; then
+            echo "LOG_PATH=${LOG_PATH}" >> ${INSTALL_PATH}/.env
+            ok "LOG_PATH added to .env"
         else
-            ok "SYNCTACLES_LOG_DIR already in .env"
+            ok "LOG_PATH already in .env"
         fi
     fi
 
     # Legacy compatibility (symlink for old scripts)
-    if [[ ! -L /var/log/synctacles ]]; then
-        ln -sf /opt/synctacles/logs /var/log/synctacles 2>/dev/null || true
+    if [[ ! -L /var/log/application ]]; then
+        ln -sf ${LOG_PATH} /var/log/application 2>/dev/null || true
     fi
 
     # Copy service files
     info "Installeer systemd units..."
-    cp "$SYNCTACLES_DEV/systemd/"*.service /etc/systemd/system/ 2>/dev/null || true
-    cp "$SYNCTACLES_DEV/systemd/"*.timer /etc/systemd/system/ 2>/dev/null || true
+    cp "${GITHUB_REPO_DEV}/systemd/"*.service /etc/systemd/system/ 2>/dev/null || true
+    cp "${GITHUB_REPO_DEV}/systemd/"*.timer /etc/systemd/system/ 2>/dev/null || true
 
     # Validate systemd unit paths (CRITICAL)
     info "Validating systemd unit paths..."
@@ -1741,7 +1741,7 @@ fase5() {
         [[ -f "$unit" ]] || continue
 
         # Check for DEV repo paths (FORBIDDEN)
-        if grep -qE "ExecStart=.*/opt/github/synctacles-repo" "$unit"; then
+        if grep -qE "ExecStart=.*/opt/github" "$unit"; then
             fail "INVALID: $(basename "$unit") points to DEV repo"
             ((INVALID_PATHS++))
         fi
@@ -1754,12 +1754,12 @@ fase5() {
 
     if [[ $INVALID_PATHS -gt 0 ]]; then
         fail "$INVALID_PATHS systemd units have invalid paths"
-        warn "Units MUST use: /opt/synctacles/app/"
-        warn "Fix units in repo: $SYNCTACLES_DEV/systemd/"
+        warn "Units MUST use: ${INSTALL_PATH}/app/"
+        warn "Fix units in repo: ${GITHUB_REPO_DEV}/systemd/"
         warn "Then re-run: sudo $0 fase5"
         exit 1
     else
-        ok "All systemd units use correct paths (/opt/synctacles/app/)"
+        ok "All systemd units use correct paths (${INSTALL_PATH}/app/)"
     fi
 
     info "Reloading systemd daemon..."
@@ -1767,12 +1767,13 @@ fase5() {
     ok "Systemd daemon reloaded"
 
     # Enable timers/services (v2.3.0 FIX: explicitly enable collector timer)
-    for unit in synctacles-collector.timer synctacles-importer.timer synctacles-normalizer.timer synctacles-health.timer synctacles-tennet.timer; do
-        if systemctl list-unit-files | grep -q "$unit"; then
-            systemctl enable --now "$unit" >/dev/null 2>&1 || true
-            ok "Enabled: $unit"
+    for unit in collector.timer importer.timer normalizer.timer health.timer; do
+        UNIT_NAME="synctacles-${unit}"
+        if systemctl list-unit-files | grep -q "$UNIT_NAME"; then
+            systemctl enable --now "$UNIT_NAME" >/dev/null 2>&1 || true
+            ok "Enabled: $UNIT_NAME"
         else
-            warn "Unit not found: $unit"
+            warn "Unit not found: $UNIT_NAME"
         fi
     done
 
@@ -1942,8 +1943,8 @@ fase6() {
 
         cd "$SYNCTACLES_DEV" || exit 1
         sudo -u ${SERVICE_USER} git init
-        sudo -u ${SERVICE_USER} git config user.name "SYNCTACLES Development"
-        sudo -u ${SERVICE_USER} git config user.email "dev@synctacles.local"
+        sudo -u ${SERVICE_USER} git config user.name "${GIT_USER_NAME}"
+        sudo -u ${SERVICE_USER} git config user.email "${GIT_USER_EMAIL}"
 
         ok "Git repository initialized"
     fi
@@ -2051,7 +2052,7 @@ def test_imports():
 
 def main():
     print("=" * 60)
-    print("SYNCTACLES Development Environment Test")
+    print("Application Development Environment Test")
     print("=" * 60)
     print()
 
@@ -2079,22 +2080,22 @@ EOF
     # 6.5 Set Final Permissions
     # -----------------------------
     info "Setting final permissions..."
-    chown -R synctacles:synctacles "$SYNCTACLES_DEV"
+    chown -R ${SERVICE_USER}:${SERVICE_GROUP} "${GITHUB_REPO_DEV}"
     # Do NOT chmod -R the repo; executable bits are tracked by git and blanket chmod can break expectations.
-    ok "Ownership set: synctacles:synctacles (permissions unchanged)"
+    ok "Ownership set: ${SERVICE_USER}:${SERVICE_GROUP} (permissions unchanged)"
 
     ok "FASE 6 voltooid — development tools geïnstalleerd"
 
     echo
     echo "✅ DEVELOPMENT ENVIRONMENT READY"
     echo
-    echo "📁 Location: $SYNCTACLES_DEV"
-    echo "👤 Owner:    synctacles:synctacles"
+    echo "📁 Location: ${GITHUB_REPO_DEV}"
+    echo "👤 Owner:    ${SERVICE_USER}:${SERVICE_GROUP}"
     echo "📦 Git:      Initialized"
     echo
     echo "🛠️  Development Workflow:"
-    echo "   1. Switch to synctacles: su - synctacles"
-    echo "   2. Go to repo:           cd $SYNCTACLES_DEV"
+    echo "   1. Switch to user:       su - ${SERVICE_USER}"
+    echo "   2. Go to repo:           cd ${GITHUB_REPO_DEV}"
     echo "   3. Test setup:           python3 test_setup.py"
     echo "   4. Run collectors:       python3 sparkcrawler_db/collectors/sparkcrawler_entso_e_a75_generation.py"
     echo "   5. Run importers:        python3 sparkcrawler_db/importers/import_entso_e_a75.py"
@@ -2109,22 +2110,22 @@ print_summary() {
     header "Setup Complete!"
 
     echo
-    echo "✅ SYNCTACLES Server Setup v2.3.3 voltooid"
+    echo "✅ Application Server Setup voltooid"
     echo
     echo "📁 Directories:"
-    echo "   Production:  $SYNCTACLES_PROD"
-    echo "   Development: $SYNCTACLES_DEV"
-    echo "   Logs:        /var/log/synctacles-setup/"
+    echo "   Production:  ${INSTALL_PATH}"
+    echo "   Development: ${GITHUB_REPO_DEV}"
+    echo "   Logs:        ${LOG_PATH}"
     echo
     echo "🔑 Database:"
-    echo "   Name:     synctacles"
-    echo "   User:     synctacles"
+    echo "   Name:     ${DB_NAME}"
+    echo "   User:     ${DB_USER}"
     echo "   Password: (geen - trust authentication)"
-    echo "   URL:      postgresql://synctacles@localhost:5432/synctacles"
+    echo "   URL:      postgresql://${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
     echo
     echo "📄 Configuration:"
-    echo "   Environment: $SYNCTACLES_PROD/.env"
-    echo "   Python venv: $SYNCTACLES_PROD/venv/"
+    echo "   Environment: ${INSTALL_PATH}/.env"
+    echo "   Python venv: ${INSTALL_PATH}/venv/"
     echo
     echo "🚀 Services Running:"
     systemctl is-active --quiet docker && echo "   ✓ Docker" || echo "   ✗ Docker"
