@@ -1,9 +1,10 @@
 {
-  "domain": "synctacles",
-  "name": "SYNCTACLES Energy Data",
+  "domain": "ha_energy_insights_nl",
+  "name": "Energy Insights NL",
   "codeowners": ["@DATADIO"],
   "config_flow": true,
-  "documentation": "https://github.com/DATADIO/synctacles-repo",
+  "documentation": "https://github.com/DATADIO/ha-energy-insights-nl",
+  "issue_tracker": "https://github.com/DATADIO/ha-energy-insights-nl/issues",
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "requirements": [],

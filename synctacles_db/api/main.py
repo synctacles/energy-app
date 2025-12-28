@@ -1,22 +1,25 @@
 """
-SYNCTACLES API V1
+Energy Insights NL API
 FastAPI application entry point
+Environment-driven branding and configuration
 """
 from datetime import datetime, timezone
 
-# Auth middleware
 from fastapi import FastAPI
-from synctacles_db.api.middleware import auth_middleware
 from fastapi.middleware.cors import CORSMiddleware
-from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals
-from synctacles_db.cache import api_cache
-
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
 import time
+
+from synctacles_db.api.middleware import auth_middleware
+from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals
+from synctacles_db.cache import api_cache
+from config.settings import settings
+
+# Create FastAPI app with branding from settings
 app = FastAPI(
-    title="SYNCTACLES API",
-    description="Dutch energy data aggregation for Home Assistant",
+    title=settings.api_title,
+    description=settings.api_description,
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -76,7 +79,8 @@ async def health():
         "status": "ok",
         "version": "1.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "service": "SYNCTACLES API"
+        "service": settings.api_title,
+        "brand": settings.brand_name
     }
 
 # Prometheus metrics endpoint

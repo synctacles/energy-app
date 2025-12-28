@@ -1,6 +1,6 @@
-"""Constants for SYNCTACLES integration."""
+"""Constants for Energy Insights NL integration."""
 
-DOMAIN = "synctacles"
+DOMAIN = "ha_energy_insights_nl"
 
 # Config keys
 CONF_API_URL = "api_url"

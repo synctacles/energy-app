@@ -109,19 +109,36 @@ set -euo pipefail
 #   GLOBAL VARIABLES
 # ========================================================
 SCRIPT_NAME="$(basename "$0")"
-LOG_DIR="/var/log/synctacles-setup"
+# ========================================================
+#   BRANDING & ENVIRONMENT VARIABLES
+# ========================================================
+# Load from /root/.env or /opt/.env if available
+if [[ -f /root/.env ]]; then
+    source /root/.env
+elif [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Branding configuration (with defaults)
+BRAND_NAME="${BRAND_NAME:-Energy Insights NL}"
+BRAND_SLUG="${BRAND_SLUG:-energy-insights}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/energy-insights}"
+SERVICE_USER="${SERVICE_USER:-synctacles}"
+SERVICE_GROUP="${SERVICE_GROUP:-synctacles}"
+
+LOG_DIR="/var/log/${BRAND_SLUG}-setup"
 LOG_FILE="$LOG_DIR/setup-$(date +%Y%m%d-%H%M%S).log"
 
 # Paths
-SYNCTACLES_PROD="/opt/synctacles"            # Production runtime
-SYNCTACLES_DEV="/opt/github/synctacles-repo" # Development/Git
+SYNCTACLES_PROD="${INSTALL_PATH}"
+SYNCTACLES_DEV="/opt/github/${BRAND_SLUG}-repo"
 
 # Installer state (state-aware reruns)
 STATE_DIR="/var/lib/synctacles-installer"
 STATE_FILE="$STATE_DIR/state.env"
 
 # GitHub repository (SSH)
-GITHUB_REPO_SSH="git@github.com:DATADIO/synctacles-repo.git"
+GITHUB_REPO_SSH="git@github.com:DATADIO/ha-energy-insights-nl.git"
 
 # ========================================================
 #   LOGGING FUNCTIONS
@@ -519,8 +536,21 @@ EOF
 fase2_database() {
     header "FASE 2.5 — SYNCTACLES Database Setup"
 
-    DB_NAME="synctacles"
-    DB_USER="synctacles"
+    # Source ENV if available (allows runtime override)
+    if [[ -f /root/.env ]]; then
+        source /root/.env
+    elif [[ -f /opt/.env ]]; then
+        source /opt/.env
+    fi
+
+    # Re-apply branding variables (in case they were updated)
+    BRAND_SLUG="${BRAND_SLUG:-energy-insights}"
+    INSTALL_PATH="${INSTALL_PATH:-/opt/energy-insights}"
+    SERVICE_USER="${SERVICE_USER:-synctacles}"
+    SERVICE_GROUP="${SERVICE_GROUP:-synctacles}"
+
+    DB_NAME="${SERVICE_USER}"
+    DB_USER="${SERVICE_USER}"
 
     # Check of database al bestaat
     if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
@@ -535,7 +565,7 @@ GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 EOF
 
-        ok "Database aangemaakt (user: synctacles, geen wachtwoord)."
+        ok "Database aangemaakt (user: ${SERVICE_USER}, geen wachtwoord)."
     else
         ok "Database '$DB_NAME' bestaat al."
     fi
@@ -549,22 +579,22 @@ EOF
     cp "$PG_HBA" "$PG_HBA.bak-$(date +%Y%m%d-%H%M%S)"
 
     # Add trust rules if not present
-    if ! grep -q "local.*synctacles.*synctacles.*trust" "$PG_HBA"; then
+    if ! grep -q "local.*${SERVICE_USER}.*${SERVICE_USER}.*trust" "$PG_HBA"; then
         # Add BEFORE the default local all postgres peer line
         sed -i '/^local.*all.*postgres.*peer/i\
-# SYNCTACLES Database Access (Development - Trust)\
-local   synctacles      synctacles                              trust\
-host    synctacles      synctacles      127.0.0.1/32            trust\
-host    synctacles      synctacles      ::1/128                 trust' "$PG_HBA"
+# ${BRAND_NAME} Database Access (Development - Trust)\
+local   ${SERVICE_USER}      ${SERVICE_USER}                              trust\
+host    ${SERVICE_USER}      ${SERVICE_USER}      127.0.0.1/32            trust\
+host    ${SERVICE_USER}      ${SERVICE_USER}      ::1/128                 trust' "$PG_HBA"
 
         systemctl reload postgresql
-        ok "PostgreSQL authentication bijgewerkt (trust voor synctacles user)."
+        ok "PostgreSQL authentication bijgewerkt (trust voor ${SERVICE_USER} user)."
     else
         ok "PostgreSQL authentication al geconfigureerd."
     fi
 
     # Test database connectie
-    if sudo -u postgres psql synctacles -c "SELECT version();" >/dev/null 2>&1; then
+    if sudo -u postgres psql "${DB_NAME}" -c "SELECT version();" >/dev/null 2>&1; then
         ok "Database connectie geverifieerd."
     else
         fail "Kan niet verbinden met database."
@@ -670,11 +700,11 @@ host    synctacles      synctacles      ::1/128                 trust' "$PG_HBA"
 # ========================================================
 
 # Database Configuration (Development - No Password)
-DATABASE_URL=postgresql://synctacles@localhost:5432/synctacles
+DATABASE_URL=postgresql://${SERVICE_USER}@localhost:5432/${DB_NAME}
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=synctacles
-DB_USER=synctacles
+DB_NAME=${DB_NAME}
+DB_USER=${SERVICE_USER}
 DB_PASSWORD=
 
 # API Keys
@@ -712,10 +742,10 @@ EOF
 
         echo
         info "Database credentials:"
-        echo "  Database: synctacles"
-        echo "  User:     synctacles"
+        echo "  Database: ${DB_NAME}"
+        echo "  User:     ${SERVICE_USER}"
         echo "  Password: (geen - trust authentication)"
-        echo "  URL:      postgresql://synctacles@localhost:5432/synctacles"
+        echo "  URL:      postgresql://${SERVICE_USER}@localhost:5432/${DB_NAME}"
         echo
     fi
 
@@ -747,7 +777,7 @@ fase3() {
     state_set "LAST_RUN_VERSION" "2.3.3"
 
     ROOT_AUTH="/root/.ssh/authorized_keys"
-    SYN_HOME="/home/synctacles"
+    SYN_HOME="/home/${SERVICE_USER}"
     SYN_AUTH="$SYN_HOME/.ssh/authorized_keys"
     GITHUB_KEY="$SYN_HOME/.ssh/id_github"
     GITHUB_PUB="$SYN_HOME/.ssh/id_github.pub"
@@ -828,32 +858,32 @@ fase3() {
     fi
 
     # -----------------------------
-    # 3.2 Synctacles User Account
+    # 3.2 Service User Account
     # -----------------------------
-    header "3.2 — Synctacles User Account"
+    header "3.2 — Service User Account (${SERVICE_USER})"
 
-    info "Maak synctacles user aan..."
-    if ! id synctacles >/dev/null 2>&1; then
-        adduser --system --group --home /home/synctacles --shell /bin/bash synctacles
-        ok "User 'synctacles' aangemaakt."
+    info "Maak ${SERVICE_USER} user aan..."
+    if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
+        adduser --system --group --home "/home/${SERVICE_USER}" --shell /bin/bash "${SERVICE_USER}"
+        ok "User '${SERVICE_USER}' aangemaakt."
     else
-        ok "User 'synctacles' bestaat al."
+        ok "User '${SERVICE_USER}' bestaat al."
     fi
 
     # Add to docker group
-    if ! groups synctacles | grep -q docker; then
-        usermod -aG docker synctacles
-        ok "synctacles toegevoegd aan docker group."
+    if ! groups "${SERVICE_USER}" | grep -q docker; then
+        usermod -aG docker "${SERVICE_USER}"
+        ok "${SERVICE_USER} toegevoegd aan docker group."
     fi
 
     # Ensure SSH dir
-    ensure_ssh_dir_for_user "synctacles" "$SYN_HOME"
+    ensure_ssh_dir_for_user "${SERVICE_USER}" "$SYN_HOME"
 
-    # Fix ownership for .env so services (synctacles) can read it
+    # Fix ownership for .env so services can read it
     if [[ -f "$SYNCTACLES_PROD/.env" ]]; then
-        chown synctacles:synctacles "$SYNCTACLES_PROD/.env" 2>/dev/null || true
+        chown "${SERVICE_USER}:${SERVICE_GROUP}" "$SYNCTACLES_PROD/.env" 2>/dev/null || true
         chmod 600 "$SYNCTACLES_PROD/.env" 2>/dev/null || true
-        ok ".env ownership/perms gezet op synctacles (600)"
+        ok ".env ownership/perms gezet op ${SERVICE_USER} (600)"
     fi
 
     # -----------------------------
@@ -876,7 +906,7 @@ fase3() {
         state_set "SYNCTACLES_KEY_MODE" "$MODE"
     fi
 
-    info "Current synctacles key mode: $MODE"
+    info "Current ${SERVICE_USER} key mode: $MODE"
     show_authorized_keys "SYNCTACLES: $SYN_AUTH" "$SYN_AUTH"
 
     if ! authkeys_has_keys "$SYN_AUTH"; then
@@ -887,18 +917,18 @@ fase3() {
                 bak="$(backup_file "$SYN_AUTH")"
                 [[ -n "$bak" ]] && ok "Backup: $bak"
                 cp "$ROOT_AUTH" "$SYN_AUTH"
-                chown synctacles:synctacles "$SYN_AUTH"
+                chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
                 chmod 600 "$SYN_AUTH"
                 MODE="inherit_root"
                 state_set "SYNCTACLES_KEY_MODE" "$MODE"
                 ok "Synctacles keys overgenomen van root (inherit_root)."
             else
-                info "Plak een SSH public key voor synctacles login (1 regel):"
+                info "Plak een SSH public key voor ${SERVICE_USER} login (1 regel):"
                 NEW_SYN_KEY="$(prompt_pubkey_single_line "Public key: ")"
                 bak="$(backup_file "$SYN_AUTH")"
                 [[ -n "$bak" ]] && ok "Backup: $bak"
                 printf '%s\n' "$NEW_SYN_KEY" > "$SYN_AUTH"
-                chown synctacles:synctacles "$SYN_AUTH"
+                chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
                 chmod 600 "$SYN_AUTH"
                 MODE="custom"
                 state_set "SYNCTACLES_KEY_MODE" "$MODE"
@@ -906,10 +936,10 @@ fase3() {
             fi
         else
             warn "Root keys ontbreken/leeg, inherit is niet mogelijk."
-            info "Plak een SSH public key voor synctacles login (1 regel):"
+            info "Plak een SSH public key voor ${SERVICE_USER} login (1 regel):"
             NEW_SYN_KEY="$(prompt_pubkey_single_line "Public key: ")"
             printf '%s\n' "$NEW_SYN_KEY" > "$SYN_AUTH"
-            chown synctacles:synctacles "$SYN_AUTH"
+            chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
             chmod 600 "$SYN_AUTH"
             MODE="custom"
             state_set "SYNCTACLES_KEY_MODE" "$MODE"
@@ -917,12 +947,12 @@ fase3() {
         fi
     else
         echo
-        echo "Actie voor synctacles keys:"
+        echo "Actie voor ${SERVICE_USER} keys:"
         echo "  1) Keep (geen wijzigingen)"
         echo "  2) Append (extra key toevoegen)  → mode wordt custom"
         echo "  3) Replace (vervang alle keys)   → mode wordt custom"
         if [[ "$MODE" == "inherit_root" ]]; then
-            echo "  4) Sync from root (overschrijft synctacles keys; alleen in inherit_root)"
+            echo "  4) Sync from root (overschrijft ${SERVICE_USER} keys; alleen in inherit_root)"
         fi
         read -rp "Keuze [1]: " SYN_CHOICE
         SYN_CHOICE="${SYN_CHOICE:-1}"
@@ -941,26 +971,26 @@ fase3() {
                     ok "Key bestond al (geen duplicate)."
                 else
                     echo "$NEW_SYN_KEY" >> "$SYN_AUTH"
-                    ok "Extra synctacles login key toegevoegd."
+                    ok "Extra ${SERVICE_USER} login key toegevoegd."
                 fi
-                chown synctacles:synctacles "$SYN_AUTH"
+                chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
                 chmod 600 "$SYN_AUTH"
                 MODE="custom"
                 state_set "SYNCTACLES_KEY_MODE" "$MODE"
                 ok "Mode switched → custom (diverged). Root mag dit nooit meer overschrijven."
                 ;;
             3)
-                warn "REPLACE betekent: alle bestaande synctacles keys verdwijnen (lockout risico!)."
+                warn "REPLACE betekent: alle bestaande ${SERVICE_USER} keys verdwijnen (lockout risico!)."
                 read -rp "Type EXACT: REPLACE om door te gaan: " CONFIRM_SYN_REPLACE
                 if [[ "$CONFIRM_SYN_REPLACE" != "REPLACE" ]]; then
-                    warn "REPLACE geannuleerd — synctacles keys blijven ongewijzigd."
+                    warn "REPLACE geannuleerd — ${SERVICE_USER} keys blijven ongewijzigd."
                 else
                     info "Plak de NIEUWE SSH public key voor synctacles login (1 regel):"
                     NEW_SYN_KEY="$(prompt_pubkey_single_line "Public key: ")"
                     bak="$(backup_file "$SYN_AUTH")"
                     [[ -n "$bak" ]] && ok "Backup: $bak"
                     printf '%s\n' "$NEW_SYN_KEY" > "$SYN_AUTH"
-                    chown synctacles:synctacles "$SYN_AUTH"
+                    chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
                     chmod 600 "$SYN_AUTH"
                     MODE="custom"
                     state_set "SYNCTACLES_KEY_MODE" "$MODE"
@@ -974,13 +1004,13 @@ fase3() {
                     if ! authkeys_has_keys "$ROOT_AUTH"; then
                         warn "Root keys leeg — sync niet mogelijk."
                     else
-                        warn "Sync from root overschrijft synctacles authorized_keys."
+                        warn "Sync from root overschrijft ${SERVICE_USER} authorized_keys."
                         read -rp "Doorgaan met sync? (y/N): " DO_SYNC
                         if [[ "${DO_SYNC,,}" == "y" ]]; then
                             bak="$(backup_file "$SYN_AUTH")"
                             [[ -n "$bak" ]] && ok "Backup: $bak"
                             cp "$ROOT_AUTH" "$SYN_AUTH"
-                            chown synctacles:synctacles "$SYN_AUTH"
+                            chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_AUTH"
                             chmod 600 "$SYN_AUTH"
                             ok "Synctacles keys gesynchroniseerd met root (inherit_root)."
                         else
@@ -990,7 +1020,7 @@ fase3() {
                 fi
                 ;;
             *)
-                warn "Onbekende keuze — synctacles keys blijven ongewijzigd."
+                warn "Onbekene keuze — ${SERVICE_USER} keys blijven ongewijzigd."
                 ;;
         esac
     fi
@@ -998,22 +1028,22 @@ fase3() {
     state_set "SYNCTACLES_AUTH_KEYS_SHA256" "$(file_sha256 "$SYN_AUTH")"
 
     echo
-    ok "✓ Je kunt nu inloggen met: ssh synctacles@$(hostname -I | awk '{print $1}')"
-    warn "⚠️  TEST altijd synctacles login voordat je root-login uitschakelt!"
+    ok "✓ Je kunt nu inloggen met: ssh ${SERVICE_USER}@$(hostname -I | awk '{print $1}')"
+    warn "⚠️  TEST altijd ${SERVICE_USER} login voordat je root-login uitschakelt!"
 
     # -----------------------------
-    # 3.4 GitHub SSH Key (separate) + Repo Clone (runs as synctacles)
+    # 3.4 GitHub SSH Key (separate) + Repo Clone (runs as ${SERVICE_USER})
     # -----------------------------
-    header "3.4 — GitHub Access (separate key, synctacles user)"
+    header "3.4 — GitHub Access (separate key, ${SERVICE_USER} user)"
 
     # Ensure /opt/github exists
     mkdir -p /opt/github
     chmod 755 /opt/github
-    chown synctacles:synctacles /opt/github
+    chown ${SERVICE_USER}:${SERVICE_GROUP} /opt/github
 
-    # Git author (for synctacles user)
-    sudo -u synctacles git config --global user.name "DATADIO" >/dev/null 2>&1 || true
-    sudo -u synctacles git config --global user.email "lblom-github@smartkit.nl" >/dev/null 2>&1 || true
+    # Git author (for ${SERVICE_USER} user)
+    sudo -u ${SERVICE_USER} git config --global user.name "DATADIO" >/dev/null 2>&1 || true
+    sudo -u ${SERVICE_USER} git config --global user.email "lblom-github@smartkit.nl" >/dev/null 2>&1 || true
 
     # GitHub key flow (SEPARATE from login keys)
     KEY_EXISTS=0
@@ -1024,7 +1054,7 @@ fase3() {
     if [[ "$KEY_EXISTS" -eq 1 ]]; then
         ok "GitHub SSH key bestaat al: $GITHUB_KEY"
         echo
-        info "GitHub public key (synctacles):"
+        info "GitHub public key (${SERVICE_USER}):"
         echo "=================================================="
         cat "$GITHUB_PUB"
         echo "=================================================="
@@ -1041,7 +1071,7 @@ fase3() {
             *) GH_ACTION="keep" ;;
         esac
     else
-        warn "Geen GitHub SSH key gevonden voor synctacles."
+        warn "Geen GitHub SSH key gevonden voor ${SERVICE_USER}."
         echo "Actie voor GitHub key:"
         echo "  1) Generate (recommended)"
         echo "  2) Import existing key (private only / keypair)"
@@ -1053,15 +1083,15 @@ fase3() {
         esac
     fi
 
-    ensure_ssh_dir_for_user "synctacles" "$SYN_HOME"
+    ensure_ssh_dir_for_user "${SERVICE_USER}" "$SYN_HOME"
 
     case "$GH_ACTION" in
         keep)
             ok "GitHub key: KEEP"
             ;;
         gen)
-            sudo -u synctacles ssh-keygen -t ed25519 -f "$GITHUB_KEY" -N "" -C "github@$(hostname)" >/dev/null
-            chown synctacles:synctacles "$GITHUB_KEY" "$GITHUB_PUB"
+            sudo -u ${SERVICE_USER} ssh-keygen -t ed25519 -f "$GITHUB_KEY" -N "" -C "github@$(hostname)" >/dev/null
+            chown ${SERVICE_USER}:${SERVICE_GROUP} "$GITHUB_KEY" "$GITHUB_PUB"
             chmod 600 "$GITHUB_KEY"
             chmod 644 "$GITHUB_PUB"
             ok "GitHub keypair gegenereerd."
@@ -1070,8 +1100,8 @@ fase3() {
             warn "Regenerate: oude key wordt onbruikbaar in GitHub zodra je hem vervangt."
             if [[ -f "$GITHUB_KEY" ]]; then mv "$GITHUB_KEY" "${GITHUB_KEY}.old-$(date +%Y%m%d-%H%M%S)" || true; fi
             if [[ -f "$GITHUB_PUB" ]]; then mv "$GITHUB_PUB" "${GITHUB_PUB}.old-$(date +%Y%m%d-%H%M%S)" || true; fi
-            sudo -u synctacles ssh-keygen -t ed25519 -f "$GITHUB_KEY" -N "" -C "github@$(hostname)" >/dev/null
-            chown synctacles:synctacles "$GITHUB_KEY" "$GITHUB_PUB"
+            sudo -u ${SERVICE_USER} ssh-keygen -t ed25519 -f "$GITHUB_KEY" -N "" -C "github@$(hostname)" >/dev/null
+            chown ${SERVICE_USER}:${SERVICE_GROUP} "$GITHUB_KEY" "$GITHUB_PUB"
             chmod 600 "$GITHUB_KEY"
             chmod 644 "$GITHUB_PUB"
             ok "Nieuwe GitHub keypair gegenereerd."
@@ -1095,7 +1125,7 @@ fase3() {
                 printf '%s\n' "$line" >> "$tmp_priv"
             done
             mv "$tmp_priv" "$GITHUB_KEY"
-            if ! chown synctacles:synctacles "$GITHUB_KEY"; then
+            if ! chown ${SERVICE_USER}:${SERVICE_GROUP} "$GITHUB_KEY"; then
                 fail "Kan ownership niet wijzigen naar synctacles (draait script als root?)"
                 rm -f "$GITHUB_KEY"
                 exit 1
@@ -1111,14 +1141,14 @@ fase3() {
                 echo
                 info "Public key wordt geregenereerd uit private key..."
                 # Run as synctacles so redirection happens with correct ownership
-                if ! sudo -u synctacles bash -lc 'ssh-keygen -y -f ~/.ssh/id_github > ~/.ssh/id_github.pub' >/dev/null 2>&1; then
+                if ! sudo -u ${SERVICE_USER} bash -lc 'ssh-keygen -y -f ~/.ssh/id_github > ~/.ssh/id_github.pub' >/dev/null 2>&1; then
                     fail "Kon public key niet regenereren uit private key (mogelijk verkeerde key of passphrase nodig)."
                     fail "Tip: run handmatig als synctacles: ssh-keygen -y -f ~/.ssh/id_github > ~/.ssh/id_github.pub"
                     exit 1
                 fi
             fi
 
-            chown synctacles:synctacles "$GITHUB_PUB" 2>/dev/null || true
+            chown ${SERVICE_USER}:${SERVICE_GROUP} "$GITHUB_PUB" 2>/dev/null || true
             chmod 644 "$GITHUB_PUB" 2>/dev/null || true
 
             ok "GitHub SSH key geïmporteerd."
@@ -1131,9 +1161,9 @@ fase3() {
     esac
 
     # Configure SSH for GitHub (synctacles user)
-    sudo -u synctacles bash -lc 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
-    if ! sudo -u synctacles bash -lc 'grep -q "^Host github.com" ~/.ssh/config 2>/dev/null'; then
-        sudo -u synctacles bash -lc "cat >> ~/.ssh/config << 'EOF'
+    sudo -u ${SERVICE_USER} bash -lc 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
+    if ! sudo -u ${SERVICE_USER} bash -lc 'grep -q "^Host github.com" ~/.ssh/config 2>/dev/null'; then
+        sudo -u ${SERVICE_USER} bash -lc "cat >> ~/.ssh/config << 'EOF'
 
 Host github.com
     HostName github.com
@@ -1141,20 +1171,20 @@ Host github.com
     IdentityFile ~/.ssh/id_github
     IdentitiesOnly yes
 EOF"
-        sudo -u synctacles chmod 600 "$SYN_HOME/.ssh/config"
-        sudo -u synctacles chown synctacles:synctacles "$SYN_HOME/.ssh/config"
+        sudo -u ${SERVICE_USER} chmod 600 "$SYN_HOME/.ssh/config"
+        sudo -u ${SERVICE_USER} chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYN_HOME/.ssh/config"
         ok "SSH config (synctacles) updated for GitHub"
     else
         ok "SSH config (synctacles) already has github.com host block"
     fi
 
     # Add github.com to known_hosts as synctacles (redirection must happen as synctacles)
-    if ! sudo -u synctacles -H ssh-keygen -F github.com >/dev/null 2>&1; then
-        sudo -u synctacles -H bash -lc 'ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts' 2>/dev/null || true
+    if ! sudo -u ${SERVICE_USER} -H ssh-keygen -F github.com >/dev/null 2>&1; then
+        sudo -u ${SERVICE_USER} -H bash -lc 'ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts' 2>/dev/null || true
     fi
 
     # Fix perms as root (NOT as synctacles)
-    chown synctacles:synctacles /home/synctacles/.ssh/known_hosts 2>/dev/null || true
+    chown ${SERVICE_USER}:${SERVICE_GROUP} /home/synctacles/.ssh/known_hosts 2>/dev/null || true
     chmod 644 /home/synctacles/.ssh/known_hosts 2>/dev/null || true
 
     # Show public key + instructions
@@ -1163,7 +1193,7 @@ EOF"
     echo "GITHUB SSH KEY SETUP REQUIRED"
     echo "=========================================="
     echo
-    echo "GitHub public key (synctacles):"
+    echo "GitHub public key (${SERVICE_USER}):"
     echo "=================================================="
     cat "$GITHUB_PUB"
     echo "=================================================="
@@ -1175,7 +1205,7 @@ EOF"
 
     # Wait until key works (default: retry)
     while true; do
-        OUT="$(sudo -u synctacles ssh -o BatchMode=yes -T git@github.com 2>&1 || true)"
+        OUT="$(sudo -u ${SERVICE_USER} ssh -o BatchMode=yes -T git@github.com 2>&1 || true)"
         if github_auth_verified "$OUT"; then
             ok "GitHub SSH connection verified ✓"
             break
@@ -1196,7 +1226,7 @@ EOF"
     # Clone repo (as synctacles) - check for .git to verify actual repo clone
     if [[ ! -d "$SYNCTACLES_DEV/.git" ]]; then
         info "Cloning SYNCTACLES repository (as synctacles)..."
-        if sudo -u synctacles git clone "$GITHUB_REPO_SSH" "$SYNCTACLES_DEV" 2>/dev/null; then
+        if sudo -u ${SERVICE_USER} git clone "$GITHUB_REPO_SSH" "$SYNCTACLES_DEV" 2>/dev/null; then
             ok "Repository cloned: $SYNCTACLES_DEV"
             # Allow root to access repo
             git config --global --add safe.directory /opt/github/synctacles-repo
@@ -1204,11 +1234,11 @@ EOF"
         else
             warn "GitHub clone failed (nog geen toegang of repo niet bereikbaar)."
             warn "Manual step (as synctacles):"
-            warn "  sudo -u synctacles git clone $GITHUB_REPO_SSH $SYNCTACLES_DEV"
+            warn "  sudo -u ${SERVICE_USER} git clone $GITHUB_REPO_SSH $SYNCTACLES_DEV"
         fi
     else
         ok "Repository already exists: $SYNCTACLES_DEV"
-        info "KIES workflow: wijzigingen altijd in GitHub, daarna op server: sudo -u synctacles git -C $SYNCTACLES_DEV pull origin main"
+        info "KIES workflow: wijzigingen altijd in GitHub, daarna op server: sudo -u ${SERVICE_USER} git -C $SYNCTACLES_DEV pull origin main"
     fi
 
     # Repo ownership sanity
@@ -1223,7 +1253,7 @@ EOF"
     if [[ -f "$SYNCTACLES_DEV/requirements.txt" ]]; then
         info "Copying requirements.txt from DEV to PROD..."
         cp "$SYNCTACLES_DEV/requirements.txt" "$SYNCTACLES_PROD/requirements.txt"
-        chown synctacles:synctacles "$SYNCTACLES_PROD/requirements.txt"
+        chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYNCTACLES_PROD/requirements.txt"
         ok "requirements.txt copied to $SYNCTACLES_PROD/"
     else
         warn "requirements.txt not found in $SYNCTACLES_DEV — FASE 4 may fail"
@@ -1263,7 +1293,7 @@ EOF"
         ok "✓ Synctacles user heeft SSH key"
         echo
         info "Test EERST je synctacles login voordat je doorgaat:"
-        echo "  ssh synctacles@$(hostname -I | awk '{print $1}')"
+        echo "  ssh ${SERVICE_USER}@$(hostname -I | awk '{print $1}')"
         echo
         read -rp "Heb je synctacles login getest en werkt het? (y/N): " TESTED_LOGIN
 
@@ -1328,7 +1358,7 @@ EOF"
         if sshd -t 2>/dev/null; then
             echo
             warn "⚠️  SSH config gaat herladen - als er een fout is, blijf je ingelogd!"
-            warn "⚠️  Test na reload ALTIJD in een nieuwe terminal: ssh synctacles@..."
+            warn "⚠️  Test na reload ALTIJD in een nieuwe terminal: ssh ${SERVICE_USER}@..."
             echo
             read -rp "SSH config herladen? (y/N): " DO_RELOAD
 
@@ -1336,7 +1366,7 @@ EOF"
                 if systemctl reload ssh 2>/dev/null; then
                     ok "SSH config valide — SSH succesvol herladen."
                     echo
-                    warn "⚠️  TEST NU in nieuwe terminal: ssh synctacles@$(hostname -I | awk '{print $1}')"
+                    warn "⚠️  TEST NU in nieuwe terminal: ssh ${SERVICE_USER}@$(hostname -I | awk '{print $1}')"
                     warn "⚠️  Als het NIET werkt, rollback: cp $SSH_BAK $SSH_CONF && systemctl reload ssh"
                 else
                     warn "Kon ssh niet herladen. Probeer fallback..."
@@ -1466,7 +1496,7 @@ fase4() {
     # -----------------------------
     info "Freeze requirements voor reproduceerbaarheid..."
     pip freeze > "$REQUIREMENTS_FROZEN"
-    chown synctacles:synctacles "$REQUIREMENTS_FROZEN"
+    chown ${SERVICE_USER}:${SERVICE_GROUP} "$REQUIREMENTS_FROZEN"
     ok "Frozen requirements opgeslagen: $REQUIREMENTS_FROZEN"
 
     # -----------------------------
@@ -1500,30 +1530,30 @@ fase5() {
 
     # Production log directories (SKILL 9 compliant)
     info "Creating production log structure..."
-    mkdir -p /opt/synctacles/logs/{api,scheduler,collectors/{entso_e_raw,tennet_raw},importers,normalizers}
-    chown -R synctacles:synctacles /opt/synctacles/logs
-    chmod -R 755 /opt/synctacles/logs
-    ok "Log structure: /opt/synctacles/logs"
+    mkdir -p "${INSTALL_PATH}/logs/{api,scheduler,collectors/{entso_e_raw,tennet_raw},importers,normalizers}"
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/logs"
+    chmod -R 755 "${INSTALL_PATH}/logs"
+    ok "Log structure: ${INSTALL_PATH}/logs"
 
     # Verify repo exists
     if [[ ! -d "$SYNCTACLES_DEV/systemd" ]]; then
         fail "systemd folder niet gevonden in repo: $SYNCTACLES_DEV/systemd"
         warn "Je repo is mogelijk niet up-to-date."
-        warn "Run: sudo -u synctacles git -C $SYNCTACLES_DEV pull origin main"
+        warn "Run: sudo -u ${SERVICE_USER} git -C $SYNCTACLES_DEV pull origin main"
         exit 1
     fi
 
-    info "Deploy app code to production runtime (/opt/synctacles/app)..."
-    mkdir -p /opt/synctacles/app
+    info "Deploy app code to production runtime (${INSTALL_PATH}/app)..."
+    mkdir -p "${INSTALL_PATH}/app"
     rsync -a --delete \
     --exclude '.git' \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
     --exclude '.env' \
     --exclude 'logs/' \
-    "$SYNCTACLES_DEV"/ /opt/synctacles/app/
-    chown -R synctacles:synctacles /opt/synctacles/app
-    ok "App deployed: /opt/synctacles/app"
+    "$SYNCTACLES_DEV"/ "${INSTALL_PATH}/app/"
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
+    ok "App deployed: ${INSTALL_PATH}/app"
 
     # -----------------------------
     # Verify VERSION file (v2.3.0 FIX)
@@ -1648,12 +1678,12 @@ fase5() {
         # Run with PYTHONPATH set correctly
         export PYTHONPATH="/opt/synctacles/app:${PYTHONPATH:-}"
 
-        if sudo -u synctacles PYTHONPATH="$PYTHONPATH" /opt/synctacles/venv/bin/alembic upgrade head 2>&1; then
+        if sudo -u ${SERVICE_USER} PYTHONPATH="$PYTHONPATH" /opt/synctacles/venv/bin/alembic upgrade head 2>&1; then
             ok "Database schema up-to-date"
         else
             fail "Alembic migration FAILED"
             warn "Check: /opt/synctacles/app/alembic/versions/"
-            warn "Manual: cd /opt/synctacles/app && sudo -u synctacles PYTHONPATH=. /opt/synctacles/venv/bin/alembic upgrade head"
+            warn "Manual: cd /opt/synctacles/app && sudo -u ${SERVICE_USER} PYTHONPATH=. /opt/synctacles/venv/bin/alembic upgrade head"
             exit 1
         fi
 
@@ -1706,7 +1736,7 @@ fase5() {
     fi
 
     # Database connectivity
-    if sudo -u synctacles psql synctacles -c "SELECT 1" >/dev/null 2>&1; then
+    if sudo -u ${SERVICE_USER} psql synctacles -c "SELECT 1" >/dev/null 2>&1; then
         ok "Database connection working"
     else
         fail "Database connection failed"
@@ -1772,9 +1802,9 @@ fase6() {
         info "Initializing git repository..."
 
         cd "$SYNCTACLES_DEV" || exit 1
-        sudo -u synctacles git init
-        sudo -u synctacles git config user.name "SYNCTACLES Development"
-        sudo -u synctacles git config user.email "dev@synctacles.local"
+        sudo -u ${SERVICE_USER} git init
+        sudo -u ${SERVICE_USER} git config user.name "SYNCTACLES Development"
+        sudo -u ${SERVICE_USER} git config user.email "dev@synctacles.local"
 
         ok "Git repository initialized"
     fi
@@ -1840,7 +1870,7 @@ data/
 htmlcov/
 EOF
 
-        chown synctacles:synctacles "$SYNCTACLES_DEV/.gitignore"
+        chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYNCTACLES_DEV/.gitignore"
         ok ".gitignore created"
     else
         ok ".gitignore already exists"
@@ -1900,7 +1930,7 @@ if __name__ == "__main__":
 EOF
 
         chmod +x "$SYNCTACLES_DEV/test_setup.py"
-        chown synctacles:synctacles "$SYNCTACLES_DEV/test_setup.py"
+        chown ${SERVICE_USER}:${SERVICE_GROUP} "$SYNCTACLES_DEV/test_setup.py"
         ok "test_setup.py created"
     else
         ok "test_setup.py already exists"
