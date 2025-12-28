@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, CONF_API_URL, DEFAULT_API_URL
+from .const import DOMAIN, CONF_API_URL, DEFAULT_API_URL, HA_COMPONENT_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class SynctaclesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 
                 return self.async_create_entry(
-                    title="SYNCTACLES Energy Data",
+                    title=f"{HA_COMPONENT_NAME} Energy Data",
                     data={CONF_API_URL: api_url},
                 )
 
