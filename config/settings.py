@@ -1,4 +1,4 @@
-"""Energy Insights NL Configuration - ENV-driven branding and paths"""
+"""Energy Insights NL Configuration - Brand-free template system"""
 import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
@@ -9,14 +9,17 @@ class Settings(BaseSettings):
 
     # ============================================================================
     # BRANDING & IDENTITY (Controls all user-facing strings and URLs)
+    # REQUIRED: All brand values must be provided via environment variables
     # ============================================================================
-    brand_name: str = os.getenv("BRAND_NAME", "Energy Insights NL")
-    brand_slug: str = os.getenv("BRAND_SLUG", "energy-insights")
-    brand_domain: str = os.getenv("BRAND_DOMAIN", "energy-insights.example.com")
+    brand_name: str = os.getenv("BRAND_NAME")
+    brand_slug: str = os.getenv("BRAND_SLUG")
+    brand_domain: str = os.getenv("BRAND_DOMAIN")
+    github_account: str = os.getenv("GITHUB_ACCOUNT")
+    repo_name: str = os.getenv("REPO_NAME")
 
-    # Home Assistant specific branding
-    ha_domain: str = os.getenv("HA_DOMAIN", "ha_energy_insights_nl")
-    ha_component_name: str = os.getenv("HA_COMPONENT_NAME", "Energy Insights NL")
+    # Home Assistant specific branding (derived from BRAND_SLUG)
+    ha_domain: str = os.getenv("HA_DOMAIN")
+    ha_component_name: str = os.getenv("HA_COMPONENT_NAME")
 
     # ============================================================================
     # API SETTINGS
@@ -70,8 +73,28 @@ class Settings(BaseSettings):
     git_user_name: str = os.getenv("GIT_USER_NAME", "DATADIO")
     git_user_email: str = os.getenv("GIT_USER_EMAIL", "admin@datadio.nl")
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Validate required branding ENV variables
+        _required = {
+            "BRAND_NAME": self.brand_name,
+            "BRAND_SLUG": self.brand_slug,
+            "BRAND_DOMAIN": self.brand_domain,
+            "GITHUB_ACCOUNT": self.github_account,
+            "REPO_NAME": self.repo_name,
+            "HA_DOMAIN": self.ha_domain,
+            "HA_COMPONENT_NAME": self.ha_component_name,
+        }
+        _missing = [k for k, v in _required.items() if not v]
+        if _missing:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(_missing)}\n"
+                f"Please run: sudo ./scripts/setup/setup_synctacles_server_v2.3.4.sh fase0\n"
+                f"Or create .env from .env.example"
+            )
+
     class Config:
-        env_file = os.getenv("ENV_FILE", "/opt/energy-insights/.env")
+        env_file = os.getenv("ENV_FILE", "/opt/.env")
         extra = "ignore"
 
     @property
