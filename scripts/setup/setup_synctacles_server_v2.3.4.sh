@@ -1675,24 +1675,48 @@ fase5() {
     ok "Log structure: ${INSTALL_PATH}/logs"
 
     # Verify repo exists
-    if [[ ! -d "$SYNCTACLES_DEV/systemd" ]]; then
-        fail "systemd folder niet gevonden in repo: $SYNCTACLES_DEV/systemd"
+    if [[ ! -d "${GITHUB_REPO_DEV}/systemd" ]]; then
+        fail "systemd folder niet gevonden in repo: ${GITHUB_REPO_DEV}/systemd"
         warn "Je repo is mogelijk niet up-to-date."
-        warn "Run: sudo -u ${SERVICE_USER} git -C $SYNCTACLES_DEV pull origin main"
+        warn "Run: sudo -u ${SERVICE_USER} git -C ${GITHUB_REPO_DEV} pull origin main"
         exit 1
     fi
 
     info "Deploy app code to production runtime (${INSTALL_PATH}/app)..."
     mkdir -p "${INSTALL_PATH}/app"
-    rsync -a --delete \
-    --exclude '.git' \
-    --exclude '__pycache__' \
-    --exclude '*.pyc' \
-    --exclude '.env' \
-    --exclude 'logs/' \
-    "$SYNCTACLES_DEV"/ "${INSTALL_PATH}/app/"
-    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
-    ok "App deployed: ${INSTALL_PATH}/app"
+
+    # Rsync with proper exclusions (matching SKILL 10 deployment pattern)
+    if rsync -a --delete \
+        --exclude '.git' \
+        --exclude '.github' \
+        --exclude '.claude' \
+        --exclude '__pycache__' \
+        --exclude '*.pyc' \
+        --exclude '.env' \
+        --exclude 'venv' \
+        --exclude '.venv' \
+        --exclude 'logs/' \
+        --exclude '*.md' \
+        --exclude 'tests/' \
+        "${GITHUB_REPO_DEV}/" "${INSTALL_PATH}/app/" >/dev/null 2>&1; then
+        chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
+        ok "App deployed: ${INSTALL_PATH}/app"
+
+        # Verify critical files were deployed
+        if [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && [[ -f "${INSTALL_PATH}/app/start_api.py" ]]; then
+            info "Critical files verified:"
+            [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && echo "  ✓ requirements.txt"
+            [[ -f "${INSTALL_PATH}/app/start_api.py" ]] && echo "  ✓ start_api.py"
+            [[ -d "${INSTALL_PATH}/app/synctacles_db" ]] && echo "  ✓ synctacles_db/"
+            [[ -d "${INSTALL_PATH}/app/sparkcrawler_db" ]] && echo "  ✓ sparkcrawler_db/"
+        else
+            warn "Some expected files missing in deployment (may be OK if structure differs)"
+        fi
+    else
+        error "Rsync deployment failed"
+        error "Check permissions on ${INSTALL_PATH}"
+        exit 1
+    fi
 
     # -----------------------------
     # Verify VERSION file (v2.3.0 FIX)
