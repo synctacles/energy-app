@@ -1,6 +1,16 @@
 """Constants for Energy Insights NL integration."""
+import json
+from pathlib import Path
 
 DOMAIN = "ha_energy_insights_nl"
+
+# Load component name from manifest for consistency
+_manifest_path = Path(__file__).parent / "manifest.json"
+try:
+    _manifest = json.loads(_manifest_path.read_text())
+    HA_COMPONENT_NAME = _manifest.get("name", "Energy Insights NL")
+except Exception:
+    HA_COMPONENT_NAME = "Energy Insights NL"
 
 # Config keys
 CONF_API_URL = "api_url"

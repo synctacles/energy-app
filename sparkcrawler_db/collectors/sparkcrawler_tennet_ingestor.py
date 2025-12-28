@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-LOG_DIR = Path(os.getenv("SYNCTACLES_LOG_DIR", "/opt/synctacles/logs"))
+LOG_DIR = Path(os.getenv("LOG_PATH", "/opt/energy-insights/logs"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -93,8 +93,9 @@ class TennetBalanceDeltaIngestor:
         self.api_key = api_key or TENNET_API_KEY
         
         self.session = requests.Session()
+        brand_slug = os.getenv("BRAND_SLUG", "energy-insights")
         self.session.headers.update({
-            'User-Agent': 'SYNCTACLES-SparkCrawler/1.0',
+            'User-Agent': f'{brand_slug}-collector/1.0',
             'Accept': 'application/json',
             'apikey': self.api_key  # TenneT uses 'apikey' header
         })

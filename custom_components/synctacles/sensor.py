@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SynctaclesDataCoordinator
-from .const import DOMAIN
+from .const import DOMAIN, HA_COMPONENT_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +42,6 @@ async def async_setup_entry(
 class SynctaclesGenerationSensor(CoordinatorEntity, SensorEntity):
     """Sensor for generation mix total."""
 
-    _attr_name = "SYNCTACLES Generation Total"
     _attr_unique_id = "synctacles_generation_total"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -51,9 +50,10 @@ class SynctaclesGenerationSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: SynctaclesDataCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._attr_name = f"{HA_COMPONENT_NAME} Generation Total"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
-            "name": "SYNCTACLES Energy Data",
+            "name": f"{HA_COMPONENT_NAME} Energy Data",
             "manufacturer": "DATADIO",
         }
 
@@ -121,7 +121,6 @@ class SynctaclesGenerationSensor(CoordinatorEntity, SensorEntity):
 class SynctaclesLoadSensor(CoordinatorEntity, SensorEntity):
     """Sensor for load (consumption)."""
 
-    _attr_name = "SYNCTACLES Load Actual"
     _attr_unique_id = "synctacles_load_actual"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -130,9 +129,10 @@ class SynctaclesLoadSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: SynctaclesDataCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._attr_name = f"{HA_COMPONENT_NAME} Load Actual"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
-            "name": "SYNCTACLES Energy Data",
+            "name": f"{HA_COMPONENT_NAME} Energy Data",
             "manufacturer": "DATADIO",
         }
 
@@ -190,7 +190,6 @@ class SynctaclesLoadSensor(CoordinatorEntity, SensorEntity):
 class SynctaclesBalanceSensor(CoordinatorEntity, SensorEntity):
     """Sensor for balance delta."""
 
-    _attr_name = "SYNCTACLES Balance Delta"
     _attr_unique_id = "synctacles_balance_delta"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -199,9 +198,10 @@ class SynctaclesBalanceSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: SynctaclesDataCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._attr_name = f"{HA_COMPONENT_NAME} Balance Delta"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
-            "name": "SYNCTACLES Energy Data",
+            "name": f"{HA_COMPONENT_NAME} Energy Data",
             "manufacturer": "DATADIO",
         }
 
