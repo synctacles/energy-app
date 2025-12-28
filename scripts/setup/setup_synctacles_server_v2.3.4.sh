@@ -685,14 +685,11 @@ fase2_database() {
         source /opt/.env
     fi
 
-    # Re-apply branding variables (in case they were updated)
-    BRAND_SLUG="${BRAND_SLUG:-energy-insights}"
-    INSTALL_PATH="${INSTALL_PATH:-/opt/energy-insights}"
-    SERVICE_USER="${SERVICE_USER:-synctacles}"
-    SERVICE_GROUP="${SERVICE_GROUP:-synctacles}"
-
-    DB_NAME="${SERVICE_USER}"
-    DB_USER="${SERVICE_USER}"
+    # Environment variables loaded from /opt/.env (created by fase0)
+    # DB_NAME and DB_USER use underscores (from .env: energy_insights_nl)
+    # SERVICE_USER may have hyphens (from .env: energy-insights-nl)
+    # PostgreSQL doesn't accept hyphens in database names
+    # Therefore: NEVER override .env values here - use them as-is
 
     # Check of database al bestaat
     if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
