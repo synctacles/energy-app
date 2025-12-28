@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SynctaclesDataCoordinator
-from .const import DOMAIN, HA_COMPONENT_NAME
+from .const import DOMAIN, HA_COMPONENT_NAME, GITHUB_ACCOUNT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class SynctaclesGenerationSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
             "name": f"{HA_COMPONENT_NAME} Energy Data",
-            "manufacturer": "DATADIO",
+            "manufacturer": GITHUB_ACCOUNT,
         }
 
     @property
@@ -133,7 +133,7 @@ class SynctaclesLoadSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
             "name": f"{HA_COMPONENT_NAME} Energy Data",
-            "manufacturer": "DATADIO",
+            "manufacturer": GITHUB_ACCOUNT,
         }
 
     @property
@@ -202,7 +202,7 @@ class SynctaclesBalanceSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "synctacles_api")},
             "name": f"{HA_COMPONENT_NAME} Energy Data",
-            "manufacturer": "DATADIO",
+            "manufacturer": GITHUB_ACCOUNT,
         }
 
     @property

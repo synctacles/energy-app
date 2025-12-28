@@ -374,6 +374,7 @@ fase0() {
     read -p "Brand Domain: " BRAND_DOMAIN
     read -p "GitHub Account: " GITHUB_ACCOUNT
     read -p "Repository Name: " REPO_NAME
+    read -p "Git Author Email (for commits): " GIT_USER_EMAIL
 
     # Derived values
     HA_DOMAIN="${BRAND_SLUG//-/_}"  # Replace hyphens with underscores
@@ -385,6 +386,9 @@ fase0() {
     DATA_PATH="/var/lib/$BRAND_SLUG"
     DB_NAME="${BRAND_SLUG//-/_}"
     DB_USER="${BRAND_SLUG//-/_}"
+    GITHUB_REPO="git@github.com:${GITHUB_ACCOUNT}/${REPO_NAME}.git"
+    GITHUB_REPO_DEV="/opt/github/${REPO_NAME}"
+    GIT_USER_NAME="$GITHUB_ACCOUNT"
 
     # Generate .env
     info "Generating .env at $ENV_FILE..."
@@ -400,6 +404,10 @@ BRAND_DOMAIN="$BRAND_DOMAIN"
 ## GITHUB CONFIGURATION
 GITHUB_ACCOUNT="$GITHUB_ACCOUNT"
 REPO_NAME="$REPO_NAME"
+GITHUB_REPO="$GITHUB_REPO"
+GITHUB_REPO_DEV="$GITHUB_REPO_DEV"
+GIT_USER_NAME="$GIT_USER_NAME"
+GIT_USER_EMAIL="$GIT_USER_EMAIL"
 
 ## HOME ASSISTANT CONFIGURATION
 HA_DOMAIN="$HA_DOMAIN"
@@ -1175,9 +1183,9 @@ fase3() {
     chmod 755 /opt/github
     chown ${SERVICE_USER}:${SERVICE_GROUP} /opt/github
 
-    # Git author (for ${SERVICE_USER} user)
-    sudo -u ${SERVICE_USER} git config --global user.name "DATADIO" >/dev/null 2>&1 || true
-    sudo -u ${SERVICE_USER} git config --global user.email "lblom-github@smartkit.nl" >/dev/null 2>&1 || true
+    # Git author (for ${SERVICE_USER} user, from .env)
+    sudo -u ${SERVICE_USER} git config --global user.name "${GIT_USER_NAME}" >/dev/null 2>&1 || true
+    sudo -u ${SERVICE_USER} git config --global user.email "${GIT_USER_EMAIL}" >/dev/null 2>&1 || true
 
     # GitHub key flow (SEPARATE from login keys)
     KEY_EXISTS=0

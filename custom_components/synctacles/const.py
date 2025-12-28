@@ -1,5 +1,6 @@
 """Constants for Energy Insights NL integration."""
 import json
+import os
 from pathlib import Path
 
 DOMAIN = "ha_energy_insights_nl"
@@ -14,6 +15,9 @@ if not _manifest_path.exists():
     )
 _manifest = json.loads(_manifest_path.read_text())
 HA_COMPONENT_NAME = _manifest["name"]  # No fallback - must exist
+
+# GitHub account (from environment, no hardcoded defaults)
+GITHUB_ACCOUNT = os.getenv("GITHUB_ACCOUNT", "Unknown")
 
 # Config keys
 CONF_API_URL = "api_url"

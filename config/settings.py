@@ -68,10 +68,10 @@ class Settings(BaseSettings):
     # ============================================================================
     # GIT & DEPLOYMENT
     # ============================================================================
-    github_repo: str = os.getenv("GITHUB_REPO", "git@github.com:DATADIO/ha-energy-insights-nl.git")
-    github_repo_dev: str = os.getenv("GITHUB_REPO_DEV", "/opt/github/energy-insights-repo")
-    git_user_name: str = os.getenv("GIT_USER_NAME", "DATADIO")
-    git_user_email: str = os.getenv("GIT_USER_EMAIL", "admin@datadio.nl")
+    github_repo: str = os.getenv("GITHUB_REPO")
+    github_repo_dev: str = os.getenv("GITHUB_REPO_DEV")
+    git_user_name: str = os.getenv("GIT_USER_NAME")
+    git_user_email: str = os.getenv("GIT_USER_EMAIL")
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -84,6 +84,10 @@ class Settings(BaseSettings):
             "REPO_NAME": self.repo_name,
             "HA_DOMAIN": self.ha_domain,
             "HA_COMPONENT_NAME": self.ha_component_name,
+            "GITHUB_REPO": self.github_repo,
+            "GITHUB_REPO_DEV": self.github_repo_dev,
+            "GIT_USER_NAME": self.git_user_name,
+            "GIT_USER_EMAIL": self.git_user_email,
         }
         _missing = [k for k, v in _required.items() if not v]
         if _missing:
