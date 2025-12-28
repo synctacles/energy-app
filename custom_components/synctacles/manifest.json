@@ -1,0 +1,11 @@
+{
+  "domain": "synctacles",
+  "name": "SYNCTACLES Energy Data",
+  "codeowners": ["@DATADIO"],
+  "config_flow": true,
+  "documentation": "https://github.com/DATADIO/synctacles-repo",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "1.0.0"
+}

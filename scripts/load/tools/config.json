@@ -1,0 +1,19 @@
+{
+  "assumptions": {
+    "hits_per_user_per_day": 1000,
+    "mix": {
+      "load": 0.34,
+      "generation-mix": 0.33,
+      "balance": 0.33
+    }
+  },
+  "sla": {
+    "max_error_rate": 0.005,
+    "p95_ms": 400,
+    "p99_ms": 1500
+  },
+  "notes": [
+    "hits_per_user_per_day=1000 is your stated planning number; adjust if you want HA-style polling (typically much higher).",
+    "User capacity is computed from measured sustained RPS at acceptable thresholds."
+  ]
+}

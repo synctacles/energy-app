@@ -1,0 +1,42 @@
+# SYNCTACLES Deployment Sync Manifest
+# Format: SOURCE_PATH → DESTINATION_PATH
+# Version: 1.0 (2025-12-21)
+
+# Core application code
+synctacles_db/ → /opt/synctacles/app/synctacles_db/
+sparkcrawler_db/ → /opt/synctacles/app/sparkcrawler_db/
+
+# Database migrations
+alembic/versions/ → /opt/synctacles/app/alembic/versions/
+alembic/env.py → /opt/synctacles/app/alembic/env.py
+alembic.ini → /opt/synctacles/app/alembic.ini
+
+# Scripts (runtime)
+scripts/ → /opt/synctacles/scripts/
+
+# Systemd units
+systemd/*.service → /etc/systemd/system/
+systemd/*.timer → /etc/systemd/system/
+
+# Version tracking
+VERSION → /opt/synctacles/app/VERSION
+start_api.py → /opt/synctacles/app/start_api.py
+requirements.txt → /opt/synctacles/requirements.txt
+
+# EXCLUDE (never sync)
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+logs/
+.git/
+.gitignore
+deployment/
+tests/
+docs/
+*.md
+.vscode/
+.idea/
+synctacles_db/auth_service.py → /opt/synctacles/app/synctacles_db/auth_service.py
+synctacles_db/auth_models.py → /opt/synctacles/app/synctacles_db/auth_models.py

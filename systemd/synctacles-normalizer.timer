@@ -1,0 +1,10 @@
+[Unit]
+Description=SYNCTACLES Normalizer Timer (every 15 min)
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

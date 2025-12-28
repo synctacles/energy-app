@@ -1,0 +1,11 @@
+[Unit]
+Description=SYNCTACLES Data Importer
+After=synctacles-collector.service
+
+[Service]
+Type=oneshot
+User=synctacles
+WorkingDirectory=/opt/synctacles/app
+ExecStart=/opt/synctacles/app/scripts/run_importers.sh
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,27 @@
+[Unit]
+Description=SYNCTACLES FastAPI Server (Gunicorn)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=synctacles
+Group=synctacles
+WorkingDirectory=/opt/synctacles/app
+Environment="PATH=/opt/synctacles/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/synctacles/app"
+
+ExecStart=/opt/synctacles/venv/bin/gunicorn \
+    synctacles_db.api.main:app \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:8000 \
+    --chdir /opt/synctacles/app
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

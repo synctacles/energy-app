@@ -1,0 +1,658 @@
+#!/usr/bin/env bash
+# validate_synctacles_setup_v3.0.sh
+# Comprehensive validation for SYNCTACLES server setup
+#
+# Version: 3.0 (2025-12-16)
+# NEW: Detects production vs development environment
+# NEW: Environment-specific test suites
+# Tests: Infrastructure, services, database, Python env, security
+
+set -uo pipefail
+
+# Colors
+RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m"; BLUE="\e[34m"; CYAN="\e[36m"; NC="\e[0m"
+
+# Counters
+PASSED=0
+FAILED=0
+WARNINGS=0
+
+# Paths
+SYNCTACLES_PROD="/opt/synctacles"
+SYNCTACLES_DEV="/opt/github/synctacles-repo"
+
+# Environment detection
+ENVIRONMENT_TYPE=""
+HAS_PRODUCTION=false
+HAS_DEVELOPMENT=false
+
+header() {
+    echo -e "\n${BLUE}========================================${NC}"
+    echo -e "${BLUE} $1${NC}"
+    echo -e "${BLUE}========================================${NC}"
+}
+
+ok()   { echo -e "${GREEN}✔ PASS${NC} $1"; ((PASSED++)); }
+fail() { echo -e "${RED}✘ FAIL${NC} $1"; ((FAILED++)); }
+warn() { echo -e "${YELLOW}⚠ WARN${NC} $1"; ((WARNINGS++)); }
+info() { echo -e "${CYAN}ℹ INFO${NC} $1"; }
+
+test_command() {
+    local name="$1"
+    local cmd="$2"
+    
+    if command -v "$cmd" >/dev/null 2>&1; then
+        ok "$name installed"
+        return 0
+    else
+        fail "$name NOT installed"
+        return 1
+    fi
+}
+
+test_service() {
+    local name="$1"
+    local service="$2"
+    
+    if systemctl is-active --quiet "$service" 2>/dev/null; then
+        ok "$name service running"
+        return 0
+    else
+        fail "$name service NOT running"
+        return 1
+    fi
+}
+
+test_port() {
+    local name="$1"
+    local port="$2"
+    
+    if ss -tlnp 2>/dev/null | grep -q ":$port "; then
+        ok "$name listening on port $port"
+        return 0
+    else
+        fail "$name NOT listening on port $port"
+        return 1
+    fi
+}
+
+test_file() {
+    local name="$1"
+    local file="$2"
+    
+    if [[ -f "$file" ]]; then
+        ok "$name exists"
+        return 0
+    else
+        fail "$name NOT found ($file)"
+        return 1
+    fi
+}
+
+test_directory() {
+    local name="$1"
+    local dir="$2"
+    
+    if [[ -d "$dir" ]]; then
+        ok "$name exists"
+        return 0
+    else
+        fail "$name NOT found ($dir)"
+        return 1
+    fi
+}
+
+# ==============================================
+# ENVIRONMENT DETECTION
+# ==============================================
+detect_environment() {
+    header "ENVIRONMENT DETECTION"
+    
+    # Check for production indicators (systemd services OR wrapper scripts)
+    if systemctl list-unit-files 2>/dev/null | grep -q "synctacles-api.service"; then
+        HAS_PRODUCTION=true
+        info "Production automation detected (systemd services)"
+    elif [[ -d "$SYNCTACLES_PROD/scripts" ]] && [[ -f "$SYNCTACLES_PROD/scripts/run_collectors.sh" ]]; then
+        HAS_PRODUCTION=true
+        info "Production scripts detected"
+    fi
+    
+    # Check for development indicators
+    if [[ -d "$SYNCTACLES_DEV/.git" ]]; then
+        HAS_DEVELOPMENT=true
+        info "Development environment detected (git repository)"
+    fi
+    
+    if [[ -f "$SYNCTACLES_DEV/test_setup.py" ]]; then
+        HAS_DEVELOPMENT=true
+        info "Development tools detected"
+    fi
+    
+    # Determine environment type
+    if $HAS_PRODUCTION && $HAS_DEVELOPMENT; then
+        ENVIRONMENT_TYPE="HYBRID"
+        echo -e "${CYAN}Environment: ${BLUE}HYBRID${NC} (Production + Development)"
+    elif $HAS_PRODUCTION; then
+        ENVIRONMENT_TYPE="PRODUCTION"
+        echo -e "${CYAN}Environment: ${GREEN}PRODUCTION${NC}"
+    elif $HAS_DEVELOPMENT; then
+        ENVIRONMENT_TYPE="DEVELOPMENT"
+        echo -e "${CYAN}Environment: ${YELLOW}DEVELOPMENT${NC}"
+    else
+        ENVIRONMENT_TYPE="BASE"
+        echo -e "${CYAN}Environment: ${YELLOW}BASE${NC} (FASE 1-4 only)"
+    fi
+    
+    echo
+}
+
+# ==============================================
+# RUN ENVIRONMENT DETECTION
+# ==============================================
+detect_environment
+
+# ==============================================
+# 1. SYSTEM CHECKS
+# ==============================================
+header "1. System Prerequisites"
+
+# OS Version
+if grep -q "24.04" /etc/os-release 2>/dev/null; then
+    ok "Ubuntu 24.04 detected"
+else
+    warn "Not Ubuntu 24.04"
+fi
+
+# Disk space
+DISK_AVAIL=$(df / 2>/dev/null | tail -1 | awk '{print $4}')
+DISK_AVAIL_GB=$((DISK_AVAIL / 1024 / 1024))
+
+if [[ $DISK_AVAIL_GB -gt 10 ]]; then
+    ok "Disk space: ${DISK_AVAIL_GB}GB available"
+elif [[ $DISK_AVAIL_GB -gt 5 ]]; then
+    warn "Disk space: ${DISK_AVAIL_GB}GB (low)"
+else
+    fail "Disk space: ${DISK_AVAIL_GB}GB (critical)"
+fi
+
+# RAM
+RAM_TOTAL=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
+if [[ $RAM_TOTAL -ge 4 ]]; then
+    ok "RAM: ${RAM_TOTAL}GB"
+elif [[ $RAM_TOTAL -ge 2 ]]; then
+    warn "RAM: ${RAM_TOTAL}GB (minimum)"
+else
+    fail "RAM: ${RAM_TOTAL}GB (insufficient)"
+fi
+
+# ==============================================
+# 2. SOFTWARE STACK
+# ==============================================
+header "2. Software Stack"
+
+test_command "Docker" "docker"
+test_command "Docker Compose" "docker-compose"
+test_command "Python3" "python3"
+test_command "PostgreSQL" "psql"
+test_command "Redis CLI" "redis-cli"
+test_command "Git" "git"
+test_command "curl" "curl"
+test_command "jq" "jq"
+
+# Python version
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+
+if [[ "$PYTHON_MAJOR" -eq 3 ]] && [[ "$PYTHON_MINOR" -ge 12 ]]; then
+    ok "Python $PYTHON_VERSION (>= 3.12)"
+else
+    fail "Python $PYTHON_VERSION (< 3.12 required)"
+fi
+
+# ==============================================
+# 3. SERVICES
+# ==============================================
+header "3. Services Status"
+
+test_service "Docker" "docker"
+test_service "PostgreSQL" "postgresql"
+test_service "Redis" "redis-server"
+
+# Optional services
+if systemctl is-enabled --quiet grafana-server 2>/dev/null; then
+    test_service "Grafana" "grafana-server"
+else
+    info "Grafana not enabled (optional)"
+fi
+
+if systemctl is-enabled --quiet node_exporter 2>/dev/null; then
+    test_service "Node Exporter" "node_exporter"
+else
+    info "Node Exporter not enabled (optional)"
+fi
+
+test_service "Fail2ban" "fail2ban"
+
+if command -v auditctl >/dev/null 2>&1; then
+    test_service "Auditd" "auditd"
+else
+    info "Auditd not installed (optional)"
+fi
+
+# ==============================================
+# 4. NETWORK PORTS
+# ==============================================
+header "4. Network Ports"
+
+test_port "PostgreSQL" "5432"
+test_port "Redis" "6379"
+
+if systemctl is-active --quiet grafana-server 2>/dev/null; then
+    test_port "Grafana" "3000"
+fi
+
+if systemctl is-active --quiet node_exporter 2>/dev/null; then
+    test_port "Node Exporter" "9100"
+fi
+
+# ==============================================
+# 5. DIRECTORY STRUCTURE
+# ==============================================
+header "5. Directory Structure"
+
+test_directory "Production directory" "$SYNCTACLES_PROD"
+test_directory "Development directory" "$SYNCTACLES_DEV"
+test_directory "Python venv" "$SYNCTACLES_PROD/venv"
+test_directory "Setup logs" "/var/log/synctacles-setup"
+
+# Environment-specific directories
+if $HAS_PRODUCTION; then
+    test_directory "Production scripts" "$SYNCTACLES_PROD/scripts"
+    test_directory "Production logs" "$SYNCTACLES_PROD/logs"
+fi
+
+if $HAS_DEVELOPMENT; then
+    test_directory "Dev logs (entso_e)" "$SYNCTACLES_DEV/logs/entso_e_raw"
+    test_directory "Dev logs (tennet)" "$SYNCTACLES_DEV/logs/tennet_raw"
+fi
+
+# ==============================================
+# 6. CONFIGURATION FILES
+# ==============================================
+header "6. Configuration Files"
+
+test_file ".env file" "$SYNCTACLES_PROD/.env"
+test_file "requirements-base.txt" "$SYNCTACLES_PROD/requirements-base.txt"
+test_file "requirements-frozen.txt" "$SYNCTACLES_PROD/requirements-frozen.txt"
+
+# Check .env symlink to repo
+if [[ -L "$SYNCTACLES_DEV/.env" ]]; then
+    ok ".env symlink to repo exists"
+else
+    warn ".env symlink to repo NOT found (collectors may fail)"
+fi
+
+# Check .env permissions
+if [[ -f "$SYNCTACLES_PROD/.env" ]]; then
+    ENV_PERMS=$(stat -c "%a" "$SYNCTACLES_PROD/.env" 2>/dev/null)
+    if [[ "$ENV_PERMS" == "600" ]]; then
+        ok ".env file permissions (600)"
+    else
+        warn ".env file permissions ($ENV_PERMS, should be 600)"
+    fi
+fi
+
+# ==============================================
+# 7. DATABASE
+# ==============================================
+header "7. Database"
+
+# Database exists
+if sudo -u postgres psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "synctacles"; then
+    ok "Database 'synctacles' exists"
+else
+    fail "Database 'synctacles' NOT found"
+fi
+
+# User exists
+if sudo -u postgres psql -c "\du" 2>/dev/null | grep -q "synctacles"; then
+    ok "Database user 'synctacles' exists"
+else
+    fail "Database user 'synctacles' NOT found"
+fi
+
+# TimescaleDB extension
+if sudo -u postgres psql synctacles -c "SELECT extname FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | grep -q "timescaledb"; then
+    ok "TimescaleDB extension installed"
+else
+    warn "TimescaleDB extension NOT installed"
+fi
+
+# Connection test
+if sudo -u postgres psql synctacles -c "SELECT version();" >/dev/null 2>&1; then
+    ok "Database connection working"
+else
+    fail "Cannot connect to database"
+fi
+
+# Test as synctacles user (trust auth)
+if id synctacles >/dev/null 2>&1; then
+    if sudo -u synctacles psql synctacles -c "SELECT 1" >/dev/null 2>&1; then
+        ok "Database trust authentication working"
+    else
+        warn "Database trust authentication NOT working (check pg_hba.conf)"
+    fi
+else
+    warn "Cannot test trust auth (synctacles user not found)"
+fi
+
+# Check for schema (Alembic migrations)
+if sudo -u synctacles psql synctacles -c "\dt" 2>/dev/null | grep -q "alembic_version"; then
+    ok "Database schema initialized (alembic_version table found)"
+    
+    # Count tables
+    TABLE_COUNT=$(sudo -u synctacles psql synctacles -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | tr -d ' ')
+    if [[ $TABLE_COUNT -ge 8 ]]; then
+        ok "Database has $TABLE_COUNT tables (expected ≥8)"
+    else
+        warn "Database has only $TABLE_COUNT tables (expected ≥8)"
+    fi
+else
+    warn "Database schema NOT initialized (run: alembic upgrade head)"
+fi
+
+# ==============================================
+# 8. PYTHON ENVIRONMENT
+# ==============================================
+header "8. Python Environment"
+
+if [[ -d "$SYNCTACLES_PROD/venv" ]]; then
+    # Activate venv and test packages
+    # shellcheck disable=SC1091
+    source "$SYNCTACLES_PROD/venv/bin/activate" 2>/dev/null || true
+    
+    # Critical packages
+    CRITICAL_PACKAGES=(
+        "fastapi"
+        "uvicorn"
+        "pydantic"
+        "pydantic_settings"
+        "httpx"
+        "sqlalchemy"
+        "psycopg2"
+        "redis"
+        "tenacity"
+        "pandas"
+        "lxml"
+        "entsoe"
+    )
+    
+    FAILED_PACKAGES=()
+    for pkg in "${CRITICAL_PACKAGES[@]}"; do
+        if python3 -c "import ${pkg//-/_}" 2>/dev/null; then
+            ok "Package $pkg importable"
+        else
+            fail "Package $pkg NOT importable"
+            FAILED_PACKAGES+=("$pkg")
+        fi
+    done
+    
+    if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
+        warn "Missing packages: ${FAILED_PACKAGES[*]}"
+    fi
+    
+    deactivate 2>/dev/null || true
+else
+    fail "Virtual environment NOT found"
+fi
+
+# ==============================================
+# 9. USER & PERMISSIONS
+# ==============================================
+header "9. Users & Permissions"
+
+# Synctacles user
+if id synctacles >/dev/null 2>&1; then
+    ok "User 'synctacles' exists"
+    
+    # Docker group
+    if groups synctacles 2>/dev/null | grep -q docker; then
+        ok "synctacles in docker group"
+    else
+        fail "synctacles NOT in docker group"
+    fi
+else
+    fail "User 'synctacles' NOT found"
+fi
+
+# Directory ownership
+if [[ -d "$SYNCTACLES_PROD" ]]; then
+    OWNER=$(stat -c "%U:%G" "$SYNCTACLES_PROD" 2>/dev/null)
+    if [[ "$OWNER" == "synctacles:synctacles" ]]; then
+        ok "Production directory ownership correct"
+    else
+        warn "Production directory ownership: $OWNER (expected synctacles:synctacles)"
+    fi
+fi
+
+if [[ -d "$SYNCTACLES_DEV" ]]; then
+    DEV_OWNER=$(stat -c "%U:%G" "$SYNCTACLES_DEV" 2>/dev/null)
+    if [[ "$DEV_OWNER" == "synctacles:synctacles" ]]; then
+        ok "Development directory ownership correct"
+    else
+        warn "Development directory ownership: $DEV_OWNER (expected synctacles:synctacles)"
+    fi
+fi
+
+# ==============================================
+# 10. SECURITY
+# ==============================================
+header "10. Security Configuration"
+
+# Fail2ban jails
+if [[ -f "/etc/fail2ban/jail.d/sshd.local" ]]; then
+    ok "Fail2ban sshd jail configured"
+else
+    warn "Fail2ban sshd jail NOT configured"
+fi
+
+# SSH hardening
+SSH_CONF="/etc/ssh/sshd_config"
+if grep -q "^PermitRootLogin no" "$SSH_CONF" 2>/dev/null; then
+    ok "SSH: PermitRootLogin disabled"
+else
+    warn "SSH: PermitRootLogin not disabled"
+fi
+
+if grep -q "^PasswordAuthentication no" "$SSH_CONF" 2>/dev/null; then
+    ok "SSH: PasswordAuthentication disabled"
+else
+    info "SSH: Password authentication enabled"
+fi
+
+# Auditd
+if systemctl is-active --quiet auditd 2>/dev/null; then
+    ok "Auditd running"
+else
+    info "Auditd not running (optional)"
+fi
+
+# ==============================================
+# 11. API KEYS CHECK
+# ==============================================
+header "11. API Keys Configuration"
+
+if [[ -f "$SYNCTACLES_PROD/.env" ]]; then
+    # Check ENTSO-E key
+    if grep -q "^ENTSOE_API_KEY=.\+" "$SYNCTACLES_PROD/.env" 2>/dev/null; then
+        ok "ENTSO-E API key configured"
+    else
+        warn "ENTSO-E API key NOT configured (collectors won't work)"
+    fi
+    
+    # Check TenneT key
+    if grep -q "^TENNET_API_KEY=.\+" "$SYNCTACLES_PROD/.env" 2>/dev/null; then
+        ok "TenneT API key configured"
+    else
+        info "TenneT API key NOT configured (optional)"
+    fi
+    
+    # Check SECRET_KEY
+    if grep -q "^SECRET_KEY=.\+" "$SYNCTACLES_PROD/.env" 2>/dev/null; then
+        ok "SECRET_KEY configured"
+    else
+        fail "SECRET_KEY NOT configured"
+    fi
+else
+    fail ".env file NOT found"
+fi
+
+# ==============================================
+# 12. PRODUCTION ENVIRONMENT TESTS
+# ==============================================
+if $HAS_PRODUCTION; then
+    header "12. Production Environment (FASE 5)"
+    
+    # Systemd services
+    if systemctl is-active --quiet synctacles-api.service 2>/dev/null; then
+        ok "API service running"
+    else
+        fail "API service NOT running"
+    fi
+    
+    # Systemd timers
+    TIMER_COUNT=$(systemctl list-timers synctacles-* --no-legend 2>/dev/null | wc -l)
+    if [[ $TIMER_COUNT -ge 4 ]]; then
+        ok "$TIMER_COUNT timers active"
+    else
+        warn "Only $TIMER_COUNT timers active (expected ≥4)"
+    fi
+    
+    # Wrapper scripts
+    for script in run_collectors.sh run_importers.sh run_normalizers.sh; do
+        if [[ -x "$SYNCTACLES_PROD/scripts/$script" ]]; then
+            ok "Wrapper script: $script"
+        else
+            fail "Wrapper script missing/not executable: $script"
+        fi
+    done
+    
+    # API health check
+    if command -v curl >/dev/null 2>&1; then
+        if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+            ok "API health endpoint responding"
+        else
+            warn "API health endpoint not responding"
+        fi
+    fi
+    
+    # Check recent collector runs
+    if journalctl -u synctacles-collector.service --since "1 hour ago" 2>/dev/null | grep -q "Completed"; then
+        ok "Collector service executed recently"
+    else
+        info "Collector service has not run in past hour (check timers)"
+    fi
+else
+    info "Production environment (FASE 5) NOT installed - skipping tests"
+fi
+
+# ==============================================
+# 13. DEVELOPMENT ENVIRONMENT TESTS
+# ==============================================
+if $HAS_DEVELOPMENT; then
+    header "13. Development Environment (FASE 6)"
+    
+    # Git repository
+    if [[ -d "$SYNCTACLES_DEV/.git" ]]; then
+        ok "Git repository initialized"
+        
+        # Check remote
+        if cd "$SYNCTACLES_DEV" 2>/dev/null && git remote -v 2>/dev/null | grep -q "github.com"; then
+            ok "Git remote configured"
+        else
+            info "Git remote not configured (development-only setup)"
+        fi
+    else
+        warn "Git repository NOT initialized"
+    fi
+    
+    # .gitignore
+    if [[ -f "$SYNCTACLES_DEV/.gitignore" ]]; then
+        ok ".gitignore exists"
+    else
+        warn ".gitignore missing"
+    fi
+    
+    # Test script
+    if [[ -f "$SYNCTACLES_DEV/test_setup.py" ]]; then
+        ok "test_setup.py exists"
+        
+        # Try to run it
+        if cd "$SYNCTACLES_DEV" 2>/dev/null && sudo -u synctacles python3 test_setup.py >/dev/null 2>&1; then
+            ok "test_setup.py executes successfully"
+        else
+            warn "test_setup.py execution failed (check dependencies)"
+        fi
+    else
+        warn "test_setup.py missing"
+    fi
+    
+    # Log directories writable
+    if [[ -w "$SYNCTACLES_DEV/logs/entso_e_raw" ]]; then
+        ok "entso_e_raw log directory writable"
+    else
+        fail "entso_e_raw log directory NOT writable"
+    fi
+    
+    if [[ -w "$SYNCTACLES_DEV/logs/tennet_raw" ]]; then
+        ok "tennet_raw log directory writable"
+    else
+        fail "tennet_raw log directory NOT writable"
+    fi
+else
+    info "Development environment (FASE 6) NOT installed - skipping tests"
+fi
+
+# ==============================================
+# SUMMARY
+# ==============================================
+header "Validation Summary"
+
+TOTAL=$((PASSED + FAILED + WARNINGS))
+echo
+echo "Environment Type: ${ENVIRONMENT_TYPE}"
+echo
+echo "Total checks: $TOTAL"
+echo "  ${GREEN}✔ Passed:  $PASSED${NC}"
+echo "  ${RED}✘ Failed:  $FAILED${NC}"
+echo "  ${YELLOW}⚠ Warnings: $WARNINGS${NC}"
+echo
+
+if [[ $FAILED -eq 0 ]] && [[ $WARNINGS -eq 0 ]]; then
+    echo -e "${GREEN}✔ All checks PASSED!${NC}"
+    echo "🎉 SYNCTACLES server setup is complete and healthy!"
+    
+    if [[ "$ENVIRONMENT_TYPE" == "BASE" ]]; then
+        echo
+        echo "💡 Next steps:"
+        echo "   - Run FASE 5 for production automation"
+        echo "   - Run FASE 6 for development tools"
+    fi
+    
+    exit 0
+elif [[ $FAILED -eq 0 ]]; then
+    echo -e "${YELLOW}⚠ PASSED with warnings${NC}"
+    echo "Server is functional but some items need attention."
+    exit 1
+else
+    echo -e "${RED}✘ Some checks FAILED${NC}"
+    echo "Please review the failures above and fix them."
+    
+    if [[ "$ENVIRONMENT_TYPE" == "BASE" ]]; then
+        echo
+        echo "💡 Suggestion: Complete FASE 1-4 first before running FASE 5/6"
+    fi
+    
+    exit 2
+fi
