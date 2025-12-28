@@ -1386,8 +1386,54 @@ EOF"
         ok "Development directory ownership correct"
     fi
 
+    # ====================================
+    # 3.5 Deploy Code to Production
+    # ====================================
+    info "Deploying code from ${GITHUB_REPO_DEV} to ${INSTALL_PATH}/app/..."
+
+    # Create app directory
+    mkdir -p "${INSTALL_PATH}/app"
+
+    # Deploy with rsync (always runs, regardless of clone/pull)
+    if rsync -a --delete \
+        --exclude '.git' \
+        --exclude '.github' \
+        --exclude '.claude' \
+        --exclude '__pycache__' \
+        --exclude '*.pyc' \
+        --exclude '.env' \
+        --exclude 'venv' \
+        --exclude '.venv' \
+        --exclude 'logs/' \
+        --exclude '*.md' \
+        --exclude 'tests/' \
+        "${GITHUB_REPO_DEV}/" "${INSTALL_PATH}/app/" >/dev/null 2>&1; then
+
+        # Set ownership
+        chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
+        ok "App deployed: ${INSTALL_PATH}/app"
+
+        # Verify critical files were deployed
+        if [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && [[ -f "${INSTALL_PATH}/app/start_api.py" ]]; then
+            info "Critical files verified:"
+            [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && echo "  ✓ requirements.txt"
+            [[ -f "${INSTALL_PATH}/app/start_api.py" ]] && echo "  ✓ start_api.py"
+            [[ -d "${INSTALL_PATH}/app/synctacles_db" ]] && echo "  ✓ synctacles_db/"
+            [[ -d "${INSTALL_PATH}/app/sparkcrawler_db" ]] && echo "  ✓ sparkcrawler_db/"
+        else
+            warn "Some expected files missing in deployment (may be OK if structure differs)"
+        fi
+    else
+        error "Rsync deployment failed"
+        error "Check permissions on ${INSTALL_PATH}"
+        exit 1
+    fi
+
+    # Store deployment state
+    state_set "LAST_DEPLOYMENT_HASH" "$(cd ${GITHUB_REPO_DEV} && git rev-parse HEAD 2>/dev/null || echo 'unknown')"
+
     # -----------------------------
-    # 3.4.1 Copy requirements.txt to production (v2.3.0 FIX)
+    # 3.6 Copy requirements.txt to production (v2.3.0 FIX)
     # -----------------------------
     if [[ -f "${GITHUB_REPO_DEV}/requirements.txt" ]]; then
         info "Copying requirements.txt from DEV to PROD..."
@@ -1674,7 +1720,7 @@ fase5() {
     chmod -R 755 "${INSTALL_PATH}/logs"
     ok "Log structure: ${INSTALL_PATH}/logs"
 
-    # Verify repo exists
+    # Verify repo exists (deployment already ran in FASE 3)
     if [[ ! -d "${GITHUB_REPO_DEV}/systemd" ]]; then
         fail "systemd folder niet gevonden in repo: ${GITHUB_REPO_DEV}/systemd"
         warn "Je repo is mogelijk niet up-to-date."
@@ -1682,45 +1728,20 @@ fase5() {
         exit 1
     fi
 
-    info "Deploy app code to production runtime (${INSTALL_PATH}/app)..."
-    mkdir -p "${INSTALL_PATH}/app"
+    # Note: Code deployment to ${INSTALL_PATH}/app/ happens in FASE 3
+    # FASE 5 focuses on systemd service setup with already-deployed code
 
-    # Rsync with proper exclusions (matching SKILL 10 deployment pattern)
-    if rsync -a --delete \
-        --exclude '.git' \
-        --exclude '.github' \
-        --exclude '.claude' \
-        --exclude '__pycache__' \
-        --exclude '*.pyc' \
-        --exclude '.env' \
-        --exclude 'venv' \
-        --exclude '.venv' \
-        --exclude 'logs/' \
-        --exclude '*.md' \
-        --exclude 'tests/' \
-        "${GITHUB_REPO_DEV}/" "${INSTALL_PATH}/app/" >/dev/null 2>&1; then
-        chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
-        ok "App deployed: ${INSTALL_PATH}/app"
-
-        # Verify critical files were deployed
-        if [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && [[ -f "${INSTALL_PATH}/app/start_api.py" ]]; then
-            info "Critical files verified:"
-            [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && echo "  ✓ requirements.txt"
-            [[ -f "${INSTALL_PATH}/app/start_api.py" ]] && echo "  ✓ start_api.py"
-            [[ -d "${INSTALL_PATH}/app/synctacles_db" ]] && echo "  ✓ synctacles_db/"
-            [[ -d "${INSTALL_PATH}/app/sparkcrawler_db" ]] && echo "  ✓ sparkcrawler_db/"
-        else
-            warn "Some expected files missing in deployment (may be OK if structure differs)"
-        fi
-    else
-        error "Rsync deployment failed"
-        error "Check permissions on ${INSTALL_PATH}"
+    # Verify deployment from FASE 3 was successful
+    if [[ ! -f "${INSTALL_PATH}/app/start_api.py" ]]; then
+        fail "Application code not deployed. Run FASE 3 first."
         exit 1
     fi
+    ok "Application code deployed (from FASE 3)"
 
-    # -----------------------------
+    # Continue with systemd setup
     # Verify VERSION file (v2.3.0 FIX)
-    # -----------------------------
+    # (This file should exist from rsync in FASE 3)
+    # -----
     if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
         APP_VERSION=$(cat ${INSTALL_PATH}/app/VERSION)
         ok "VERSION file found: $APP_VERSION"
