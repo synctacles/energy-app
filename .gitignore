@@ -41,6 +41,11 @@ alembic.ini
 systemd/*.service
 systemd/*.timer
 !systemd/*.template
+scripts/run_collectors.sh
+scripts/run_importers.sh
+scripts/run_normalizers.sh
+scripts/run_tennet.sh
+scripts/run_health.sh
 
 # Logs
 *.log

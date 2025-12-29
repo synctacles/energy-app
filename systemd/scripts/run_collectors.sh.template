@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
+# =============================================================================
+# GENERATED FILE - DO NOT EDIT DIRECTLY
+# Generated from: systemd/scripts/run_collectors.sh.template
+# Regenerate with: setup script FASE 5
+# =============================================================================
 set -euo pipefail
 
-APP_DIR="/opt/synctacles/app"
-VENV_DIR="/opt/synctacles/venv"
-LOG_DIR="/opt/synctacles/logs/scheduler"
+# Paths from template substitution
+APP_DIR="{{INSTALL_PATH}}/app"
+VENV_DIR="{{INSTALL_PATH}}/venv"
+LOG_DIR="{{LOG_PATH}}/scheduler"
+ENV_FILE="{{ENV_FILE}}"
 
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/collectors_$(date +%Y%m%d_%H%M%S).log"
@@ -15,9 +22,9 @@ source "$VENV_DIR/bin/activate"
 export PYTHONPATH="$APP_DIR:${PYTHONPATH:-}"
 
 # Load environment variables
-if [[ -f /opt/synctacles/.env ]]; then
+if [[ -f "$ENV_FILE" ]]; then
     set -a
-    source /opt/synctacles/.env
+    source "$ENV_FILE"
     set +a
 fi
 
