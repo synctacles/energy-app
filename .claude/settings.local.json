@@ -10,7 +10,9 @@
       "Bash(git push:*)",
       "Bash(comm:*)",
       "Bash(find:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(bash -n:*)"
     ]
   }
 }
