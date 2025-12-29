@@ -10,11 +10,7 @@ from tabulate import tabulate
 
 # Try all possible database/user combinations
 possible_configs = [
-    {'host': 'synctacles.com', 'port': 5432, 'database': 'synctacles', 'user': 'synctacles'},
-    {'host': 'synctacles.com', 'port': 5432, 'database': 'synctacles_db', 'user': 'synctacles'},
-    {'host': 'synctacles.com', 'port': 5432, 'database': 'synctacles', 'user': 'postgres'},
-    {'host': 'synctacles.com', 'port': 5432, 'database': 'synctacles_db', 'user': 'postgres'},
-    {'host': 'synctacles.com', 'port': 5432, 'database': 'energy_insights_nl', 'user': 'synctacles'},
+    {'host': 'localhost', 'port': 5433, 'database': 'synctacles', 'user': 'synctacles'},
 ]
 
 print("=" * 80)

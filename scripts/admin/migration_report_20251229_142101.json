@@ -1,0 +1,128 @@
+{
+  "timestamp": "2025-12-29T14:19:16.598707",
+  "dry_run": false,
+  "source": "synctacles@localhost/synctacles",
+  "target": "energy_insights_nl@localhost/energy_insights_nl",
+  "tables_migrated": [
+    {
+      "table": "public.alembic_version",
+      "status": "success",
+      "source_rows": 1,
+      "target_rows_before": 1,
+      "rows_copied": 1,
+      "target_rows_after": 1
+    },
+    {
+      "table": "public.api_usage",
+      "status": "success",
+      "source_rows": 0,
+      "target_rows_before": 0,
+      "rows_copied": 0,
+      "target_rows_after": 0
+    },
+    {
+      "table": "public.fetch_log",
+      "status": "success",
+      "source_rows": 0,
+      "target_rows_before": 0,
+      "rows_copied": 0,
+      "target_rows_after": 0
+    },
+    {
+      "table": "public.norm_entso_e_a44",
+      "status": "success",
+      "source_rows": 92,
+      "target_rows_before": 0,
+      "rows_copied": 92,
+      "target_rows_after": 92
+    },
+    {
+      "table": "public.norm_entso_e_a65",
+      "status": "success",
+      "source_rows": 1112,
+      "target_rows_before": 0,
+      "rows_copied": 1112,
+      "target_rows_after": 1112
+    },
+    {
+      "table": "public.norm_entso_e_a75",
+      "status": "success",
+      "source_rows": 965,
+      "target_rows_before": 0,
+      "rows_copied": 965,
+      "target_rows_after": 965
+    },
+    {
+      "table": "public.norm_prices",
+      "status": "success",
+      "source_rows": 96,
+      "target_rows_before": 0,
+      "rows_copied": 96,
+      "target_rows_after": 96
+    },
+    {
+      "table": "public.norm_tennet_balance",
+      "status": "success",
+      "source_rows": 58660,
+      "target_rows_before": 0,
+      "rows_copied": 58660,
+      "target_rows_after": 58660
+    },
+    {
+      "table": "public.raw_entso_e_a44",
+      "status": "success",
+      "source_rows": 92,
+      "target_rows_before": 0,
+      "rows_copied": 92,
+      "target_rows_after": 92
+    },
+    {
+      "table": "public.raw_entso_e_a65",
+      "status": "success",
+      "source_rows": 1925,
+      "target_rows_before": 0,
+      "rows_copied": 1925,
+      "target_rows_after": 1925
+    },
+    {
+      "table": "public.raw_entso_e_a75",
+      "status": "success",
+      "source_rows": 8085,
+      "target_rows_before": 0,
+      "rows_copied": 8085,
+      "target_rows_after": 8085
+    },
+    {
+      "table": "public.raw_prices",
+      "status": "success",
+      "source_rows": 96,
+      "target_rows_before": 0,
+      "rows_copied": 96,
+      "target_rows_after": 0
+    },
+    {
+      "table": "public.raw_tennet_balance",
+      "status": "success",
+      "source_rows": 293300,
+      "target_rows_before": 0,
+      "rows_copied": 293300,
+      "target_rows_after": 293300
+    },
+    {
+      "table": "public.users",
+      "status": "success",
+      "source_rows": 4,
+      "target_rows_before": 0,
+      "rows_copied": 4,
+      "target_rows_after": 4
+    }
+  ],
+  "errors": [],
+  "summary": {
+    "successful_tables": 14,
+    "failed_tables": 0,
+    "total_tables": 14,
+    "total_rows_migrated": 364428,
+    "duration_seconds": 104.416995
+  }
+}

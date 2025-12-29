@@ -79,10 +79,10 @@ class DatabaseMigration:
         query = """
             SELECT schemaname, tablename
             FROM pg_tables
-            WHERE schemaname NOT IN ('pg_catalog', 'information_schema', 'timescaledb_information')
+            WHERE schemaname = 'public'
             ORDER BY tablename;
         """
-        cursor = conn.cursor(RealDictCursor)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(query)
         tables = cursor.fetchall()
         return [(t['schemaname'], t['tablename']) for t in tables]
@@ -99,7 +99,7 @@ class DatabaseMigration:
 
     def get_table_columns(self, conn, schema: str, table: str) -> List[str]:
         """Get ordered list of column names"""
-        cursor = conn.cursor(RealDictCursor)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         query = """
             SELECT column_name
             FROM information_schema.columns
@@ -125,7 +125,7 @@ class DatabaseMigration:
         columns_str = ', '.join(columns)
 
         # Fetch and copy in batches
-        cursor = self.source_conn.cursor(RealDictCursor)
+        cursor = self.source_conn.cursor(cursor_factory=RealDictCursor)
         cursor.itersize = batch_size
 
         query = f"SELECT {columns_str} FROM {table_name} ORDER BY {columns[0]} ASC"
@@ -326,7 +326,6 @@ Examples:
   python migrate_database.py --source synctacles --target energy_insights_nl
 
   # Reverse direction
-  python migrate_database.py --source energy_insights_nl --target synctacles --tables raw_prices
         """
     )
 
@@ -334,7 +333,7 @@ Examples:
     parser.add_argument('--target', required=True, help='Target database name (e.g., energy_insights_nl)')
     parser.add_argument('--dry-run', action='store_true', help='Analyze only (do not copy data)')
     parser.add_argument('--tables', help='Comma-separated list of tables to migrate (all if omitted)')
-    parser.add_argument('--source-host', default='synctacles.com', help='Source host (default: synctacles.com)')
+    parser.add_argument('--source-host', default='localhost', help='Source host (default: synctacles.com)')
     parser.add_argument('--source-user', default='synctacles', help='Source user (default: synctacles)')
     parser.add_argument('--target-host', default='localhost', help='Target host (default: localhost)')
     parser.add_argument('--target-user', help='Target user (default: same as target database)')
@@ -344,7 +343,7 @@ Examples:
     # Prepare configs
     source_config = {
         'host': args.source_host,
-        'port': 5432,
+        'port': 5433,
         'database': args.source,
         'user': args.source_user,
         'connect_timeout': 10

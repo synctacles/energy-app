@@ -63,8 +63,8 @@ def get_table_stats(conn, schema, table):
 def main():
     # Connection config - modify these based on test_remote_connection.py results
     config = {
-        'host': 'synctacles.com',
-        'port': 5432,
+        'host': 'localhost',
+        'port': 5433,
         'database': 'synctacles',  # Change if needed
         'user': 'synctacles',  # Change if needed
         'connect_timeout': 10
