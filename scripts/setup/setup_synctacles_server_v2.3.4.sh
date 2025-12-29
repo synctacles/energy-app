@@ -190,6 +190,7 @@ info() { echo -e "ℹ️  $1"; }
 ok()   { echo -e "✅ $1"; }
 warn() { echo -e "⚠️  $1"; }
 fail() { echo -e "❌ $1"; }
+error() { echo -e "❌ ERROR: $1" >&2; }  # Error messages to stderr
 
 ensure_root() {
     if [[ $EUID -ne 0 ]]; then
