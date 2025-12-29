@@ -11,36 +11,34 @@ revision = 'xxx'
 down_revision = '20251220_user_auth'
 
 def upgrade():
-    # Raw prices table
+    # Raw prices table - composite primary key with timestamp (required for TimescaleDB hypertables)
     op.create_table(
         'raw_prices',
-        sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('timestamp', sa.DateTime(timezone=True), nullable=False),
         sa.Column('country', sa.String(2), nullable=False),
-        sa.Column('price_eur_mwh', sa.Numeric(10, 2), nullable=False),
         sa.Column('source', sa.String(50), nullable=False),  # 'energy-charts' or 'entso-e'
+        sa.Column('price_eur_mwh', sa.Numeric(10, 2), nullable=False),
         sa.Column('fetch_time', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('source_file', sa.String(255)),
-        sa.UniqueConstraint('timestamp', 'country', 'source', name='uq_raw_prices')
+        sa.PrimaryKeyConstraint('timestamp', 'country', 'source', name='pk_raw_prices')
     )
-    
-    # Normalized prices table
+
+    # Normalized prices table - composite primary key with timestamp (required for TimescaleDB hypertables)
     op.create_table(
         'norm_prices',
-        sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('timestamp', sa.DateTime(timezone=True), nullable=False),
         sa.Column('country', sa.String(2), nullable=False),
         sa.Column('price_eur_mwh', sa.Numeric(10, 2), nullable=False),
         sa.Column('quality_status', sa.String(20), server_default='OK'),
         sa.Column('normalized_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint('timestamp', 'country', name='uq_norm_prices')
+        sa.PrimaryKeyConstraint('timestamp', 'country', name='pk_norm_prices')
     )
-    
-    # Create hypertable for norm_prices
+
+    # Create hypertable for norm_prices (now works - timestamp is in primary key)
     op.execute("SELECT create_hypertable('norm_prices', 'timestamp', if_not_exists => TRUE);")
-    
-    # Indexes
-    op.create_index('idx_raw_prices_country_time', 'raw_prices', ['country', 'timestamp'])
+
+    # Indexes for query optimization (primary key already covers timestamp, country)
+    op.create_index('idx_raw_prices_source_time', 'raw_prices', ['source', 'timestamp'])
     op.create_index('idx_norm_prices_country_time', 'norm_prices', ['country', 'timestamp'])
 
 def downgrade():
