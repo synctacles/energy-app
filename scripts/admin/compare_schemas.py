@@ -80,8 +80,8 @@ def format_column_type(col):
 def main():
     # Source database config
     source_config = {
-        'host': 'synctacles.com',
-        'port': 5432,
+        'host': 'localhost',
+        'port': 5433,
         'database': 'synctacles',  # Adjust if needed
         'user': 'synctacles',  # Adjust if needed
         'connect_timeout': 10
