@@ -17,6 +17,8 @@ Version: 2.0.0 (file-based, no direct DB)
 import os
 import sys
 import logging
+import argparse
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict
@@ -84,11 +86,21 @@ class EntsoEA75Collector:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.results = {}
 
-    def fetch_generation_mix(self, psr_type: str, hours_back: int = 24) -> Optional[str]:
-        """Fetch generation data for specific PSR-type."""
+    def fetch_generation_mix(self, psr_type: str, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24) -> Optional[str]:
+        """Fetch generation data for specific PSR-type.
+
+        Args:
+            psr_type: PSR-type code (B01-B20)
+            start: Start timestamp (if None, calculated from hours_back)
+            end: End timestamp (if None, uses now)
+            hours_back: Hours to look back (only used if start is None)
+        """
         try:
-            end = pd.Timestamp(datetime.now(timezone.utc))
-            start = end - timedelta(hours=hours_back)
+            # Determine time range
+            if end is None:
+                end = pd.Timestamp(datetime.now(timezone.utc))
+            if start is None:
+                start = end - timedelta(hours=hours_back)
 
             self.logger.info(
                 f"Fetching {PSR_TYPES[psr_type]['name']} ({psr_type}) "
@@ -113,8 +125,15 @@ class EntsoEA75Collector:
             self.logger.error(f"Failed to fetch {psr_type}: {str(e)}")
             return None
 
-    def fetch_all_psr_types(self, hours_back: int = 24) -> Dict[str, Optional[str]]:
-        """Fetch generation data for ALL PSR-types."""
+    def fetch_all_psr_types(self, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24, rate_limit_seconds: int = 0) -> Dict[str, Optional[str]]:
+        """Fetch generation data for ALL PSR-types.
+
+        Args:
+            start: Start timestamp
+            end: End timestamp
+            hours_back: Hours to look back (only if start/end not specified)
+            rate_limit_seconds: Seconds to wait between API calls
+        """
         self.logger.info(f"Starting bulk fetch for {len(PSR_TYPES)} PSR-types...")
 
         results = {}
@@ -122,12 +141,17 @@ class EntsoEA75Collector:
         fail_count = 0
 
         for psr_type in sorted(PSR_TYPES.keys()):
-            xml = self.fetch_generation_mix(psr_type, hours_back=hours_back)
+            xml = self.fetch_generation_mix(psr_type, start=start, end=end, hours_back=hours_back)
             results[psr_type] = xml
             if xml:
                 success_count += 1
             else:
                 fail_count += 1
+
+            # Rate limiting between requests
+            if rate_limit_seconds > 0 and psr_type != sorted(PSR_TYPES.keys())[-1]:
+                self.logger.info(f"Rate limiting: {rate_limit_seconds}s delay before next request")
+                time.sleep(rate_limit_seconds)
 
         self.logger.info(f"Bulk fetch complete: {success_count} success, {fail_count} failed")
         self.results = results
@@ -186,16 +210,61 @@ class EntsoEA75Collector:
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='ENTSO-E A75 Generation Mix Collector',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Default: last 24 hours
+  python sparkcrawler_entso_e_a75_generation.py
+
+  # Specific date range
+  python sparkcrawler_entso_e_a75_generation.py --start 2025-12-01T00:00:00 --end 2025-12-02T00:00:00
+
+  # Backfill mode: batched with rate limiting
+  python sparkcrawler_entso_e_a75_generation.py --start 2025-12-01T00:00:00 --end 2025-12-31T23:59:59 --backfill
+        """
+    )
+    parser.add_argument('--start', type=str, help='Start datetime (ISO format, e.g., 2025-12-01T00:00:00Z)')
+    parser.add_argument('--end', type=str, help='End datetime (ISO format, e.g., 2025-12-02T00:00:00Z)')
+    parser.add_argument('--backfill', action='store_true', help='Backfill mode (batched with rate limiting)')
+    args = parser.parse_args()
+
     logger.info("=" * 60)
     logger.info("SYNCTACLES SparkCrawler - ENTSO-E A75 Collector")
     logger.info("=" * 60)
+
+    # Parse dates if provided
+    start_ts = None
+    end_ts = None
+
+    if args.start:
+        try:
+            start_ts = pd.Timestamp(args.start, tz='UTC')
+            logger.info(f"Start: {start_ts}")
+        except Exception as e:
+            logger.error(f"Failed to parse start datetime: {e}")
+            return 1
+
+    if args.end:
+        try:
+            end_ts = pd.Timestamp(args.end, tz='UTC')
+            logger.info(f"End: {end_ts}")
+        except Exception as e:
+            logger.error(f"Failed to parse end datetime: {e}")
+            return 1
 
     collector = EntsoEA75Collector(api_key=api_key, country_code=COUNTRY_CODE)
 
     logger.info(f"Fetching Generation Mix (A75) for {COUNTRY_CODE}...")
     logger.info(f"PSR-types: {', '.join(sorted(PSR_TYPES.keys()))}")
 
-    collector.fetch_all_psr_types(hours_back=24)
+    # Determine rate limiting based on backfill mode
+    rate_limit = 5 if args.backfill else 0
+    if args.backfill:
+        logger.info("Backfill mode enabled: 5s rate limit between PSR-type requests")
+
+    collector.fetch_all_psr_types(start=start_ts, end=end_ts, hours_back=24, rate_limit_seconds=rate_limit)
 
     logger.info("Saving raw XML responses...")
     saved_files = collector.save_to_files()

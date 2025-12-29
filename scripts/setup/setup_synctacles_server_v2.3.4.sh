@@ -1841,7 +1841,25 @@ fase5() {
     # ========================================
     info "Generating systemd units from templates..."
 
-    SYSTEMD_TEMPLATE_DIR="${INSTALL_PATH}/app/systemd"
+    # Auto-detect repository root (location-agnostic)
+    if [[ -n "${BASH_SOURCE[0]}" ]]; then
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        DETECTED_REPO="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+    fi
+    
+    # Verify and fallback to known location
+    if [[ -d "${DETECTED_REPO}/systemd" ]]; then
+        REPO_ROOT="${DETECTED_REPO}"
+    elif [[ -d "/opt/github/ha-energy-insights-nl/systemd" ]]; then
+        REPO_ROOT="/opt/github/ha-energy-insights-nl"
+    else
+        error "Cannot find repository with systemd templates"
+        exit 1
+    fi
+    
+    info "Using repository: ${REPO_ROOT}"
+    PROJECT_ROOT="${REPO_ROOT}"
+    SYSTEMD_TEMPLATE_DIR="${PROJECT_ROOT}/systemd"
     SYSTEMD_TARGET_DIR="/etc/systemd/system"
 
     # Verify template directory exists
