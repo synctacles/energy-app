@@ -1849,26 +1849,26 @@ fase5() {
     header "Database Schema Migration"
 
     # Verify alembic is installed in venv
-    if [[ ! -x "/opt/synctacles/venv/bin/alembic" ]]; then
+    if [[ ! -x "${INSTALL_PATH}/venv/bin/alembic" ]]; then
         fail "Alembic not found in venv!"
-        fail "Run: /opt/synctacles/venv/bin/pip install alembic"
+        fail "Run: ${INSTALL_PATH}/venv/bin/pip install alembic"
         exit 1
     fi
     ok "Alembic found in venv"
 
-    if [[ -d "/opt/synctacles/app/alembic" ]]; then
+    if [[ -d "${INSTALL_PATH}/app/alembic" ]]; then
         info "Running Alembic migrations..."
-        cd /opt/synctacles/app || exit 1
+        cd ${INSTALL_PATH}/app || exit 1
 
         # Run with PYTHONPATH set correctly
-        export PYTHONPATH="/opt/synctacles/app:${PYTHONPATH:-}"
+        export PYTHONPATH="${INSTALL_PATH}/app:${PYTHONPATH:-}"
 
-        if sudo -u ${SERVICE_USER} PYTHONPATH="$PYTHONPATH" /opt/synctacles/venv/bin/alembic upgrade head 2>&1; then
+        if sudo -u ${SERVICE_USER} PYTHONPATH="$PYTHONPATH" ${INSTALL_PATH}/venv/bin/alembic upgrade head 2>&1; then
             ok "Database schema up-to-date"
         else
             fail "Alembic migration FAILED"
-            warn "Check: /opt/synctacles/app/alembic/versions/"
-            warn "Manual: cd /opt/synctacles/app && sudo -u ${SERVICE_USER} PYTHONPATH=. /opt/synctacles/venv/bin/alembic upgrade head"
+            warn "Check: ${INSTALL_PATH}/app/alembic/versions/"
+            warn "Manual: cd ${INSTALL_PATH}/app && sudo -u ${SERVICE_USER} PYTHONPATH=. ${INSTALL_PATH}/venv/bin/alembic upgrade head"
             exit 1
         fi
 
@@ -1898,8 +1898,8 @@ fase5() {
         fi
 
         # Compare with deployed version
-        if [[ -f "/opt/synctacles/app/VERSION" ]]; then
-            DEPLOYED_VER=$(cat /opt/synctacles/app/VERSION)
+        if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
+            DEPLOYED_VER=$(cat ${INSTALL_PATH}/app/VERSION)
             if [[ "$API_VERSION" == "$DEPLOYED_VER" ]]; then
                 ok "Version match: $API_VERSION"
             else
@@ -1928,8 +1928,8 @@ fase5() {
     fi
 
     # VERSION file check
-    if [[ -f "/opt/synctacles/app/VERSION" ]]; then
-        ok "VERSION file exists: $(cat /opt/synctacles/app/VERSION)"
+    if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
+        ok "VERSION file exists: $(cat ${INSTALL_PATH}/app/VERSION)"
     else
         fail "VERSION file missing after deploy"
     fi
