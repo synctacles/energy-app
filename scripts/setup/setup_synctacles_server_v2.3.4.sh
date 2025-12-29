@@ -435,8 +435,10 @@ API_PORT="8000"
 ADMIN_API_KEY=""
 EOF
 
-    chmod 600 "$ENV_FILE"
-    ok ".env created at $ENV_FILE"
+    # Set proper ownership and permissions
+    chown root:${SERVICE_USER} "$ENV_FILE"
+    chmod 640 "$ENV_FILE"  # Root write, group read, others none
+    ok ".env created at $ENV_FILE (ownership: root:${SERVICE_USER}, permissions: 640)"
 
     # Source it for current script
     source "$ENV_FILE"
@@ -870,10 +872,10 @@ RATE_LIMIT_FREE_TIER=100
 FETCH_INTERVAL_SECONDS=300
 EOF
 
-        chmod 600 "$ENV_FILE"
-        chown root:root "$ENV_FILE"
-        ok "Environment configuratie opgeslagen in $ENV_FILE"
-        warn "Let op: owner staat nu op root; wordt gefixt in FASE 3 (synctacles user)."
+        # Set proper ownership and permissions
+        chown root:${SERVICE_USER} "$ENV_FILE"
+        chmod 640 "$ENV_FILE"  # Root write, group read, others none
+        ok "Environment configuratie opgeslagen in $ENV_FILE (ownership: root:${SERVICE_USER}, permissions: 640)"
 
         if [[ -z "$ENTSOE_KEY" ]]; then
             warn "Let op: geen ENTSO-E API key — vul deze later aan in $ENV_FILE"
