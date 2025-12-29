@@ -1,1 +1,14 @@
+# API dependencies
+fastapi
+uvicorn[standard]
+gunicorn
+
+# Monitoring
+prometheus-client
+
+# Validation
+pydantic
+email-validator
+
+# Data processing
 lxml==5.1.0
