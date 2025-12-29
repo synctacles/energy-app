@@ -11,13 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 # Import models
-from sparkcrawler_db.models import Base as SparkBase
-from synctacles_db.models import Base as SyncBase
+from synctacles_db.models import Base
 
-# Merge metadata
-target_metadata = SparkBase.metadata
-for table in SyncBase.metadata.tables.values():
-    target_metadata._add_table(table.name, table.schema, table)
+# Use metadata from synctacles_db (now contains both raw and normalized models)
+target_metadata = Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

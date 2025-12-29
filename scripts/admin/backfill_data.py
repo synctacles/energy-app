@@ -56,7 +56,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
-COLLECTORS_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "app" / "sparkcrawler_db" / "collectors")
+COLLECTORS_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "app" / "synctacles_db" / "collectors")
 VENV_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "venv")
 VENV_PYTHON = VENV_PATH / "bin" / "python3"
 

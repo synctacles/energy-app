@@ -24,7 +24,7 @@ fi
 cd "$APP_DIR"
 
 echo "[$(date)] Starting importers..." | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.importers.import_entso_e_a75 2>&1 | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.importers.import_entso_e_a65 2>&1 | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.importers.import_tennet_balance 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.importers.import_entso_e_a75 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.importers.import_entso_e_a65 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.importers.import_tennet_balance 2>&1 | tee -a "$LOG_FILE"
 echo "[$(date)] Importers complete" | tee -a "$LOG_FILE"

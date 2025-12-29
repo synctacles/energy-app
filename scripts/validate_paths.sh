@@ -24,7 +24,7 @@ fi
 
 # Check 2: No /opt/github/ in Python code
 echo "[CHECK] Python code..."
-if grep -rn "$FORBIDDEN_PATH" "$APP_DIR/sparkcrawler_db/" "$APP_DIR/synctacles_db/" 2>/dev/null; then
+if grep -rn "$FORBIDDEN_PATH" "$APP_DIR/synctacles_db/" 2>/dev/null; then
     echo "❌ FAIL: Found $FORBIDDEN_PATH in Python code"
     ERRORS=$((ERRORS + 1))
 else
@@ -33,7 +33,7 @@ fi
 
 # Check 3: No hardcoded Path(__file__) for logs
 echo "[CHECK] Hardcoded log paths..."
-if grep -rn 'Path(__file__).*log' "$APP_DIR/sparkcrawler_db/" 2>/dev/null; then
+if grep -rn 'Path(__file__).*log' "$APP_DIR/synctacles_db/" 2>/dev/null; then
     echo "❌ FAIL: Found hardcoded Path(__file__) for logs"
     ERRORS=$((ERRORS + 1))
 else
@@ -42,7 +42,7 @@ fi
 
 # Check 4: SYNCTACLES_LOG_DIR used in collectors
 echo "[CHECK] SYNCTACLES_LOG_DIR usage..."
-if grep -rq "SYNCTACLES_LOG_DIR" "$APP_DIR/sparkcrawler_db/collectors/"; then
+if grep -rq "SYNCTACLES_LOG_DIR" "$APP_DIR/synctacles_db/collectors/"; then
     echo "✅ PASS: SYNCTACLES_LOG_DIR found in collectors"
 else
     echo "❌ FAIL: SYNCTACLES_LOG_DIR not used in collectors"

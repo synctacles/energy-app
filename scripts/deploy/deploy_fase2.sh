@@ -64,7 +64,6 @@ header "FASE 2 — SYNCTACLES API + SparkCrawler Deployment"
 
 # Paths
 SYNCTACLES_PROD="/opt/synctacles"
-SPARKCRAWLER_DIR="$SYNCTACLES_PROD/sparkcrawler_db"
 SYNCTACLES_API_DIR="$SYNCTACLES_PROD/synctacles_db"
 VENV_PATH="$SYNCTACLES_PROD/venv"
 
@@ -83,14 +82,6 @@ else
     info "Geen bestaande code om te backuppen"
 fi
 
-if [[ -d "$SPARKCRAWLER_DIR" ]]; then
-    BACKUP_TIME=$(date +%Y%m%d_%H%M%S)
-    BACKUP_DIR="$SYNCTACLES_PROD/backups/sparkcrawler_$BACKUP_TIME"
-    mkdir -p "$SYNCTACLES_PROD/backups"
-    cp -r "$SPARKCRAWLER_DIR" "$BACKUP_DIR"
-    ok "Backup gemaakt: $BACKUP_DIR"
-fi
-
 # ========================================================
 # Step 2: Deploy code
 # ========================================================
@@ -98,23 +89,13 @@ info "Deploy code..."
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Copy synctacles API
+# Copy synctacles API (includes collectors, importers, and models)
 if [[ -d "$SCRIPT_DIR/synctacles_db" ]]; then
     rm -rf "$SYNCTACLES_API_DIR"
     cp -r "$SCRIPT_DIR/synctacles_db" "$SYNCTACLES_API_DIR"
     ok "SYNCTACLES API gedeployd: $SYNCTACLES_API_DIR"
 else
-    fail "synctacles/ directory niet gevonden in $SCRIPT_DIR"
-    exit 1
-fi
-
-# Copy sparkcrawler
-if [[ -d "$SCRIPT_DIR/sparkcrawler_db" ]]; then
-    rm -rf "$SPARKCRAWLER_DIR"
-    cp -r "$SCRIPT_DIR/sparkcrawler_db" "$SPARKCRAWLER_DIR"
-    ok "SparkCrawler gedeployd: $SPARKCRAWLER_DIR"
-else
-    fail "sparkcrawler/ directory niet gevonden in $SCRIPT_DIR"
+    fail "synctacles_db/ directory niet gevonden in $SCRIPT_DIR"
     exit 1
 fi
 

@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from sparkcrawler_db.models import RawEntsoeA65
+from synctacles_db.models import RawEntsoeA65
 from synctacles_db.models import NormEntsoeA65
 from config.settings import DATABASE_URL
 

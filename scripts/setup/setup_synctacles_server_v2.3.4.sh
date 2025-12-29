@@ -1422,7 +1422,6 @@ EOF"
             [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && echo "  ✓ requirements.txt"
             [[ -f "${INSTALL_PATH}/app/start_api.py" ]] && echo "  ✓ start_api.py"
             [[ -d "${INSTALL_PATH}/app/synctacles_db" ]] && echo "  ✓ synctacles_db/"
-            [[ -d "${INSTALL_PATH}/app/sparkcrawler_db" ]] && echo "  ✓ sparkcrawler_db/"
         else
             warn "Some expected files missing in deployment (may be OK if structure differs)"
         fi
@@ -2257,9 +2256,9 @@ EOF
     echo "   1. Switch to user:       su - ${SERVICE_USER}"
     echo "   2. Go to repo:           cd ${GITHUB_REPO_DEV}"
     echo "   3. Test setup:           python3 test_setup.py"
-    echo "   4. Run collectors:       python3 sparkcrawler_db/collectors/sparkcrawler_entso_e_a75_generation.py"
-    echo "   5. Run importers:        python3 sparkcrawler_db/importers/import_entso_e_a75.py"
-    echo "   6. Run normalizers:      python3 synctacles_db/normalizers/normalize_entso_e_a75.py"
+    echo "   4. Run collectors:       python3 -m synctacles_db.collectors.entso_e_a75_generation"
+    echo "   5. Run importers:        python3 -m synctacles_db.importers.import_entso_e_a75"
+    echo "   6. Run normalizers:      python3 -m synctacles_db.normalizers.normalize_entso_e_a75"
     echo
 }
 

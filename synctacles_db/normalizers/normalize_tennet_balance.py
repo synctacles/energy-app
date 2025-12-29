@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from sparkcrawler_db.models import RawTennetBalance
+from synctacles_db.models import RawTennetBalance
 from synctacles_db.models import NormTennetBalance
 from config.settings import DATABASE_URL
 

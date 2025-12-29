@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from sparkcrawler_db.models import RawTennetBalance
+from synctacles_db.models import RawTennetBalance
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
 

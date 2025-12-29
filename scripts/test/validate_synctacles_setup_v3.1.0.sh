@@ -394,7 +394,7 @@ validate_fase5() {
     # /opt/synctacles/app/ deployed
     if [[ -d "$SYNCTACLES_APP" ]]; then
         # Check for key subdirectories
-        if [[ -d "$SYNCTACLES_APP/sparkcrawler_db" ]] && [[ -d "$SYNCTACLES_APP/synctacles_db" ]]; then
+        if [[ -d "$SYNCTACLES_APP/synctacles_db" ]]; then
             ok "/opt/synctacles/app/ deployed"
         else
             warn "/opt/synctacles/app/ exists but incomplete"
@@ -468,8 +468,8 @@ validate_skill9() {
 
     # Check 2: No /opt/github/ in Python code
     local python_ok=true
-    if [[ -d "$SYNCTACLES_APP/sparkcrawler_db" ]] || [[ -d "$SYNCTACLES_APP/synctacles_db" ]]; then
-        if grep -rn "$FORBIDDEN_PATH" "$SYNCTACLES_APP/sparkcrawler_db/" "$SYNCTACLES_APP/synctacles_db/" 2>/dev/null | grep -v "^Binary"; then
+    if [[ -d "$SYNCTACLES_APP/synctacles_db" ]]; then
+        if grep -rn "$FORBIDDEN_PATH" "$SYNCTACLES_APP/synctacles_db/" 2>/dev/null | grep -v "^Binary"; then
             python_ok=false
         fi
     fi

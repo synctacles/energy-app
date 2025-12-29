@@ -24,7 +24,7 @@ fi
 cd "$APP_DIR"
 
 echo "[$(date)] Starting collectors..." | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.collectors.sparkcrawler_entso_e_a75_generation 2>&1 | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.collectors.sparkcrawler_entso_e_a65_load 2>&1 | tee -a "$LOG_FILE"
-python3 -m sparkcrawler_db.collectors.sparkcrawler_entso_e_a44_prices 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.collectors.entso_e_a75_generation 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.collectors.entso_e_a65_load 2>&1 | tee -a "$LOG_FILE"
+python3 -m synctacles_db.collectors.entso_e_a44_prices 2>&1 | tee -a "$LOG_FILE"
 echo "[$(date)] Collectors complete" | tee -a "$LOG_FILE"
