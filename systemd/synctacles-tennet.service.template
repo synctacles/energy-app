@@ -1,0 +1,11 @@
+[Unit]
+Description={{BRAND_NAME}} TenneT Collector (Rate Limited)
+After=network.target
+
+[Service]
+Type=oneshot
+User={{SERVICE_USER}}
+WorkingDirectory={{INSTALL_PATH}}/app
+ExecStart={{INSTALL_PATH}}/venv/bin/python3 {{INSTALL_PATH}}/app/sparkcrawler_db/collectors/sparkcrawler_tennet_ingestor.py
+StandardOutput=journal
+StandardError=journal

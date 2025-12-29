@@ -1,0 +1,10 @@
+[Unit]
+Description={{BRAND_NAME}} Health Check
+After=network.target
+
+[Service]
+Type=oneshot
+User={{SERVICE_USER}}
+ExecStart={{INSTALL_PATH}}/app/scripts/health_check.sh
+StandardOutput=journal
+StandardError=journal

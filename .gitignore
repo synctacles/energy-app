@@ -38,6 +38,9 @@ ehthumbs.db
 # Generated files (DO NOT COMMIT - created from templates at install time)
 custom_components/synctacles/manifest.json
 alembic.ini
+systemd/*.service
+systemd/*.timer
+!systemd/*.template
 
 # Logs
 *.log
