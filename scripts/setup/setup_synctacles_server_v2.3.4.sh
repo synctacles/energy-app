@@ -1432,8 +1432,52 @@ EOF"
     # Store deployment state
     state_set "LAST_DEPLOYMENT_HASH" "$(cd ${GITHUB_REPO_DEV} && git rev-parse HEAD 2>/dev/null || echo 'unknown')"
 
+    # ====================================
+    # 3.6 Generate alembic.ini from Template
+    # ====================================
+    info "Generating alembic.ini from template..."
+
+    ALEMBIC_TEMPLATE="${INSTALL_PATH}/app/alembic.ini.template"
+    ALEMBIC_CONFIG="${INSTALL_PATH}/app/alembic.ini"
+
+    if [[ ! -f "${ALEMBIC_TEMPLATE}" ]]; then
+        error "Template not found: ${ALEMBIC_TEMPLATE}"
+        error "Repository may be outdated - check git status"
+        exit 1
+    fi
+
+    # Generate alembic.ini with database credentials from .env
+    sed -e "s|{{DB_USER}}|${DB_USER}|g" \
+        -e "s|{{DB_PASSWORD}}|${DB_PASSWORD}|g" \
+        -e "s|{{DB_HOST}}|${DB_HOST}|g" \
+        -e "s|{{DB_PORT}}|${DB_PORT}|g" \
+        -e "s|{{DB_NAME}}|${DB_NAME}|g" \
+        "${ALEMBIC_TEMPLATE}" > "${ALEMBIC_CONFIG}"
+
+    if [[ -f "${ALEMBIC_CONFIG}" ]]; then
+        chown ${SERVICE_USER}:${SERVICE_GROUP} "${ALEMBIC_CONFIG}"
+        chmod 640 "${ALEMBIC_CONFIG}"  # Readable by service user only
+        ok "alembic.ini generated with database credentials"
+    else
+        error "Failed to generate alembic.ini"
+        exit 1
+    fi
+
+    # Verify connection string looks correct
+    DB_URL=$(grep "^sqlalchemy.url" "${ALEMBIC_CONFIG}" | cut -d'=' -f2- | xargs)
+    info "Database URL configured: postgresql://[user]:[pass]@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+    # Security check - ensure no literal {{PLACEHOLDERS}} remain
+    if grep -q "{{" "${ALEMBIC_CONFIG}"; then
+        error "Template placeholders not replaced in alembic.ini"
+        error "Check .env variables: DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME"
+        exit 1
+    fi
+
+    ok "alembic.ini configuration verified (no placeholders)"
+
     # -----------------------------
-    # 3.6 Copy requirements.txt to production (v2.3.0 FIX)
+    # 3.7 Copy requirements.txt to production (v2.3.0 FIX)
     # -----------------------------
     if [[ -f "${GITHUB_REPO_DEV}/requirements.txt" ]]; then
         info "Copying requirements.txt from DEV to PROD..."
