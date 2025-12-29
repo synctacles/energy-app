@@ -1446,6 +1446,22 @@ EOF"
         exit 1
     fi
 
+    # Set defaults for database configuration variables
+    # Required: DB_USER, DB_NAME (must exist in .env)
+    # Optional: DB_PASSWORD (empty for trust mode), DB_HOST, DB_PORT
+    DB_USER="${DB_USER:-}"
+    DB_PASSWORD="${DB_PASSWORD:-}"  # Empty string for development/trust mode
+    DB_HOST="${DB_HOST:-localhost}"
+    DB_PORT="${DB_PORT:-5432}"
+    DB_NAME="${DB_NAME:-}"
+
+    # Verify required variables are set
+    if [[ -z "${DB_USER}" ]] || [[ -z "${DB_NAME}" ]]; then
+        error "Missing required database configuration"
+        error "Check .env for: DB_USER, DB_NAME"
+        exit 1
+    fi
+
     # Generate alembic.ini with database credentials from .env
     sed -e "s|{{DB_USER}}|${DB_USER}|g" \
         -e "s|{{DB_PASSWORD}}|${DB_PASSWORD}|g" \
