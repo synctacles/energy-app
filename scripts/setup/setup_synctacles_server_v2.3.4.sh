@@ -1833,39 +1833,73 @@ fase5() {
         ln -sf ${LOG_PATH} /var/log/application 2>/dev/null || true
     fi
 
-    # Copy service files
-    info "Installeer systemd units..."
-    cp "${GITHUB_REPO_DEV}/systemd/"*.service /etc/systemd/system/ 2>/dev/null || true
-    cp "${GITHUB_REPO_DEV}/systemd/"*.timer /etc/systemd/system/ 2>/dev/null || true
+    # ========================================
+    # Generate Systemd Units from Templates
+    # ========================================
+    info "Generating systemd units from templates..."
 
-    # Validate systemd unit paths (CRITICAL)
-    info "Validating systemd unit paths..."
-    INVALID_PATHS=0
+    SYSTEMD_TEMPLATE_DIR="${INSTALL_PATH}/app/systemd"
+    SYSTEMD_TARGET_DIR="/etc/systemd/system"
 
-    for unit in /etc/systemd/system/synctacles-*.service; do
-        [[ -f "$unit" ]] || continue
+    # Verify template directory exists
+    if [[ ! -d "${SYSTEMD_TEMPLATE_DIR}" ]]; then
+        error "Systemd template directory not found: ${SYSTEMD_TEMPLATE_DIR}"
+        error "Expected from deployment: ${GITHUB_REPO_DEV}/systemd/*.template"
+        exit 1
+    fi
 
-        # Check for DEV repo paths (FORBIDDEN)
-        if grep -qE "ExecStart=.*/opt/github" "$unit"; then
-            fail "INVALID: $(basename "$unit") points to DEV repo"
-            ((INVALID_PATHS++))
+    # Count templates
+    TEMPLATE_COUNT=$(find "${SYSTEMD_TEMPLATE_DIR}" -name "*.template" | wc -l)
+    if [[ ${TEMPLATE_COUNT} -eq 0 ]]; then
+        error "No systemd templates found in ${SYSTEMD_TEMPLATE_DIR}"
+        error "Expected *.service.template and *.timer.template files"
+        exit 1
+    fi
+
+    info "Found ${TEMPLATE_COUNT} systemd templates"
+
+    # Generate each unit file from template
+    GENERATED_COUNT=0
+    for template in "${SYSTEMD_TEMPLATE_DIR}"/*.template; do
+        [[ ! -f "$template" ]] && continue
+
+        # Determine output filename (remove .template extension)
+        template_name=$(basename "$template")
+        unit_name="${template_name%.template}"
+        output_file="${SYSTEMD_TARGET_DIR}/${unit_name}"
+
+        # Generate unit file with ENV replacements
+        sed -e "s|{{BRAND_NAME}}|${BRAND_NAME}|g" \
+            -e "s|{{SERVICE_USER}}|${SERVICE_USER}|g" \
+            -e "s|{{INSTALL_PATH}}|${INSTALL_PATH}|g" \
+            "${template}" > "${output_file}"
+
+        # Verify generation succeeded
+        if [[ ! -f "${output_file}" ]]; then
+            error "Failed to generate: ${output_file}"
+            exit 1
         fi
 
-        if grep -qE "WorkingDirectory=/opt/github" "$unit"; then
-            fail "INVALID: $(basename "$unit") has DEV WorkingDirectory"
-            ((INVALID_PATHS++))
+        # Security check - ensure no placeholders remain
+        if grep -q "{{" "${output_file}"; then
+            error "Template placeholders found in: ${output_file}"
+            error "Missing .env variables: BRAND_NAME, SERVICE_USER, or INSTALL_PATH"
+            exit 1
         fi
+
+        # Set permissions
+        chmod 644 "${output_file}"
+
+        ((GENERATED_COUNT++))
+        ok "Generated: ${unit_name}"
     done
 
-    if [[ $INVALID_PATHS -gt 0 ]]; then
-        fail "$INVALID_PATHS systemd units have invalid paths"
-        warn "Units MUST use: ${INSTALL_PATH}/app/"
-        warn "Fix units in repo: ${GITHUB_REPO_DEV}/systemd/"
-        warn "Then re-run: sudo $0 fase5"
+    if [[ ${GENERATED_COUNT} -ne ${TEMPLATE_COUNT} ]]; then
+        error "Template count mismatch: found ${TEMPLATE_COUNT}, generated ${GENERATED_COUNT}"
         exit 1
-    else
-        ok "All systemd units use correct paths (${INSTALL_PATH}/app/)"
     fi
+
+    ok "All ${GENERATED_COUNT} systemd units generated successfully"
 
     info "Reloading systemd daemon..."
     systemctl daemon-reload
