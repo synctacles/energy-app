@@ -1,0 +1,33 @@
+[Unit]
+Description={{BRAND_NAME}} API
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+Group={{SERVICE_GROUP}}
+WorkingDirectory={{APP_PATH}}
+Environment="PATH={{INSTALL_PATH}}/venv/bin"
+EnvironmentFile=/opt/.env
+
+# Geoptimaliseerde Gunicorn configuratie
+# Performance tuning: 8 workers, keepalive, backlog
+ExecStart={{INSTALL_PATH}}/venv/bin/gunicorn \
+    --bind 127.0.0.1:{{API_PORT}} \
+    --workers 8 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --worker-connections 1024 \
+    --keepalive 5 \
+    --backlog 2048 \
+    --timeout 30 \
+    --graceful-timeout 10 \
+    --access-logfile - \
+    --error-logfile - \
+    synctacles_db.api.main:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
