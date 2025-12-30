@@ -1,4 +1,4 @@
-# SYNCTACLES Troubleshooting Guide
+# Energy Insights NL Troubleshooting Guide
 
 **Quick diagnosis and fixes for common issues**
 
@@ -15,10 +15,13 @@
 
 **Diagnosis:**
 ```bash
-# Test API key
-curl -H "X-API-Key: YOUR_KEY" https://synctacles.io/health
+# Test API key (development)
+curl -H "X-API-Key: YOUR_KEY" http://localhost:8000/health
 
-# Expected: {"status":"ok"}
+# Or (production)
+curl -H "X-API-Key: YOUR_KEY" https://your-api-domain/health
+
+# Expected: {"status":"healthy", ...}
 # Actual: 401 Unauthorized
 ```
 
@@ -594,4 +597,11 @@ ss -tlnp | grep 8000
 
 ---
 
-**Last Updated:** 2025-12-21
+---
+
+**Last Updated:** 2025-12-30
+**Status:** Production Ready
+**See Also:**
+- [Architecture Guide](ARCHITECTURE.md) - System design & data flow
+- [API Reference](api-reference.md) - Complete API documentation
+- [Deployment Guide](deployment.md) - Installation & operations
