@@ -256,6 +256,8 @@ sensor.synctacles_carbon_intensity
 - 🔄 Complete documentation suite
 - 🔄 Skills migration and consolidation
 - 🔄 User guide and troubleshooting
+- ✅ API key authentication
+- ✅ Rate limiting per tier
 
 ### Planned (Phase 7-9)
 
@@ -296,6 +298,45 @@ sensor.synctacles_carbon_intensity
 - Database credentials protected
 - HTTPS/TLS for all external connections
 - Per-tenant isolation (no data leakage)
+- API key authentication with rate limiting
+
+---
+
+## SUBSCRIPTION TIERS
+
+### Tier Structure
+
+SYNCTACLES uses API key-based authentication with daily rate limits per tier:
+
+| Tier | Rate Limit | Use Case | Notes |
+|------|-----------|----------|-------|
+| **Beta** | 10,000 req/day | Testing & early access | Default for new users |
+| **Free** | 1,000 req/day | Home Assistant integration | Community tier |
+| **Paid** | 100,000 req/day | Premium users | Commercial use |
+| **Unlimited** | 100,000 req/day | Enterprise | Priority support |
+
+### Authentication
+
+1. **Signup:** `POST /auth/signup` with email
+2. **Response:** Receive API key (shown only once!)
+3. **Usage:** Include `X-API-Key` header in all API requests
+4. **Rate Limits:** Daily counter resets at midnight UTC
+
+### Rate Limit Headers
+
+Responses include rate limit information:
+
+```
+X-RateLimit-Limit: 10000          # Daily limit for your tier
+X-RateLimit-Remaining: 9876       # Requests remaining today
+X-RateLimit-Reset: 1735689600     # Unix timestamp of reset (midnight UTC)
+```
+
+### Management Endpoints
+
+- `GET /auth/stats` - View usage and rate limit info
+- `POST /auth/regenerate-key` - Generate new key (invalidates old)
+- `POST /auth/deactivate` - Deactivate account
 
 ### Scalability
 

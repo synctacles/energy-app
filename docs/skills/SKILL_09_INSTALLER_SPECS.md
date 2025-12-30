@@ -126,6 +126,11 @@ DB_PORT="5432"
 API_HOST="0.0.0.0"
 API_PORT="8000"
 ADMIN_API_KEY=""  # Generated on first API start
+
+# Auth & Rate Limiting (feature flags - disabled by default)
+AUTH_REQUIRED="false"              # Require API keys for all endpoints
+RATE_LIMIT_ENABLED="false"         # Enforce daily rate limits
+DEFAULT_TIER="beta"                # Default subscription tier
 ```
 
 **Template Processing:**

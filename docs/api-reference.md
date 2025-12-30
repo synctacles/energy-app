@@ -6,6 +6,41 @@
 
 ---
 
+## Rate Limiting
+
+All authenticated endpoints are subject to daily rate limits based on subscription tier:
+
+### Tier Limits
+
+- **Beta**: 10,000 requests/day (default for new users)
+- **Free**: 1,000 requests/day
+- **Paid**: 100,000 requests/day
+- **Unlimited**: 100,000 requests/day (enterprise)
+
+### Rate Limit Headers
+
+Every authenticated response includes:
+
+```
+X-RateLimit-Limit: 10000          # Your daily limit
+X-RateLimit-Remaining: 9876       # Requests remaining today
+X-RateLimit-Reset: 1735689600     # Unix timestamp (midnight UTC)
+```
+
+### Exceeding Limits
+
+When rate limit is exceeded, the API returns **HTTP 429** with:
+
+```json
+{
+  "detail": "Rate limit exceeded. Daily limit reset at midnight UTC."
+}
+```
+
+The reset time is always **00:00 UTC** (midnight).
+
+---
+
 ## Authentication
 
 ### POST /auth/signup

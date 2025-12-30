@@ -54,6 +54,11 @@ LOG_PATH = require_env("LOG_PATH", "Log directory")
 ENTSOE_API_KEY = optional_env("ENTSOE_API_KEY", "")
 ADMIN_API_KEY = optional_env("ADMIN_API_KEY", "")
 
+# Auth & Rate Limiting - Feature flags (disabled by default)
+AUTH_REQUIRED = optional_env("AUTH_REQUIRED", "false").lower() == "true"
+RATE_LIMIT_ENABLED = optional_env("RATE_LIMIT_ENABLED", "false").lower() == "true"
+DEFAULT_TIER = optional_env("DEFAULT_TIER", "beta")
+
 # API Settings
 API_PORT = int(optional_env("API_PORT", "8000"))
 API_HOST = optional_env("API_HOST", "0.0.0.0")
@@ -84,6 +89,9 @@ class Settings:
         self.api_host = API_HOST
         self.brand_name = BRAND_NAME
         self.brand_slug = BRAND_SLUG
+        self.auth_required = AUTH_REQUIRED
+        self.rate_limit_enabled = RATE_LIMIT_ENABLED
+        self.default_tier = DEFAULT_TIER
 
 settings = Settings()
 

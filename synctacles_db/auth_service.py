@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from synctacles_db.auth_models import User, APIUsage
+from config.settings import DEFAULT_TIER
+from synctacles_db.auth.tiers import get_rate_limit
 
 
 def hash_api_key(api_key: str) -> str:
@@ -20,34 +22,48 @@ def generate_api_key() -> str:
     return secrets.token_hex(32)
 
 
-def create_user(db: Session, email: str) -> Tuple[User, str]:
+def create_user(db: Session, email: str, tier: str = None) -> Tuple[User, str]:
     """
     Create new user with license key and API key
-    
+
+    Args:
+        db: Database session
+        email: User email address
+        tier: User tier (defaults to DEFAULT_TIER from settings)
+
     Returns:
         (User object, plain API key)
     """
     email = email.lower().strip()
-    
+
     # Check if email exists
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise ValueError(f"Email already registered: {email}")
-    
+
     # Generate API key (plain for return, hashed for storage)
     api_key_plain = generate_api_key()
     api_key_hash = hash_api_key(api_key_plain)
-    
+
+    # Use DEFAULT_TIER if not specified
+    if tier is None:
+        tier = DEFAULT_TIER
+
+    # Get rate limit for tier
+    rate_limit = get_rate_limit(tier)
+
     # Create user
     user = User(
         email=email,
-        api_key_hash=api_key_hash
+        api_key_hash=api_key_hash,
+        tier=tier,
+        rate_limit_daily=rate_limit
     )
-    
+
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     return user, api_key_plain
 
 

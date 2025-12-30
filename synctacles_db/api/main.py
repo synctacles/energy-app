@@ -11,7 +11,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from starlette.responses import Response
 import time
 
-from synctacles_db.api.middleware import auth_middleware
+from synctacles_db.api.middleware import auth_middleware, rate_limit_middleware
 from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals
 from synctacles_db.cache import api_cache
 from config.settings import settings
@@ -69,8 +69,10 @@ app.add_middleware(
 )
 
 
-# Auth middleware - validates X-API-Key header
+# Middleware order matters: rate limit first, then auth
+# Rate limiting must run after auth to have user context
 app.middleware("http")(auth_middleware)
+app.middleware("http")(rate_limit_middleware)
 # Health check
 @app.get("/health")
 async def health():
