@@ -4,6 +4,7 @@ After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
+EnvironmentFile={{ENV_FILE}}
 Type=simple
 User={{SERVICE_USER}}
 Group={{SERVICE_USER}}
