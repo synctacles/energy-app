@@ -10,6 +10,7 @@ from synctacles_db.api.dependencies import get_db
 from synctacles_db.api.models import BalanceResponse, BalanceData, MetaData
 from synctacles_db.models import NormTennetBalance
 from synctacles_db.cache import api_cache
+from synctacles_db.api.cache import cached, balance_cache
 
 router = APIRouter()
 

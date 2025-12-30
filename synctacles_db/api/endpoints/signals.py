@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from synctacles_db.api.dependencies import get_db
+from synctacles_db.api.cache import cached, signals_cache
 from synctacles_db import auth_service
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
@@ -33,6 +34,7 @@ async def get_current_user_from_key(
     }
 
 
+@cached(signals_cache)
 @router.get("/signals")
 async def get_signals(
     current_user: dict = Depends(get_current_user_from_key),

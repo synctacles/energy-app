@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from synctacles_db.api.dependencies import get_db
+from synctacles_db.api.cache import cached, generation_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
 router = APIRouter(prefix="", tags=["generation"])
 
 
+@cached(generation_cache)
 @router.get("/generation-mix")
 async def get_generation_mix(
     limit: int = Query(default=10, ge=1, le=100),

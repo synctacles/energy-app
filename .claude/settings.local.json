@@ -12,7 +12,16 @@
       "Bash(find:*)",
       "Bash(mkdir:*)",
       "Bash(grep:*)",
-      "Bash(bash -n:*)"
+      "Bash(bash -n:*)",
+      "Bash(rsync:*)",
+      "Bash(systemctl restart:*)",
+      "Bash(time curl -s http://localhost:8000/api/v1/generation-mix)",
+      "Bash(chmod:*)",
+      "Bash(chown:*)",
+      "Bash(__NEW_LINE__ chown energy-insights-nl:energy-insights-nl /opt/github/ha-energy-insights-nl/scripts/maintenance/backup.sh /opt/github/ha-energy-insights-nl/scripts/maintenance/restore.sh /opt/github/ha-energy-insights-nl/scripts/maintenance/health-check.sh)",
+      "Bash(__NEW_LINE__ chown energy-insights-nl:energy-insights-nl /opt/github/ha-energy-insights-nl/scripts/validation/validate_setup.sh)",
+      "Bash(__NEW_LINE__ echo \"✅ Permissions fixed\")",
+      "Bash(su - energy-insights-nl -c \"\ncd /opt/github/ha-energy-insights-nl\ngit add -A\ngit commit -m ''F7: Technical hardening - caching, deploy/maintenance scripts\n\n- Added in-memory caching for API endpoints \\(TTL: 1-60 min\\)\n- Created deploy.sh with backup and rollback support\n- Created rollback.sh for quick recovery\n- Created backup.sh + restore.sh for database\n- Created health-check.sh for monitoring\n- Created validate_setup.sh for setup verification\n- Added daily backup cron job \\(03:00\\)\n\nScripts structure:\n  scripts/deploy/      - deploy.sh, rollback.sh\n  scripts/maintenance/ - backup.sh, restore.sh, health-check.sh\n  scripts/validation/  - validate_setup.sh''\ngit push origin main\n\")"
     ]
   }
 }

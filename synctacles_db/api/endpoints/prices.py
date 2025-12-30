@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from synctacles_db.models import NormEntsoeA44
 from synctacles_db.cache import api_cache
+from synctacles_db.api.cache import cached, prices_cache
 
 router = APIRouter()
 

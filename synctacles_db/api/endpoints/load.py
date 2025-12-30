@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from synctacles_db.api.dependencies import get_db
+from synctacles_db.api.cache import cached, load_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
 router = APIRouter(prefix="", tags=["load"])
 
 
+@cached(load_cache)
 @router.get("/load")
 async def get_load(
     db: Session = Depends(get_db)
