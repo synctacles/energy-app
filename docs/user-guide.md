@@ -1,4 +1,4 @@
-# SYNCTACLES User Guide
+# Energy Insights NL User Guide
 
 **Get real-time Dutch energy data in Home Assistant**
 
@@ -8,8 +8,7 @@
 
 ### 1. Create Account
 
-Visit: https://synctacles.io/docs  
-Click: **Sign Up**
+Visit: Your API provider's website or see [Deployment Guide](deployment.md) to host your own instance.
 
 Enter your email → Receive API key **immediately**
 
@@ -32,9 +31,9 @@ Store `api_key` securely (password manager, .env file).
 **Method 1: HACS (Recommended)**
 
 1. HACS → Integrations → **⋮** → Custom repositories
-2. Add: `https://github.com/DATADIO/synctacles-ha`
+2. Add: `https://github.com/DATADIO/ha-energy-insights-nl`
 3. Category: Integration
-4. Search: **SYNCTACLES** → Install
+4. Search: **Energy Insights NL** → Install
 5. Restart Home Assistant
 
 **Method 2: Manual**
@@ -42,7 +41,7 @@ Store `api_key` securely (password manager, .env file).
 ```bash
 # SSH into Home Assistant
 cd /config/custom_components
-git clone https://github.com/DATADIO/synctacles-ha.git synctacles
+git clone https://github.com/DATADIO/ha-energy-insights-nl.git energy_insights_nl
 
 # Restart HA
 ha core restart
@@ -53,9 +52,9 @@ ha core restart
 ### 3. Configure Integration
 
 1. Settings → Devices & Services → **Add Integration**
-2. Search: **SYNCTACLES**
+2. Search: **Energy Insights NL**
 3. Enter:
-   - **API Endpoint:** `https://synctacles.io`
+   - **API Endpoint:** Your API server URL (e.g., `http://192.168.1.100:8000`)
    - **API Key:** (paste from step 1)
 4. Submit → **3 sensors created** ✓
 
@@ -63,24 +62,25 @@ ha core restart
 
 ### 4. Verify Installation
 
-Navigate: **Settings → Devices & Services → SYNCTACLES**
+Navigate: **Settings → Devices & Services → Energy Insights NL**
 
 **Expected entities:**
-- `sensor.synctacles_generation_total`
-- `sensor.synctacles_load_actual`
-- `sensor.synctacles_balance_delta`
+- `sensor.energy_insights_nl_generation_total`
+- `sensor.energy_insights_nl_load_actual`
+- `sensor.energy_insights_nl_balance_delta`
 
 **Check state:**
 ```yaml
 # Developer Tools → States
-sensor.synctacles_generation_total:
+sensor.energy_insights_nl_generation_total:
   state: 12345  # MW
   attributes:
-    quality_status: OK  # ✅ Safe for automation
+    quality: FRESH  # ✅ Safe for automation
     source: ENTSO-E
     solar_mw: 0.0
     wind_offshore_mw: 1234.5
     gas_mw: 3210.8
+    renewable_percentage: 42.3
     ...
 ```
 
@@ -356,41 +356,45 @@ curl -X POST -H "X-API-Key: YOUR_KEY" \
 ## Support & Resources
 
 **Documentation:**
-- API Reference: https://synctacles.io/docs/api-reference
-- Troubleshooting: https://synctacles.io/docs/troubleshooting
-- Developer Guide: https://synctacles.io/docs/developer
+- [Architecture Guide](ARCHITECTURE.md) - System design
+- [API Reference](api-reference.md) - API endpoint docs
+- [Troubleshooting Guide](troubleshooting.md) - Common issues
+- [Deployment Guide](deployment.md) - Setup instructions
 
 **Community:**
-- GitHub Issues: https://github.com/DATADIO/synctacles-ha/issues
-- Home Assistant Community: [SYNCTACLES thread](https://community.home-assistant.io)
-
-**Contact:**
-- Email: support@synctacles.io
-- Response time: < 24 hours
+- GitHub Issues: https://github.com/DATADIO/ha-energy-insights-nl/issues
+- Home Assistant Community: Check #integrations channel
 
 ---
 
 ## FAQ
 
-**Q: Does SYNCTACLES work outside Netherlands?**  
-A: V1 = Netherlands only. V2 (2026) = Belgium, Germany, France.
+**Q: What countries are supported?**
+A: V1 = Netherlands only. Future versions will add Belgium, Germany, France.
 
-**Q: Is data real-time?**  
+**Q: Is data real-time?**
 A: Near real-time (< 15 min lag from ENTSO-E/TenneT sources).
 
-**Q: Can I use SYNCTACLES for trading?**  
+**Q: Can I use the data for trading?**
 A: No - data is for monitoring only, not financial decisions.
 
-**Q: What happens if I exceed rate limit?**  
+**Q: What happens if I exceed rate limits?**
 A: API returns 429 error, HA sensors show "unavailable" until reset (00:00 UTC).
 
-**Q: How accurate is generation mix data?**  
+**Q: How accurate is the generation mix?**
 A: Primary source (ENTSO-E) = 95%+ accuracy. Fallback (Energy-Charts) = 90-93%.
 
-**Q: Does SYNCTACLES store my data?**  
-A: Only email + API usage logs (30-day retention). No personal energy data stored.
+**Q: Is my energy data stored?**
+A: No - we only store API usage logs (30-day retention). Your personal data isn't tracked.
 
 ---
 
-**Last Updated:** 2025-12-21  
+**Last Updated:** 2025-12-30
 **Version:** 1.0.0
+**Status:** Production Ready
+
+**See Also:**
+- [Architecture Guide](ARCHITECTURE.md) - How the system works
+- [API Reference](api-reference.md) - Complete API documentation
+- [Deployment Guide](deployment.md) - Setup your own server
+- [Troubleshooting Guide](troubleshooting.md) - Common issues & fixes

@@ -67,3 +67,6 @@ tests/scripts/test_unified_service.py
 
 # IDE/Editor local state
 .claude/
+
+# Skills - Personal profile (not in repo)
+docs/skills/SKILL_07_PERSONAL_PROFILE.md

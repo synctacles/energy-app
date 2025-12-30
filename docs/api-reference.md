@@ -1,8 +1,8 @@
-# SYNCTACLES API Reference
+# Energy Insights NL - API Reference
 
-**Version:** 1.0.0  
-**Base URL:** `https://synctacles.io`  
-**Authentication:** API Key (X-API-Key header)
+**Version:** 1.0.0
+**Base URL:** `http://localhost:8000` (development) | `https://api.example.com` (production)
+**Authentication:** API Key (X-API-Key header) - see [Deployment Guide](deployment.md) for setup
 
 ---
 
@@ -77,112 +77,103 @@ X-API-Key: YOUR_CURRENT_API_KEY
 
 All endpoints require `X-API-Key` header.
 
-### GET /api/v1/generation-mix
-**Electricity generation by source** (Netherlands)
+### GET /v1/generation/current
+**Current electricity generation by source** (Netherlands)
 
-**Query Parameters:**
-- `hours` (optional, default: 72) - Historical data window (max: 168)
-- `include_forecast` (optional, default: false) - Include future projections
+**Headers:**
+```
+X-API-Key: YOUR_API_KEY
+```
 
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "timestamp": "2025-12-21T02:00:00Z",
-      "solar_mw": 0.0,
-      "wind_offshore_mw": 1234.5,
-      "wind_onshore_mw": 543.2,
-      "gas_mw": 3210.8,
-      "coal_mw": 0.0,
-      "nuclear_mw": 482.0,
-      "biomass_mw": 127.4,
-      "waste_mw": 56.3,
-      "other_mw": 23.1,
-      "total_mw": 5677.3
-    }
-  ],
-  "meta": {
+  "timestamp": "2025-12-30T14:30:00Z",
+  "data": {
+    "biomass_mw": 375.0,
+    "wind_onshore_mw": 2150.5,
+    "wind_offshore_mw": 680.0,
+    "solar_mw": 0.0,
+    "nuclear_mw": 485.0,
+    "gas_mw": 1850.0,
+    "coal_mw": 400.0,
+    "waste_mw": 150.0,
+    "other_mw": 280.5,
+    "total_mw": 6370.0
+  },
+  "metadata": {
     "source": "ENTSO-E",
-    "quality_status": "OK",
-    "timestamp_utc": "2025-12-21T02:15:00Z",
-    "data_age_seconds": 900,
-    "next_update_utc": "2025-12-21T02:30:00Z"
+    "quality": "STALE",
+    "age_seconds": 2145,
+    "confidence_score": 92,
+    "renewable_percentage": 42.3
   }
 }
 ```
 
-**Quality Status:**
-- `OK` - Fresh data (< 15 min old), safe for automation
-- `FALLBACK` - Secondary source (Energy-Charts), use with caution
-- `STALE` - Old data (15 min - 1 hour), verify before automation
-- `NO_DATA` - No data available, do not automate
+**Quality Values:**
+- `FRESH` - Data < 30 min old, use immediately
+- `STALE` - Data 30-150 min old (normal for ENTSO-E A75)
+- `FALLBACK` - Using Energy-Charts (ENTSO-E unavailable)
+- `UNAVAILABLE` - No data available
 
-**Rate Limit:** 1000 requests/day (free tier)
+**Update Interval:** Every 15 minutes
+**Data Source:** ENTSO-E A75 (authoritative) → Energy-Charts (fallback)
 
 ---
 
-### GET /api/v1/load
-**Electricity consumption** (Netherlands)
-
-**Query Parameters:**
-- `hours` (optional, default: 72) - Historical data window
-- `forecast_hours` (optional, default: 24) - Future forecast window
+### GET /v1/load/current
+**Current grid load (actual + forecast)** (Netherlands)
 
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "timestamp": "2025-12-21T02:00:00Z",
-      "actual_mw": 12345.6,
-      "forecast_mw": 12778.3
-    }
-  ],
-  "meta": {
+  "timestamp": "2025-12-30T14:30:00Z",
+  "data": {
+    "load_actual_mw": 5200.0,
+    "load_forecast_mw": 5100.0,
+    "load_difference_mw": 100.0
+  },
+  "metadata": {
     "source": "ENTSO-E",
-    "quality_status": "OK",
-    "data_age_seconds": 1200
+    "quality": "STALE",
+    "age_seconds": 1800,
+    "confidence_score": 95
   }
 }
 ```
 
+**Update Interval:** Every 15 minutes
+**Data Source:** ENTSO-E A65 (authoritative) → Energy-Charts (fallback)
+
 ---
 
-### GET /api/v1/balance
-**Grid balance delta** (Netherlands)
-
-**Query Parameters:**
-- `hours` (optional, default: 72) - Historical data window
+### GET /v1/balance/current
+**Current grid balance delta** (Netherlands)
 
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "timestamp": "2025-12-21T02:00:00Z",
-      "delta_mw": 219.9,
-      "price_eur_mwh": 61.56,
-      "platforms": {
-        "aFRR": 120.3,
-        "IGCC": 45.2,
-        "MARI": 32.1,
-        "mFRRda": 15.8,
-        "PICASSO": 6.5
-      }
-    }
-  ],
-  "meta": {
+  "timestamp": "2025-12-30T14:30:00Z",
+  "data": {
+    "balance_mw": 125.0,
+    "imbalance_price_eur": 2.50
+  },
+  "metadata": {
     "source": "TenneT",
-    "quality_status": "OK",
-    "data_age_seconds": 300
+    "quality": "FRESH",
+    "age_seconds": 60
   }
 }
 ```
 
-**Balance Delta:**
-- Positive: Generation > Load (surplus)
-- Negative: Load > Generation (deficit)
+**Balance Delta Interpretation:**
+- **Positive (>0):** Generation > Load = surplus energy (good for charging)
+- **Negative (<0):** Load > Generation = deficit (critical periods)
+- **Zero:** Perfectly balanced grid (rare)
+
+**Update Interval:** Every 5 minutes (rate-limited from TenneT)
+**Data Source:** TenneT API (no fallback available)
 
 ---
 
@@ -281,12 +272,15 @@ curl -H "X-API-Key: YOUR_API_KEY" \
 
 ---
 
-## Support
+## See Also
 
-**Email:** support@synctacles.io  
-**GitHub:** [DATADIO/synctacles-repo](https://github.com/DATADIO/synctacles-repo) (issues)  
-**Documentation:** https://synctacles.io/docs
+- [Architecture Guide](ARCHITECTURE.md) - System design & data flow
+- [Deployment Guide](deployment.md) - Installation & operations
+- [Troubleshooting Guide](troubleshooting.md) - Common issues & fixes
+- [Home Assistant Integration](api/signals.md) - HA sensor setup
 
 ---
 
-**Last Updated:** 2025-12-21
+**Last Updated:** 2025-12-30
+**Status:** Production Ready
+**Repository:** [DATADIO/ha-energy-insights-nl](https://github.com/DATADIO/ha-energy-insights-nl)
