@@ -64,3 +64,29 @@ BRAND_SLUG = optional_env("BRAND_SLUG", "synctacles")
 
 # Log Level
 LOG_LEVEL = optional_env("LOG_LEVEL", "INFO")
+
+# =============================================================================
+# Settings object for backward compatibility
+# =============================================================================
+class Settings:
+    """Settings wrapper for backward compatibility with API code."""
+    def __init__(self):
+        self.database_url = DATABASE_URL
+        self.db_host = DB_HOST
+        self.db_port = DB_PORT
+        self.db_name = DB_NAME
+        self.db_user = DB_USER
+        self.install_path = INSTALL_PATH
+        self.log_path = LOG_PATH
+        self.entsoe_api_key = ENTSOE_API_KEY
+        self.admin_api_key = ADMIN_API_KEY
+        self.api_port = API_PORT
+        self.api_host = API_HOST
+        self.brand_name = BRAND_NAME
+        self.brand_slug = BRAND_SLUG
+
+settings = Settings()
+
+# Fix: add missing API attributes
+Settings.api_title = property(lambda self: f"{self.brand_name} API")
+Settings.api_description = property(lambda self: f"Energy data API for {self.brand_name}")

@@ -16,13 +16,15 @@ router = APIRouter(prefix="/v1", tags=["signals"])
 
 
 async def get_current_user_from_key(
-    x_api_key: str = Header(..., alias="X-API-Key"),
+    x_api_key: str = Header(None, alias="X-API-Key"),
     db: Session = Depends(get_db)
 ) -> dict:
     """Validate API key and return user info"""
-    user = auth_service.validate_api_key(db, x_api_key)
-    if not user:
+    user = auth_service.validate_api_key(db, x_api_key) if x_api_key else None
+    if x_api_key and not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
+    if not user:
+        return {"user_id": 0, "email": "anonymous", "tier": "free"}
 
     return {
         "user_id": user.id,

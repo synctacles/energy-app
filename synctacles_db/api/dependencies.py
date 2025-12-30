@@ -1,18 +1,32 @@
 """
-Shared dependencies: database sessions
+Shared dependencies: database sessions with lazy initialization
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
+_engine = None
+_SessionLocal = None
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def _get_engine():
+    global _engine
+    if _engine is None:
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise RuntimeError("DATABASE_URL environment variable not set")
+        _engine = create_engine(database_url, pool_pre_ping=True)
+    return _engine
+
+def _get_session_local():
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
+    return _SessionLocal
 
 def get_db() -> Generator[Session, None, None]:
     """Dependency for database sessions"""
+    SessionLocal = _get_session_local()
     db = SessionLocal()
     try:
         yield db

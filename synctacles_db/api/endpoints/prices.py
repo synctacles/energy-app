@@ -1,3 +1,4 @@
+import os
 """
 ENTSO-E A44: Day-ahead electricity prices
 """
@@ -20,7 +21,7 @@ from synctacles_db.cache import api_cache
 
 router = APIRouter()
 
-DB_URL = "postgresql://synctacles@localhost:5432/synctacles"
+DB_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 
