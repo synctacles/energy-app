@@ -1,184 +1,157 @@
 # Skills Documentation
 
-This directory contains technical skills and specifications for the SYNCTACLES energy insights platform. These skills document architectural decisions, installation procedures, and deployment workflows.
+Comprehensive technical and operational documentation for the SYNCTACLES energy insights platform.
 
 ---
 
-## Skills Overview
+## Overview
 
-### SKILL 9 — SYNCTACLES INSTALLER SPECS
+The SYNCTACLES project is organized around **8 core Skills** that document every aspect of the system: from hard rules and architecture to specific implementation details, deployment procedures, and hardware requirements.
 
+Think of Skills as the "knowledge base" of the project—everything a developer, operator, or contributor needs to understand how the system works and how to work with it.
+
+---
+
+## All Skills
+
+### SKILL 1 — HARD RULES
+**File:** [SKILL_01_HARD_RULES.md](./SKILL_01_HARD_RULES.md)
+- Fundamental non-negotiable rules
+- KISS, Fail-Fast, Brand-Free principles
+- Template system with {{PLACEHOLDER}}
+- Environment variables and configuration
+- Data quality metadata standards
+- For: Everyone on the project
+
+### SKILL 2 — SYSTEM ARCHITECTURE  
+**File:** [SKILL_02_ARCHITECTURE.md](./SKILL_02_ARCHITECTURE.md)
+- 3-layer data pipeline design
+- Components: Collectors, Importers, Normalizers, API
+- Multi-tenant deployment model
+- Database schema with quality metadata
+- Fallback strategy and observability
+- For: Architects and developers
+
+### SKILL 3 — CODING STANDARDS
+**File:** [SKILL_03_CODING_STANDARDS.md](./SKILL_03_CODING_STANDARDS.md)
+- Python PEP 8 style guide
+- Fail-fast error handling
+- Code comments and docstrings
+- Configuration management patterns
+- Testing and logging standards
+- For: Python developers
+
+### SKILL 4 — PRODUCT REQUIREMENTS
+**File:** [SKILL_04_PRODUCT_REQUIREMENTS.md](./SKILL_04_PRODUCT_REQUIREMENTS.md)
+- What SYNCTACLES does (features, capabilities)
+- Real-time generation, load, prices, balance data
+- Home Assistant integration
+- Roadmap and success metrics
+- For: Product managers and users
+
+### SKILL 5 — COMMUNICATION RULES
+**File:** [SKILL_05_COMMUNICATION_RULES.md](./SKILL_05_COMMUNICATION_RULES.md)
+- Error message structure: [WHAT] - [WHY] - [HOW TO FIX]
+- Code comments and documentation style
+- Commit message format
+- Naming conventions
+- Team communication guidelines
+- For: Everyone writing code or docs
+
+### SKILL 6 — DATA SOURCES
+**File:** [SKILL_06_DATA_SOURCES.md](./SKILL_06_DATA_SOURCES.md)
+- ENTSO-E (generation, load, prices)
+- TenneT (grid frequency, reserves)
+- Energy-Charts (fallback/modeled data)
+- API details, rate limits, reliability
+- Data quality scoring and fallback strategy
+- For: Developers working with data
+
+### SKILL 7 — PERSONAL PROFILE
+**File:** [SKILL_07_PERSONAL_PROFILE.md](./SKILL_07_PERSONAL_PROFILE.md)
+- ⚠️ **PERSONAL INFORMATION - NOT IN PUBLIC REPO**
+- Excluded via .gitignore
+- Project lead bio, role, communication style
+- For: Direct team members only
+
+### SKILL 8 — HARDWARE PROFILE
+**File:** [SKILL_08_HARDWARE_PROFILE.md](./SKILL_08_HARDWARE_PROFILE.md)
+- System requirements (CPU, RAM, storage)
+- Supported operating systems
+- Network configuration and ports
+- Performance benchmarks
+- Scaling considerations
+- Infrastructure as Code (Docker, Terraform)
+- For: DevOps and system administrators
+
+### SKILL 9 — INSTALLER SPECS
 **File:** [SKILL_09_INSTALLER_SPECS.md](./SKILL_09_INSTALLER_SPECS.md)
-
-Server installation script specifications for the brand-free template system. Covers FASE 0-6 installation workflow with ENV-driven configuration that enables multi-tenant deployments without git conflicts.
-
-**Key Topics:**
-- Brand-free repository principles
-- FASE 0: Interactive brand configuration
-- Directory structure (repo vs runtime)
+- FASE 0-6 installation workflow
+- Brand-free template system implementation
+- Environment variable configuration
 - Python fail-fast patterns
-- Validation checklists
-- Migration from branded repositories
-
-**Use When:** Setting up a fresh SYNCTACLES installation or understanding the installation architecture.
-
----
+- For: DevOps and installers
 
 ### SKILL 10 — DEPLOYMENT WORKFLOW
-
 **File:** [SKILL_10_DEPLOYMENT_WORKFLOW.md](./SKILL_10_DEPLOYMENT_WORKFLOW.md)
+- 6-phase deployment process
+- Pre-deploy validation and backup
+- File syncing and migrations
+- Post-deploy validation and rollback
+- Emergency procedures
+- For: Operations and release managers
 
-Deployment strategy for moving code from development to production. Defines the complete workflow including pre-deploy validation, backup, file syncing, post-deploy actions, and rollback procedures.
-
-**Key Topics:**
-- DEV → PROD deployment process (6 phases)
-- Sync manifest format
-- Version tracking and semantic versioning
-- Emergency procedures (API down, migration failed, service issues)
-- Pre-deploy checklist
-- Feature deployment workflow
-
-**Use When:** Deploying changes to production or understanding the deployment architecture.
-
----
-
-### SKILL 12 — BRAND-FREE TEMPLATE ARCHITECTURE
-
+### SKILL 12 — BRAND-FREE ARCHITECTURE
 **File:** [SKILL_12_BRAND_FREE_ARCHITECTURE.md](./SKILL_12_BRAND_FREE_ARCHITECTURE.md)
-
-Architectural principles for brand-agnostic repository design enabling multi-tenant deployments. Explains the philosophy, patterns, and best practices for maintaining a single codebase deployed with different branding across multiple servers.
-
-**Key Topics:**
-- Core principles (template-based, ENV-driven, fail-fast)
-- Template system with {{PLACEHOLDER}} format
-- Python fail-fast patterns
-- .gitignore strategy
-- Multi-tenant deployment patterns (regional, white-label, environment segregation)
-- Template generation strategies
-- Testing brand-free code
-- Security considerations
-- Best practices and code review checklist
-
-**Use When:** Designing multi-tenant deployments or understanding the brand-free architecture philosophy.
+- Multi-tenant deployment patterns
+- Template system philosophy
+- Regional instances, white-label SaaS, environment segregation
+- Security and best practices
+- Testing and migration strategies
+- For: Architects and DevOps
 
 ---
 
-## Skill Dependencies
+## Recommended Reading Order
 
-```
-SKILL 12 (Brand-Free Architecture)
-    ↓
-    ├─→ SKILL 9 (Installer Specs)
-    │
-    └─→ SKILL 10 (Deployment Workflow)
-```
+### New Team Members
+1. SKILL 1 - Rules (5 min)
+2. SKILL 2 - Architecture (20 min)
+3. SKILL 4 - Product (10 min)
+4. SKILL 5 - Communication (10 min)
+5. Others as needed
 
-**Recommended Reading Order:**
-1. **SKILL 12** - Understand the why and philosophy
-2. **SKILL 9** - Implement the installation process
-3. **SKILL 10** - Execute the deployment workflow
+### Developers
+1. SKILL 1 - Rules (mandatory)
+2. SKILL 3 - Coding Standards (mandatory)
+3. SKILL 2 - Architecture
+4. SKILL 5 - Communication
+5. SKILL 6 - Data Sources
 
----
-
-## Key Concepts
-
-### Brand-Free Repository
-The repository contains only generic code and templates without specific brand names, domains, or configuration values. All branding is injected at installation time via `.env` configuration.
-
-### Template System
-Uses `{{VARIABLE_NAME}}` placeholders in template files that are processed into generated files (`.env`, `manifest.json`) during installation (FASE 0).
-
-### Environment-Driven Configuration
-All configuration values come from environment variables defined in `/opt/.env`. The Python codebase uses fail-fast patterns to raise errors when required variables are missing.
-
-### Multi-Tenant Deployment
-The same repository code can be deployed to multiple servers/tenants with different branding and configurations, each determined by their own `.env` file.
-
-### Installation Phases (FASE 0-6)
-
-- **FASE 0**: Interactive brand configuration (generates .env and manifest.json)
-- **FASE 1**: System updates
-- **FASE 2**: Software stack installation
-- **FASE 3**: Security configuration
-- **FASE 4**: Python environment setup
-- **FASE 5**: Production services
-- **FASE 6**: Development tools (optional)
+### DevOps/Infrastructure
+1. SKILL 1 - Rules
+2. SKILL 8 - Hardware
+3. SKILL 9 - Installer
+4. SKILL 10 - Deployment
+5. SKILL 12 - Brand-Free
 
 ---
 
-## Common Tasks
+## Quick Reference
 
-### Fresh Installation
-1. Clone the brand-free repository
-2. Run `FASE 0` - answer prompts for brand configuration
-3. Run `FASE 1-6` - install and configure services
-4. Verify installation with validation checklist
-
-### Deploying Changes
-1. Commit changes to git
-2. Run pre-deploy checks
-3. Create backup of current production
-4. Sync files according to sync-manifest.txt
-5. Run database migrations
-6. Restart services
-7. Validate with health checks
-8. Rollback if validation fails
-
-### Adding a New Tenant
-1. Create new .env file with tenant-specific configuration
-2. Generate manifest.json from template
-3. Deploy using the same installer (FASE 0-6)
-4. Each tenant is independently configured and isolated
-
----
-
-## Architecture Diagram
-
-```
-Git Repository (Brand-Free)
-├── Code (generic, no hardcoded branding)
-├── Templates (.template files)
-└── Configuration Templates (.env.example)
-         ↓
-    FASE 0 (Interactive)
-         ↓
-    Generated Configuration
-    ├── .env (tenant-specific)
-    └── manifest.json (generated)
-         ↓
-    FASE 1-6 (Installation)
-         ↓
-    Deployed Tenant Instance
-    ├── Tenant A (Brand A, Domain A)
-    ├── Tenant B (Brand B, Domain B)
-    └── Tenant C (Brand C, Domain C)
-```
-
----
-
-## Security Considerations
-
-- **Never commit .env** files to git (use .gitignore)
-- **Never commit generated** manifest.json to git
-- **Protect .env** file permissions (chmod 600)
-- **Use fail-fast patterns** to prevent misconfiguration
-- **Validate input** before template processing
-- **Store secrets** in .env, never in code
-
----
-
-## Related Documentation
-
-- Installer specification: See SKILL 9
-- Deployment procedures: See SKILL 10
-- Brand-free architecture: See SKILL 12
-- Coding standards: See SKILL 3
-- System architecture: See SKILL 2
+**Looking for...** → **See SKILL...**
+- Code standards → SKILL 3
+- Deployment steps → SKILL 9, 10
+- Features → SKILL 4
+- Architecture → SKILL 2
+- Rules → SKILL 1
+- Documentation style → SKILL 5
+- Data sources → SKILL 6
+- Hardware requirements → SKILL 8
 
 ---
 
 ## Version History
 
-- **v3.0** (2025-12-28): Brand-free template system with FASE 0
-- **v2.0** (2025-12-21): Deployment workflow formalization
-- **v1.0** (2025-12-21): Initial skill documentation
+- **v2.0** (2025-12-30): Complete suite (SKILL 1-12)
+- **v1.0** (2025-12-30): Initial skills (SKILL 9, 10, 12)
