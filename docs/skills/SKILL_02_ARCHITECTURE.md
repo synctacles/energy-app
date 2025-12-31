@@ -350,33 +350,67 @@ CREATE TABLE norm_generation (
 
 ## FALLBACK STRATEGY
 
-When primary data sources fail, system automatically uses fallback.
+When primary data sources fail, system automatically uses fallback cascade.
+
+### Freshness Thresholds (per data source)
+
+Based on real-world measurements and structural delays:
+
+| Source | FRESH | STALE | Fallback Trigger | Notes |
+|--------|-------|-------|------------------|-------|
+| ENTSO-E | < 90 min | 90-180 min | > 180 min | ~60min structural delay + 30min buffer |
+| TenneT | < 15 min | 15-30 min | > 30 min | Real-time grid data |
+| Energy-Charts | < 240 min | 240-480 min | > 480 min | Modeled data, typically 3+ hours behind |
+| Cache | < 120 min | 120-360 min | > 360 min | Last known good value |
 
 ### Primary → Fallback Cascade
 
 ```
 Generation Data:
-  1st choice: ENTSO-E A75 (real-time, 15-min)
-  2nd choice: Energy-Charts (modeled, hourly)
-  3rd choice: Last known good value
+  1st choice: ENTSO-E A75 (FRESH < 90min, STALE 90-180min)
+  2nd choice: Energy-Charts (FRESH < 240min, hybrid merge for NULLs)
+  3rd choice: Known Capacity (pragmatic estimates)
+  4th choice: Cache (in-memory, 5-min TTL)
+  5th choice: UNAVAILABLE
 
 Load Data:
-  1st choice: ENTSO-E A65 (real-time, 15-min)
-  2nd choice: Energy-Charts (modeled, hourly)
-  3rd choice: Forecast value
+  1st choice: ENTSO-E A65 (FRESH < 90min, STALE 90-180min)
+  2nd choice: Energy-Charts (use total_mw as load proxy)
+  3rd choice: Cache
+  4th choice: UNAVAILABLE
 
 Prices:
-  1st choice: ENTSO-E A44 (real-time, hourly)
+  1st choice: ENTSO-E A44 (hourly)
   2nd choice: Energy-Charts (estimated)
 ```
 
-### Quality Indicators
+### Quality Status Values
 
-API always returns quality score so clients can decide whether to use data:
-- `quality: 0.99` - Use normally
-- `quality: 0.85` - Use, but note it's slightly stale
-- `quality: 0.60` - Use cautiously, prefer other sources
-- `quality: <0.5` - Use only if no alternative
+`quality_status` field returned in API responses:
+
+- `FRESH` - Data within fresh threshold (authoritative, use normally)
+- `STALE` - Data within stale threshold (slightly delayed, usable)
+- `PARTIAL` - Hybrid merge (ENTSO-E + Energy-Charts NULL filling)
+- `FALLBACK` - Using fallback source due to primary unavailable
+- `CACHED` - Using in-memory cache (data age unknown)
+- `UNAVAILABLE` - No data available from any source
+
+### Fallback Features
+
+**Hybrid Merge for Generation:**
+- Always attempts Energy-Charts to fill ENTSO-E NULL values
+- Tracks which fields come from which source (`_field_sources` metadata)
+- Preserves data integrity by not inventing values
+
+**Circuit Breaker:**
+- Skips Energy-Charts for 2 hours after HTTP 404 error
+- Prevents cascade failures and respects API limits
+- Automatically retries after cooldown
+
+**Data Transparency:**
+- Every API response includes source and quality metadata
+- Clients can decide whether to use based on freshness
+- `_field_sources` shows which generator types are from which source
 
 ---
 

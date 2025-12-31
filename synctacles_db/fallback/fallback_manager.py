@@ -20,6 +20,7 @@ import logging
 import math
 
 from synctacles_db.fallback.energy_charts_client import EnergyChartsClient
+from synctacles_db.freshness_config import FRESHNESS_THRESHOLDS, QualityStatus, get_quality_status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,17 +45,11 @@ KNOWN_CAPACITY_NL = {
 
 class FallbackManager:
     """Manages fallback data sources with hybrid merge capability."""
-    
-    # Component-specific thresholds (minutes)
+
+    # Component-specific thresholds (minutes) - maps components to freshness_config sources
     THRESHOLDS = {
-        "generation_mix": {
-            "fresh": 30,   # < 30 min = fresh
-            "stale": 150,  # 30-150 min = acceptable (ENTSO-E A75 has structural delay)
-        },
-        "load": {
-            "fresh": 15,   # < 15 min = fresh
-            "stale": 60,   # 15-60 min = acceptable
-        },
+        "generation_mix": FRESHNESS_THRESHOLDS["ENTSO-E"],  # Use ENTSO-E thresholds
+        "load": FRESHNESS_THRESHOLDS["ENTSO-E"],            # Use ENTSO-E thresholds
     }
     
     @staticmethod

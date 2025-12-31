@@ -193,40 +193,45 @@ GET https://www.tennet.nl/api/grid-data/reserve-margin
 
 **API Endpoint:**
 ```
-GET https://api.energy-charts.info/v1/power
-  ?country=de  # Country code (de=Germany, nl=Netherlands)
-  &resolution=15m
+GET https://api.energy-charts.info/public_power
+  ?country=nl  # Country code (de=Germany, nl=Netherlands)
 ```
 
 **Example Response (JSON):**
 ```json
 {
-  "data": [
-    {
-      "time": "2025-12-30T10:00Z",
-      "solar_mw": 420,
-      "wind_onshore_mw": 1200,
-      "wind_offshore_mw": 600,
-      "hydro_mw": 150
-    }
+  "unix_seconds": [1704024000, 1704024900, ...],
+  "production_types": [
+    {"name": "solar", "data": [420, 425, ...]},
+    {"name": "wind_onshore", "data": [1200, 1210, ...]},
+    {"name": "wind_offshore", "data": [600, 610, ...]},
+    ...
   ]
 }
 ```
 
-**Energy-Charts Details:**
+**Energy-Charts Details (Measured):**
 
-- **Base URL:** https://api.energy-charts.info/v1/
+- **Base URL:** https://api.energy-charts.info/
 - **Authentication:** None (public, rate-limited)
 - **Rate Limit:** 10 requests per minute (for free tier)
 - **Response Format:** JSON
+- **Response Time:** ~0.33 seconds (fast)
 - **Timeout:** 30 seconds
-- **Data Freshness:** Updated daily (not real-time)
+- **Data Freshness:** ~3+ hours behind current time (modeled estimate)
+- **Update Frequency:** Updated regularly but with significant delay
 - **Accuracy:** ±5-10% for generation estimation
+
+**Real-World Measurements (2025-12-30):**
+- Response time: 330ms
+- Data age: ~187 minutes old
+- Status: Reliable, but data is significantly delayed
 
 **Reliability:**
 - Highly reliable (model doesn't fail)
 - Used as fallback specifically for reliability
-- Data is modeled, not measured (lower accuracy)
+- Data is modeled, not measured (lower accuracy than ENTSO-E)
+- Circuit breaker: Skips for 2h after HTTP 404 to respect rate limits
 
 **Cost:** Free (public API)
 
@@ -234,58 +239,109 @@ GET https://api.energy-charts.info/v1/power
 
 ## FALLBACK STRATEGY
 
-When to use fallback:
+Automated fallback cascade when primary sources fail or are too stale.
+
+### Freshness Thresholds
+
+| Source | FRESH | STALE | Fallback Trigger | Structural Delay |
+|--------|-------|-------|------------------|------------------|
+| ENTSO-E | < 90 min | 90-180 min | > 180 min | ~60 min avg |
+| TenneT | < 15 min | 15-30 min | > 30 min | Real-time |
+| Energy-Charts | < 240 min | 240-480 min | > 480 min | ~187 min (3h+) |
+| Cache | < 120 min | 120-360 min | > 360 min | Variable |
+
+**Note:** ENTSO-E has structural ~60 minute delay due to upstream data processing. Thresholds account for this plus 30-minute buffer.
 
 ### Generation Data Fallback
 
 ```
 Try in order:
-  1. ENTSO-E A75 (real-time, 15-min)
-     - Latest within 20 minutes
-     - Quality > 0.85
+  1. ENTSO-E A75 (measured, 15-min)
+     - Tier: FRESH (< 90 min) or STALE (90-180 min)
+     - Quality: FRESH | STALE
+     - Data age: Typically 55-60 minutes
 
-  2. Energy-Charts model
-     - Last successful update
-     - Quality: 0.6-0.7
+  2. Energy-Charts (modeled, fills NULLs or fallback)
+     - Hybrid merge: Fills ENTSO-E NULL values from Energy-Charts
+     - Complete fallback: If ENTSO-E > 180 min old
+     - Quality: PARTIAL (hybrid) | FALLBACK
+     - Data age: ~3 hours
 
-  3. Last known good value
-     - From previous collection
-     - Quality: 0.3-0.4
+  3. Known Capacity (pragmatic estimates)
+     - Nuclear: 485 MW (Borssele)
+     - Biomass: 350 MW (avg)
+     - Solar: Estimated based on time/season
+     - Quality: PARTIAL (estimates)
 
-  4. None (report error)
-     - Quality: 0.0
+  4. Cache (in-memory, 5-min TTL)
+     - Last successful response
+     - Quality: CACHED
+
+  5. None (report UNAVAILABLE)
+     - Quality: UNAVAILABLE
 ```
 
 ### Load Data Fallback
 
 ```
 Try in order:
-  1. ENTSO-E A65 (real-time, 15-min)
-     - Latest within 20 minutes
-     - Quality > 0.85
+  1. ENTSO-E A65 (measured, 15-min)
+     - Tier: FRESH (< 90 min) or STALE (90-180 min)
+     - Quality: FRESH | STALE
 
-  2. ENTSO-E A65 forecast
-     - Previously published forecast
-     - Quality: 0.7
+  2. Energy-Charts generation total (proxy for load)
+     - If ENTSO-E > 180 min old
+     - Quality: FALLBACK
 
-  3. Last known good value
-     - Quality: 0.3
+  3. Cache (in-memory, 5-min TTL)
+     - Quality: CACHED
+
+  4. None (report UNAVAILABLE)
 ```
 
 ### Price Data Fallback
 
 ```
 Try in order:
-  1. ENTSO-E A44 (real-time)
+  1. ENTSO-E A44 (measured, hourly)
      - Updated daily at 12:42 CET
-     - Quality > 0.9
+     - Quality: FRESH
 
-  2. ENTSO-E A46 (intraday)
-     - Updated continuously
-     - Quality: 0.8
+  2. ENTSO-E A46 (intraday, continuous)
+     - Intraday auction prices
+     - Quality: FRESH | STALE
 
   3. Energy-Charts estimate
-     - Quality: 0.5
+     - Modeled estimate
+     - Quality: FALLBACK
+
+  4. None (report UNAVAILABLE)
+```
+
+### Fallback Features
+
+**Circuit Breaker:**
+- Skips Energy-Charts for 2 hours after HTTP 404 error
+- Prevents cascade failures when EC API is down
+- Automatically retries after cooldown period
+
+**Field Source Tracking:**
+- Generation responses include `_field_sources` showing source of each field
+- Allows clients to assess confidence in specific generator types
+- Example: `{solar_mw: {source: "Energy-Charts"}, wind_onshore_mw: {source: "ENTSO-E"}}`
+
+**Quality Status in Response:**
+```json
+{
+  "data": {...},
+  "meta": {
+    "source": "ENTSO-E",
+    "quality_status": "FRESH",
+    "age_minutes": 58,
+    "fallback_used": false,
+    "field_sources": {...}
+  }
+}
 ```
 
 ---
