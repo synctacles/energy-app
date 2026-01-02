@@ -1,6 +1,16 @@
 """
-Quick FastAPI starter for testing
-Run: python3 start_api.py
+FastAPI Application Implementation
+
+This is the actual FastAPI startup script. It can be run directly or via the wrapper:
+
+Direct (from scripts/):
+    python3 start_api.py
+
+Via wrapper (from root):
+    python3 start_api.py
+
+For production deployments, consider using:
+    gunicorn synctacles_db.api.main:app --workers 4 --bind 0.0.0.0:8000
 """
 import uvicorn
 
