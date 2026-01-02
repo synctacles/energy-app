@@ -77,7 +77,9 @@
       "Bash(journalctl:*)",
       "Bash(systemctl status:*)",
       "Bash(source:*)",
-      "Bash(PYTHONPATH=/opt/energy-insights-nl/app python3:*)"
+      "Bash(PYTHONPATH=/opt/energy-insights-nl/app python3:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: organize repository root - move reports to docs/\n\n- Move completion reports \\(FASE_*_COMPLETION_REPORT.md\\) to docs/reports/\n- Move planning documents \\(CC_PLAN_*, VOORTGANGSRAPPORT_*\\) to docs/reports/\n- Move incident and diagnostic reports to docs/incidents/\n- Remove temporary cc-task-* and CLAUDE_CODE_* files from root\n- Add cc-task-*.md pattern to .gitignore for future development\n\nKeeps root clean with only essential files \\(README, LICENSE, requirements.txt\\)\nwhile preserving historical documentation in organized subdirectories.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(sudo -u energy-insights-nl git push:*)"
     ]
   }
 }
