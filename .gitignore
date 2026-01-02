@@ -70,3 +70,6 @@ tests/scripts/test_unified_service.py
 
 # Skills - Personal profile (not in repo)
 docs/skills/SKILL_07_PERSONAL_PROFILE.md
+
+# Temporary CC work files (development only)
+cc-task-*.md
