@@ -44,11 +44,20 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 ┌─────────────────────────────────────────────────────────────────┐
 │                        EXTERNAL SOURCES                          │
 ├─────────────────┬───────────────────────────────────────────────┤
-│    ENTSO-E      │      Energy-Charts          │    TenneT       │
-│  (A75/A65/A44)  │       (Fallback)            │   (BYO-key)     │
-└────────┬────────┴─────────────┬───────────────┴────────┬────────┘
-         │                      │                       │
-         ▼                      ▼                    (Local in HA only)
+│    ENTSO-E      │      Energy-Charts      │    TenneT (BYO-key) │
+│  (A75/A65/A44)  │       (Fallback)        │   (Client-side HA)  │
+└────────┬────────┴─────────────┬───────────┴────────┬────────────┘
+         │                      │                   │
+         ▼                      ▼             (NOT fetched by server)
+         │                      │                   │
+         │                      │         ╔════════════════════╗
+         │                      │         ║ Home Assistant     ║
+         │                      │         ║ - User provides    ║
+         │                      │         ║   TenneT key       ║
+         │                      │         ║ - Fetches locally  ║
+         │                      │         ║ - Creates sensors  ║
+         │                      │         ║   (balance_delta)  ║
+         │                      │         ╚════════════════════╝
 ┌─────────────────────────────────────────────────────────────────┐
 │                   LAYER 1: COLLECTORS                            │
 │  synctacles_db/collectors/                                       │
@@ -165,8 +174,10 @@ The 3-layer architecture (Collectors → Importers → Normalizers → API) prov
 - `entso_e_a75_generation.py` - Generation mix (9 PSR types), 15-min interval
 - `entso_e_a65_load.py` - Load actual + forecast, 15-min interval
 - `entso_e_a44_prices.py` - Electricity prices, hourly interval
-- `tennet_ingestor.py` - Balance delta, 5-min interval (rate-limited to avoid blocks)
+- ~~`tennet_ingestor.py`~~ - **ARCHIVED** (BYO-key model)
 - `energy_charts_client.py` - Fallback renewable data (cached, not polled)
+
+**Note on TenneT:** Server no longer fetches TenneT data. Users configure their own TenneT API key in Home Assistant component for local processing (see ADR-008)
 
 **Process:**
 1. Load API credentials from environment
@@ -899,20 +910,65 @@ energy-insights-nl-api.service         (always running)
 **Implementation:**
 1. Remove server-side collectors, importers, normalizers for TenneT
 2. Archive database tables: `raw_tennet_balance`, `norm_tennet_balance`
-3. Return 501 Not Implemented for `/v1/balance/current` API endpoint
+3. Return 501 Not Implemented for `/api/v1/balance` API endpoint
 4. Implement TenneT client in Home Assistant custom component
-5. Balance sensors created only when user provides personal API key
+5. Balance sensors (`balance_delta`, `grid_stress`) created only when user provides personal API key
 6. Data fetched locally in Home Assistant, never passes through SYNCTACLES servers
 
+**API Impact:**
+```
+Before (old endpoint):
+GET /v1/balance/current → 200 OK + TenneT data
+
+After (new endpoint):
+GET /api/v1/balance → 501 Not Implemented
+
+Why the change:
+- TenneT license prohibits server-side data redistribution
+- User's personal key = user owns the data access
+- Home Assistant = local processing (HA owns the hardware)
+- No data leaves user's local network
+```
+
+**Data Flow (BYO-Key Model):**
+```
+User's Home Assistant
+  ↓
+  ├─ HA Integration (ha-energy-insights-nl)
+  │  ├─ User provides: TenneT API key
+  │  └─ Local TenneT client fetches: balance_delta, grid_stress
+  │     (Data never leaves HA → No SYNCTACLES involvement)
+  │
+  ├─ SYNCTACLES API (via X-API-Key)
+  │  ├─ Fetches: generation-mix, load (ENTSO-E only)
+  │  └─ No TenneT data involved
+```
+
+**Sensor Availability:**
+```
+Scenario 1: Without TenneT key
+  ✓ sensor.energy_insights_nl_generation_total (from server)
+  ✓ sensor.energy_insights_nl_load_actual (from server)
+  ✗ sensor.energy_insights_nl_balance_delta
+  ✗ sensor.energy_insights_nl_grid_stress
+
+Scenario 2: With TenneT key (configured in HA)
+  ✓ sensor.energy_insights_nl_generation_total (from server)
+  ✓ sensor.energy_insights_nl_load_actual (from server)
+  ✓ sensor.energy_insights_nl_balance_delta (from TenneT, local)
+  ✓ sensor.energy_insights_nl_grid_stress (from TenneT, local)
+```
+
 **Consequences:**
-- ✅ Legally compliant (user's personal key, local processing)
-- ✅ No server-side TenneT infrastructure to maintain
+- ✅ Legally compliant (user's personal key, local processing only)
+- ✅ No server-side TenneT infrastructure to maintain (simpler ops)
 - ✅ Users control their own rate limits and data storage
 - ✅ Demonstrates thoughtful legal architecture
 - ✅ Reduced server load (no TenneT polling)
-- ❌ Requires user to obtain TenneT key separately (one-time effort)
+- ✅ GDPR compliant (no personal data on SYNCTACLES servers)
+- ❌ Requires user to obtain TenneT key separately (one-time 5-min effort)
 - ❌ Balance data optional (not all users will configure)
-- ❌ HA component more complex (local TenneT client needed)
+- ❌ HA component slightly more complex (local TenneT client needed)
 
 **Alternatives Considered:**
 1. **Server-side redistribution** - REJECTED (illegal, violates TenneT terms)
@@ -920,11 +976,11 @@ energy-insights-nl-api.service         (always running)
 3. **Remove balance feature entirely** - REJECTED (loses competitive advantage)
 4. **BYO-key in HA component** - SELECTED (legal, maintains feature, user control)
 
-**Migration Timeline:**
-- 2026-01-02: Archive server-side TenneT infrastructure (Fase 1)
-- 2026-01-02: Update documentation with BYO-key instructions (Fase 2)
-- 2026-01-02: Implement HA component TenneT client (Fase 3)
-- 2026-01-02: Verify compliance and user feedback (Fase 4)
+**Migration Status:**
+- ✅ 2026-01-02: Archive server-side TenneT infrastructure (Fase 1)
+- ✅ 2026-01-02: Update documentation with BYO-key instructions (Fase 2)
+- 🔄 2026-01-02: Implement HA component TenneT client (Fase 3)
+- ⏳ 2026-01-02: Verify compliance and user feedback (Fase 4)
 
 ---
 

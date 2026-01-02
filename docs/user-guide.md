@@ -65,27 +65,31 @@ ha core restart
 
 Navigate: **Settings → Devices & Services → Energy Insights NL**
 
-**Expected entities (without TenneT key):**
-- `sensor.energy_insights_nl_generation_total`
-- `sensor.energy_insights_nl_load_actual`
+**Expected sensors (without TenneT key):**
+- `sensor.energy_insights_nl_generation_total` - Current electricity generation by source (MW)
+- `sensor.energy_insights_nl_load_actual` - Current grid load (MW)
 
-**Additional entities (with TenneT BYO-key):**
-- `sensor.energy_insights_nl_balance_delta`
-- `sensor.energy_insights_nl_grid_stress`
+**Additional sensors (with TenneT BYO-key):**
+- `sensor.energy_insights_nl_balance_delta` - Grid balance (MW, +surplus/-deficit)
+- `sensor.energy_insights_nl_grid_stress` - Grid stress level (0-100)
 
 **Check state:**
 ```yaml
 # Developer Tools → States
 sensor.energy_insights_nl_generation_total:
-  state: 12345  # MW
+  state: 12345  # MW (total_mw)
   attributes:
-    quality: FRESH  # ✅ Safe for automation
+    quality_status: FRESH  # ✅ Safe for automation
     source: ENTSO-E
     solar_mw: 0.0
+    wind_onshore_mw: 2150.5
     wind_offshore_mw: 1234.5
     gas_mw: 3210.8
+    nuclear_mw: 485.0
+    biomass_mw: 375.0
     renewable_percentage: 42.3
-    ...
+    age_seconds: 245
+    confidence_score: 92
 ```
 
 ---
@@ -151,33 +155,52 @@ Real-time grid balance data requires your personal TenneT API key.
 
 TenneT's API license prohibits server-side redistribution. Your personal key fetches data directly to your Home Assistant - it never passes through SYNCTACLES servers.
 
+**Without TenneT key:** 2 sensors available (Generation + Load)
+**With TenneT key:** 4 sensors available (+ Balance Delta + Grid Stress)
+
 ### Get Your TenneT Key
 
 1. Visit: https://www.tennet.eu/developer-portal/
 2. Create account (free)
-3. Generate API key
-4. Copy key securely
+3. Generate API key under "API Credentials"
+4. Copy key securely (format: Bearer token)
 
 ### Configure in Home Assistant
 
-1. Settings → Devices & Services → SYNCTACLES
-2. Click **Configure**
-3. Enter TenneT API Key
-4. Restart integration
+1. Settings → Devices & Services → Energy Insights NL
+2. Click **Configure** next to the integration
+3. Enter **TenneT API Key** field
+4. Submit → Restart integration
+
+**Expected result:**
+- `sensor.energy_insights_nl_balance_delta` appears ✓
+- `sensor.energy_insights_nl_grid_stress` appears ✓
 
 ### Available Sensors (with BYO-key)
 
-| Sensor | Description |
-|--------|-------------|
-| `sensor.synctacles_balance_delta` | Grid balance MW (+surplus/-deficit) |
-| `sensor.synctacles_grid_stress` | Grid stress indicator (0-100) |
+| Sensor | Description | Update Interval |
+|--------|-------------|-----------------|
+| `sensor.energy_insights_nl_balance_delta` | Grid balance MW (+surplus/-deficit) | 5 minutes |
+| `sensor.energy_insights_nl_grid_stress` | Grid stress indicator (0-100) | 5 minutes |
 
-### Troubleshooting
+**Balance Delta interpretation:**
+- **Positive values** (+) = Surplus generation (Netherlands exports)
+- **Negative values** (-) = Deficit (Netherlands imports)
+- **±0-50 MW** = Balanced grid
+- **±200+ MW** = Significant imbalance (grid stress)
 
-**Sensor shows "unavailable":**
-- Verify TenneT key is correct
-- Check HA logs for TenneT errors
-- TenneT may have rate limits (100 req/min)
+### Troubleshooting TenneT
+
+**Sensors show "unavailable":**
+1. Verify TenneT key is correctly copied (no spaces)
+2. Check HA logs: Settings → System → Logs → Search "tennet"
+3. Confirm key hasn't expired at TenneT Developer Portal
+4. TenneT has rate limit of 100 requests/minute (HA polls every 5 min = safe)
+
+**Common TenneT errors:**
+- `401 Unauthorized` → Invalid or expired key
+- `429 Too Many Requests` → Rate limit hit (wait 1 min)
+- `403 Forbidden` → Key lacks required permissions
 
 ---
 

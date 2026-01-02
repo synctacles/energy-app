@@ -112,7 +112,7 @@ X-API-Key: YOUR_CURRENT_API_KEY
 
 All endpoints require `X-API-Key` header.
 
-### GET /v1/generation/current
+### GET /api/v1/generation-mix
 **Current electricity generation by source** (Netherlands)
 
 **Headers:**
@@ -124,23 +124,25 @@ X-API-Key: YOUR_API_KEY
 ```json
 {
   "timestamp": "2025-12-30T14:30:00Z",
-  "data": {
-    "biomass_mw": 375.0,
-    "wind_onshore_mw": 2150.5,
-    "wind_offshore_mw": 680.0,
-    "solar_mw": 0.0,
-    "nuclear_mw": 485.0,
-    "gas_mw": 1850.0,
-    "coal_mw": 400.0,
-    "waste_mw": 150.0,
-    "other_mw": 280.5,
-    "total_mw": 6370.0
-  },
-  "metadata": {
+  "data": [
+    {
+      "biomass_mw": 375.0,
+      "wind_onshore_mw": 2150.5,
+      "wind_offshore_mw": 680.0,
+      "solar_mw": 0.0,
+      "nuclear_mw": 485.0,
+      "gas_mw": 1850.0,
+      "coal_mw": 400.0,
+      "waste_mw": 150.0,
+      "other_mw": 280.5,
+      "total_mw": 6370.0
+    }
+  ],
+  "meta": {
     "source": "ENTSO-E",
-    "quality": "STALE",
-    "age_seconds": 2145,
-    "confidence_score": 92,
+    "quality_status": "FRESH",
+    "age_seconds": 245,
+    "confidence_score": 95,
     "renewable_percentage": 42.3
   }
 }
@@ -155,35 +157,46 @@ X-API-Key: YOUR_API_KEY
 **Update Interval:** Every 15 minutes
 **Data Source:** ENTSO-E A75 (authoritative) → Energy-Charts (fallback)
 
+**Note:** Response data is an **array** (even for single record)
+
 ---
 
-### GET /v1/load/current
+### GET /api/v1/load
 **Current grid load (actual + forecast)** (Netherlands)
 
 **Response:**
 ```json
 {
   "timestamp": "2025-12-30T14:30:00Z",
-  "data": {
-    "load_actual_mw": 5200.0,
-    "load_forecast_mw": 5100.0,
-    "load_difference_mw": 100.0
-  },
-  "metadata": {
+  "data": [
+    {
+      "load_mw": 5200.0,
+      "load_forecast_mw": 5100.0,
+      "load_difference_mw": 100.0
+    }
+  ],
+  "meta": {
     "source": "ENTSO-E",
-    "quality": "STALE",
-    "age_seconds": 1800,
+    "quality_status": "FRESH",
+    "age_seconds": 300,
     "confidence_score": 95
   }
 }
 ```
 
+**Field Names:**
+- `load_mw` - Actual grid load (MW)
+- `load_forecast_mw` - Forecasted load (MW)
+- `load_difference_mw` - Actual minus forecast (MW)
+
 **Update Interval:** Every 15 minutes
 **Data Source:** ENTSO-E A65 (authoritative) → Energy-Charts (fallback)
 
+**Note:** Response data is an **array**; use `load_mw` field (not `load_actual_mw`)
+
 ---
 
-### GET /v1/balance/current
+### GET /api/v1/balance
 **⚠️ DEPRECATED - Returns 501 Not Implemented**
 
 Grid balance data is no longer available via the SYNCTACLES API due to TenneT license restrictions.
@@ -192,18 +205,23 @@ Grid balance data is no longer available via the SYNCTACLES API due to TenneT li
 ```json
 {
   "error": "Not Implemented",
-  "message": "Balance data available via BYO-key in HA component",
-  "documentation": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key",
-  "reason": "TenneT API license prohibits server-side redistribution"
+  "message": "Balance data available via BYO-key in HA component only",
+  "documentation": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key-setup",
+  "reason": "TenneT API license prohibits server-side redistribution (ADR-008)"
 }
 ```
 
 **HTTP Status:** 501 Not Implemented
 
-**Alternative:** Configure your personal TenneT API key in the Home Assistant integration to enable real-time balance data locally.
+**Alternative:** Configure your personal TenneT API key in the Home Assistant integration to enable real-time balance data locally. See [User Guide - TenneT BYO-Key Setup](user-guide.md#tennet-byo-key-setup-optional).
+
+**Migration:**
+- **Server-side:** No longer fetches TenneT data (archiving layer)
+- **Client-side:** Home Assistant component fetches data directly when user provides API key
+- **Data flow:** User's TenneT key → Home Assistant (local processing) → Never touches SYNCTACLES servers
 
 **Update Interval:** N/A (endpoint deprecated)
-**Data Source:** Available via BYO-key in HA component only
+**Data Source:** BYO-key in HA component only (client-side processing)
 
 ---
 
@@ -276,12 +294,21 @@ BASE_URL = "https://synctacles.io"
 
 headers = {"X-API-Key": API_KEY}
 
-# Get generation mix
+# Get generation mix (data is array)
 response = requests.get(f"{BASE_URL}/api/v1/generation-mix", headers=headers)
 data = response.json()
 
-print(f"Total generation: {data['data'][0]['total_mw']} MW")
+generation = data['data'][0]  # First element of array
+print(f"Total generation: {generation['total_mw']} MW")
+print(f"Solar: {generation['solar_mw']} MW")
+print(f"Wind offshore: {generation['wind_offshore_mw']} MW")
+print(f"Renewable: {data['meta']['renewable_percentage']}%")
 print(f"Quality: {data['meta']['quality_status']}")
+
+# Get current load
+response = requests.get(f"{BASE_URL}/api/v1/load", headers=headers)
+load = response.json()['data'][0]
+print(f"Current load: {load['load_mw']} MW")
 ```
 
 ### Home Assistant (YAML)
@@ -299,8 +326,16 @@ sensor:
 
 ### cURL (Bash)
 ```bash
+# Get generation mix
 curl -H "X-API-Key: YOUR_API_KEY" \
   https://synctacles.io/api/v1/generation-mix | jq '.data[0]'
+
+# Get current load
+curl -H "X-API-Key: YOUR_API_KEY" \
+  https://synctacles.io/api/v1/load | jq '.data[0]'
+
+# Check system health
+curl https://synctacles.io/health | jq '.status'
 ```
 
 ---

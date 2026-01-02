@@ -6,6 +6,83 @@
 
 ## API Issues
 
+### Response Data Not an Array (Parser Error)
+
+**Symptom:** Error parsing API response, expected object but got array
+
+**Cause:** API returns `data` as array `[{...}]`, not object `{...}`
+
+**Example:**
+```python
+# ❌ WRONG - treats data as object
+response = requests.get(f"{BASE_URL}/api/v1/generation-mix", headers=headers)
+total_mw = response.json()['data']['total_mw']  # Error: list indices must be integers
+
+# ✅ CORRECT - treats data as array
+response = requests.get(f"{BASE_URL}/api/v1/generation-mix", headers=headers)
+total_mw = response.json()['data'][0]['total_mw']  # Access first element [0]
+```
+
+**API Reference:**
+- `/api/v1/generation-mix` → `data` is **array**
+- `/api/v1/load` → `data` is **array**
+
+---
+
+### Load Field Name "load_mw" Not "load_actual_mw"
+
+**Symptom:** Field `load_actual_mw` not found in /api/v1/load response
+
+**Cause:** API uses field name `load_mw` (not `load_actual_mw`)
+
+**Example:**
+```python
+# ❌ WRONG - field doesn't exist
+response = requests.get(f"{BASE_URL}/api/v1/load", headers=headers)
+load = response.json()['data'][0]['load_actual_mw']  # KeyError: 'load_actual_mw'
+
+# ✅ CORRECT - use correct field name
+response = requests.get(f"{BASE_URL}/api/v1/load", headers=headers)
+load = response.json()['data'][0]['load_mw']  # ✓ Correct field
+
+# Also available:
+load_forecast = response.json()['data'][0]['load_forecast_mw']
+load_diff = response.json()['data'][0]['load_difference_mw']
+```
+
+**API Reference:**
+- Load endpoint: `/api/v1/load`
+- Actual load field: `load_mw`
+- Forecast load field: `load_forecast_mw`
+
+---
+
+### Old Endpoint "/v1/generation/current" Returns 404
+
+**Symptom:** `curl /v1/generation/current` returns 404 Not Found
+
+**Cause:** Old endpoint path changed to new format
+
+**Migration:**
+```bash
+# ❌ OLD (deprecated)
+curl https://synctacles.io/v1/generation/current
+
+# ✅ NEW (current)
+curl https://synctacles.io/api/v1/generation-mix
+curl https://synctacles.io/api/v1/load
+```
+
+**Updated Endpoints:**
+| Old | New |
+|-----|-----|
+| `/v1/generation/current` | `/api/v1/generation-mix` |
+| `/v1/load/current` | `/api/v1/load` |
+| `/v1/balance/current` | `/api/v1/balance` (501 Not Implemented) |
+| `/v1/prices/today` | `/api/v1/prices` |
+
+---
+
 ### 401 Unauthorized
 
 **Symptom:**
@@ -295,46 +372,97 @@ curl -H "Accept: application/xml" \
 
 ## TenneT BYO-Key Issues
 
-### Balance Sensors Missing
+### Balance Sensors Missing (No TenneT Key)
 
-**Symptom:** No `balance_delta` or `grid_stress` sensors
+**Symptom:** No `sensor.energy_insights_nl_balance_delta` or `sensor.energy_insights_nl_grid_stress`
 
-**Cause:** TenneT API key not configured
+**Cause:** TenneT API key not configured in Home Assistant
+
+**Expected Behavior:**
+- Without TenneT key: Only 2 sensors (generation + load) ✓
+- With TenneT key: 4 sensors (+ balance + grid stress) ✓
 
 **Fix:**
-1. Settings → Devices & Services → SYNCTACLES → Configure
-2. Add your personal TenneT API key
-3. Restart integration
+1. Settings → Devices & Services → Energy Insights NL
+2. Click **Configure**
+3. Enter your personal TenneT API key (obtained from https://www.tennet.eu/developer-portal/)
+4. Submit → Restart integration
+5. Wait 1 minute for sensors to appear
+
+**If still missing after 1 minute:**
+1. Check HA logs: Settings → System → Logs → Search "energy_insights"
+2. Look for TenneT-related errors
+3. Verify key format (should be Bearer token)
 
 ---
 
-### TenneT "Invalid API Key"
+### TenneT "401 Unauthorized" or "Invalid API Key"
 
 **Symptom:** Balance sensors show "unavailable", logs show auth error
 
 **Diagnosis:**
 ```bash
-# Test your key directly
+# SSH into HA and test key directly
 curl -H "Authorization: Bearer YOUR_TENNET_KEY" \
-  https://api.tennet.eu/v1/balance-delta-high-res/latest
+  https://api.tennet.eu/v1/balance-delta-high-res
 ```
 
 **Fixes:**
-1. Regenerate key at TenneT Developer Portal
-2. Verify key copied correctly (no extra spaces)
-3. Check key hasn't expired
+1. **Regenerate key at TenneT Developer Portal:**
+   - Visit: https://www.tennet.eu/developer-portal/
+   - Account → API Credentials
+   - Regenerate new key
+   - Copy completely (no spaces)
+
+2. **Update Home Assistant:**
+   - Settings → Devices & Services → Energy Insights NL → Configure
+   - Paste new key
+   - Submit
+
+3. **Verify key format:**
+   - Should be token string (no "Bearer " prefix in HA config)
+   - No leading/trailing spaces
+   - Should work in curl test above
 
 ---
 
-### TenneT Rate Limit
+### TenneT "429 Too Many Requests"
 
-**Symptom:** Balance data intermittent, 429 errors in log
+**Symptom:** Balance data intermittent, 429 errors in logs, then recovers
 
-**Cause:** TenneT limit is 100 requests/minute
+**Cause:** TenneT limit is 100 requests/minute; hitting rate limit
+
+**Normal behavior:**
+- HA component polls every 5 minutes = 12 requests/hour = safe
+
+**If 429 errors occur:**
+1. **Check polling frequency:**
+   ```yaml
+   # Settings → Devices & Services → Energy Insights NL → Configure
+   # Verify TenneT polling interval (default: 5 min, max safe: 1 min)
+   ```
+
+2. **Multiple HA instances sharing key?**
+   - Create separate TenneT API keys for each HA instance
+   - Or increase polling interval to 10+ minutes
+
+3. **Wait for limit reset:**
+   - TenneT resets every minute
+   - Sensors will auto-recover after 1-2 minutes
+
+---
+
+### TenneT "403 Forbidden"
+
+**Symptom:** Authentication succeeds (401 doesn't appear) but data fetch fails with 403
+
+**Cause:** API key lacks required scope/permissions
 
 **Fix:**
-- HA component polls every 5 minutes (safe margin)
-- If multiple HA instances share key: use separate keys
+1. Check TenneT Developer Portal that API key has:
+   - `balance-delta-high-res` endpoint access
+2. If not, regenerate key with full permissions
+3. Restart HA integration
 
 ---
 
