@@ -50,6 +50,7 @@ class FallbackManager:
     THRESHOLDS = {
         "generation_mix": FRESHNESS_THRESHOLDS["ENTSO-E"],  # Use ENTSO-E thresholds
         "load": FRESHNESS_THRESHOLDS["ENTSO-E"],            # Use ENTSO-E thresholds
+        "prices": FRESHNESS_THRESHOLDS["ENTSO-E"],          # Use ENTSO-E thresholds
     }
     
     @staticmethod
@@ -524,14 +525,93 @@ class FallbackManager:
                 (data.get("wind_onshore_mw") or 0) +
                 (data.get("hydro_mw") or 0)
             )
-            
+
             total_mw = data.get("total_mw") or 0
-            
+
             if total_mw <= 0:
                 return None
-            
+
             return (renewable_mw / total_mw * 100.0)
-        
+
         except Exception as err:
             _LOGGER.error(f"Error calculating renewable percentage: {err}")
             return None
+
+    @staticmethod
+    async def get_prices_with_fallback(
+        db_results: Optional[List[Dict]],
+        db_age_minutes: int,
+        country: str = "nl"
+    ) -> Tuple[Optional[List[Dict]], str, str, bool]:
+        """
+        Get electricity prices with 4-tier fallback strategy.
+
+        CRITICAL RULE: Energy-Charts prices MUST NOT trigger GO actions!
+
+        4-Tier Fallback:
+        1. Fresh ENTSO-E data → allow_go_action=True
+        2. Stale ENTSO-E data → allow_go_action=True
+        3. Energy-Charts fallback → allow_go_action=False (CRITICAL!)
+        4. Cache fallback → allow_go_action=False
+
+        Args:
+            db_results: List of price records from database
+            db_age_minutes: Age of database data
+            country: Country code
+
+        Returns:
+            Tuple of (data, source, quality, allow_go_action)
+            - data: List of price dicts or None
+            - source: "ENTSO-E" | "Energy-Charts" | "Cache"
+            - quality: "FRESH" | "STALE" | "FALLBACK" | "CACHED" | "UNAVAILABLE"
+            - allow_go_action: bool (False for Energy-Charts!)
+        """
+        thresholds = FallbackManager.THRESHOLDS.get("prices", {"fresh": 15, "stale": 60})
+        fresh_threshold = thresholds["fresh"]
+        stale_threshold = thresholds["stale"]
+
+        # Tier 1: Fresh ENTSO-E data
+        if db_results and db_age_minutes < fresh_threshold:
+            _LOGGER.info(f"Prices FRESH from ENTSO-E ({db_age_minutes} min)")
+            return (db_results, "ENTSO-E", "FRESH", True)  # ✓ GO actions allowed
+
+        # Tier 2: Stale ENTSO-E data (acceptable)
+        if db_results and db_age_minutes < stale_threshold:
+            _LOGGER.info(f"Prices STALE from ENTSO-E ({db_age_minutes} min)")
+            return (db_results, "ENTSO-E", "STALE", True)  # ✓ GO actions allowed
+
+        # Tier 3: Energy-Charts fallback
+        if FallbackManager._check_circuit_breaker():
+            _LOGGER.warning("EC circuit breaker open - skipping Energy-Charts fallback")
+        else:
+            try:
+                ec_prices = await EnergyChartsClient.fetch_prices(country=country, hours=48)
+                if ec_prices and len(ec_prices) > 0:
+                    _LOGGER.warning(f"Using Energy-Charts fallback ({len(ec_prices)} prices)")
+
+                    # Cache the fallback data
+                    cache_key = f"prices_{country}"
+                    _fallback_cache[cache_key] = ec_prices
+
+                    # CRITICAL: allow_go_action=False for Energy-Charts!
+                    return (ec_prices, "Energy-Charts", "FALLBACK", False)  # ✗ NO GO actions
+            except Exception as err:
+                _LOGGER.error(f"Energy-Charts fallback failed: {err}")
+                if "404" in str(err):
+                    FallbackManager._open_circuit_breaker()
+
+        # Tier 4: Cache fallback
+        cache_key = f"prices_{country}"
+        if cache_key in _fallback_cache:
+            cached_prices = _fallback_cache[cache_key]
+            _LOGGER.warning(f"Using cached prices ({len(cached_prices)} records)")
+            return (cached_prices, "Cache", "CACHED", False)  # ✗ NO GO actions on cache
+
+        # Complete failure - return stale DB if available (but still no GO)
+        if db_results:
+            _LOGGER.warning(f"All fallback failed, using stale ENTSO-E ({db_age_minutes} min)")
+            return (db_results, "ENTSO-E", "STALE", False)  # ✗ NO GO on very stale data
+
+        # No data at all
+        _LOGGER.error("All price data sources failed")
+        return (None, "None", "UNAVAILABLE", False)

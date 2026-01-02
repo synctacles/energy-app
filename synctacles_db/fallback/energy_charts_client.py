@@ -73,61 +73,139 @@ class EnergyChartsClient:
             return []
     
     @staticmethod
+    async def fetch_prices(
+        country: str = "nl",
+        hours: int = 24
+    ) -> List[Dict]:
+        """
+        Fetch electricity prices from Energy-Charts.
+
+        Args:
+            country: Country code (nl, de, fr, be)
+            hours: Number of hours to fetch (default 24, max 168)
+
+        Returns:
+            List of price records: [{"timestamp": ISO8601, "price_eur_mwh": float}, ...]
+        """
+        try:
+            url = f"{EnergyChartsClient.BASE_URL}/price"
+            params = {
+                "country": country.lower(),
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params, timeout=10) as response:
+                    if response.status != 200:
+                        _LOGGER.error(f"Energy-Charts price API error: HTTP {response.status}")
+                        return []
+
+                    data = await response.json()
+
+                    # Parse response with validation
+                    return EnergyChartsClient._parse_price_response(data, hours)
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error(f"Energy-Charts price connection error: {err}")
+            return []
+        except Exception as err:
+            _LOGGER.error(f"Energy-Charts price unexpected error: {err}")
+            return []
+
+    @staticmethod
+    def _parse_price_response(data: Dict, hours: int) -> List[Dict]:
+        """Parse Energy-Charts price response to SYNCTACLES format."""
+        try:
+            unix_seconds = data.get("unix_seconds", [])
+            prices = data.get("price", [])
+
+            if not unix_seconds or not prices:
+                _LOGGER.warning("Energy-Charts price returned empty data")
+                return []
+
+            # Critical validation: arrays must be same length
+            if len(unix_seconds) != len(prices):
+                _LOGGER.error(f"Energy-Charts price array mismatch: {len(unix_seconds)} timestamps vs {len(prices)} prices")
+                return []
+
+            results = []
+
+            # Process all price records
+            for unix_ts, price in zip(unix_seconds, prices):
+                try:
+                    timestamp = datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+                    record = {
+                        "timestamp": timestamp,
+                        "price_eur_mwh": float(price),
+                        "source": "Energy-Charts",
+                    }
+                    results.append(record)
+                except (ValueError, TypeError) as e:
+                    _LOGGER.warning(f"Energy-Charts price parse error for record: {e}")
+                    continue
+
+            _LOGGER.info(f"Energy-Charts price fetched: {len(results)} records")
+            return results
+
+        except Exception as err:
+            _LOGGER.error(f"Energy-Charts price parse error: {err}")
+            return []
+
+    @staticmethod
     def _parse_response(data: Dict, limit: int) -> List[Dict]:
         """Parse Energy-Charts response to SYNCTACLES format."""
         try:
             timestamps = data.get("unix_seconds", [])
             production_types = data.get("production_types", [])
-            
+
             if not timestamps or not production_types:
                 _LOGGER.warning("Energy-Charts returned empty data")
                 return []
-            
+
             # Get latest N timestamps
             latest_timestamps = timestamps[-limit:] if len(timestamps) >= limit else timestamps
-            
+
             results = []
-            
+
             for idx, ts in enumerate(latest_timestamps):
                 record = {
                     "timestamp": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
                     "source": "Energy-Charts",
                 }
-                
+
                 total_mw = 0.0
-                
+
                 # Extract values for each production type
                 for prod_type in production_types:
                     type_name = prod_type.get("name")
                     values = prod_type.get("data", [])
-                    
+
                     if type_name not in EnergyChartsClient.TYPE_MAPPING:
                         continue
-                    
+
                     # Get value at this timestamp index (from end)
                     value_idx = len(values) - limit + idx
                     if value_idx < 0 or value_idx >= len(values):
                         continue
-                    
+
                     value = values[value_idx]
                     if value is None:
                         value = 0.0
-                    
+
                     # Map to SYNCTACLES field
                     field_name = EnergyChartsClient.TYPE_MAPPING[type_name]
                     record[field_name] = float(value)
                     total_mw += float(value)
-                
+
                 # Set defaults for missing fields
                 for field in EnergyChartsClient.TYPE_MAPPING.values():
                     if field not in record:
                         record[field] = 0.0
-                
+
                 record["total_mw"] = total_mw
                 results.append(record)
-            
+
             return results
-        
+
         except Exception as err:
             _LOGGER.error(f"Energy-Charts parse error: {err}")
             return []
