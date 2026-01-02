@@ -50,8 +50,13 @@ class RawEntsoeA65(Base):
 
 
 class RawTennetBalance(Base):
-    """Raw TenneT Balance Delta per platform"""
-    __tablename__ = 'raw_tennet_balance'
+    """ARCHIVED: Raw TenneT Balance Delta per platform
+
+    TenneT data has been moved to BYO-key (Bring Your Own) model.
+    This model is kept for historical reference only.
+    Data table has been renamed to: archive_raw_tennet_balance
+    """
+    __tablename__ = 'archive_raw_tennet_balance'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
@@ -109,8 +114,13 @@ class NormEntsoeA65(Base):
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class NormTennetBalance(Base):
-    """Normalized TenneT Balance (aggregated across platforms)"""
-    __tablename__ = 'norm_tennet_balance'
+    """ARCHIVED: Normalized TenneT Balance (aggregated across platforms)
+
+    TenneT data has been moved to BYO-key (Bring Your Own) model in Home Assistant.
+    This model is kept for historical reference only.
+    Data table has been renamed to: archive_norm_tennet_balance
+    """
+    __tablename__ = 'archive_norm_tennet_balance'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)

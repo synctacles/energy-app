@@ -45,7 +45,7 @@ echo ""
 echo "--- API Endpoints ---"
 API_BASE="http://localhost:8000"
 
-for endpoint in /health /api/v1/generation-mix /api/v1/load /api/v1/balance /api/v1/prices /api/v1/signals; do
+for endpoint in /health /api/v1/generation-mix /api/v1/load /api/v1/prices /api/v1/signals; do
     STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE$endpoint" 2>/dev/null || echo "000")
     if [[ "$STATUS" == "200" ]]; then
         check_pass "$endpoint (HTTP $STATUS)"
@@ -61,7 +61,7 @@ if sudo -u postgres psql -d energy_insights_nl -c "SELECT 1" > /dev/null 2>&1; t
     check_pass "Database connection"
 
     # Check tables
-    for table in norm_entso_e_a75 norm_entso_e_a65 norm_entso_e_a44 norm_tennet_balance; do
+    for table in norm_entso_e_a75 norm_entso_e_a65 norm_entso_e_a44; do
         if sudo -u postgres psql -d energy_insights_nl -c "SELECT 1 FROM $table LIMIT 1" > /dev/null 2>&1; then
             check_pass "Table exists: $table"
         else

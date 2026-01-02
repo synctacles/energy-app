@@ -286,10 +286,55 @@ curl -H "Accept: application/xml" \
    - Update `/opt/synctacles/.env`
    - Restart collectors: `sudo systemctl restart synctacles-collector`
 
-3. **Check TenneT key (optional):**
-   ```bash
-   grep TENNET_API_KEY /opt/synctacles/.env
-   ```
+3. **TenneT key not configured (optional):**
+   - TenneT is now BYO-key only (Home Assistant component)
+   - Server no longer collects TenneT data
+   - No TENNET_API_KEY needed in server .env
+
+---
+
+## TenneT BYO-Key Issues
+
+### Balance Sensors Missing
+
+**Symptom:** No `balance_delta` or `grid_stress` sensors
+
+**Cause:** TenneT API key not configured
+
+**Fix:**
+1. Settings → Devices & Services → SYNCTACLES → Configure
+2. Add your personal TenneT API key
+3. Restart integration
+
+---
+
+### TenneT "Invalid API Key"
+
+**Symptom:** Balance sensors show "unavailable", logs show auth error
+
+**Diagnosis:**
+```bash
+# Test your key directly
+curl -H "Authorization: Bearer YOUR_TENNET_KEY" \
+  https://api.tennet.eu/v1/balance-delta-high-res/latest
+```
+
+**Fixes:**
+1. Regenerate key at TenneT Developer Portal
+2. Verify key copied correctly (no extra spaces)
+3. Check key hasn't expired
+
+---
+
+### TenneT Rate Limit
+
+**Symptom:** Balance data intermittent, 429 errors in log
+
+**Cause:** TenneT limit is 100 requests/minute
+
+**Fix:**
+- HA component polls every 5 minutes (safe margin)
+- If multiple HA instances share key: use separate keys
 
 ---
 

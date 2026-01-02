@@ -184,31 +184,26 @@ X-API-Key: YOUR_API_KEY
 ---
 
 ### GET /v1/balance/current
-**Current grid balance delta** (Netherlands)
+**⚠️ DEPRECATED - Returns 501 Not Implemented**
+
+Grid balance data is no longer available via the SYNCTACLES API due to TenneT license restrictions.
 
 **Response:**
 ```json
 {
-  "timestamp": "2025-12-30T14:30:00Z",
-  "data": {
-    "balance_mw": 125.0,
-    "imbalance_price_eur": 2.50
-  },
-  "metadata": {
-    "source": "TenneT",
-    "quality": "FRESH",
-    "age_seconds": 60
-  }
+  "error": "Not Implemented",
+  "message": "Balance data available via BYO-key in HA component",
+  "documentation": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key",
+  "reason": "TenneT API license prohibits server-side redistribution"
 }
 ```
 
-**Balance Delta Interpretation:**
-- **Positive (>0):** Generation > Load = surplus energy (good for charging)
-- **Negative (<0):** Load > Generation = deficit (critical periods)
-- **Zero:** Perfectly balanced grid (rare)
+**HTTP Status:** 501 Not Implemented
 
-**Update Interval:** Every 5 minutes (rate-limited from TenneT)
-**Data Source:** TenneT API (no fallback available)
+**Alternative:** Configure your personal TenneT API key in the Home Assistant integration to enable real-time balance data locally.
+
+**Update Interval:** N/A (endpoint deprecated)
+**Data Source:** Available via BYO-key in HA component only
 
 ---
 
@@ -252,9 +247,12 @@ X-API-Key: YOUR_API_KEY
 
 ## Data Sources
 
-**Primary:**
-- ENTSO-E Transparency Platform (Generation, Load)
-- TenneT TSO API (Grid Balance)
+**Server-side (via API):**
+- ENTSO-E Transparency Platform (Generation, Load, Prices)
+- Energy-Charts (Fraunhofer ISE) - Fallback
+
+**Client-side (HA Component with BYO-key):**
+- TenneT TSO API (Grid Balance) - requires user's personal API key
 
 **Fallback:**
 - Energy-Charts (Fraunhofer ISE) - Generation only
@@ -262,8 +260,8 @@ X-API-Key: YOUR_API_KEY
 
 **Attribution:**
 - ENTSO-E data: [transparency.entsoe.eu](https://transparency.entsoe.eu)
-- TenneT data: [api.tennet.eu](https://api.tennet.eu)
 - Energy-Charts: CC BY 4.0, Fraunhofer ISE
+- TenneT: User's personal API key, local processing only
 
 ---
 

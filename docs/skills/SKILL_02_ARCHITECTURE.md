@@ -98,29 +98,27 @@ Data transformation separated into distinct, testable layers.
 ```
 EXTERNAL SOURCES
 ├── ENTSO-E (Generation, Load, Prices)
-├── TenneT (Grid Balance)
-└── Energy-Charts (Fallback)
+├── Energy-Charts (Fallback)
+└── TenneT (BYO-key via HA only, not server)
      │
      ▼
 LAYER 1: COLLECTORS
 ├── entso_e_a75_generation.py  (15-min)
 ├── entso_e_a65_load.py        (15-min)
 ├── entso_e_a44_prices.py      (hourly)
-├── tennet_ingestor.py         (5-min)
 └── energy_charts_client.py    (fallback, cached)
      │
      ▼ (saves to /var/log/{{BRAND}}/collectors/raw/*.xml)
 LAYER 2: IMPORTERS
 ├── import_entso_e_a75.py  → raw_entso_e_a75
 ├── import_entso_e_a65.py  → raw_entso_e_a65
-├── import_entso_e_a44.py  → raw_entso_e_a44
-└── import_tennet_balance.py → raw_tennet_balance
+└── import_entso_e_a44.py  → raw_entso_e_a44
      │
      ▼ (PostgreSQL RAW tables)
 LAYER 3: NORMALIZERS
 ├── normalize_entso_e_a75.py  → norm_generation
 ├── normalize_entso_e_a65.py  → norm_load
-└── normalize_tennet_balance.py → norm_grid_balance
+└── normalize_entso_e_a44.py  → norm_prices
      │
      ▼ (with quality metadata)
 LAYER 4: API
@@ -128,12 +126,14 @@ LAYER 4: API
 ├── /v1/generation/current
 ├── /v1/load/current
 ├── /v1/prices/today
-├── /v1/balance/current
+├── /v1/signals (is_green, is_cheap)
 └── /health (system status)
      │
      ▼
 HOME ASSISTANT
-(custom component integration)
+├── Generation/Load/Price sensors
+├── Signal sensors (is_green, is_cheap)
+└── Balance sensors (optional, with BYO-key)
 ```
 
 ---
@@ -340,7 +340,6 @@ CREATE TABLE norm_generation (
   "services": {
     "database": "connected",
     "entso_e": "ok",
-    "tennet": "ok",
     "energy_charts": "ok"
   }
 }
@@ -359,9 +358,10 @@ Based on real-world measurements and structural delays:
 | Source | FRESH | STALE | Fallback Trigger | Notes |
 |--------|-------|-------|------------------|-------|
 | ENTSO-E | < 90 min | 90-180 min | > 180 min | ~60min structural delay + 30min buffer |
-| TenneT | < 15 min | 15-30 min | > 30 min | Real-time grid data |
 | Energy-Charts | < 240 min | 240-480 min | > 480 min | Modeled data, typically 3+ hours behind |
 | Cache | < 120 min | 120-360 min | > 360 min | Last known good value |
+
+**Note:** TenneT is no longer available via SYNCTACLES API (BYO-key in HA component only).
 
 ### Primary → Fallback Cascade
 

@@ -8,12 +8,13 @@
 
 ## Executive Summary
 
-Energy Insights NL is a Dutch energy data aggregation platform that collects real-time energy generation, load, and balance data from ENTSO-E and TenneT, normalizes it, and provides a REST API for Home Assistant integration. The system features automatic fallback to Energy-Charts when primary sources are unavailable.
+Energy Insights NL is a Dutch energy data aggregation platform that collects real-time energy generation, load, and price data from ENTSO-E, normalizes it, and provides a REST API for Home Assistant integration. The system features automatic fallback to Energy-Charts when primary sources are unavailable. Grid balance data is available via BYO-key (Bring Your Own) in the Home Assistant component only, complying with TenneT API license restrictions.
 
 **Key Capabilities:**
 - Real-time Dutch generation mix (9 PSR types) updated every 15 minutes
 - Grid load forecasts with actual values
-- TenneT balance data every 5 minutes
+- Day-ahead electricity prices
+- Grid balance data via BYO-key in HA component (TenneT license restriction)
 - Automatic failover to Energy-Charts (Fraunhofer ISE model)
 - Home Assistant native integration via custom component
 - Production-ready with monitoring, backups, and multi-tenant support
@@ -42,19 +43,18 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        EXTERNAL SOURCES                          │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│    ENTSO-E      │     TenneT      │      Energy-Charts          │
-│  (A75/A65/A44)  │   (Balance)     │       (Fallback)            │
-└────────┬────────┴────────┬────────┴─────────────┬───────────────┘
-         │                 │                      │
-         ▼                 ▼                      ▼
+├─────────────────┬───────────────────────────────────────────────┤
+│    ENTSO-E      │      Energy-Charts          │    TenneT       │
+│  (A75/A65/A44)  │       (Fallback)            │   (BYO-key)     │
+└────────┬────────┴─────────────┬───────────────┴────────┬────────┘
+         │                      │                       │
+         ▼                      ▼                    (Local in HA only)
 ┌─────────────────────────────────────────────────────────────────┐
 │                   LAYER 1: COLLECTORS                            │
 │  synctacles_db/collectors/                                       │
 │  ├── entso_e_a75_generation.py   (15-min interval)              │
 │  ├── entso_e_a65_load.py         (15-min interval)              │
 │  ├── entso_e_a44_prices.py       (hourly)                       │
-│  ├── tennet_ingestor.py          (5-min rate-limited)           │
 │  └── energy_charts_client.py     (fallback, cached)             │
 │                                                                  │
 │  Output: /var/log/{brand}/collectors/raw/*.xml                  │
@@ -66,8 +66,7 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 │  synctacles_db/importers/                                        │
 │  ├── import_entso_e_a75.py   → raw_entso_e_a75 table            │
 │  ├── import_entso_e_a65.py   → raw_entso_e_a65 table            │
-│  ├── import_entso_e_a44.py   → raw_entso_e_a44 table            │
-│  └── import_tennet_balance.py → raw_tennet_balance table        │
+│  └── import_entso_e_a44.py   → raw_entso_e_a44 table            │
 │                                                                  │
 │  Parse XML/JSON → Insert to PostgreSQL RAW tables                │
 └─────────────────────────┬───────────────────────────────────────┘
@@ -78,7 +77,7 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 │  synctacles_db/normalizers/                                      │
 │  ├── normalize_entso_e_a75.py  → norm_generation table          │
 │  ├── normalize_entso_e_a65.py  → norm_load table                │
-│  └── normalize_tennet_balance.py → norm_grid_balance table      │
+│  └── normalize_entso_e_a44.py  → norm_prices table              │
 │                                                                  │
 │  RAW tables → Normalized tables with quality metadata            │
 └─────────────────────────┬───────────────────────────────────────┘
@@ -95,14 +94,17 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 │  ├── /v1/generation/current  → Current generation mix           │
 │  ├── /v1/load/current        → Current grid load                │
 │  ├── /v1/prices/today        → Today's electricity prices       │
-│  ├── /v1/balance/current     → Current grid balance             │
+│  ├── /v1/balance/current     → 501 Not Implemented (archived)    │
 │  ├── /v1/signals/*           → Automation signals               │
 │  └── /health                 → System health status             │
 └─────────────────────────────────────────────────────────────────┘
          │                                              │
          │                                              ▼
          │                                      Home Assistant
-         │                                   (via custom component)
+         │                                   (custom component)
+         │                                   ├─ Gen/Load/Prices
+         │                                   ├─ Signals
+         │                                   └─ Balance (BYO-key)
          │
          ▼
     Client Applications
@@ -883,9 +885,46 @@ ENTSOE_API_KEY = require_env("ENTSOE_API_KEY", "ENTSO-E Transparency API key")
 energy-insights-nl-collector.timer     (15 min)
 energy-insights-nl-importer.timer      (15 min)
 energy-insights-nl-normalizer.timer    (15 min)
-energy-insights-nl-tennet.timer        (5 min)
 energy-insights-nl-api.service         (always running)
 ```
+
+---
+
+### ADR-008: TenneT BYO-Key Architecture
+
+**Context:** TenneT API Gateway General Terms prohibit "distributing, selling, or sharing data obtained through the APIs with third parties". Server-side redistribution of TenneT balance data violates these terms.
+
+**Decision:** Move TenneT data fetching from server-side to client-side (Home Assistant component). Users provide their own TenneT API key (BYO = Bring Your Own).
+
+**Implementation:**
+1. Remove server-side collectors, importers, normalizers for TenneT
+2. Archive database tables: `raw_tennet_balance`, `norm_tennet_balance`
+3. Return 501 Not Implemented for `/v1/balance/current` API endpoint
+4. Implement TenneT client in Home Assistant custom component
+5. Balance sensors created only when user provides personal API key
+6. Data fetched locally in Home Assistant, never passes through SYNCTACLES servers
+
+**Consequences:**
+- ✅ Legally compliant (user's personal key, local processing)
+- ✅ No server-side TenneT infrastructure to maintain
+- ✅ Users control their own rate limits and data storage
+- ✅ Demonstrates thoughtful legal architecture
+- ✅ Reduced server load (no TenneT polling)
+- ❌ Requires user to obtain TenneT key separately (one-time effort)
+- ❌ Balance data optional (not all users will configure)
+- ❌ HA component more complex (local TenneT client needed)
+
+**Alternatives Considered:**
+1. **Server-side redistribution** - REJECTED (illegal, violates TenneT terms)
+2. **ENTSO-E proxy for balance** - REJECTED (60-90 min delay, inferior quality)
+3. **Remove balance feature entirely** - REJECTED (loses competitive advantage)
+4. **BYO-key in HA component** - SELECTED (legal, maintains feature, user control)
+
+**Migration Timeline:**
+- 2026-01-02: Archive server-side TenneT infrastructure (Fase 1)
+- 2026-01-02: Update documentation with BYO-key instructions (Fase 2)
+- 2026-01-02: Implement HA component TenneT client (Fase 3)
+- 2026-01-02: Verify compliance and user feedback (Fase 4)
 
 ---
 

@@ -16,8 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44
 import logging
 
-LOG_DIR = Path('/opt/synctacles/logs/collectors/entso_e_raw')
-DB_URL = "postgresql://synctacles@localhost:5432/synctacles"
+LOG_DIR = Path('/var/log/energy-insights-nl/collectors/entso_e_raw')
+DB_URL = "postgresql://energy_insights_nl@localhost:5432/energy_insights_nl"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -56,7 +56,8 @@ ha core restart
 3. Enter:
    - **API Endpoint:** Your API server URL (e.g., `http://192.168.1.100:8000`)
    - **API Key:** (paste from step 1)
-4. Submit → **3 sensors created** ✓
+   - **TenneT API Key (optional):** Your personal TenneT key for balance data
+4. Submit → **Sensors created** ✓
 
 ---
 
@@ -64,10 +65,13 @@ ha core restart
 
 Navigate: **Settings → Devices & Services → Energy Insights NL**
 
-**Expected entities:**
+**Expected entities (without TenneT key):**
 - `sensor.energy_insights_nl_generation_total`
 - `sensor.energy_insights_nl_load_actual`
+
+**Additional entities (with TenneT BYO-key):**
 - `sensor.energy_insights_nl_balance_delta`
+- `sensor.energy_insights_nl_grid_stress`
 
 **Check state:**
 ```yaml
@@ -136,6 +140,44 @@ entities:
     name: Grid Balance
     icon: mdi:scale-balance
 ```
+
+---
+
+## TenneT BYO-Key Setup (Optional)
+
+Real-time grid balance data requires your personal TenneT API key.
+
+### Why BYO-Key?
+
+TenneT's API license prohibits server-side redistribution. Your personal key fetches data directly to your Home Assistant - it never passes through SYNCTACLES servers.
+
+### Get Your TenneT Key
+
+1. Visit: https://www.tennet.eu/developer-portal/
+2. Create account (free)
+3. Generate API key
+4. Copy key securely
+
+### Configure in Home Assistant
+
+1. Settings → Devices & Services → SYNCTACLES
+2. Click **Configure**
+3. Enter TenneT API Key
+4. Restart integration
+
+### Available Sensors (with BYO-key)
+
+| Sensor | Description |
+|--------|-------------|
+| `sensor.synctacles_balance_delta` | Grid balance MW (+surplus/-deficit) |
+| `sensor.synctacles_grid_stress` | Grid stress indicator (0-100) |
+
+### Troubleshooting
+
+**Sensor shows "unavailable":**
+- Verify TenneT key is correct
+- Check HA logs for TenneT errors
+- TenneT may have rate limits (100 req/min)
 
 ---
 

@@ -71,7 +71,13 @@
       "Bash( curl -s -o /dev/null -w \"Generation-mix: %{http_code}\\\\n\" http://localhost/api/v1/generation-mix)",
       "Bash(python3:*)",
       "Bash(timeout 120 bash:*)",
-      "Bash(__NEW_LINE__ psql -U energy_insights_nl -d energy_insights_nl -c \"\nSELECT table_name \nFROM information_schema.tables \nWHERE table_schema = ''public''\nORDER BY table_name;\")"
+      "Bash(__NEW_LINE__ psql -U energy_insights_nl -d energy_insights_nl -c \"\nSELECT table_name \nFROM information_schema.tables \nWHERE table_schema = ''public''\nORDER BY table_name;\")",
+      "Bash(ls:*)",
+      "Bash(systemctl list-timers:*)",
+      "Bash(journalctl:*)",
+      "Bash(systemctl status:*)",
+      "Bash(source:*)",
+      "Bash(PYTHONPATH=/opt/energy-insights-nl/app python3:*)"
     ]
   }
 }

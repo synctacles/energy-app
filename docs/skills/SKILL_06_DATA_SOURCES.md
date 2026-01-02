@@ -111,54 +111,79 @@ Out_Domain: 10YNL----------L (generation)
 
 ---
 
-### 2. TenneT (Dutch Transmission System Operator)
+### 2. TenneT (Dutch Transmission System Operator) - BYO-KEY ONLY
+
+⚠️ **LICENSE NOTICE:** TenneT API terms prohibit server-side redistribution.
+TenneT data is available via **BYO-key** (Bring Your Own) in the Home Assistant component only.
 
 **Website:** https://www.tennet.eu/
 
 **What They Provide:**
 - Dutch grid-specific data
+- Grid balance delta (MW)
 - Frequency, reserve margins
 - Grid stress events
 
-**Access Method:** HTTP API (no authentication required)
+**Access Method:** HTTP API with personal API key (Bearer token)
 
 **Key Data Points:**
 
-#### Grid Frequency
+#### Grid Balance Delta
+- Balance between supply and demand (MW)
+- Positive = surplus, negative = deficit
+- Real-time updates (5-minute intervals)
+- Updated every 5 minutes
+
+#### Frequency
 - Current frequency in Hz (should be ~50 Hz)
 - Part of grid stability
-- Updated every 5 seconds
 
 #### Reserve Margin
 - Spinning reserve (MW)
 - Available capacity
 - Used to assess grid stress
 
-#### Activation Status
-- Normal operation
-- Increased reserves activated
-- Emergency measures (rare)
+**SYNCTACLES Integration:**
 
-**API Endpoint:**
+- ❌ **NOT available via SYNCTACLES API** (license restriction - no redistribution)
+- ✅ **Available via Home Assistant component** with user's own TenneT API key
+- User registers at TenneT Developer Portal: https://www.tennet.eu/developer-portal/
+- User enters personal API key in HA integration config
+- Data fetched **locally in Home Assistant**, never passes through SYNCTACLES servers
+
+**API Endpoint (for reference):**
 ```
-GET https://www.tennet.nl/api/grid-data/frequency
-GET https://www.tennet.nl/api/grid-data/reserve-margin
+GET https://api.tennet.eu/v1/balance-delta-high-res/latest
+Authorization: Bearer YOUR_PERSONAL_TENNET_KEY
 ```
 
 **Example Response (JSON):**
 ```json
 {
-  "timestamp": "2025-12-30T10:15:32Z",
-  "frequency_hz": 50.02,
-  "reserve_margin_mw": 1500,
-  "status": "normal"
+  "Response": {
+    "TimeSeries": [{
+      "Period": {
+        "timeInterval": {
+          "start": "2025-12-30T10:15:00Z",
+          "end": "2025-12-30T10:20:00Z"
+        },
+        "points": [{
+          "timeInterval_start": "2025-12-30T10:15:00Z",
+          "timeInterval_end": "2025-12-30T10:20:00Z",
+          "power_afrr_in": 100.5,
+          "power_afrr_out": 45.2,
+          ...
+        }]
+      }
+    }]
+  }
 }
 ```
 
 **TenneT API Details:**
 
-- **Base URL:** https://www.tennet.nl/api/
-- **Authentication:** None (public)
+- **Base URL:** https://api.tennet.eu/v1/
+- **Authentication:** Bearer token (personal API key)
 - **Rate Limit:** 100 requests per minute
 - **Response Format:** JSON
 - **Timeout:** 10 seconds
@@ -168,7 +193,7 @@ GET https://www.tennet.nl/api/grid-data/reserve-margin
 - Updates every 5 minutes
 - Minimal delay
 
-**Cost:** Free (public API)
+**Cost:** Free (public API, requires personal registration)
 
 ---
 
@@ -246,11 +271,10 @@ Automated fallback cascade when primary sources fail or are too stale.
 | Source | FRESH | STALE | Fallback Trigger | Structural Delay |
 |--------|-------|-------|------------------|------------------|
 | ENTSO-E | < 90 min | 90-180 min | > 180 min | ~60 min avg |
-| TenneT | < 15 min | 15-30 min | > 30 min | Real-time |
 | Energy-Charts | < 240 min | 240-480 min | > 480 min | ~187 min (3h+) |
 | Cache | < 120 min | 120-360 min | > 360 min | Variable |
 
-**Note:** ENTSO-E has structural ~60 minute delay due to upstream data processing. Thresholds account for this plus 30-minute buffer.
+**Note:** TenneT is no longer available via SYNCTACLES API (BYO-key in HA component). ENTSO-E has structural ~60 minute delay due to upstream data processing. Thresholds account for this plus 30-minute buffer.
 
 ### Generation Data Fallback
 
@@ -415,14 +439,25 @@ except RateLimitError:
     return None
 ```
 
-### When TenneT Fails
+### When TenneT Fails (HA Component)
 
-Similar pattern: log warning, return None, let normalizer use fallback.
+TenneT errors are handled locally in the Home Assistant component.
+Server-side has no TenneT dependency.
+
+**Common Causes (user's HA):**
+1. Invalid/expired personal API key
+2. TenneT rate limit exceeded
+3. Network issues
+
+**HA Component Response:**
+- Sensor shows "unavailable"
+- Logs error to HA system log
+- Does not affect other SYNCTACLES sensors
 
 ### When Energy-Charts Fails
 
-TenneT data is usually most critical (grid stability signals).
-Energy-Charts fallback is best-effort.
+Energy-Charts fallback is best-effort for generation data.
+Does not affect balance data (no longer server-side).
 
 ---
 
@@ -508,11 +543,17 @@ async def source_health():
             "age_minutes": 2,
             "quality": 0.98
         },
-        "tennet": {
+        "entso_e_a65": {
             "status": "ok",
-            "last_update": "2025-12-30T10:15:32Z",
-            "age_minutes": 0,
-            "quality": 0.99
+            "last_update": "2025-12-30T10:15:00Z",
+            "age_minutes": 2,
+            "quality": 0.98
+        },
+        "entso_e_a44": {
+            "status": "ok",
+            "last_update": "2025-12-30T12:42:00Z",
+            "age_hours": 1,
+            "quality": 0.99  # Day-ahead prices
         },
         "energy_charts": {
             "status": "ok",
@@ -520,6 +561,7 @@ async def source_health():
             "age_hours": 10,
             "quality": 0.65  # Modeled data
         }
+        # TenneT removed - BYO-key only in HA component
     }
 ```
 

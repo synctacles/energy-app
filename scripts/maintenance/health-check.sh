@@ -41,7 +41,7 @@ fi
 # Check API endpoints
 echo ""
 echo "--- API Endpoints ---"
-for endpoint in health "api/v1/generation-mix" "api/v1/load" "api/v1/balance" "api/v1/signals"; do
+for endpoint in health "api/v1/generation-mix" "api/v1/load" "api/v1/signals"; do
     if curl -sf "http://localhost:8000/$endpoint" > /dev/null 2>&1; then
         echo "✅ /$endpoint"
     else
@@ -57,7 +57,7 @@ if sudo -u postgres psql -d energy_insights_nl -c "SELECT 1" > /dev/null 2>&1; t
     echo "✅ Database connection OK"
 
     # Row counts
-    for table in norm_entso_e_a75 norm_entso_e_a65 norm_tennet_balance; do
+    for table in norm_entso_e_a75 norm_entso_e_a65 norm_entso_e_a44; do
         COUNT=$(sudo -u postgres psql -d energy_insights_nl -t -c "SELECT COUNT(*) FROM $table" 2>/dev/null | tr -d ' ')
         echo "   $table: $COUNT rows"
     done
