@@ -11,7 +11,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from starlette.responses import Response
 import time
 
-from synctacles_db.api.middleware import auth_middleware, rate_limit_middleware
+from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
 from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals
 from synctacles_db.cache import api_cache
 from config.settings import settings
@@ -53,18 +53,18 @@ async def metrics_middleware(request, call_next):
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time
-    
+
     http_requests_total.labels(
         method=request.method,
         endpoint=request.url.path,
         status=response.status_code
     ).inc()
-    
+
     http_request_duration_seconds.labels(
         method=request.method,
         endpoint=request.url.path
     ).observe(duration)
-    
+
     return response
 
 # CORS (Home Assistant integration)
@@ -77,8 +77,11 @@ app.add_middleware(
 )
 
 
-# Middleware order matters: rate limit first, then auth
-# Rate limiting must run after auth to have user context
+# Middleware order matters: HTTP logging first, then auth, then rate limit
+# 1. HTTP Logging: logs all requests/responses with timing
+# 2. Auth: validates API keys
+# 3. Rate Limit: enforces daily limits based on user context
+app.middleware("http")(http_logging_middleware)
 app.middleware("http")(auth_middleware)
 app.middleware("http")(rate_limit_middleware)
 # Health check
