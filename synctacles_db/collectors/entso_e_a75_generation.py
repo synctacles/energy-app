@@ -16,7 +16,6 @@ Version: 2.0.0 (file-based, no direct DB)
 
 import os
 import sys
-import logging
 import argparse
 import time
 from datetime import datetime, timedelta, timezone
@@ -26,6 +25,8 @@ from typing import Optional, Dict
 import pandas as pd
 from entsoe import EntsoeRawClient
 from dotenv import load_dotenv
+
+from synctacles_db.core.logging import get_logger
 
 # ========================================================
 #   CONFIGURATION
@@ -44,16 +45,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 RAW_OUTPUT_DIR = LOG_DIR / "collectors" / "entso_e_raw"
 RAW_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)-8s %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_DIR / "entso_e_a75_collector.log"),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 # ========================================================
 #   PSR-TYPE DEFINITIONS (Netherlands)
@@ -83,7 +75,7 @@ class EntsoEA75Collector:
     def __init__(self, api_key: str, country_code: str = 'NL'):
         self.client = EntsoeRawClient(api_key=api_key)
         self.country_code = country_code
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = _LOGGER
         self.results = {}
 
     def fetch_generation_mix(self, psr_type: str, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24) -> Optional[str]:
@@ -210,10 +202,14 @@ class EntsoEA75Collector:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description='ENTSO-E A75 Generation Mix Collector',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+    _LOGGER.info("ENTSO-E A75 Generation Collector starting")
+    start_time = time.time()
+
+    try:
+        parser = argparse.ArgumentParser(
+            description='ENTSO-E A75 Generation Mix Collector',
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
 Examples:
   # Default: last 24 hours
   python sparkcrawler_entso_e_a75_generation.py
@@ -224,70 +220,63 @@ Examples:
   # Backfill mode: batched with rate limiting
   python sparkcrawler_entso_e_a75_generation.py --start 2025-12-01T00:00:00 --end 2025-12-31T23:59:59 --backfill
         """
-    )
-    parser.add_argument('--start', type=str, help='Start datetime (ISO format, e.g., 2025-12-01T00:00:00Z)')
-    parser.add_argument('--end', type=str, help='End datetime (ISO format, e.g., 2025-12-02T00:00:00Z)')
-    parser.add_argument('--backfill', action='store_true', help='Backfill mode (batched with rate limiting)')
-    args = parser.parse_args()
+        )
+        parser.add_argument('--start', type=str, help='Start datetime (ISO format, e.g., 2025-12-01T00:00:00Z)')
+        parser.add_argument('--end', type=str, help='End datetime (ISO format, e.g., 2025-12-02T00:00:00Z)')
+        parser.add_argument('--backfill', action='store_true', help='Backfill mode (batched with rate limiting)')
+        args = parser.parse_args()
 
-    logger.info("=" * 60)
-    logger.info("SYNCTACLES SparkCrawler - ENTSO-E A75 Collector")
-    logger.info("=" * 60)
+        # Parse dates if provided
+        start_ts = None
+        end_ts = None
 
-    # Parse dates if provided
-    start_ts = None
-    end_ts = None
+        if args.start:
+            try:
+                start_ts = pd.Timestamp(args.start, tz='UTC')
+                _LOGGER.debug(f"Start: {start_ts}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to parse start datetime: {type(e).__name__}: {e}")
+                return 1
 
-    if args.start:
-        try:
-            start_ts = pd.Timestamp(args.start, tz='UTC')
-            logger.info(f"Start: {start_ts}")
-        except Exception as e:
-            logger.error(f"Failed to parse start datetime: {e}")
+        if args.end:
+            try:
+                end_ts = pd.Timestamp(args.end, tz='UTC')
+                _LOGGER.debug(f"End: {end_ts}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to parse end datetime: {type(e).__name__}: {e}")
+                return 1
+
+        collector = EntsoEA75Collector(api_key=api_key, country_code=COUNTRY_CODE)
+
+        _LOGGER.info(f"Fetching Generation Mix (A75) for {COUNTRY_CODE}, {len(PSR_TYPES)} PSR-types...")
+
+        # Determine rate limiting based on backfill mode
+        rate_limit = 5 if args.backfill else 0
+        if args.backfill:
+            _LOGGER.info("Backfill mode enabled: 5s rate limit between PSR-type requests")
+
+        collector.fetch_all_psr_types(start=start_ts, end=end_ts, hours_back=24, rate_limit_seconds=rate_limit)
+
+        _LOGGER.info("Saving raw XML responses...")
+        saved_files = collector.save_to_files()
+        _LOGGER.debug(f"Saved {len(saved_files)} files to {RAW_OUTPUT_DIR}")
+
+        summary = collector.get_summary()
+        _LOGGER.info(f"A75 collector: {summary['psr_types_succeeded']} successful, {summary['psr_types_failed']} failed")
+
+        elapsed = time.time() - start_time
+        if summary['psr_types_failed'] > 0:
+            _LOGGER.warning(f"A75 collector: {summary['psr_types_failed']} PSR-types failed")
+            _LOGGER.info(f"ENTSO-E A75 Generation Collector completed with errors in {elapsed:.2f}s")
             return 1
+        else:
+            _LOGGER.info(f"ENTSO-E A75 Generation Collector completed successfully in {elapsed:.2f}s")
+            return 0
 
-    if args.end:
-        try:
-            end_ts = pd.Timestamp(args.end, tz='UTC')
-            logger.info(f"End: {end_ts}")
-        except Exception as e:
-            logger.error(f"Failed to parse end datetime: {e}")
-            return 1
-
-    collector = EntsoEA75Collector(api_key=api_key, country_code=COUNTRY_CODE)
-
-    logger.info(f"Fetching Generation Mix (A75) for {COUNTRY_CODE}...")
-    logger.info(f"PSR-types: {', '.join(sorted(PSR_TYPES.keys()))}")
-
-    # Determine rate limiting based on backfill mode
-    rate_limit = 5 if args.backfill else 0
-    if args.backfill:
-        logger.info("Backfill mode enabled: 5s rate limit between PSR-type requests")
-
-    collector.fetch_all_psr_types(start=start_ts, end=end_ts, hours_back=24, rate_limit_seconds=rate_limit)
-
-    logger.info("Saving raw XML responses...")
-    saved_files = collector.save_to_files()
-    logger.info(f"Saved {len(saved_files)} files to {RAW_OUTPUT_DIR}")
-
-    summary = collector.get_summary()
-
-    logger.info("=" * 60)
-    logger.info("SUMMARY")
-    logger.info("=" * 60)
-    logger.info(f"Timestamp:  {summary['timestamp']}")
-    logger.info(f"Country:    {summary['country']}")
-    logger.info(f"Successful: {summary['psr_types_succeeded']}")
-    logger.info(f"Failed:     {summary['psr_types_failed']}")
-
-    for psr_type, data in sorted(summary['data'].items()):
-        status_icon = "OK" if data['status'] == 'success' else "FAIL"
-        logger.info(f"  [{status_icon}] {psr_type} {data['name']:20s} ({data['size_bytes']:6d} bytes)")
-
-    logger.info(f"Output: {RAW_OUTPUT_DIR}")
-    logger.info("=" * 60)
-
-    return 1 if summary['psr_types_failed'] > 0 else 0
+    except Exception as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A75 collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        raise
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ Version: 1.0.0
 
 import os
 import sys
-import logging
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict
@@ -23,6 +23,8 @@ import json
 import pandas as pd
 from entsoe import EntsoeRawClient
 from dotenv import load_dotenv
+
+from synctacles_db.core.logging import get_logger
 
 # ========================================================
 #   CONFIGURATION
@@ -40,16 +42,7 @@ if not api_key:
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)-8s %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_DIR / "entso_e_a65_load.log"),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 # ========================================================
 #   CONSTANTS
@@ -68,12 +61,12 @@ class EntsoeLoadParser:
     National electricity consumption/demand
     Stores raw responses for later normalization
     """
-    
+
     def __init__(self, api_key: str, country_code: str = 'NL'):
         """Initialize ENTSO-E client"""
         self.client = EntsoeRawClient(api_key=api_key)
         self.country_code = country_code
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = _LOGGER
         self.results = {}
     
     def fetch_load(
@@ -228,67 +221,46 @@ class EntsoeLoadParser:
 
 def main():
     """Main entry point"""
-    
-    logger.info("=" * 70)
-    logger.info("SYNCTACLES SparkCrawler — ENTSO-E A65 Load Parser")
-    logger.info("=" * 70)
-    logger.info("")
-    
-    # Initialize parser
-    parser = EntsoeLoadParser(api_key=api_key, country_code=COUNTRY_CODE)
-    
-    # Fetch Load data (last 24 hours)
-    logger.info(f"Fetching Load (A65) data for {COUNTRY_CODE}...")
-    logger.info(f"Document Type: A65 (Total Load / Consumption)")
-    logger.info("")
-    
-    load_data = parser.fetch_load(hours_back=24)
-    parser.results['actual'] = load_data
-    
-    # Fetch Load forecast (next 24 hours)
-    logger.info("")
-    logger.info(f"Fetching Load FORECAST data...")
-    forecast_data = parser.fetch_load_forecast(hours_ahead=24)
-    parser.results['forecast'] = forecast_data
-    
-    # Save raw data
-    logger.info("")
-    logger.info("Saving raw XML responses...")
-    saved_files = parser.save_to_file()
-    logger.info(f"Saved {len(saved_files)} files")
-    
-    # Print summary
-    logger.info("")
-    summary = parser.get_summary()
-    
-    logger.info("=" * 70)
-    logger.info("SUMMARY")
-    logger.info("=" * 70)
-    logger.info(f"Timestamp:         {summary['timestamp']}")
-    logger.info(f"Document Type:     {summary['document_type']}")
-    logger.info(f"Country:           {summary['country']}")
-    logger.info(f"Data Types:        {summary['data_types_requested']}")
-    logger.info(f"Successful:        {summary['data_types_succeeded']}")
-    logger.info(f"Failed:            {summary['data_types_failed']}")
-    logger.info("")
-    logger.info("Details:")
-    
-    for data_type, details in summary['details'].items():
-        status_icon = "✓" if details['status'] == 'success' else "✗"
-        logger.info(
-            f"  {status_icon} {data_type:10s} ({details['size_bytes']:6d} bytes)"
-        )
-    
-    logger.info("")
-    logger.info("=" * 70)
-    
-    # Return exit code based on success
-    if summary['data_types_failed'] > 0:
-        logger.warning(f"Some data types failed to fetch")
-        return 1
-    else:
-        logger.info("All data types fetched successfully!")
-        return 0
+    _LOGGER.info("ENTSO-E A65 Load Collector starting")
+    start_time = time.time()
+
+    try:
+        # Initialize parser
+        parser = EntsoeLoadParser(api_key=api_key, country_code=COUNTRY_CODE)
+
+        # Fetch Load data (last 24 hours)
+        _LOGGER.info(f"Fetching Load (A65) actual data for {COUNTRY_CODE}...")
+        load_data = parser.fetch_load(hours_back=24)
+        parser.results['actual'] = load_data
+
+        # Fetch Load forecast (next 24 hours)
+        _LOGGER.info(f"Fetching Load (A65) forecast data...")
+        forecast_data = parser.fetch_load_forecast(hours_ahead=24)
+        parser.results['forecast'] = forecast_data
+
+        # Save raw data
+        _LOGGER.info("Saving raw XML responses...")
+        saved_files = parser.save_to_file()
+        _LOGGER.debug(f"Saved {len(saved_files)} files to output directory")
+
+        # Print summary
+        summary = parser.get_summary()
+        _LOGGER.info(f"A65 collector: {summary['data_types_succeeded']} successful, {summary['data_types_failed']} failed")
+
+        # Return exit code based on success
+        elapsed = time.time() - start_time
+        if summary['data_types_failed'] > 0:
+            _LOGGER.warning(f"A65 collector: {summary['data_types_failed']} data types failed to fetch")
+            _LOGGER.info(f"ENTSO-E A65 Load Collector completed with errors in {elapsed:.2f}s")
+            return 1
+        else:
+            _LOGGER.info(f"ENTSO-E A65 Load Collector completed successfully in {elapsed:.2f}s")
+            return 0
+
+    except Exception as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A65 collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        raise
 
 if __name__ == "__main__":
     try:
