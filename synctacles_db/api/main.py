@@ -16,6 +16,14 @@ from synctacles_db.api.endpoints import generation_mix, load, balance, now, pric
 from synctacles_db.cache import api_cache
 from config.settings import settings
 
+# === LOGGING INITIALIZATION ===
+from synctacles_db.core.logging import setup_logging, get_logger
+
+setup_logging()
+_LOGGER = get_logger(__name__)
+_LOGGER.info("API initialization starting")
+# === END LOGGING ===
+
 # Create FastAPI app with branding from settings
 app = FastAPI(
     title=settings.api_title,
