@@ -4,7 +4,7 @@ synctacles_db/normalizers/normalize_entso_e_a75.py
 Transform raw generation data into pivoted normalized table.
 """
 
-import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from sqlalchemy import create_engine, select, func, case
@@ -16,14 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from synctacles_db.models import RawEntsoeA75
 from synctacles_db.models import NormEntsoeA75
+from synctacles_db.core.logging import get_logger
 from config.settings import DATABASE_URL
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    force=True
-)
-logger = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 def calculate_quality_status(latest_timestamp: datetime) -> str:
@@ -44,18 +40,19 @@ def calculate_quality_status(latest_timestamp: datetime) -> str:
 
 def normalize_a75_generation():
     """Pivot raw_entso_e_a75 → norm_entso_e_a75."""
+    _LOGGER.info("A75 normalizer starting")
+    start_time = time.time()
+
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
-    
+
     try:
-        logger.info("Starting A75 normalization...")
-        
         latest_raw = session.query(func.max(RawEntsoeA75.timestamp)).scalar()
         quality_status = calculate_quality_status(latest_raw)
-        
-        logger.info(f"Latest raw timestamp: {latest_raw}")
-        logger.info(f"Quality status: {quality_status}")
+
+        _LOGGER.debug(f"Latest raw timestamp: {latest_raw}")
+        _LOGGER.debug(f"Quality status: {quality_status}")
         
         pivot_query = session.query(
             RawEntsoeA75.timestamp,
@@ -96,10 +93,10 @@ def normalize_a75_generation():
             })
         
         if not records:
-            logger.warning("No records to normalize")
+            _LOGGER.warning("No records to normalize")
             return
-        
-        logger.info(f"Pivoted {len(records)} timestamp groups")
+
+        _LOGGER.debug(f"Pivoted {len(records)} timestamp groups")
         
         stmt = insert(NormEntsoeA75).values(records)
         stmt = stmt.on_conflict_do_update(
@@ -121,16 +118,18 @@ def normalize_a75_generation():
         
         session.execute(stmt)
         session.commit()
-        
-        logger.info(f"✓ Normalized {len(records)} records to norm_entso_e_a75")
-        
+
+        elapsed = time.time() - start_time
+        _LOGGER.info(f"A75 normalizer completed: {len(records)} records normalized in {elapsed:.2f}s")
+
         sample = session.query(NormEntsoeA75).order_by(NormEntsoeA75.timestamp.desc()).first()
         if sample:
-            logger.info(f"Sample: {sample.timestamp} | Total: {sample.total_mw} MW | Solar: {sample.b16_solar_mw} MW")
+            _LOGGER.debug(f"Sample: {sample.timestamp} | Total: {sample.total_mw} MW | Solar: {sample.b16_solar_mw} MW")
         
     except Exception as e:
         session.rollback()
-        logger.error(f"Normalization failed: {e}", exc_info=True)
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A75 normalizer failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
         raise
     finally:
         session.close()

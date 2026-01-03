@@ -4,6 +4,7 @@ ENTSO-E A44 Normalizer: raw -> norm (with forward fill)
 """
 
 import sys
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -12,12 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44, NormEntsoeA44
-import logging
+from synctacles_db.core.logging import get_logger
 
 DB_URL = "postgresql://synctacles@localhost:5432/synctacles"
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
@@ -36,27 +36,32 @@ def get_previous_value(session, timestamp, country):
 
 def normalize_prices():
     """Normalize raw prices to norm table with forward fill"""
+    _LOGGER.info("A44 normalizer starting")
+    start_time = time.time()
+
     session = Session()
     normalized = 0
     forward_filled = 0
-    
+
     try:
         # Get all raw records not yet normalized
         raw_records = session.query(RawEntsoeA44)\
             .filter(RawEntsoeA44.country == 'NL')\
             .order_by(RawEntsoeA44.timestamp)\
             .all()
-        
+
+        _LOGGER.debug(f"Found {len(raw_records)} raw A44 records")
+
         for raw in raw_records:
             # Check if already exists
             exists = session.query(NormEntsoeA44).filter(
                 NormEntsoeA44.timestamp == raw.timestamp,
                 NormEntsoeA44.country == raw.country
             ).first()
-            
+
             if exists:
                 continue
-            
+
             # Determine quality
             if raw.price_eur_mwh is not None and raw.price_eur_mwh > 0:
                 # Fresh ENTSO-E data
@@ -70,9 +75,10 @@ def normalize_prices():
                 )
                 normalized += 1
             else:
-                # Missing data - forward fill
+                # Missing data - forward fill (fallback)
+                _LOGGER.debug(f"Data gap at {raw.timestamp}, activating forward fill")
                 prev_price = get_previous_value(session, raw.timestamp, raw.country)
-                
+
                 if prev_price:
                     norm = NormEntsoeA44(
                         timestamp=raw.timestamp,
@@ -85,25 +91,28 @@ def normalize_prices():
                     forward_filled += 1
                 else:
                     # No previous value - skip
-                    logger.warning(f"No previous value for {raw.timestamp}, skipping")
+                    _LOGGER.warning(f"No previous value for {raw.timestamp}, cannot forward fill")
                     continue
-            
+
             session.add(norm)
-        
+
         session.commit()
-        logger.info(f"Normalized: {normalized} OK, {forward_filled} forward-filled")
-        
+
+        elapsed = time.time() - start_time
+        _LOGGER.info(f"A44 normalizer completed: {normalized} OK, {forward_filled} forward-filled in {elapsed:.2f}s")
+
     except Exception as e:
         session.rollback()
-        logger.error(f"Normalization failed: {e}")
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A44 normalizer failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
         raise
     finally:
         session.close()
 
 def main():
-    logger.info("=== A44 Normalizer ===")
+    _LOGGER.info("A44 Normalizer batch starting")
     normalize_prices()
-    logger.info("=== Complete ===")
+    _LOGGER.info("A44 Normalizer batch complete")
 
 if __name__ == '__main__':
     main()
