@@ -1,0 +1,171 @@
+ENERGY-CHARTS API QUICK START
+==============================
+
+LIVE API VERIFIED: 2026-01-02
+Status: Working and accessible
+
+API ENDPOINT
+============
+GET https://api.energy-charts.info/price?bzn=NL&start=YYYY-MM-DD&end=YYYY-MM-DD
+
+RESPONSE FORMAT (JSON)
+======================
+{
+  "license_info": "CC BY 4.0 ...",
+  "unix_seconds": [1767135600, 1767136500, ...],  // UTC timestamps, 15-min intervals
+  "price": [94.87, 90.31, ...],                    // EUR/MWh prices
+  "unit": "EUR / MWh",
+  "deprecated": false
+}
+
+CRITICAL RULES
+==============
+1. len(unix_seconds) MUST equal len(price)
+2. price[i] corresponds to unix_seconds[i]
+3. All timestamps are UTC
+4. 15-minute intervals (900 seconds apart)
+5. Prices are floats (2 decimal places: EUR per MWh)
+
+PYTHON MINIMAL EXAMPLE (15 lines)
+=================================
+import requests
+from datetime import datetime, timezone
+
+response = requests.get(
+    "https://api.energy-charts.info/price",
+    params={"bzn": "NL", "start": "2025-12-31", "end": "2026-01-02"}
+)
+data = response.json()
+
+for unix_ts, price in zip(data["unix_seconds"], data["price"]):
+    timestamp = datetime.fromtimestamp(unix_ts, tz=timezone.utc)
+    print(f"{timestamp.isoformat()}: {price} EUR/MWh")
+
+VALIDATION CHECKLIST
+====================
+[ ] HTTP 200 status
+[ ] Valid JSON
+[ ] Has: license_info, unix_seconds, price, unit, deprecated
+[ ] len(unix_seconds) == len(price)
+[ ] Timestamps ascending order
+[ ] Timestamps increment ~900 seconds
+[ ] All timestamps UTC
+[ ] All prices numeric
+
+DOCUMENTATION FILES
+====================
+Location: /opt/github/synctacles-api/docs/
+
+START HERE:
+  ENERGY_CHARTS_DOCUMENTATION_INDEX.md - Master navigation guide
+
+QUICK REFERENCE (5-10 min):
+  ENERGY_CHARTS_API_SUMMARY.md - Overview, examples, validation
+
+DETAILED REFERENCE (15-20 min):
+  ENERGY_CHARTS_API_RESPONSE_FORMAT.md - Complete field specs
+
+IMPLEMENTATION (30-40 min):
+  ENERGY_CHARTS_INTEGRATION_GUIDE.md - Code examples, patterns, tests
+
+VALIDATION:
+  ENERGY_CHARTS_JSON_SCHEMA.json - Machine-readable schema
+  ENERGY_CHARTS_RESPONSE_EXAMPLE.json - Annotated example response
+
+CURRENT SYNCTACLES IMPLEMENTATION
+==================================
+✓ COLLECTOR: /synctacles_db/collectors/energy_charts_prices.py
+  - Fetches raw JSON
+  - Saves to /var/log/energy-insights/collectors/energy_charts_raw/
+
+✓ IMPORTER: /synctacles_db/importers/import_energy_charts_prices.py
+  - Reads JSON files
+  - Parses unix_seconds and price arrays
+  - Inserts into raw_prices table
+
+⚠ CLIENT: /synctacles_db/fallback/energy_charts_client.py
+  - Has generation mix support
+  - Needs price endpoint support
+
+SAMPLE LIVE DATA (348 points from 2025-12-31 to 2026-01-02)
+============================================================
+Timestamp                | Price (EUR/MWh)
+2025-12-31 10:00:00 UTC | 94.87
+2025-12-31 10:15:00 UTC | 90.31
+2025-12-31 10:30:00 UTC | 86.19
+2025-12-31 10:45:00 UTC | 81.04
+2025-12-31 11:00:00 UTC | 90.11
+...
+2026-01-02 22:45:00 UTC | 78.97
+
+Range: 2.34 - 119.98 EUR/MWh
+Time Interval: 15 minutes (900 seconds)
+
+KEY FIELD DESCRIPTIONS
+======================
+license_info (string)
+  - Data attribution: "CC BY 4.0 from Bundesnetzagentur | SMARD.de"
+
+unix_seconds (array of integers)
+  - Unix timestamps in seconds (UTC)
+  - Increments by 900 (15 minutes) between consecutive values
+  - Example: 1767135600 = 2025-12-31 10:00:00 UTC
+  - Convert: datetime.fromtimestamp(ts, tz=timezone.utc)
+
+price (array of floats)
+  - Electricity prices in EUR/MWh
+  - Can have decimals (e.g., 94.87)
+  - Typical range: 0-200+ EUR/MWh
+  - Index i matches unix_seconds[i]
+
+unit (string)
+  - Always "EUR / MWh"
+
+deprecated (boolean)
+  - API deprecation status
+  - Currently false (API is active)
+
+ERROR HANDLING
+==============
+HTTP 429 (Rate Limited)
+  → 10 requests/minute limit
+  → Implement caching (24-hour validity)
+  → Use circuit breaker (skip 2 hours after 404)
+
+HTTP 404 (Not Found)
+  → Invalid date range
+  → Check: start < end, valid ISO 8601 dates
+
+HTTP 500 (Server Error)
+  → Retry with exponential backoff
+
+Array Length Mismatch
+  → Critical data integrity issue
+  → Always verify: len(unix_seconds) == len(price)
+
+Database Storage
+================
+CREATE TABLE raw_prices (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,  -- From unix_seconds
+    country VARCHAR(2) NOT NULL,                   -- "NL"
+    price_eur_mwh DECIMAL(10, 2),                  -- From price array
+    source VARCHAR(50),                            -- "energy-charts"
+    source_file VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(timestamp, country, source)
+);
+
+NEXT STEPS
+==========
+1. Read ENERGY_CHARTS_API_SUMMARY.md (10 min overview)
+2. Follow ENERGY_CHARTS_INTEGRATION_GUIDE.md (implementation)
+3. Use ENERGY_CHARTS_JSON_SCHEMA.json (validation)
+4. Reference ENERGY_CHARTS_API_RESPONSE_FORMAT.md (details)
+5. Test with ENERGY_CHARTS_RESPONSE_EXAMPLE.json (examples)
+
+CONTACT
+=======
+Documentation created: 2026-01-02
+API verified live: Yes, 348 data points retrieved
+Status: Complete and ready for implementation

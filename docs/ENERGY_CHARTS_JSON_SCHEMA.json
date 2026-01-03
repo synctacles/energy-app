@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Energy-Charts Price API Response",
+  "description": "Response format from Energy-Charts price endpoint for Dutch electricity day-ahead prices",
+  "type": "object",
+  "required": ["license_info", "unix_seconds", "price", "unit", "deprecated"],
+  "properties": {
+    "license_info": {
+      "type": "string",
+      "description": "Licensing and data attribution information. Indicates data is CC BY 4.0 licensed from Bundesnetzagentur/SMARD.de",
+      "examples": ["CC BY 4.0 (creativecommons.org/licenses/by/4.0) from Bundesnetzagentur | SMARD.de"]
+    },
+    "unix_seconds": {
+      "type": "array",
+      "description": "Array of Unix timestamps (seconds since epoch) in UTC timezone. Each timestamp represents the start of a 15-minute interval. Must have same length as price array.",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Unix timestamp in seconds (UTC). Increments by 900 seconds (15 minutes) between consecutive elements."
+      },
+      "minItems": 1,
+      "examples": [[1767135600, 1767136500, 1767137400, 1767138300, 1767139200]]
+    },
+    "price": {
+      "type": "array",
+      "description": "Array of day-ahead electricity prices corresponding to each timestamp. Each price aligns with the unix_seconds array at the same index. Prices are from the SMARD.de day-ahead auction.",
+      "items": {
+        "type": "number",
+        "description": "Price in EUR/MWh (Euro per Megawatt-hour). Can be positive (normal), zero (rare), or negative (very rare, oversupply).",
+        "examples": [94.87, 90.31, 81.04]
+      },
+      "minItems": 1,
+      "examples": [[94.87, 90.31, 86.19, 81.04, 90.11]]
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit of measurement for the price values",
+      "enum": ["EUR / MWh"],
+      "examples": ["EUR / MWh"]
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "Flag indicating whether this API endpoint or response format is deprecated. Monitor for API migration planning.",
+      "examples": [false]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "license_info": "CC BY 4.0 (creativecommons.org/licenses/by/4.0) from Bundesnetzagentur | SMARD.de",
+      "unix_seconds": [
+        1767135600,
+        1767136500,
+        1767137400,
+        1767138300,
+        1767139200
+      ],
+      "price": [
+        94.87,
+        90.31,
+        86.19,
+        81.04,
+        90.11
+      ],
+      "unit": "EUR / MWh",
+      "deprecated": false
+    }
+  ],
+  "notes": {
+    "array_length": "Both unix_seconds and price arrays must have identical length",
+    "time_interval": "15-minute intervals (900 seconds between consecutive timestamps)",
+    "timezone": "All timestamps are in UTC (Coordinated Universal Time)",
+    "data_source": "SMARD.de - German day-ahead electricity market data",
+    "price_range": "Typically 0-200+ EUR/MWh, but can vary based on market conditions",
+    "missing_values": "Rare; null values may appear but should be handled as 0 or excluded",
+    "timestamp_conversion": "Use datetime.fromtimestamp(unix_ts, tz=timezone.utc) to convert to ISO 8601 format"
+  }
+}
