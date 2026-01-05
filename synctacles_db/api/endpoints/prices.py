@@ -81,14 +81,17 @@ async def get_prices(
 
     session = Session()
     now = datetime.now(timezone.utc)
-    start_time = now - timedelta(hours=hours)
+
+    # Get today 00:00 + tomorrow 23:59 (48h day-ahead data)
+    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_tomorrow = start_of_today + timedelta(days=2)
 
     # Query ENTSO-E database
     try:
         records = session.query(NormEntsoeA44)\
             .filter(NormEntsoeA44.country == country.upper())\
-            .filter(NormEntsoeA44.timestamp >= start_time)\
-            .filter(NormEntsoeA44.timestamp <= now)\
+            .filter(NormEntsoeA44.timestamp >= start_of_today)\
+            .filter(NormEntsoeA44.timestamp < end_of_tomorrow)\
             .order_by(desc(NormEntsoeA44.timestamp))\
             .all()
     finally:
