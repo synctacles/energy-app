@@ -1,7 +1,7 @@
 """Normalize raw_prices to norm_prices with quality checks."""
 import time
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from synctacles_db.core.logging import get_logger
@@ -21,13 +21,13 @@ def normalize_prices(country: str = "NL"):
     
     try:
         # Get latest raw data
-        raw_records = session.execute("""
+        raw_records = session.execute(text("""
             SELECT timestamp, price_eur_mwh, fetch_time
             FROM raw_prices
             WHERE country = :country
             AND timestamp >= NOW() - INTERVAL '48 hours'
             ORDER BY timestamp
-        """, {"country": country}).fetchall()
+        """), {"country": country}).fetchall()
 
         _LOGGER.debug(f"Found {len(raw_records)} raw price records")
 
@@ -48,14 +48,14 @@ def normalize_prices(country: str = "NL"):
                 quality = "NO_DATA"
 
             # Upsert
-            session.execute("""
+            session.execute(text("""
                 INSERT INTO norm_prices (timestamp, country, price_eur_mwh, quality_status)
                 VALUES (:ts, :country, :price, :quality)
                 ON CONFLICT (timestamp, country) DO UPDATE
                 SET price_eur_mwh = EXCLUDED.price_eur_mwh,
                     quality_status = EXCLUDED.quality_status,
                     normalized_at = NOW()
-            """, {
+            """), {
                 "ts": timestamp,
                 "country": country,
                 "price": price,
