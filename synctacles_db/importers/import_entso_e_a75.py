@@ -21,8 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from synctacles_db.models import RawEntsoeA75
 from synctacles_db.core.logging import get_logger
-
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
+from config.settings import DATABASE_URL
 
 # Log directory configuration
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))

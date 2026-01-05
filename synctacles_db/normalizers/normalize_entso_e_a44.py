@@ -14,8 +14,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44, NormEntsoeA44
 from synctacles_db.core.logging import get_logger
+from config.settings import DATABASE_URL
 
-DB_URL = "postgresql://synctacles@localhost:5432/synctacles"
+DB_URL = DATABASE_URL
 
 _LOGGER = get_logger(__name__)
 

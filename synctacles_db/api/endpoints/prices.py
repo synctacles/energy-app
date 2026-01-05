@@ -1,4 +1,3 @@
-import os
 """
 ENTSO-E A44: Day-ahead electricity prices with 4-tier fallback
 
@@ -29,12 +28,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from synctacles_db.models import NormEntsoeA44
 from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
+from config.settings import DATABASE_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
+DB_URL = DATABASE_URL
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 

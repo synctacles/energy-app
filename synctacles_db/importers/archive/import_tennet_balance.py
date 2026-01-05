@@ -17,8 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from synctacles_db.models import RawTennetBalance
-
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
+from config.settings import DATABASE_URL
 
 # Log directory configuration
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))

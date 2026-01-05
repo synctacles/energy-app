@@ -8,10 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from synctacles_db.core.logging import get_logger
+from config.settings import DATABASE_URL
 
 _LOGGER = get_logger(__name__)
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 INPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 

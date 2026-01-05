@@ -55,7 +55,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://synctacles@localhost:5432/synctacles')
+# Import settings AFTER adjusting sys.path if needed
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config.settings import DATABASE_URL
 COLLECTORS_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "app" / "synctacles_db" / "collectors")
 VENV_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "venv")
 VENV_PYTHON = VENV_PATH / "bin" / "python3"

@@ -1,15 +1,13 @@
 """Normalize raw_prices to norm_prices with quality checks."""
-import os
 import time
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from synctacles_db.core.logging import get_logger
+from config.settings import DATABASE_URL
 
 _LOGGER = get_logger(__name__)
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost:5432/synctacles")
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
