@@ -5,9 +5,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from synctacles_db.core.logging import get_logger
+from synctacles_db.normalizers.base import validate_db_connection
 from config.settings import DATABASE_URL
 
 _LOGGER = get_logger(__name__)
+
+# Validate database connection at startup
+validate_db_connection()
+
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 

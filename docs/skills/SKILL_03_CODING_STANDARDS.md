@@ -351,6 +351,101 @@ def get_data():
 
 ## DATABASE CODE
 
+### Database Connection Pattern
+
+**CRITICAL:** All database connections must use centralized config.settings module. This prevents hardcoded credentials and ensures fail-fast behavior.
+
+**Correct Pattern (Normalizers, Collectors, Importers):**
+
+```python
+# normalize_entso_e_a44.py
+
+import sys
+from pathlib import Path
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# 1. Import centralized DATABASE_URL
+from config.settings import DATABASE_URL
+# 2. Import startup validation
+from synctacles_db.normalizers.base import validate_db_connection
+
+_LOGGER = get_logger(__name__)
+
+# 3. Validate database connection at startup (FAIL-FAST)
+validate_db_connection()
+
+# 4. Create engine from validated config
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+
+def main():
+    # ... rest of normalizer logic
+    session = Session()
+    try:
+        # database operations
+        pass
+    finally:
+        session.close()
+
+if __name__ == '__main__':
+    main()
+```
+
+**What validate_db_connection() Does:**
+
+```python
+# synctacles_db/normalizers/base.py
+def validate_db_connection():
+    """
+    Fail-fast database validation at startup.
+
+    Returns SQLAlchemy Engine if successful.
+    Exits with SystemExit(1) if connection fails.
+    """
+    try:
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        _LOGGER.info("✓ Database connectie gevalideerd")
+        return engine
+    except Exception as e:
+        _LOGGER.critical(f"✗ Database connectie FAILED: {e}")
+        _LOGGER.critical("  Check DATABASE_URL in /opt/.env")
+        _LOGGER.critical("  Verwacht user: energy_insights_nl")
+        raise SystemExit(1)
+```
+
+**Why This Pattern?**
+
+1. **Fail-Fast:** Catches connection errors before processing data
+2. **Centralized:** All modules use same DATABASE_URL from config.settings
+3. **Clear Error Messages:** If connection fails, admin knows exactly what's wrong
+4. **Prevents Hardcoding:** No "synctacles@localhost" strings in code
+5. **Pre-Commit Protected:** Hook blocks commits containing hardcoded credentials
+
+**Anti-Patterns (DO NOT USE):**
+
+```python
+# ❌ WRONG: Hardcoded credentials
+DATABASE_URL = "postgresql://synctacles@localhost:5432/synctacles"
+engine = create_engine(DATABASE_URL)
+
+# ❌ WRONG: os.getenv with fallback
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost/synctacles")
+engine = create_engine(DATABASE_URL)
+
+# ❌ WRONG: No startup validation
+engine = create_engine(DATABASE_URL)  # Fails silently when first query runs
+
+# ❌ WRONG: Different modules use different sources
+# normalizer.py: imports from config.settings
+# collector.py: uses os.getenv with fallback
+# (Now they disagree on which DB to use!)
+```
+
+---
+
 ### Query Building
 
 Use parameterized queries (prevent SQL injection):

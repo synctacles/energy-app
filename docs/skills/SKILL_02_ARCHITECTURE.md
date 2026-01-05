@@ -331,6 +331,25 @@ CREATE TABLE norm_generation (
 }
 ```
 
+#### `/v1/prices/today`
+```json
+{
+  "period": "2025-12-30T00:00:00Z to 2025-12-31T23:59:59Z",
+  "data": [
+    {"timestamp": "2025-12-30T00:00:00Z", "price_eur_mwh": 45.50},
+    {"timestamp": "2025-12-30T01:00:00Z", "price_eur_mwh": 42.30},
+    ...
+  ],
+  "meta": {
+    "source": "ENTSO-E",
+    "quality_status": "FRESH",
+    "data_age_seconds": -112800,
+    "count": 48,
+    "allow_go_action": true
+  }
+}
+```
+
 #### `/health`
 ```json
 {
@@ -344,6 +363,136 @@ CREATE TABLE norm_generation (
   }
 }
 ```
+
+---
+
+## PRICE DATA ARCHITECTURE
+
+### Two-Source Price System: ENTSO-E A44 + Energy-Charts Fallback
+
+The system maintains **two independent price pipelines** for resilience:
+
+#### Primary Source: ENTSO-E A44 (Official Day-Ahead Prices)
+```
+ENTSO-E API (Official EU Prices)
+    ↓
+entso_e_a44_prices.py (Collector)
+    ↓ (saves raw XML every 15 min)
+raw_entso_e_a44 (PostgreSQL)
+    ↓
+normalize_entso_e_a44.py (Normalizer)
+    ↓
+norm_entso_e_a44 (PostgreSQL - NORMALIZED)
+    ↓
+FastAPI /v1/prices (Primary source)
+```
+
+**Characteristics:**
+- Official ENTSO-E day-ahead market prices
+- Updated once daily at 13:00 CET (12:00 UTC)
+- Covers today + tomorrow (48 hourly values)
+- Quality: HIGH (official source)
+- `allow_go_action=true` (safe for automation)
+
+#### Fallback Source: Energy-Charts (Fraunhofer ISE Data)
+```
+Energy-Charts API (Estimated/Historical)
+    ↓
+energy_charts_prices.py (Collector)
+    ↓
+raw_prices (PostgreSQL)
+    ↓
+normalize_prices.py (Normalizer)
+    ↓
+norm_prices (PostgreSQL - NORMALIZED)
+    ↓
+FastAPI /v1/prices (Fallback if A44 unavailable)
+```
+
+**Characteristics:**
+- Estimated day-ahead prices from Fraunhofer ISE
+- Modeled data, not official
+- Updated less frequently
+- Quality: MEDIUM (fallback only)
+- `allow_go_action=false` (not for automation)
+
+### API Response Strategy
+
+The API follows a **priority-based fallback chain:**
+
+```python
+# /v1/prices endpoint logic:
+
+# 1. Try to get fresh ENTSO-E A44 data (primary)
+prices = query(NormEntsoeA44)
+if prices and is_fresh(prices):
+    return {
+        "data": prices,
+        "meta": {
+            "source": "ENTSO-E",
+            "quality_status": "FRESH",
+            "allow_go_action": True  # ← Safe for automation
+        }
+    }
+
+# 2. Fallback to Energy-Charts (secondary)
+prices = query(NormPrices)
+if prices:
+    return {
+        "data": prices,
+        "meta": {
+            "source": "Energy-Charts",
+            "quality_status": "FALLBACK",
+            "allow_go_action": False  # ← Not for automation
+        }
+    }
+
+# 3. No data available
+return {"data": [], "meta": {"status": "UNAVAILABLE"}}
+```
+
+### Quality Scoring
+
+| Source | Status | A44 Age | Allow Go | Notes |
+|--------|--------|---------|----------|-------|
+| ENTSO-E A44 | FRESH | < 24h | ✅ YES | Official, safe for automation |
+| ENTSO-E A44 | STALE | 24-48h | ✅ YES | Yesterday's prices, still official |
+| Energy-Charts | FALLBACK | > 48h | ❌ NO | Fallback only, estimated data |
+| None | UNAVAILABLE | N/A | ❌ NO | No data from any source |
+
+### Data Tables Reference
+
+**Primary Pipeline:**
+```sql
+-- Raw ENTSO-E data
+raw_entso_e_a44 (timestamp, country, price_eur_mwh, fetch_time)
+
+-- Normalized ENTSO-E data (with quality metadata)
+norm_entso_e_a44 (
+    timestamp, country, price_eur_mwh,
+    data_source='ENTSO-E',
+    data_quality='OK',
+    needs_backfill=false
+)
+```
+
+**Fallback Pipeline:**
+```sql
+-- Raw Energy-Charts data
+raw_prices (timestamp, price_eur_mwh, fetch_time)
+
+-- Normalized Energy-Charts data
+norm_prices (timestamp, price_eur_mwh, quality, age_minutes)
+```
+
+### Why Two Sources Matter
+
+1. **Resilience:** If ENTSO-E unavailable, API still returns data (from Energy-Charts)
+2. **Automation Safety:** `allow_go_action` flag ensures automation only uses official data
+3. **Data Integrity:** No silent failures or stale data returned without metadata
+4. **Architecture Learning:** Two sources demonstrate fallback pattern for other data types
+
+**Note:** This is NOT an automatic merge. The API returns one source at a time, with clear quality metadata about which source and whether it's safe for automation.
 
 ---
 

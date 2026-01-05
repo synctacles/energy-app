@@ -516,6 +516,142 @@ async def async_get_config_entry_diagnostics(hass, entry):
 
 ---
 
+## STARTUP VALIDATION PATTERN
+
+**CRITICAL FOR PRODUCTION RELIABILITY:** All services, collectors, normalizers, and importers must validate dependencies at startup before attempting data processing.
+
+### Database Connection Validation
+
+**File:** `synctacles_db/normalizers/base.py`
+
+```python
+"""Base utilities for all normalizers - validation at startup."""
+from sqlalchemy import create_engine, text
+from config.settings import DATABASE_URL
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
+def validate_db_connection():
+    """
+    Fail-fast database validation at startup.
+
+    Ensures:
+    - Database is reachable
+    - Credentials are correct
+    - User has necessary permissions
+
+    Returns:
+        SQLAlchemy Engine instance if validation succeeds
+
+    Raises:
+        SystemExit(1) if validation fails (prevents silent failures)
+    """
+    try:
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        _LOGGER.info("✓ Database connectie gevalideerd")
+        return engine
+    except Exception as e:
+        _LOGGER.critical(f"✗ Database connectie FAILED: {e}")
+        _LOGGER.critical("  Check DATABASE_URL in /opt/.env")
+        _LOGGER.critical("  Verwacht user: energy_insights_nl")
+        raise SystemExit(1)
+```
+
+### Usage in All Normalizers
+
+**Pattern for ALL normalizer modules:**
+
+```python
+# normalize_entso_e_a44.py
+
+import sys
+from pathlib import Path
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from config.settings import DATABASE_URL
+from synctacles_db.normalizers.base import validate_db_connection
+from synctacles_db.core.logging import get_logger
+
+_LOGGER = get_logger(__name__)
+
+# CRITICAL: Validate at startup (module import time)
+validate_db_connection()
+
+# Only proceed if connection is valid
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+
+def main():
+    """Main normalizer logic runs AFTER validation passes."""
+    _LOGGER.info("A44 normalizer starting")
+    # ... data processing ...
+
+if __name__ == '__main__':
+    main()
+```
+
+### Why This Pattern?
+
+1. **Fail-Fast:** Service exits immediately with clear error message instead of running silently and failing on first query
+2. **Clear Error Message:** Admin knows exactly what's wrong:
+   - "Database unreachable at localhost" → check DB_HOST
+   - "role synctacles does not exist" → check DB_USER
+   - "permission denied" → check database permissions
+3. **Early Detection:** Startup validation catches misconfiguration before systemd timer runs for 15 minutes with no output
+4. **Logging Integration:** Uses standard _LOGGER so error appears in journalctl
+
+### Applied To
+
+All normalizer modules call `validate_db_connection()` at startup:
+- ✅ `normalize_entso_e_a44.py`
+- ✅ `normalize_prices.py`
+- ✅ `normalize_entso_e_a65.py`
+- ✅ `normalize_entso_e_a75.py`
+
+All collector modules validate at startup (data collection doesn't start if DB down):
+- ✅ `entso_e_a44_prices.py`
+- ✅ `entso_e_a65_load.py`
+- ✅ `entso_e_a75_generation.py`
+- ✅ `energy_charts_prices.py`
+
+### Logging Example (systemd logs)
+
+**When validation passes:**
+```
+Jan 05 10:15:00 server[12345]: ✓ Database connectie gevalideerd
+Jan 05 10:15:00 server[12345]: A44 normalizer starting
+Jan 05 10:15:15 server[12345]: A44 normalizer completed: 856 records in 15.2s
+```
+
+**When validation fails (DATABASE_URL wrong):**
+```
+Jan 05 10:15:00 server[12345]: ✗ Database connectie FAILED: (psycopg2.OperationalError) could not connect to server
+Jan 05 10:15:00 server[12345]:   Check DATABASE_URL in /opt/.env
+Jan 05 10:15:00 server[12345]:   Verwacht user: energy_insights_nl
+```
+
+Service exits cleanly with SystemExit(1), systemd logs failure, admin immediately sees the issue.
+
+### Anti-Pattern (DO NOT USE)
+
+```python
+# ❌ WRONG - Silent failure
+engine = create_engine(DATABASE_URL)  # No validation
+Session = sessionmaker(bind=engine)
+
+def main():
+    session = Session()
+    try:
+        # Fails on first query with confusing error
+        data = session.query(SomeTable).first()
+```
+
+---
+
 ## NEW CODE CHECKLIST
 
 All new code must pass this checklist before merge:

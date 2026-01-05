@@ -111,7 +111,19 @@
       "Bash(sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl push origin main)",
       "Bash(sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl log --oneline -8)",
       "Bash(sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl log --oneline origin/main..HEAD)",
-      "Bash(sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl commit -m \"$\\(cat <<''EOF''\nfeat: add async_reload_entry support for HA integration\n\n- Add async_reload_entry\\(\\) function to __init__.py\n- Enables runtime reload of integration without HA restart\n- All other HA best practices already implemented:\n  - SensorStateClass.MEASUREMENT for all sensors\n  - Unique IDs via EnergyInsightsBaseSensor base class\n  - Device grouping under \"Energy Insights NL\"\n  - Icons for all 10 sensor types\n  - Device classes \\(POWER, MONETARY, etc.\\)\n  - Native units of measurement\n\nThis completes HA finalization standards v2.0.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl commit -m \"$\\(cat <<''EOF''\nfeat: add async_reload_entry support for HA integration\n\n- Add async_reload_entry\\(\\) function to __init__.py\n- Enables runtime reload of integration without HA restart\n- All other HA best practices already implemented:\n  - SensorStateClass.MEASUREMENT for all sensors\n  - Unique IDs via EnergyInsightsBaseSensor base class\n  - Device grouping under \"Energy Insights NL\"\n  - Icons for all 10 sensor types\n  - Device classes \\(POWER, MONETARY, etc.\\)\n  - Native units of measurement\n\nThis completes HA finalization standards v2.0.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git remote set-url:*)",
+      "Bash(gh:*)",
+      "Bash(sudo -u energy-insights-nl git -C /opt/github/synctacles-api commit:*)",
+      "Bash(sudo -u energy-insights-nl git -C /opt/github/synctacles-api push origin main)",
+      "Bash(sudo -u postgres psql:*)",
+      "Bash(__NEW_LINE__ find /opt/energy-insights-nl/app -type d -name \"__pycache__\" -exec rm -rf {} +)",
+      "Bash(__NEW_LINE__ )",
+      "Bash(echo \"=== SCRIPTS INVENTORY ===\" echo \"\" echo \"Runtime scripts:\" ls -la /opt/energy-insights-nl/app/scripts/*.sh)",
+      "Bash(__NEW_LINE__ echo \"\")",
+      "Bash(echo \"✓ Clean \\(only env var usage\\)\" echo \"\" echo \"Other runtime scripts check:\" grep -rn \"energy-insights-nl\" /opt/energy-insights-nl/app/scripts/*.sh)",
+      "Bash(__NEW_LINE__ cp /opt/energy-insights-nl/app/scripts/run_normalizers.sh /opt/github/synctacles-api/scripts/run_normalizers.sh)",
+      "Bash(__NEW_LINE__ sudo chown energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/docs/DEPLOYMENT_SCRIPTS_GUIDE.md)"
     ]
   }
 }

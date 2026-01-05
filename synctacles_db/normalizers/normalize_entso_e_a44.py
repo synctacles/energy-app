@@ -14,11 +14,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44, NormEntsoeA44
 from synctacles_db.core.logging import get_logger
+from synctacles_db.normalizers.base import validate_db_connection
 from config.settings import DATABASE_URL
 
 DB_URL = DATABASE_URL
 
 _LOGGER = get_logger(__name__)
+
+# Validate database connection at startup
+validate_db_connection()
 
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)

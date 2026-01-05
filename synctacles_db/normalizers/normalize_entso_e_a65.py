@@ -17,9 +17,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from synctacles_db.models import RawEntsoeA65
 from synctacles_db.models import NormEntsoeA65
 from synctacles_db.core.logging import get_logger
+from synctacles_db.normalizers.base import validate_db_connection
 from config.settings import DATABASE_URL
 
 _LOGGER = get_logger(__name__)
+
+# Validate database connection at startup
+validate_db_connection()
 
 
 def calculate_quality_status(latest_timestamp: datetime) -> str:

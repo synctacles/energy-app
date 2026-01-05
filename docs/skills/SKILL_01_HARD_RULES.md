@@ -360,6 +360,77 @@ if not DB_HOST:
 
 ---
 
+### Rule 11: Centralized Database Configuration
+
+**Statement:** All database connections use centralized config.settings module. Never hardcode DATABASE_URL or credentials.
+
+**What This Means:**
+- Import `from config.settings import DATABASE_URL`
+- Never use `os.getenv("DATABASE_URL", "postgresql://...")`
+- Never hardcode "synctacles@localhost" or any user/host
+- All normalizers, collectors, importers, and scripts use the same config
+- Fail-fast validation at startup ensures credentials are correct
+
+**Violations:**
+- `DATABASE_URL = "postgresql://synctacles@localhost/synctacles"`
+- `os.getenv("DATABASE_URL", "postgresql://synctacles@localhost")`
+- Hardcoded credentials in collector or importer modules
+- Different modules using different credential sources
+
+**Enforcement:**
+- Pre-commit hook blocks commits with pattern: `synctacles@`, `postgresql://[a-z_]+@`
+- Every normalizer calls `validate_db_connection()` at startup
+- All 4 normalizers, all collectors, all importers must import from config.settings
+- Database validation happens before any data processing
+
+**Examples:**
+
+❌ **Bad (Hardcoded credentials):**
+```python
+DATABASE_URL = "postgresql://synctacles@localhost:5432/synctacles"
+engine = create_engine(DATABASE_URL)
+
+# Or with fallback:
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://synctacles@localhost/synctacles")
+```
+
+✅ **Good (Centralized config):**
+```python
+from config.settings import DATABASE_URL
+from synctacles_db.normalizers.base import validate_db_connection
+
+# Validate at startup (fail-fast)
+validate_db_connection()
+
+engine = create_engine(DATABASE_URL)
+```
+
+**Config Module (config/settings.py):**
+```python
+import os
+from sqlalchemy.engine import URL
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL not set. Set in /opt/.env\n"
+        "Expected format: postgresql://user@host:port/dbname"
+    )
+```
+
+**Startup Validation Pattern:**
+```python
+from synctacles_db.normalizers.base import validate_db_connection
+
+def main():
+    # Fail immediately if DB unreachable
+    validate_db_connection()
+
+    # ... rest of normalizer logic
+```
+
+---
+
 ### Rule 10: Documentation Stays Current
 
 **Statement:** Code comments describe WHY, not WHAT. Keep docs in sync with code.
