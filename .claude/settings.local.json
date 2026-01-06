@@ -123,7 +123,15 @@
       "Bash(__NEW_LINE__ echo \"\")",
       "Bash(echo \"✓ Clean \\(only env var usage\\)\" echo \"\" echo \"Other runtime scripts check:\" grep -rn \"energy-insights-nl\" /opt/energy-insights-nl/app/scripts/*.sh)",
       "Bash(__NEW_LINE__ cp /opt/energy-insights-nl/app/scripts/run_normalizers.sh /opt/github/synctacles-api/scripts/run_normalizers.sh)",
-      "Bash(__NEW_LINE__ sudo chown energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/docs/DEPLOYMENT_SCRIPTS_GUIDE.md)"
+      "Bash(__NEW_LINE__ sudo chown energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/docs/DEPLOYMENT_SCRIPTS_GUIDE.md)",
+      "Bash(__NEW_LINE__ echo \"TEST 2: Verify all normalizers call validate_db_connection\\(\\)\")",
+      "Bash(__NEW_LINE__ echo \"TEST 3: Verify NO hardcoded credentials in code\")",
+      "Bash(__NEW_LINE__ echo \"TEST 4: Verify pre-commit hook exists and is executable\")",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(gh issue list:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: backup current state before reorganization\n\n- Stage SYNCTACLES_PROJECT_VOORTGANGSRAPPORT.md\n- Stage SYNCTACLES_GLOBALE_POSITIE.md\n- Stage CC_FEEDBACK_ON_CLAUDE_INVENTARISATIE.md\n- Stage DOCUMENTATIE_INDEX.md\n- Stage OPSCHONING_PLAN.md\n\nAll current documentation preserved before structural changes.\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
