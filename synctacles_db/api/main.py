@@ -67,13 +67,16 @@ async def metrics_middleware(request, call_next):
 
     return response
 
-# CORS (Home Assistant integration)
+# CORS Configuration (environment-driven for multi-deployment support)
+# Development: CORS_ORIGINS defaults to ["*"]
+# Production: Set CORS_ORIGINS env var to restrict (e.g., "https://homeassistant.local,https://example.com")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Dev mode - restrict in production
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization"],
+    max_age=3600,  # Cache CORS preflight for 1 hour
 )
 
 

@@ -70,6 +70,13 @@ BRAND_SLUG = optional_env("BRAND_SLUG", "synctacles")
 # Log Level
 LOG_LEVEL = optional_env("LOG_LEVEL", "INFO")
 
+# CORS Configuration - Restrict origins in production
+# Format: "https://homeassistant.local,https://example.com" (comma-separated)
+# Development default: allows all origins
+CORS_ORIGINS = optional_env("CORS_ORIGINS", "").split(",") if optional_env("CORS_ORIGINS", "") else ["*"]
+# Strip whitespace from each origin
+CORS_ORIGINS = [origin.strip() for origin in CORS_ORIGINS if origin.strip()]
+
 # =============================================================================
 # Settings object for backward compatibility
 # =============================================================================
@@ -92,6 +99,7 @@ class Settings:
         self.auth_required = AUTH_REQUIRED
         self.rate_limit_enabled = RATE_LIMIT_ENABLED
         self.default_tier = DEFAULT_TIER
+        self.cors_origins = CORS_ORIGINS
 
 settings = Settings()
 
