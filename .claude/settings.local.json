@@ -148,7 +148,14 @@
       "Bash(\"https://api.github.com/repos/DATADIO/synctacles-api/issues?state=all&per_page=100\")",
       "Bash(python -m py_compile:*)",
       "Bash(curl -s -H \"Authorization: token $GITHUB_PAT\" )",
-      "Bash(./scripts/generate-progress-report.sh:*)"
+      "Bash(./scripts/generate-progress-report.sh:*)",
+      "Bash(systemctl list-units:*)",
+      "Bash(lsof:*)",
+      "Bash(netstat:*)",
+      "Bash(systemctl is-enabled:*)",
+      "Bash(systemctl show:*)",
+      "Bash(sudo systemctl stop:*)",
+      "Bash(sudo systemctl start:*)"
     ]
   }
 }
