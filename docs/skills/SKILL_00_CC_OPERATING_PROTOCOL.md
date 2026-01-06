@@ -176,23 +176,71 @@ Is dit toegestaan of off-limits?"
 
 ## SECTIE F: GIT DISCIPLINE
 
+### ⚠️ KRITIEK: Git ALLEEN als service account
+
+Claude Code draait als root, maar git operaties MOETEN als service account.
+SSH keys voor GitHub staan ALLEEN onder de service account.
+
 ### ELKE git operatie:
 
 ```bash
-# CORRECT
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api <command>
+# CORRECT - met SSH key voor push
+sudo -u energy-insights-nl bash -c '
+export GIT_SSH_COMMAND="ssh -i /opt/energy-insights-nl/.ssh/id_github -o StrictHostKeyChecking=no"
+git -C /opt/github/synctacles-api <command>
+'
 
-# FOUT - NOOIT DOEN
+# CORRECT - voor read-only operaties (status, log, diff)
+sudo -u energy-insights-nl git -C /opt/github/synctacles-api status
+
+# FOUT - NOOIT DOEN (geen SSH key toegang)
 git <command>
 sudo git <command>
+git -C /opt/github/synctacles-api push  # FAALT - root heeft geen GitHub SSH key
+```
+
+### Complete workflow voorbeeld:
+
+```bash
+# 1. Fix ownership VOOR git operaties
+sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+
+# 2. Stage files
+sudo -u energy-insights-nl git -C /opt/github/synctacles-api add <files>
+
+# 3. Commit (HEREDOC voor multi-line messages)
+sudo -u energy-insights-nl git -C /opt/github/synctacles-api commit -m "$(cat <<'EOF'
+<type>: <wat>
+
+<waarom>
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>
+EOF
+)"
+
+# 4. Push (VEREIST SSH key setup)
+sudo -u energy-insights-nl bash -c '
+export GIT_SSH_COMMAND="ssh -i /opt/energy-insights-nl/.ssh/id_github -o StrictHostKeyChecking=no"
+git -C /opt/github/synctacles-api push origin main
+'
 ```
 
 ### Na file edits:
 
 ```bash
-# VERPLICHT
+# VERPLICHT - voordat git operaties kunnen werken
 sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
 ```
+
+### Waarom dit nodig is:
+
+| Situatie | Root user | Service account |
+|----------|-----------|-----------------|
+| SSH key voor GitHub | ❌ Niet aanwezig | ✅ `/opt/energy-insights-nl/.ssh/id_github` |
+| File ownership | ❌ Breekt git | ✅ Correct |
+| Push naar origin | ❌ Auth failure | ✅ Werkt |
 
 ### Commit messages:
 
