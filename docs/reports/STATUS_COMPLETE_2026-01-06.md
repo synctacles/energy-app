@@ -1589,7 +1589,7 @@ Go/No-Go Decision: GO ✅ (after 3-5 day security hardening sprint)
 For any clarifications on this report or suggestions for improvements, refer to:
 - Architecture questions: See `/docs/ARCHITECTURE.md`
 - Issue tracking: Check `/docs/CC_communication/INDEX.md`
-- Operations: See `/docs/DEPLOYMENT_SCRIPTS_GUIDE.md`
+- Operations: See `/docs/operations/DEPLOYMENT_SCRIPTS_GUIDE.md`
 - Skills & procedures: See `/docs/skills/README.md`
 
 **Created:** January 5, 2026
