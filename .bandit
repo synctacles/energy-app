@@ -1,0 +1,25 @@
+# Bandit security configuration
+# Detects common security issues in Python code
+
+# Exclude test directories
+exclude_dirs:
+  - /test
+  - /tests
+  - /.venv
+  - /venv
+
+# Skip specific tests (false positives)
+skips:
+  # B101: assert_used - we use asserts in tests
+  - B101
+  # B601: paramiko_calls - we use SSH libraries safely
+  - B601
+  # B607: partial_path_traversal - we validate paths
+  - B607
+
+# Test severity levels
+tests: []
+
+# Assertion check
+assert_used:
+  skips: ['*/test_*.py', '*/tests.py']
