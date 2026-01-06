@@ -155,7 +155,9 @@
       "Bash(systemctl is-enabled:*)",
       "Bash(systemctl show:*)",
       "Bash(sudo systemctl stop:*)",
-      "Bash(sudo systemctl start:*)"
+      "Bash(sudo systemctl start:*)",
+      "Bash(export GITHUB_TOKEN=\"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\")",
+      "Bash(source ~/.github_token)"
     ]
   }
 }

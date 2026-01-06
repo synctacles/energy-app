@@ -1,0 +1,215 @@
+# SYNCTACLES Monitoring Alert Rules
+# Focus: OOM prevention and service availability
+# Evaluation interval: 15 seconds (configured in prometheus.yml)
+
+groups:
+  # =========================================================================
+  # MEMORY ALERTS (HIGHEST PRIORITY)
+  # =========================================================================
+  - name: memory_alerts
+    interval: 30s
+    rules:
+      # Available memory < 20% - start investigating
+      - alert: MemoryPressureWarning
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          category: memory
+        annotations:
+          summary: "Memory pressure on {{ $labels.instance }}"
+          description: |
+            Available memory < 20% on {{ $labels.instance }}
+            Current: {{ $value | humanize }}%
+
+            Action: Investigate memory usage, check for memory leaks, consider reducing load or adding swap.
+            Command: ps aux --sort=-%mem | head
+
+      # Available memory < 10% - OOM imminent
+      - alert: MemoryPressureCritical
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          category: memory
+        annotations:
+          summary: "CRITICAL memory pressure on {{ $labels.instance }}"
+          description: |
+            ⚠️  CRITICAL: Available memory < 10% - OOM crash likely!
+            Current: {{ $value | humanize }}%
+
+            Immediate action required:
+            1. Kill non-essential processes
+            2. Stop collectors if running
+            3. Reduce worker count
+            4. Add swap or scale up server
+
+      # High swap usage - memory pressure indicator
+      - alert: HighSwapUsage
+        expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes * 100 > 50
+        for: 10m
+        labels:
+          severity: warning
+          category: memory
+        annotations:
+          summary: "High swap usage on {{ $labels.instance }}"
+          description: |
+            Swap usage > 50% on {{ $labels.instance }}
+            Current: {{ $value | humanize }}%
+
+            Action: Indicates memory pressure. Check for memory leaks in application.
+            Command: free -h
+
+      # No swap configured - vulnerable to OOM
+      - alert: NoSwapConfigured
+        expr: node_memory_SwapTotal_bytes == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: memory
+        annotations:
+          summary: "No swap configured on {{ $labels.instance }}"
+          description: |
+            Server has no swap space - vulnerable to sudden OOM crashes.
+
+            Recommended: Add 4GB swap for emergency buffer.
+            Command: sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+
+  # =========================================================================
+  # DISK ALERTS
+  # =========================================================================
+  - name: disk_alerts
+    interval: 60s
+    rules:
+      # Low disk space - warning
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          category: disk
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: |
+            Disk space < 15% on {{ $labels.instance }}
+            Current: {{ $value | humanize }}%
+
+            Action: Clean up logs, old data, or expand disk volume.
+            Commands:
+            - du -sh /var/log/* (find large logs)
+            - journalctl --vacuum=7d (trim logs)
+
+      # Critical disk space - immediate action
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+        for: 2m
+        labels:
+          severity: critical
+          category: disk
+        annotations:
+          summary: "CRITICAL disk space on {{ $labels.instance }}"
+          description: |
+            ⚠️  CRITICAL: Disk space < 5% - services may fail!
+            Current: {{ $value | humanize }}%
+
+            Immediate action: Free up disk space or services will stop working.
+
+  # =========================================================================
+  # SERVICE AVAILABILITY ALERTS
+  # =========================================================================
+  - name: service_alerts
+    interval: 30s
+    rules:
+      # node_exporter down - can't collect metrics
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: service
+        annotations:
+          summary: "Node exporter down on {{ $labels.instance }}"
+          description: |
+            Cannot collect metrics from {{ $labels.instance }} for 2+ minutes.
+
+            Action: Check node_exporter service status.
+            SSH to {{ $labels.instance }} and run:
+            - sudo systemctl status prometheus-node-exporter
+            - sudo systemctl restart prometheus-node-exporter
+
+      # Application server down - no metrics
+      - alert: ServerDown
+        expr: up{job="synctacles-servers"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: service
+        annotations:
+          summary: "Server down: {{ $labels.instance }}"
+          description: |
+            {{ $labels.instance }} unreachable for 2+ minutes.
+
+            Check:
+            1. SSH connectivity: ssh {{ $labels.instance }}
+            2. Network: ping {{ $labels.instance }}
+            3. Services: systemctl status on server
+            4. Firewall: check UFW rules
+
+  # =========================================================================
+  # CPU ALERTS
+  # =========================================================================
+  - name: cpu_alerts
+    interval: 60s
+    rules:
+      # High CPU - potential bottleneck
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: cpu
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: |
+            CPU usage > 80% for 10+ minutes on {{ $labels.instance }}
+            Current: {{ $value | humanize }}%
+
+            Action: Investigate CPU usage.
+            SSH and run: top -n 1 | head -20
+
+      # Critical CPU - server may become unresponsive
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: cpu
+        annotations:
+          summary: "CRITICAL CPU usage on {{ $labels.instance }}"
+          description: |
+            ⚠️  CRITICAL: CPU usage > 95% for 5+ minutes - server becoming unresponsive!
+            Current: {{ $value | humanize }}%
+
+            Immediate action: Reduce load or restart high-CPU processes.
+
+  # =========================================================================
+  # SYSTEM LOAD ALERTS
+  # =========================================================================
+  - name: load_alerts
+    interval: 60s
+    rules:
+      # System load > CPU cores
+      - alert: HighSystemLoad
+        expr: node_load15 / count(node_cpu_seconds_total{mode="idle"}) without (cpu,mode) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          category: load
+        annotations:
+          summary: "High system load on {{ $labels.instance }}"
+          description: |
+            15-min load average > 1.5x CPU count on {{ $labels.instance }}
+            Current: {{ $value | humanize }}
+
+            Action: Check running processes and resource bottlenecks.
+            SSH and run: uptime && free -h && df -h /
