@@ -4,7 +4,7 @@
 # 
 # Usage: sudo ./deploy_fase2.sh
 # 
-# Deploys SYNCTACLES API (D3) + SparkCrawler (D4) to /opt/synctacles
+# Deploys SYNCTACLES API (D3) + SparkCrawler (D4) to /opt/energy-insights-nl
 
 set -euo pipefail
 
@@ -63,8 +63,8 @@ setup_logging
 header "FASE 2 — SYNCTACLES API + SparkCrawler Deployment"
 
 # Paths
-SYNCTACLES_PROD="/opt/synctacles"
-SYNCTACLES_API_DIR="$SYNCTACLES_PROD/synctacles_db"
+SYNCTACLES_PROD="/opt/energy-insights-nl"
+SYNCTACLES_API_DIR="$SYNCTACLES_PROD/app/synctacles_db"
 VENV_PATH="$SYNCTACLES_PROD/venv"
 
 # ========================================================
@@ -185,8 +185,8 @@ echo "✔ Imports verified"
 echo "✔ Database verified"
 echo
 echo "Next steps:"
-echo "  1. Test imports: python3 -c 'import sys; sys.path.insert(0, \"/opt/synctacles\"); import synctacles'"
-echo "  2. Start SYNCTACLES API: uvicorn synctacles.main:app --host 0.0.0.0 --port 8000"
-echo "  3. Start SparkCrawler: python3 sparkcrawler/main.py"
+echo "  1. Test imports: python3 -c 'import sys; sys.path.insert(0, \"/opt/energy-insights-nl/app\"); import synctacles_db'"
+echo "  2. Start SYNCTACLES API: systemctl start energy-insights-nl-api.service"
+echo "  3. Verify API: curl http://localhost:8000/health"
 echo
 ok "FASE 2 Deployment Complete!"

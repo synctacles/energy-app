@@ -2,7 +2,7 @@
 # validate_paths.sh - Check PAD-CONTRACT compliance (SKILL 9)
 set -euo pipefail
 
-APP_DIR="${1:-/opt/synctacles/app}"
+APP_DIR="${1:-/opt/energy-insights-nl/app}"
 ERRORS=0
 
 echo "=== PAD-CONTRACT Validator ==="

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # setup_synctacles_server_v2.3.4.sh
+# ⚠️  DEPRECATED — Use FASE 3+ installers instead
 # Complete SYNCTACLES Server Installer — Ubuntu 24.04 / Hetzner
 #
 # CHANGELOG v2.3.4 (2025-12-20)
