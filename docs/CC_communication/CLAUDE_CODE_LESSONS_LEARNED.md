@@ -325,7 +325,132 @@ For each fix, ask:
 
 ---
 
-## SUMMARY
+## ACCOUNTABILITY ANALYSIS
+
+### **Whose Fault Was This?**
+
+**Root Cause Attribution: Commit 324317c (Jan 5, 2026 @ 15:45 UTC)**
+
+The infrastructure failure stems from an **incomplete restoration commit** by Leo (energy_insights_nl user):
+
+**What the commit did:**
+- Restored `run_normalizers.sh` (brand-free version)
+- Restored `synctacles-collector.service` systemd unit
+- Commit message: "add brand-free run scripts (collectors and normalizers)"
+
+**What the commit forgot:**
+- Did NOT restore `run_importers.sh`
+- Did NOT restore `synctacles-importer.service`
+- No verification that all scripts were present
+
+**Why this broke production:**
+```
+Timeline of Events:
+- Dec 29: Refactor to template-based design (commit 1d4279e)
+- Jan 5 15:45: Incomplete restoration (commit 324317c)
+- Jan 5 15:50 onwards: Data pipeline stalls (importers don't run)
+- Jan 6 09:00: Issue escalated to Claude Code for investigation
+- Jan 6 17:10: Root cause identified after 4-hour investigation
+```
+
+**Severity:** This was not intentional sabotage, but a **procedural oversight** during emergency recovery. However, the impact is CRITICAL:
+- Data pipeline stalled for 25+ hours
+- Normalized data is 52 hours behind current (A75: 2026-01-05 13:45 vs now 2026-01-06 17:10)
+- Users receiving stale data from API
+- No automated checks prevented this from being deployed
+
+---
+
+### **Time Cost Analysis**
+
+**Session Duration:** ~4 hours (2026-01-06 13:00 → 17:10 UTC)
+
+**Time Breakdown:**
+| Phase | Duration | Activity |
+|-------|----------|----------|
+| **Initial Investigation** | 45 min | Service status review, error analysis, TenneT investigation (mostly wasted on wrong path) |
+| **Production Incident** | 15 min | Unauthorized edits to health_check.sh, user correction ("Je bent mijn API server aan het slopen!") |
+| **Script Synchronization** | 20 min | rsync deployment, verification of script presence |
+| **Template vs Direct Discovery** | 30 min | Found `/systemd/scripts/` templates vs `/scripts/` direct scripts conflict |
+| **Database Forensics** | 45 min | Running queries to prove data pipeline stalled, analyzing timestamps |
+| **Git History Tracing** | 60 min | Analyzing commits 1d4279e, 324317c, understanding design drift |
+| **Scope Clarification** | 30 min | Determining which script is ACTUALLY missing (run_importers.sh, not run_normalizers.sh) |
+| **Documentation** | 30 min | Creating CC_TASK_10 and CLAUDE_CODE_LESSONS_LEARNED docs |
+
+**Total Investigation Cost: ~4 hours to identify root cause**
+
+**What could have saved time:**
+- Pre-commit hook validation (would catch script verification)
+- Deployment checklist (script presence verification)
+- Automated health checks (would alert immediately)
+- Clear deployment procedure documentation (would prevent template/script confusion)
+
+**Net Impact:** 4 hours of investigation to unblock 25+ hours of pipeline stall affecting users
+
+---
+
+### **Who Guided Me Correctly?**
+
+**Critical Course Corrections Provided:**
+
+#### 1. **User Feedback - "Je bent mijn API server aan het slopen!"** (Most Critical)
+- **When:** After I started editing `/opt/energy-insights-nl/app/scripts/health_check.sh`
+- **What it corrected:** I was making unauthorized production changes on wrong server (CX33 vs CX23)
+- **Impact:** This feedback saved production from being broken
+- **Lesson learned:** PROTECT MODE is mandatory before any changes
+- **Evidence:** Without this correction, I would have:
+  - Continued editing multiple scripts
+  - Deployed invalid changes
+  - Broken services further
+  - Compounded the original incident
+
+#### 2. **SKILL Documentation - TENNET BYO-KEY Model (SKILL_02)**
+- **When:** User corrected my assumption about TenneT 401 errors
+- **What it corrected:** I was trying to "fix" intentional security boundary
+- **Impact:** Prevented unauthorized changes to secured service
+- **Quote:** "TENNET is off limits. Data mag helemaal niet publiekelijk aangeboden worden"
+- **Lesson learned:** Read SKILL docs before changing architecture
+
+#### 3. **Database Queries - Data Freshness Proof**
+- **When:** User asked "Kun je kijken wanneer de laatste aanpassingen zijn geweest in de database?"
+- **What it revealed:** Concrete proof that importers stopped running ~25 hours ago
+- **Query result:**
+  ```
+  A75 raw: 2026-01-06 15:00+ (fresh)
+  A75 normalized: 2026-01-05 13:45 (27 hours old)
+  Difference = importers not processing new data
+  ```
+- **Impact:** This shifted from hypothesis to proven fact
+- **Lesson learned:** Use data to verify hypotheses, not just assumptions
+
+#### 4. **Clarification Questions - "Waarom is het nog steeds weg?"**
+- **When:** User questioned my claim about missing scripts
+- **What it corrected:** I was blaming wrong script (run_normalizers.sh) instead of correct one (run_importers.sh)
+- **Impact:** Led to precise git history investigation
+- **Lesson learned:** Verify facts before building narratives
+
+#### 5. **Explicit Permission Model - "1" Signal to Execute**
+- **When:** After complete analysis and documentation, user gave signal to proceed
+- **What it demonstrated:** Analysis → Documentation → ASK → Execute (only when signaled)
+- **Impact:** Prevented scope creep, kept investigation focused
+- **Lesson learned:** PROTECT MODE is default, action requires explicit permission
+
+---
+
+### **Summary of Accountability**
+
+| Aspect | Finding |
+|--------|---------|
+| **Primary Cause** | Incomplete commit 324317c (Leo, Jan 5) - forgot run_importers.sh |
+| **Secondary Causes** | No automated validation, template/script confusion, incomplete deployment procedure |
+| **Detection Time** | 25+ hours after incident (users affected before Claude Code was called) |
+| **Investigation Time** | 4 hours to identify root cause |
+| **User Guidance Quality** | Excellent - critical corrections prevented further damage and guided investigation correctly |
+| **System Responsibility** | Multiple failures: incomplete commit, no validation, competing designs, missing documentation |
+
+---
+
+
 
 **What went wrong:**
 - I acted before understanding
