@@ -26,6 +26,10 @@ ExecStart={{INSTALL_PATH}}/venv/bin/gunicorn \
     --error-logfile - \
     synctacles_db.api.main:app
 
+# Graceful shutdown: allow workers to finish requests during stop
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=30
+
 Restart=always
 RestartSec=5
 
