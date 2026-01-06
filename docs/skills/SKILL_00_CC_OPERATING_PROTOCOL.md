@@ -176,40 +176,40 @@ Is dit toegestaan of off-limits?"
 
 ## SECTIE F: GIT DISCIPLINE
 
-### ⚠️ KRITIEK: Git ALLEEN als service account
+### Git via HTTPS + PAT (Personal Access Token)
 
-Claude Code draait als root, maar git operaties MOETEN als service account.
-SSH keys voor GitHub staan ALLEEN onder de service account.
+Remote URL is HTTPS zodat PAT authenticatie werkt voor:
+- Git push/pull operaties
+- GitHub CLI (`gh`) voor issue/PR management
+- Taakbeheer en project management
 
 ### ELKE git operatie:
 
 ```bash
-# CORRECT - met SSH key voor push
-sudo -u energy-insights-nl bash -c '
-export GIT_SSH_COMMAND="ssh -i /opt/energy-insights-nl/.ssh/id_github -o StrictHostKeyChecking=no"
-git -C /opt/github/synctacles-api <command>
-'
+# CORRECT - git operaties (PAT via credential store)
+git -C /opt/github/synctacles-api status
+git -C /opt/github/synctacles-api add <files>
+git -C /opt/github/synctacles-api commit -m "message"
+git -C /opt/github/synctacles-api push origin main
 
-# CORRECT - voor read-only operaties (status, log, diff)
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api status
-
-# FOUT - NOOIT DOEN (geen SSH key toegang)
-git <command>
-sudo git <command>
-git -C /opt/github/synctacles-api push  # FAALT - root heeft geen GitHub SSH key
+# CORRECT - GitHub CLI voor taakbeheer
+source ~/.github_token  # Laadt GITHUB_TOKEN
+gh issue list -R DATADIO/synctacles-api
+gh issue create -R DATADIO/synctacles-api --title "..." --body "..."
+gh pr create --title "..." --body "..."
 ```
 
 ### Complete workflow voorbeeld:
 
 ```bash
-# 1. Fix ownership VOOR git operaties
+# 1. Fix ownership NA file edits (Claude Code draait als root)
 sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
 
 # 2. Stage files
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api add <files>
+git -C /opt/github/synctacles-api add <files>
 
 # 3. Commit (HEREDOC voor multi-line messages)
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api commit -m "$(cat <<'EOF'
+git -C /opt/github/synctacles-api commit -m "$(cat <<'EOF'
 <type>: <wat>
 
 <waarom>
@@ -220,27 +220,41 @@ Co-Authored-By: Claude <model> <noreply@anthropic.com>
 EOF
 )"
 
-# 4. Push (VEREIST SSH key setup)
-sudo -u energy-insights-nl bash -c '
-export GIT_SSH_COMMAND="ssh -i /opt/energy-insights-nl/.ssh/id_github -o StrictHostKeyChecking=no"
+# 4. Push (PAT authenticatie via ~/.git-credentials)
 git -C /opt/github/synctacles-api push origin main
-'
 ```
 
 ### Na file edits:
 
 ```bash
-# VERPLICHT - voordat git operaties kunnen werken
+# VERPLICHT - Claude Code draait als root, ownership moet gefixed worden
 sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
 ```
 
-### Waarom dit nodig is:
+### GitHub CLI taakbeheer:
 
-| Situatie | Root user | Service account |
-|----------|-----------|-----------------|
-| SSH key voor GitHub | ❌ Niet aanwezig | ✅ `/opt/energy-insights-nl/.ssh/id_github` |
-| File ownership | ❌ Breekt git | ✅ Correct |
-| Push naar origin | ❌ Auth failure | ✅ Werkt |
+```bash
+# Laad token eerst
+source ~/.github_token
+
+# Issues
+gh issue list -R DATADIO/synctacles-api
+gh issue create -R DATADIO/synctacles-api --title "Bug: ..." --body "..."
+gh issue close 123 -R DATADIO/synctacles-api
+
+# Pull Requests
+gh pr list -R DATADIO/synctacles-api
+gh pr create --title "feat: ..." --body "..."
+gh pr merge 123 -R DATADIO/synctacles-api
+```
+
+### Authenticatie setup:
+
+| Component | Locatie | Doel |
+|-----------|---------|------|
+| PAT token | `~/.github_token` | `GITHUB_TOKEN` env var |
+| Git credentials | `~/.git-credentials` | HTTPS push/pull auth |
+| Remote URL | `https://github.com/DATADIO/...` | HTTPS protocol |
 
 ### Commit messages:
 
