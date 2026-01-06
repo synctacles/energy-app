@@ -136,15 +136,19 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: complete reorganization of documentation structure\n\nMOVED TO /docs:\n- SYNCTACLES_PROJECT_VOORTGANGSRAPPORT.md → docs/reports/STATUS_COMPLETE_2026-01-06.md\n- SYNCTACLES_GLOBALE_POSITIE.md → docs/reports/STRATEGY_LAUNCH_2026-01-06.md\n- CC_FEEDBACK_ON_CLAUDE_INVENTARISATIE.md → docs/reports/ANALYSIS_FEEDBACK_2026-01-06.md\n- DEPLOYMENT_SCRIPTS_GUIDE.md → docs/operations/DEPLOYMENT_SCRIPTS_GUIDE.md\n\nCONSOLIDATED:\n- 4 ENERGY_CHARTS files → 1 docs/api/ENERGY_CHARTS_INTEGRATION.md\n\nARCHIVED TO docs/archived/historical:\n- FASE_1_COMPLETION_REPORT.md\n- FASE_2_COMPLETION_REPORT.md\n- FASE_3_SPECIFICATION.md\n- CC_PLAN_TENNET_BYO_MIGRATION.md\n- VOORTGANGSRAPPORT_TENNET_MIGRATION.md\n- WERKELIJK_QUERY_RESULTATEN.md\n\nDELETED:\n- Duplicate SKILL files from /docs root \\(SKILL_08, 09\\)\n- Low-value /docs/github/ folder\n- 4 old ENERGY_CHARTS files\n\nNEW:\n- docs/README.md \\(entry point & navigation\\)\n- docs/operations/README.md \\(operations guide\\)\n- docs/archived/README.md \\(historical reference\\)\n\nUPDATED:\n- All internal links and cross-references\n- Total: 55+ files → organized structure\n- Status: Clean root directory, organized /docs\n\nResults:\n✅ Root level: 2 files \\(README, CHANGELOG\\)\n✅ All docs under /docs/ hierarchy\n✅ No duplicates\n✅ Clear folder organization \\(skills, operations, api, reports, incidents, etc\\)\n✅ Historical docs archived but preserved\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(gh --version:*)",
       "Bash(gh issue:*)",
-      "Bash(export GITHUB_TOKEN=\"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\")",
+      "Bash(export GITHUB_TOKEN=\"$GITHUB_TOKEN\")",
       "Bash(gh auth:*)",
-      "Bash(curl -s -H \"Authorization: token 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\" )",
+      "Bash(curl -s -H \"Authorization: token $GITHUB_TOKEN\" )",
       "Bash(https://api.github.com/user)",
       "Bash(https://api.github.com/repos/DATADIO/synctacles-api/issues?state=open)",
       "Bash(/tmp/github_update.sh)",
       "Bash(\"https://api.github.com/repos/DATADIO/synctacles-api/issues?state=open&per_page=100\")",
-      "Bash(export GITHUB_PAT=\"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\")",
-      "Bash(./scripts/github-task-manager.sh:*)"
+      "Bash(export GITHUB_PAT=\"$GITHUB_PAT\")",
+      "Bash(./scripts/github-task-manager.sh:*)",
+      "Bash(\"https://api.github.com/repos/DATADIO/synctacles-api/issues?state=all&per_page=100\")",
+      "Bash(python -m py_compile:*)",
+      "Bash(curl -s -H \"Authorization: token $GITHUB_PAT\" )",
+      "Bash(./scripts/generate-progress-report.sh:*)"
     ]
   }
 }

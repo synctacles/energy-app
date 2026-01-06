@@ -4,6 +4,7 @@ ENTSO-E Zero-Value Audit (met nachttijd filtering)
 Detecteert abnormale 0-waarden, exclusief verwachte nullen (Solar 's nachts)
 """
 import sys
+import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -11,7 +12,9 @@ from sqlalchemy import create_engine
 from datetime import datetime
 import pandas as pd
 
-engine = create_engine("postgresql://synctacles@localhost:5432/synctacles")
+# Use environment variable for database URL
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/synctacles")
+engine = create_engine(DATABASE_URL)
 
 PSR_COLUMNS = [
     'b01_biomass_mw', 'b04_gas_mw', 'b05_coal_mw', 'b14_nuclear_mw',
