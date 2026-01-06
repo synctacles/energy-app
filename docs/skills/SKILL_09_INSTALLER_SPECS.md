@@ -380,6 +380,100 @@ systemctl is-active ${SERVICE_USER}-api && echo "✓ API running"
 
 ---
 
+## LEGACY SERVICE CLEANUP (REQUIRED)
+
+**Problem:** Before ENV-driven naming, installers created hardcoded `synctacles-*` services.
+Re-running the installer creates new `${BRAND_SLUG}-*` services but does NOT remove old ones.
+
+**Result:** Duplicate services running identical tasks (discovered 2026-01-06):
+- `synctacles-importer.service` (legacy, Dec 29 03:21)
+- `energy-insights-nl-importer.service` (current, Dec 29 18:06)
+
+**Solution:** Add cleanup step to installer BEFORE creating new services.
+
+### Cleanup Script (add to FASE 5)
+
+```bash
+# cleanup_legacy_services.sh
+# Run BEFORE creating new systemd services
+
+cleanup_legacy_services() {
+    local LEGACY_PREFIX="synctacles"
+    local SERVICES="collector health importer normalizer tennet api"
+
+    info "Checking for legacy ${LEGACY_PREFIX}-* services..."
+
+    for svc in $SERVICES; do
+        local service_name="${LEGACY_PREFIX}-${svc}"
+
+        # Stop and disable timer if exists
+        if systemctl list-unit-files | grep -q "${service_name}.timer"; then
+            warn "Removing legacy timer: ${service_name}.timer"
+            systemctl stop "${service_name}.timer" 2>/dev/null || true
+            systemctl disable "${service_name}.timer" 2>/dev/null || true
+            rm -f "/etc/systemd/system/${service_name}.timer"
+        fi
+
+        # Stop and disable service if exists
+        if systemctl list-unit-files | grep -q "${service_name}.service"; then
+            warn "Removing legacy service: ${service_name}.service"
+            systemctl stop "${service_name}.service" 2>/dev/null || true
+            systemctl disable "${service_name}.service" 2>/dev/null || true
+            rm -f "/etc/systemd/system/${service_name}.service"
+        fi
+    done
+
+    # Reload systemd
+    systemctl daemon-reload
+
+    ok "Legacy service cleanup complete"
+}
+```
+
+### Integration Point
+
+Add to installer BEFORE service creation:
+
+```bash
+# In FASE 5, before copying new service files:
+cleanup_legacy_services
+
+# Then create new services with ENV-driven naming:
+for template in "$SYSTEMD_TEMPLATES"/*.template; do
+    # ... existing template processing
+done
+```
+
+### Verification
+
+After cleanup, only `${BRAND_SLUG}-*` services should exist:
+
+```bash
+# Should return ONLY energy-insights-nl-* (or your brand)
+systemctl list-units --type=service --all | grep -E "synctacles|${BRAND_SLUG}"
+
+# Expected output (example):
+#   energy-insights-nl-api.service       loaded active running
+#   energy-insights-nl-collector.service loaded inactive dead
+#   energy-insights-nl-importer.service  loaded inactive dead
+#   ...
+
+# NO synctacles-* services should appear
+```
+
+### Why This Happened
+
+| Date | Action | Result |
+|------|--------|--------|
+| Dec 29 03:21 | Ran v2.3.4 installer | Created `synctacles-*` services (hardcoded) |
+| Dec 29 18:06 | Ran updated installer with ENV | Created `energy-insights-nl-*` services |
+| - | **Missing step** | Old services NOT removed |
+| Jan 6 | Discovery | Both sets running, causing confusion |
+
+**Root cause:** Installer evolution from hardcoded to ENV-driven naming without cleanup logic.
+
+---
+
 ## CRITICAL RULES
 
 1. **Repository NEVER contains specific branding**
@@ -389,3 +483,4 @@ systemctl is-active ${SERVICE_USER}-api && echo "✓ API running"
 5. **Clear errors when .env missing**
 6. **Templates use {{PLACEHOLDER}} format**
 7. **Idempotent FASE 0 (can re-run safely)**
+8. **Legacy services MUST be cleaned up before creating new ones**
