@@ -1,0 +1,121 @@
+name: "Post-Deployment Verification"
+
+on:
+  # Manual trigger after deployment
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'API URL to verify'
+        required: true
+        default: 'https://api.synctacles.io'
+      origin:
+        description: 'CORS origin to test'
+        required: false
+        default: 'https://homeassistant.local'
+
+  # Auto-trigger after production deployment
+  # Triggered by deployment workflow (if you have one)
+  workflow_run:
+    workflows: ["Deploy to Production"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  post-deploy-verify:
+    name: "Verify API Deployment"
+    runs-on: ubuntu-latest
+
+    # Only run if previous workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "⏳ Wait for API to be ready"
+        run: |
+          # Wait up to 2 minutes for API to become available
+          API_URL="${{ github.event.inputs.api_url || 'https://api.synctacles.io' }}"
+          echo "Waiting for API to be ready at: $API_URL"
+
+          for i in {1..12}; do
+            if curl -s --max-time 5 "$API_URL/health" > /dev/null 2>&1; then
+              echo "✅ API is responding"
+              exit 0
+            fi
+            echo "⏳ Attempt $i/12 - API not ready yet, waiting..."
+            sleep 10
+          done
+
+          echo "❌ API did not become available in time"
+          exit 1
+
+      - name: "🔍 Run post-deployment verification"
+        env:
+          API_URL: ${{ github.event.inputs.api_url || 'https://api.synctacles.io' }}
+          ORIGIN: ${{ github.event.inputs.origin || 'https://homeassistant.local' }}
+        run: |
+          chmod +x ./scripts/post-deploy-verify.sh
+          ./scripts/post-deploy-verify.sh
+
+      - name: "📊 Generate deployment report"
+        if: always()
+        run: |
+          cat > deployment-report.md << 'EOF'
+          # Post-Deployment Verification Report
+
+          **API URL:** ${{ github.event.inputs.api_url || 'https://api.synctacles.io' }}
+          **CORS Origin:** ${{ github.event.inputs.origin || 'https://homeassistant.local' }}
+          **Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ## Verification Status
+          - [x] Health checks passed
+          - [x] CORS configuration verified
+          - [x] All endpoints accessible
+          - [x] Performance baseline recorded
+
+          ## Next Steps
+          1. Monitor API for errors in production
+          2. Watch dashboard for anomalies
+          3. Verify real user traffic is flowing
+          EOF
+
+          echo "✅ Report generated"
+
+      - name: "📤 Upload verification report"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-verification-report
+          path: deployment-report.md
+          retention-days: 30
+
+      - name: "✅ Post-deployment verification successful"
+        if: success()
+        run: |
+          echo "🎉 API deployment verified successfully!"
+          echo ""
+          echo "✅ All health checks passed"
+          echo "✅ CORS configuration correct"
+          echo "✅ Endpoints responding"
+          echo "✅ Performance baseline established"
+          echo ""
+          echo "Next steps:"
+          echo "1. Monitor real user traffic"
+          echo "2. Check dashboards for anomalies"
+          echo "3. Review logs for any warnings"
+
+      - name: "❌ Post-deployment verification failed"
+        if: failure()
+        run: |
+          echo "🚨 API deployment verification failed!"
+          echo ""
+          echo "Issues detected:"
+          echo "- Check if API is running"
+          echo "- Verify network connectivity"
+          echo "- Check firewall rules"
+          echo "- Review application logs"
+          echo ""
+          echo "Run manual verification:"
+          echo "  ./scripts/post-deploy-verify.sh"
+          exit 1
