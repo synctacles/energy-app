@@ -52,6 +52,30 @@ Manual: [link to docs]
 - Sensors: 8 entities
 - Requirements: Home Assistant 2024.1+
 
+## Production Monitoring
+
+This project is moving toward production. Monitoring infrastructure is being set up.
+
+**Current Status:**
+- ✅ Code quality: 100% SKILL_11 compliant
+- 🟡 Monitoring: In progress (Issue #24)
+- 📊 Load testing: Planned
+
+**Documentation:**
+- [Code Quality Audit Report](CODE_QUALITY_AUDIT_REPORT.md) - 0 credential violations, all checks passed
+- [Production Blockers](PRODUCTION_BLOCKERS.md) - Current production readiness status
+- [Monitoring Project Overview](MONITORING_PROJECT_OVERVIEW.md) - Full monitoring infrastructure plan
+- [Quick Start Guide](MONITORING_QUICK_START.md) - Get started quickly
+
+**GitHub Project Issues:**
+- [#24 - Main Monitoring Project](https://github.com/DATADIO/synctacles-api/issues/24)
+- [#25 - Phase 1: CX23 Server Setup](https://github.com/DATADIO/synctacles-api/issues/25)
+- [#26 - Phase 2: node-exporter Setup](https://github.com/DATADIO/synctacles-api/issues/26)
+- [#27 - Phase 3: AlertManager & Slack](https://github.com/DATADIO/synctacles-api/issues/27)
+- [#28 - Phase 4: Grafana Dashboards](https://github.com/DATADIO/synctacles-api/issues/28)
+- [#29 - Phase 5: Load Testing](https://github.com/DATADIO/synctacles-api/issues/29)
+- [#30 - Phase 6: Documentation](https://github.com/DATADIO/synctacles-api/issues/30)
+
 ## Support
 
 Discord: [link]
