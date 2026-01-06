@@ -171,6 +171,81 @@ ls /opt/github/synctacles-api/systemd/scripts/run_importers.sh.template
 
 ---
 
+## CRITICAL UPDATE: Root Cause Precision (2026-01-06 17:15 UTC)
+
+### NEW FINDING: Only `run_importers.sh` is Missing
+
+**Previous assumption:** Both run_importers.sh and run_normalizers.sh are missing
+
+**Actual reality (verified):**
+```
+✅ run_normalizers.sh       → EXISTS in repo AND runtime (Jan 5 15:45)
+❌ run_importers.sh         → MISSING (never restored in commit 324317c)
+```
+
+**Git History Shows the Actual Problem:**
+
+| Commit | Date | Action | Status |
+|--------|------|--------|--------|
+| `a495aee` | Initial | Had run_importers.sh (with legacy paths) | ✅ Existed |
+| `c80bf4e` | Consolidate | Refactored/removed | ❌ Removed |
+| `1d4279e` | Dec 29 | Created templates | ⚠️ Converted to template |
+| `324317c` | Jan 5 | **Restored only normalizers** | ❌ **Importers forgotten** |
+
+**The Bug:**
+```bash
+# Commit 324317c message:
+"feat: add brand-free run scripts (collectors and normalizers)"
+
+# What it did:
++ Added run_normalizers.sh
+- Did NOT add run_importers.sh ❌
+```
+
+**Evidence from Database:**
+
+Raw data shows fresh imports:
+```
+A44 raw: 2026-01-06 22:45 (FRESH) ← Collectors still work!
+A65 raw: 2026-01-07 15:45 (FRESH) ← Collectors still work!
+A75 raw: 2026-01-06 15:00 (FRESH) ← Collectors still work!
+```
+
+But normalized data is stalled:
+```
+A75 normalized: 2026-01-05 13:45 (27 HOURS OLD) ← Normalizer runs!
+A65 normalized: 2026-01-06 14:45 (25+ hrs behind) ← Normalizer runs!
+```
+
+**Pattern:** Data is collected (collectors work) but NOT imported to raw tables (importers stalled)
+
+**Why normalizers can't process:**
+1. Importers don't run → raw tables are NOT updated
+2. Normalizers DO run (script exists!) → but have NO NEW data to normalize
+3. Result: Normalized data gets stale while raw data is fresh
+
+### Why run_normalizers.sh Exists But run_importers.sh Doesn't
+
+**Commit 324317c (Jan 5, Leo on server)** tried to restore "brand-free" scripts:
+
+```bash
+# Leo's commit intention:
+"Prevents: Script loss during rsync --delete deployments"
+
+# What Leo actually committed:
+scripts/run_collectors.sh      ✅ Pre-written, exists
+scripts/run_normalizers.sh     ✅ Restored from memory/templates
+scripts/run_importers.sh       ❌ MISSING - Leo forgot!
+```
+
+**Why the asymmetry?**
+- run_collectors.sh was never templates → still exists pre-written
+- run_normalizers.sh was urgently needed → Leo hand-created it
+- run_importers.sh was overlooked → never restored
+- Templates in `/systemd/scripts/` have ALL of them but never get processed
+
+---
+
 ## ROOT CAUSE ANALYSIS
 
 ### Why This Happened
