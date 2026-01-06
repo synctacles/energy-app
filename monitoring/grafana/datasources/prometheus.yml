@@ -1,0 +1,19 @@
+# SYNCTACLES Grafana Datasource Configuration
+# Configures Prometheus as the datasource for Grafana
+# This file is automatically provisioned when Grafana starts
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+    version: 1
+    uid: prometheus-uid

@@ -1,0 +1,84 @@
+# SYNCTACLES AlertManager Configuration
+# Routes alerts from Prometheus to notification channels
+# Used by Docker container: prom/alertmanager:latest
+
+global:
+  resolve_timeout: 5m
+  # SMTP configuration (optional - only if you want email alerts)
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_auth_username: 'your-email@gmail.com'
+  # smtp_auth_password: 'your-app-password'
+  # smtp_require_tls: true
+  # smtp_from: 'alerts@synctacles.io'
+
+# Alert routing configuration
+route:
+  # Default receiver for unmatched alerts
+  receiver: 'default'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'instance']
+
+  # Wait 10 seconds before sending grouped alerts
+  group_wait: 10s
+
+  # Wait 10 seconds before re-grouping alerts
+  group_interval: 10s
+
+  # Re-send alerts every 4 hours if not resolved
+  repeat_interval: 4h
+
+  # Route critical alerts immediately
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical'
+      group_wait: 0s
+      repeat_interval: 1h
+
+    - match:
+        severity: warning
+      receiver: 'warning'
+      group_wait: 5s
+      repeat_interval: 4h
+
+# Receivers define where alerts are sent
+receivers:
+  # Default receiver - webhook placeholder (for Slack or custom integration)
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+
+  # Critical alerts receiver
+  - name: 'critical'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/critical'
+        send_resolved: true
+    # Optional: email for critical alerts
+    # email_configs:
+    #   - to: 'critical-alerts@example.com'
+    #     headers:
+    #       Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+
+  # Warning alerts receiver
+  - name: 'warning'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/warning'
+        send_resolved: true
+
+# Inhibit rules prevent notifications of certain alerts
+inhibit_rules:
+  # Don't send warning if critical already firing for same alert
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Don't send info if warning already firing
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'instance']
