@@ -16,13 +16,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44
 from synctacles_db.core.logging import get_logger
+from config.settings import DATABASE_URL
 
 LOG_DIR = Path('/var/log/energy-insights-nl/collectors/entso_e_raw')
-DB_URL = "postgresql://energy_insights_nl@localhost:5432/energy_insights_nl"
 
 _LOGGER = get_logger(__name__)
 
-engine = create_engine(DB_URL)
+engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
 def import_csv_file(filepath):
