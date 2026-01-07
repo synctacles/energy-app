@@ -1,6 +1,6 @@
 # STATUS_CC_CURRENT.md
 
-**Last Updated:** 2026-01-07 18:10 UTC
+**Last Updated:** 2026-01-07 18:21 UTC
 **Updated By:** CC
 
 ---
@@ -10,7 +10,7 @@
 ### Services
 | Service | Status | Last Check |
 |---------|--------|------------|
-| energy-insights-nl-api | running | 2026-01-07 18:10 |
+| energy-insights-nl-api | running | 2026-01-07 18:21 |
 | energy-insights-nl-collector | inactive (oneshot) | 2026-01-07 17:55 |
 | energy-insights-nl-normalizer | inactive (oneshot) | 2026-01-07 17:59 |
 
@@ -20,7 +20,7 @@
 
 ### Last Deploy
 - Timestamp: 2026-01-07 12:36:54 UTC
-- Commit: 601bee9 - docs: update status files and add Phase 1 handoff document
+- Commit: 60f0774 - docs: formalize TenneT BYO-key decision as ADR-001
 
 ---
 
@@ -33,7 +33,7 @@
 ## GIT STATUS
 
 - Branch: main
-- Last commit: 601bee9 docs: update status files and add Phase 1 handoff document
+- Last commit: 60f0774 docs: formalize TenneT BYO-key decision as ADR-001
 - Uncommitted changes: No
 
 ---
@@ -53,5 +53,5 @@
 ## LAST SESSION
 
 - Date: 2026-01-07
-- Focus: Phase 1 State Files, gh CLI authentication, GitHub issue cleanup
-- Outcome: Complete - STATUS files committed, gh authenticated (PAT), issues #21/#24 closed
+- Focus: Phase 1 State Files, gh CLI, GitHub issues, ADR-001 formalization
+- Outcome: Complete - Dual status model operational, issues closed, TenneT BYO-key documented as ADR-001
