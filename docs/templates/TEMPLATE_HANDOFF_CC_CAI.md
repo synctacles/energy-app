@@ -1,80 +1,88 @@
-# HANDOFF_CC_CAI_[TOPIC]_YYYYMMDD.md
+# HANDOFF: CC → CAI
 
-**Date:** YYYY-MM-DD
-**From:** CC
-**To:** CAI
-**Topic:** [Brief topic description]
+**Datum:** [YYYY-MM-DD]
+**Sessie:** [korte beschrijving]
+**CC Sessie ID:** [indien bekend]
 
 ---
 
-## CONTEXT
+## PRE-HANDOFF CHECKLIST (CC verifieert)
 
-[What work was done, current state]
+- [ ] Alle code changes gecommit
+- [ ] Git push uitgevoerd
+- [ ] Services stabiel (geen crashes)
+- [ ] STATUS_CC_CURRENT.md bijgewerkt
+- [ ] Geen uncommitted werk dat context vereist
 
 ---
 
 ## COMPLETED WORK
 
-### Implementation
-- [What was implemented]
+### Uitgevoerde taken
+| Taak | Status | Files |
+|------|--------|-------|
+| [taak 1] | ✅ Done | `path/to/file.py` |
+| [taak 2] | ✅ Done | `path/to/file.md` |
 
-### Testing
-- [What was tested]
+### Git commits deze sessie
+```
+[commit hash] - [message]
+[commit hash] - [message]
+```
 
-### Deployment
-- [What was deployed, if applicable]
+### Server state na sessie
+- API: [running/stopped]
+- Last deploy: [timestamp]
+- Open issues: [#nummer indien van toepassing]
 
 ---
 
 ## CURRENT STATE
 
-### Server State
-- [Service statuses]
-- [Resource usage]
+### Wat werkt
+- [bullet points]
 
-### Code State
-- Branch: [branch]
-- Last commit: [hash]
-- Uncommitted changes: [Yes/No]
+### Wat nog niet werkt
+- [bullet points]
 
----
-
-## ISSUES ENCOUNTERED
-
-### [Issue 1]
-- **Description:** [what happened]
-- **Impact:** [how it affects the project]
-- **Recommendation:** [suggested next steps]
+### Known issues
+- [bullet points]
 
 ---
 
-## QUESTIONS FOR CAI
+## NEEDS FROM CAI
 
-- [Question 1]
-- [Question 2]
-
----
-
-## RECOMMENDATIONS
-
-[Architectural or planning recommendations based on implementation experience]
+- [ ] Review van [specifiek item]
+- [ ] Documentatie update voor [topic]
+- [ ] Architectuur advies over [vraag]
+- [ ] Planning voor [volgende stap]
 
 ---
 
-## FILES MODIFIED
+## CONTEXT VOOR CAI
 
-- [path] - [description]
-
----
-
-## NEXT STEPS
-
-[What should be done next, if applicable]
+[Relevante achtergrond die CAI nodig heeft om effectief te adviseren.
+Bijvoorbeeld: waarom bepaalde keuzes gemaakt zijn, constraints, etc.]
 
 ---
 
-## STATUS UPDATES
+## FILES TO REVIEW
 
-- [x] STATUS_CC_CURRENT.md updated
-- [x] SESSIE_CC_YYYYMMDD.md created
-- [ ] STATUS_MERGED_CURRENT.md needs review (Leo)
+```
+path/to/file1.py    - [korte beschrijving]
+path/to/file2.md    - [korte beschrijving]
+```
+
+---
+
+## POST-HANDOFF VERIFICATIE
+
+**CAI bevestigt ontvangst:**
+- [ ] Context begrepen
+- [ ] Needs duidelijk
+- [ ] Kan verder zonder CC
+
+---
+
+*Template versie: 1.0 (2026-01-07)*
+*Locatie: docs/templates/TEMPLATE_HANDOFF_CC_CAI.md*

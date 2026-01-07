@@ -1,74 +1,100 @@
-# HANDOFF_CAI_CC_[TOPIC]_YYYYMMDD.md
+# HANDOFF: CAI → CC
 
-**Date:** YYYY-MM-DD
-**From:** CAI
-**To:** CC
-**Topic:** [Brief topic description]
+**Datum:** [YYYY-MM-DD]
+**Taak:** [korte beschrijving]
+**Prioriteit:** P1 / P2 / P3
+**Geschatte tijd:** [X uur]
+
+---
+
+## PRE-HANDOFF CHECKLIST (CAI verifieert)
+
+- [ ] Taak is concreet en uitvoerbaar
+- [ ] Acceptance criteria gedefinieerd
+- [ ] Relevante SKILLs geïdentificeerd
+- [ ] Out of scope duidelijk afgebakend
+- [ ] Geen open architectuur vragen
+
+---
+
+## TASK DESCRIPTION
+
+### Wat moet CC doen
+[Concrete beschrijving van de taak]
+
+### Verwachte output
+[Wat is het eindresultaat - files, commits, running service, etc.]
+
+### Acceptance criteria
+- [ ] Criterium 1
+- [ ] Criterium 2
+- [ ] Criterium 3
+
+---
+
+## SPECIFICATIONS
+
+### Technische details
+[Specifieke implementatie instructies indien nodig]
+
+### Files to create/modify
+| File | Actie | Instructies |
+|------|-------|-------------|
+| `path/to/file1.py` | Create | [wat moet erin] |
+| `path/to/file2.md` | Modify | [wat aanpassen] |
+
+### Dependencies
+- [Wat moet eerst klaar zijn]
+- [Externe dependencies]
+
+---
+
+## RELEVANT SKILLS
+
+| SKILL | Sectie | Waarom relevant |
+|-------|--------|-----------------|
+| SKILL_00 | Sectie X | [reden] |
+| SKILL_11 | Git workflow | [reden] |
+
+---
+
+## OUT OF SCOPE
+
+**CC doet NIET:**
+- [expliciet wat niet doen]
+- [off-limits gebieden]
+
+**Bij twijfel:** Stop en vraag Leo
+
+---
+
+## VERIFICATION
+
+### Tests door CC
+- [ ] Test 1: [beschrijving]
+- [ ] Test 2: [beschrijving]
+
+### Success indicators
+- [Hoe weet CC dat het gelukt is]
 
 ---
 
 ## CONTEXT
 
-[Background and context for this handoff]
+[Achtergrond informatie die CC nodig heeft.
+Waarom deze taak nu? Wat is de grotere context?]
 
 ---
 
-## OBJECTIVES
+## POST-HANDOFF VERIFICATIE
 
-[What needs to be accomplished]
-
----
-
-## IMPLEMENTATION DETAILS
-
-### Technical Specifications
-- [Specification 1]
-- [Specification 2]
-
-### Files to Modify/Create
-- **File:** [path]
-  - **Action:** [create/modify/delete]
-  - **Details:** [what to do]
+**CC bevestigt ontvangst:**
+- [ ] Taak begrepen
+- [ ] Scope duidelijk
+- [ ] Kan starten zonder verdere input
+- [ ] SKILL_00 gelezen (standaard requirement)
 
 ---
 
-## CONSTRAINTS
-
-- [Constraint 1]
-- [Constraint 2]
-
----
-
-## TESTING REQUIREMENTS
-
-- [ ] [Test requirement 1]
-- [ ] [Test requirement 2]
-
----
-
-## SUCCESS CRITERIA
-
-- [ ] [Criterion 1]
-- [ ] [Criterion 2]
-
----
-
-## QUESTIONS FOR CC
-
-- [Question 1]
-- [Question 2]
-
----
-
-## REFERENCES
-
-- [Reference to SKILL, ADR, or other document]
-
----
-
-## STATUS UPDATES NEEDED
-
-After completion, CC should update:
-- [ ] STATUS_CC_CURRENT.md
-- [ ] Create SESSIE_CC_YYYYMMDD.md
-- [ ] Update STATUS_MERGED_CURRENT.md (coordinate with Leo)
+*Template versie: 1.0 (2026-01-07)*
+*Locatie: docs/templates/TEMPLATE_HANDOFF_CAI_CC.md*

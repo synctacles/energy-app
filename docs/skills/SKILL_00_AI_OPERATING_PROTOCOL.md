@@ -591,76 +591,96 @@ ADR_009_TENNET_BYO_KEY.md         → Architecture Decision Record
 
 ## SECTIE N: HANDOFF PROTOCOL
 
-### CC → CAI Handoff
+### Verplichting
 
-**Trigger:** CC klaar met taak, CAI input nodig (review, planning, docs)
+**Handoff templates zijn VERPLICHT bij:**
+- Sessie-einde met onafgerond werk
+- Taak overdracht tussen CC en CAI
+- Context overdracht die > 5 minuten kost
 
-**CC levert:**
-```markdown
-## HANDOFF: CC → CAI
+**Geen uitzonderingen.** Een handoff zonder template = incomplete handoff.
 
-### Completed Work
-- [wat is gedaan]
-- [welke files gewijzigd]
+### Template Locaties
 
-### Current State
-- [server status]
-- [git status]
-
-### Needs from CAI
-- [ ] Review van [X]
-- [ ] Documentatie update voor [Y]
-- [ ] Planning advies voor [Z]
-
-### Context
-- [relevante achtergrond]
-
-### Files to Review
-- path/to/file1.py
-- path/to/file2.md
+```
+docs/templates/
+├── TEMPLATE_HANDOFF_CC_CAI.md   ← CC levert aan CAI
+├── TEMPLATE_HANDOFF_CAI_CC.md   ← CAI levert aan CC
 ```
 
-### CAI → CC Handoff
+### Wanneer welke template
 
-**Trigger:** CAI klaar met planning/docs, CC executie nodig
+| Situatie | Template | Wie vult in |
+|----------|----------|-------------|
+| CC klaar, CAI input nodig | CC_CAI | CC |
+| CAI taak klaar, CC moet uitvoeren | CAI_CC | CAI |
+| Sessie-einde met open werk | CC_CAI of CAI_CC | Actieve AI |
 
-**CAI levert:**
-```markdown
-## HANDOFF: CAI → CC
+### Handoff Workflow
 
-### Task Description
-- [wat moet CC doen]
-- [verwachte output]
-
-### Specifications
-- [technische details]
-- [acceptance criteria]
-
-### Files to Create/Modify
-- [ ] path/to/file1.py - [instructies]
-- [ ] path/to/file2.md - [instructies]
-
-### Relevant SKILLs
-- SKILL_XX voor [aspect]
-- SKILL_YY voor [aspect]
-
-### Out of Scope
-- [wat NIET doen]
-- [off-limits gebieden]
-
-### Verification
-- [ ] Test 1
-- [ ] Test 2
+```
+┌─────────────────────────────────────────┐
+│ 1. PRE-HANDOFF                          │
+│    - Checklist doorlopen                │
+│    - Eigen status file updaten          │
+│    - Template invullen                  │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│ 2. HANDOFF DOCUMENT                     │
+│    - Completed work                     │
+│    - Current state                      │
+│    - Needs from other AI                │
+│    - Context                            │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│ 3. POST-HANDOFF VERIFICATIE             │
+│    - Ontvanger bevestigt                │
+│    - "Context begrepen"                 │
+│    - "Kan verder"                       │
+└─────────────────────────────────────────┘
 ```
 
-### Leo → AI Handoff
+### Enforcement
 
-**Leo specificeert:**
-- Welke AI (CC of CAI)
-- Taak beschrijving
-- Prioriteit
-- Deadline (indien van toepassing)
-- Go/No-go voor uitvoering
+**Bij start nieuwe sessie:**
+1. Check of handoff document bestaat van vorige sessie
+2. Zo ja: lees en bevestig begrip
+3. Zo nee: vraag Leo of context nodig is
+
+**Bij einde sessie met open werk:**
+1. Template invullen is VERPLICHT
+2. Geen "ik rond later af" zonder handoff
+3. Leo moet weten waar werk staat
+
+### Minimale Handoff (< 5 min werk)
+
+Voor zeer korte taken mag een vereenvoudigde handoff:
+
+```markdown
+## MINI-HANDOFF
+- **Wat:** [1 zin]
+- **Status:** [done/blocked/needs input]
+- **Next:** [wie doet wat]
+```
+
+### Handoff ≠ Status File
+
+| Document | Doel | Wanneer updaten |
+|----------|------|-----------------|
+| STATUS_CC_CURRENT.md | Actuele server/code staat | Elke sessie |
+| STATUS_CAI_CURRENT.md | Actuele project staat | Elke sessie |
+| HANDOFF template | Overdracht specifieke taak | Bij overdracht |
+
+**Beide zijn nodig:** Status = waar staan we, Handoff = wat moet de ander weten.
+
+---
+
+*Sectie N versie: 2.0 (2026-01-07)*
+*Reden update: Templates verplicht gesteld, enforcement toegevoegd*
 
 ---
 
