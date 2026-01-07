@@ -1,94 +1,160 @@
-# SYNCTACLES Monitoring Infrastructure
+# Monitoring Stack Configuration
 
-Hybrid monitoring setup using Docker for the central monitoring server and native node_exporter on application servers.
+**Status:** ✅ Deployed and operational on CX23 (77.42.41.135)
+**URL:** https://monitor.synctacles.com
 
-## Quick Start
+---
 
-### Phase 1: Setup Monitoring Server
-
-Copy this entire directory to your CX23 server and run:
-
-```bash
-cd /opt/monitoring
-docker-compose up -d
-```
-
-### Phase 2: Setup Application Servers
-
-On each application server:
-
-```bash
-sudo bash /path/to/setup_application_server.sh <monitoring_server_ip>
-```
-
-Then add to Prometheus:
-
-```bash
-./scripts/monitoring/add_target.sh <app_server_ip> <server_name>
-```
-
-## Directory Structure
+## Directory Structure (on CX23)
 
 ```
-monitoring/
-├── README.md                           # This file
-├── docker-compose.yml                  # Docker Compose configuration
+/opt/monitoring/
+├── docker-compose.yml          # Container orchestration
 ├── prometheus/
-│   ├── prometheus.yml.template        # Prometheus main config
-│   ├── alerts.yml                     # Alert rules (OOM-focused)
-│   └── recording_rules.yml.template   # Optional: pre-calculated metrics
+│   ├── prometheus.yml          # Scrape configuration
+│   └── alerts.yml              # Alert rules (22 rules)
 ├── alertmanager/
-│   └── alertmanager.yml.template      # Alert routing configuration
+│   └── alertmanager.yml        # Slack webhook routing
+├── blackbox/
+│   └── blackbox.yml            # HTTP/SSL probe config
 └── grafana/
-    └── datasources/
-        └── prometheus.yml             # Grafana datasource config
+    ├── datasources/
+    │   └── prometheus.yml      # Prometheus datasource
+    └── dashboards/
+        ├── system-overview.json
+        ├── services-status.json
+        └── api-health.json
 ```
 
-## Files to Copy to CX23
+---
 
-When setting up on CX23, copy these files to `/opt/monitoring/`:
+## Components
 
-1. **docker-compose.yml** ← Copy as-is
-2. **prometheus/prometheus.yml.template** → Copy as `prometheus.yml`
-3. **prometheus/alerts.yml** ← Copy as-is
-4. **alertmanager/alertmanager.yml.template** → Copy as `alertmanager.yml`
-5. **grafana/datasources/prometheus.yml** ← Create directory structure
+| Service | Port | Purpose |
+|---------|------|---------|
+| **Prometheus** | 9090 | Metrics collection & alerting |
+| **Grafana** | 3000 | Dashboards (via Caddy :443) |
+| **AlertManager** | 9093 | Alert routing to Slack |
+| **Blackbox** | 9115 | HTTP/SSL endpoint probes |
 
-### Setup Commands
+---
+
+## Quick Commands (on CX23)
 
 ```bash
-# Create directory
-mkdir -p /opt/monitoring/grafana/datasources
+# Start/restart all
+cd /opt/monitoring
+sudo docker compose up -d
 
-# Copy files
-cp monitoring/docker-compose.yml /opt/monitoring/
-cp monitoring/prometheus/prometheus.yml.template /opt/monitoring/prometheus.yml
-cp monitoring/prometheus/alerts.yml /opt/monitoring/
-cp monitoring/alertmanager/alertmanager.yml.template /opt/monitoring/alertmanager.yml
-cp monitoring/grafana/datasources/prometheus.yml /opt/monitoring/grafana/datasources/
+# View status
+sudo docker ps
 
-# Or all at once from repo
-cp -r monitoring/* /opt/monitoring/
+# View logs
+sudo docker logs prometheus --tail 50
+sudo docker logs grafana --tail 50
+sudo docker logs alertmanager --tail 50
+
+# Restart single service
+sudo docker compose restart prometheus
 ```
 
-## Access URLs
+---
 
-After `docker-compose up -d`:
+## Configuration Files
 
-- **Prometheus:** http://<CX23_IP>:9090
-- **Grafana:** http://<CX23_IP>:3000 (admin/admin)
-- **AlertManager:** http://<CX23_IP>:9093
+### docker-compose.yml
 
-## Alert Rules
+Key settings:
+- Prometheus: 15 day retention
+- Grafana: bound to localhost (Caddy handles external)
+- All containers on `monitoring` network
 
-See `prometheus/alerts.yml` for:
-- Memory pressure alerts (OOM prevention)
-- Disk space alerts
-- CPU usage alerts
-- Service health alerts
+### prometheus/prometheus.yml
 
-## Documentation
+Scrape targets:
+- `node-exporter-main` (135.181.255.83:9100) - API server metrics
+- `blackbox-http` - HTTP health checks
+- `blackbox-ssl` - SSL certificate monitoring
 
-- [SKILL_14_MONITORING_INFRASTRUCTURE.md](../SKILL_14_MONITORING_INFRASTRUCTURE.md) - Architecture
-- [MONITORING_SETUP.md](../docs/operations/MONITORING_SETUP.md) - Setup guide
-- [PHASE_1_EXECUTION_CHECKLIST.md](../PHASE_1_EXECUTION_CHECKLIST.md) - Step-by-step
+### prometheus/alerts.yml
+
+22 alert rules in groups:
+- `memory_alerts` - Memory usage warnings
+- `disk_alerts` - Disk space warnings/critical
+- `cpu_alerts` - CPU usage
+- `load_alerts` - System load
+- `service_alerts` - systemd service failures
+- `service_health_alerts` - Service health checks
+- `endpoint_alerts` - HTTP endpoint monitoring
+
+### alertmanager/alertmanager.yml
+
+Routes alerts by severity:
+- `critical` → #enin-alerts-critical
+- `warning` → #enin-alerts-warnings
+- `info` → #enin-alerts-info
+
+### blackbox/blackbox.yml
+
+Probes:
+- HTTP 2xx checker for /health endpoint
+- TCP SSL certificate checker
+
+---
+
+## Grafana Dashboards
+
+### System Overview
+- API Health status (UP/DOWN)
+- Memory usage %
+- Disk usage %
+- CPU usage %
+
+### Services Status
+- systemd service states
+- Service uptime
+- Recent restarts
+
+### API Health
+- HTTP response time
+- SSL certificate expiry
+- Endpoint availability
+
+---
+
+## Adding New Targets
+
+1. Edit `/opt/monitoring/prometheus/prometheus.yml`
+2. Add target under appropriate job:
+   ```yaml
+   - job_name: 'node'
+     static_configs:
+       - targets: ['<new-ip>:9100']
+         labels:
+           instance: '<server-name>'
+   ```
+3. Restart: `sudo docker compose restart prometheus`
+
+---
+
+## Deployment
+
+This directory is a reference. The actual deployment is on CX23.
+
+To redeploy from scratch:
+1. Copy this directory to `/opt/monitoring/` on new server
+2. Install Docker
+3. `docker compose up -d`
+4. Configure Caddy for HTTPS
+5. Update DNS
+
+---
+
+## Related Documentation
+
+- [MONITORING_SETUP.md](../docs/operations/MONITORING_SETUP.md) - Complete setup guide
+- [SYSTEMD_SERVICES_ANALYSIS.md](../docs/SYSTEMD_SERVICES_ANALYSIS.md) - Service analysis
+
+---
+
+**Last Updated:** 2026-01-07

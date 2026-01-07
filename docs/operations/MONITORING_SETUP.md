@@ -1,490 +1,390 @@
-# SYNCTACLES Monitoring Setup Guide
+# Monitoring Infrastructure - Complete Setup Guide
 
-**For:** Energy Insights NL production monitoring
-**Architecture:** Hybrid (Docker on monitoring server + native node_exporter on app servers)
-**Status:** Ready for deployment
+**Status:** ✅ Operational
+**Last Updated:** 2026-01-07
+**Security Score:** 9/10
 
 ---
 
-## Quick Start (5 minutes)
+## Overview
 
-On your **monitoring server (CX23)**:
+| Component | Server | URL/Port |
+|-----------|--------|----------|
+| **Grafana** | CX23 (77.42.41.135) | https://monitor.synctacles.com |
+| **Prometheus** | CX23 (Docker) | localhost:9090 (internal) |
+| **AlertManager** | CX23 (Docker) | localhost:9093 (internal) |
+| **Blackbox Exporter** | CX23 (Docker) | localhost:9115 (internal) |
+| **node_exporter** | API server (135.181.255.83) | :9100 |
+| **Caddy** | CX23 | :80, :443 (reverse proxy) |
 
+---
+
+## Architecture
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │         CX23 Monitoring Server          │
+                    │            77.42.41.135                  │
+                    │                                         │
+  Internet ──────►  │  ┌─────────┐    ┌──────────────────┐   │
+  (HTTPS:443)       │  │  Caddy  │───►│     Grafana      │   │
+                    │  │         │    │   (localhost:3000)│   │
+                    │  └─────────┘    └──────────────────┘   │
+                    │                          │              │
+                    │                          ▼              │
+                    │                 ┌──────────────────┐   │
+                    │                 │   Prometheus     │   │
+                    │                 │  (localhost:9090)│   │
+                    │                 └────────┬─────────┘   │
+                    │                          │              │
+                    │         ┌────────────────┼────────┐    │
+                    │         ▼                ▼        ▼    │
+                    │  ┌───────────┐  ┌───────────┐ ┌──────┐│
+                    │  │AlertManager│  │ Blackbox  │ │ ...  ││
+                    │  │(:9093)     │  │ (:9115)   │ │      ││
+                    │  └─────┬─────┘  └─────┬─────┘ └──────┘│
+                    └────────┼──────────────┼───────────────┘
+                             │              │
+                             ▼              ▼
+                    ┌────────────┐   ┌─────────────────┐
+                    │   Slack    │   │   API Server    │
+                    │ Webhooks   │   │ 135.181.255.83  │
+                    │            │   │  node_exporter  │
+                    │ #critical  │   │     :9100       │
+                    │ #warnings  │   └─────────────────┘
+                    │ #info      │
+                    └────────────┘
+```
+
+---
+
+## Access
+
+### Grafana Dashboard
+
+**URL:** https://monitor.synctacles.com
+**Authentication:** Username/password (configured)
+
+**Available Dashboards:**
+- System Overview - Server metrics, API health
+- Services Status - systemd service monitoring
+- API Health - Endpoint monitoring, SSL status
+
+### Slack Alerts
+
+| Channel | Alerts |
+|---------|--------|
+| `#enin-alerts-critical` | Server down, disk full >90%, service failures |
+| `#enin-alerts-warnings` | High CPU/memory, SSL expiry <14 days |
+| `#enin-alerts-info` | Informational notifications |
+
+---
+
+## What is Monitored
+
+### API Server (135.181.255.83)
+
+| Metric | Alert Threshold |
+|--------|-----------------|
+| CPU usage | >80% for 5 min |
+| Memory usage | >85% for 5 min |
+| Disk usage | >80% warning, >90% critical |
+| Load average | >2.0 for 5 min |
+| systemd services | energy-insights-nl-*, synctacles-* |
+
+### API Endpoint
+
+| Check | Target | Alert |
+|-------|--------|-------|
+| HTTP health | https://enin.xteleo.nl/health | Down >1 min |
+| SSL certificate | enin.xteleo.nl:443 | Expiry <14 days |
+
+### Services Monitored
+
+```
+energy-insights-nl-api.service
+energy-insights-nl-collector.service
+energy-insights-nl-health.service
+energy-insights-nl-importer.service
+energy-insights-nl-normalizer.service
+synctacles-collector.service (deprecated)
+synctacles-health.service (deprecated)
+synctacles-importer.service (deprecated)
+synctacles-normalizer.service (deprecated)
+```
+
+---
+
+## Alert Rules
+
+### Critical (immediate action)
+
+| Alert | Condition | Duration |
+|-------|-----------|----------|
+| InstanceDown | Instance unreachable | 1 min |
+| DiskSpaceCritical | >90% full | immediate |
+| ServiceFailed | systemd service failed | immediate |
+| APIEndpointDown | HTTP check fails | 1 min |
+
+### Warning (investigate soon)
+
+| Alert | Condition | Duration |
+|-------|-----------|----------|
+| HighMemoryUsage | >85% | 5 min |
+| HighCPUUsage | >80% | 5 min |
+| DiskSpaceWarning | >80% | immediate |
+| HighLoadAverage | >2.0 | 5 min |
+| SSLCertExpiringSoon | <14 days | immediate |
+
+---
+
+## Server Configuration
+
+### CX23 Monitoring Server (77.42.41.135)
+
+**OS:** Ubuntu 24.04
+**Resources:** 2 vCPU, 4GB RAM, 40GB disk
+
+**Services:**
 ```bash
-# 1. Ensure /opt/monitoring directory with docker-compose.yml
-# (should be in PHASE_1_HANDOFF.md)
-
-# 2. Go to directory
-cd /opt/monitoring
-
-# 3. Start monitoring
-docker-compose up -d
-
-# 4. Verify
+# Docker containers
 docker ps
-curl http://localhost:9090
-curl http://localhost:3000
+# prometheus, grafana, alertmanager, blackbox
+
+# Reverse proxy
+systemctl status caddy
+
+# Security
+systemctl status fail2ban
 ```
 
-**Then add app servers:**
+**Firewall (Hetzner):**
+| Port | Service | Access |
+|------|---------|--------|
+| 22 | SSH | Open |
+| 80 | HTTP (redirect) | Open |
+| 443 | HTTPS (Grafana) | Open |
+| 3000 | Grafana direct | Closed |
+| 9090 | Prometheus | Closed |
+| 9093 | AlertManager | Closed |
 
-```bash
-# On MONITORING server
-./scripts/monitoring/add_target.sh 10.0.1.5 production-api
-./scripts/monitoring/add_target.sh 10.0.1.6 collector-01
+**Key Files:**
+```
+/opt/monitoring/
+├── docker-compose.yml      # Container definitions
+├── prometheus/
+│   ├── prometheus.yml      # Scrape config
+│   └── alerts.yml          # Alert rules
+├── alertmanager/
+│   └── alertmanager.yml    # Slack webhooks
+├── blackbox/
+│   └── blackbox.yml        # HTTP/SSL checks
+└── grafana/
+    ├── datasources/
+    │   └── prometheus.yml  # Datasource config
+    └── dashboards/
+        ├── system-overview.json
+        ├── services-status.json
+        └── api-health.json
+
+/etc/caddy/Caddyfile         # Reverse proxy config
 ```
 
----
+### API Server (135.181.255.83)
 
-## Detailed Setup
-
-### Phase 1: Monitoring Server (CX23)
-
-**Prerequisites:**
-- Ubuntu 24.04 clean installation
-- 4GB RAM (CX23 recommended)
-- 40GB disk
-- SSH access as root
-- Internet connectivity
-
-**Steps:**
-
-#### 1.1 Prepare Directory Structure
-
-```bash
-mkdir -p /opt/monitoring
-cd /opt/monitoring
-
-# Create docker-compose.yml
-# (From PHASE_1_HANDOFF.md or copy from repo)
-# Should include: prometheus, grafana, alertmanager services
+**node_exporter config:**
+```
+/etc/systemd/system/node_exporter.service
 ```
 
-#### 1.2 Create Prometheus Configuration
-
-```bash
-# Create prometheus.yml
-cat > prometheus.yml <<'EOF'
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-  external_labels:
-    cluster: 'synctacles'
-    environment: 'production'
-
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-            - localhost:9093
-
-rule_files:
-  - /etc/prometheus/alerts.yml
-
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  - job_name: 'node'
-    static_configs:
-      - targets: ['localhost:9100']
-
-  - job_name: 'synctacles-servers'
-    static_configs:
-      - targets: []
-        # AUTO-GENERATED - DO NOT EDIT MANUALLY
-        # Use: ./scripts/monitoring/add_target.sh <ip> <name>
-EOF
-```
-
-#### 1.3 Create Alert Rules
-
-```bash
-# Copy from repository
-cp /opt/github/synctacles-api/monitoring/prometheus/alerts.yml ./
-
-# Or create manually from SKILL_14
-```
-
-#### 1.4 Start Containers
-
-```bash
-# Make sure docker-compose.yml exists
-docker-compose up -d
-
-# Wait 10 seconds for startup
-sleep 10
-
-# Verify all running
-docker ps
-# Should show: prometheus, grafana, alertmanager (all healthy)
-```
-
-#### 1.5 Verify Access
-
-```bash
-# Prometheus
-curl http://localhost:9090/-/ready
-# Should return: "OK"
-
-# Grafana
-curl http://localhost:3000
-# Should return HTML
-
-# Node exporter (on monitoring server)
-curl http://localhost:9100/metrics | head
-# Should show: node_cpu_seconds_total, node_memory_MemTotal_bytes, etc.
-```
-
-#### 1.6 Change Grafana Password
-
-```bash
-# Access: http://<monitoring_server_ip>:3000
-# Username: admin
-# Password: admin (default)
-
-# Click: Admin → Account → Change Password
-# Set strong password
-```
-
-**✅ Phase 1 Complete:** Monitoring server operational
-
----
-
-### Phase 2: Application Servers (node_exporter)
-
-**For each app server:**
-
-#### 2.1 Copy Setup Script
-
-```bash
-# On your LOCAL MACHINE or monitoring server
-scp /opt/github/synctacles-api/scripts/monitoring/setup_application_server.sh \
-    root@<app_server_ip>:/tmp/
-```
-
-#### 2.2 Run Installation
-
-```bash
-# SSH to app server
-ssh root@<app_server_ip>
-
-# Run script (provide monitoring server IP)
-sudo bash /tmp/setup_application_server.sh <monitoring_server_ip>
-
-# Example:
-# sudo bash /tmp/setup_application_server.sh 10.0.1.100
-```
-
-**Script will:**
-- Install node_exporter
-- Start systemd service
-- Configure firewall (allow monitoring server only)
-- Verify metrics available at :9100
-
-#### 2.3 Add to Prometheus (On Monitoring Server)
-
-```bash
-# Back on monitoring server
-cd /opt/monitoring
-
-./scripts/monitoring/add_target.sh <app_server_ip> <server_name>
-
-# Example:
-# ./scripts/monitoring/add_target.sh 10.0.1.5 production-api
-```
-
-#### 2.4 Verify Metrics (Wait 30 seconds)
-
-```bash
-# In Prometheus UI:
-# http://<monitoring_server_ip>:9090/targets
-
-# Should show green "UP" for each server
-
-# OR in Grafana:
-# http://<monitoring_server_ip>:3000
-# Wait 30 seconds, metrics should appear in System Health dashboard
-```
-
-**Repeat for each app server**
-
-**✅ Phase 2 Complete:** App servers sending metrics
-
----
-
-## Testing & Validation
-
-### Comprehensive Test
-
-```bash
-# On monitoring server
-cd /opt/github/synctacles-api
-
-./scripts/monitoring/test_monitoring.sh
-```
-
-**Should show:**
-- ✅ All containers running
-- ✅ Prometheus API responsive
-- ✅ Grafana API responsive
-- ✅ node_exporter metrics available
-- ✅ Alert rules loaded
-- ✅ Firewall configured
-- ✅ Disk space OK
-
-### Quick Checks
-
-**Check Prometheus targets:**
-```bash
-curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | .labels.instance'
-```
-
-**Check metrics flowing:**
-```bash
-curl http://localhost:9090/api/v1/query?query=up | jq '.data.result[].value'
-```
-
-**Check alerts:**
-```bash
-curl http://localhost:9090/api/v1/rules | jq '.data.groups[0].rules | length'
+**Key settings:**
+```ini
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.systemd \
+    --collector.systemd.unit-include="energy-insights-nl-.+|synctacles-.+"
 ```
 
 ---
 
-## Accessing Monitoring
+## Security Configuration
 
-### Prometheus
+### SSH Access
 
-**URL:** http://<monitoring_server_ip>:9090
+| User | Access | Notes |
+|------|--------|-------|
+| monitoring | SSH key | Primary access |
+| root | SSH key (prohibit-password) | Emergency only |
 
-**Pages:**
-- `/targets` - Server status and health
-- `/alerts` - Active/fired alerts
-- `/graph` - Query metrics
-- `/config` - Current configuration
+**SSH keys authorized for monitoring user:**
+- Windows workstation (ftso@coston2)
+- API server (root@ENIN-NL)
 
-### Grafana
+### Security Measures
 
-**URL:** http://<monitoring_server_ip>:3000
-
-**Dashboards:**
-- System Health - Overview of all servers
-- Memory Analysis - OOM prevention focus (when available)
-- API Performance - Request metrics (when available)
-
-### AlertManager
-
-**URL:** http://<monitoring_server_ip>:9093
-
-**Shows:**
-- Active alerts
-- Alert groups
-- Notification history
-
----
-
-## Troubleshooting
-
-### Containers Won't Start
-
-```bash
-# Check logs
-docker-compose logs prometheus
-docker-compose logs grafana
-docker-compose logs alertmanager
-
-# Restart all
-docker-compose restart
-
-# Rebuild if needed
-docker-compose down
-docker-compose up -d
-```
-
-### Prometheus Not Scraping
-
-```bash
-# Check targets
-curl http://localhost:9090/api/v1/targets
-
-# Should show "UP" for all targets
-# If "DOWN", check:
-# 1. Node exporter running: systemctl status prometheus-node-exporter (on app server)
-# 2. Firewall allows: ufw status (on app server)
-# 3. Network: ping from monitoring to app server
-```
-
-### Metrics Not Appearing in Grafana
-
-```bash
-# Wait 30 seconds after adding target
-
-# Check datasource
-curl http://localhost:3000/api/datasources
-
-# Should show Prometheus datasource
-
-# Manually query
-curl http://localhost:9090/api/v1/query?query=up
-
-# Should return data
-```
-
-### Memory Usage High
-
-```bash
-# Check container stats
-docker stats
-
-# If > 3.5GB total, consider upgrading CX23 → CX33
-# Can do via Hetzner console (2-5 min downtime)
-```
-
-### No Swap Configured
-
-If alert fires: "No swap configured"
-
-```bash
-# On app server that triggered alert
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-
-# Make persistent
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
+| Measure | Status |
+|---------|--------|
+| HTTPS (Let's Encrypt) | ✅ Auto-renewal |
+| SSH key-only | ✅ Password disabled |
+| fail2ban | ✅ 24h ban after 3 failures |
+| Hetzner firewall | ✅ Only 22, 80, 443 open |
+| Grafana on localhost | ✅ Via Caddy only |
+| Automatic security updates | ✅ unattended-upgrades |
 
 ---
 
 ## Operations
 
-### Daily
+### Daily Checks
 
-- Check Grafana System Health dashboard for anomalies
-- Review recent alerts
-- Monitor memory usage trend
+1. Open https://monitor.synctacles.com
+2. Review System Overview dashboard
+3. Check for any fired alerts
 
-### Weekly
+### Restart Services
 
-- Verify all servers reporting metrics
-- Check Prometheus disk usage
-- Review alert thresholds
+```bash
+# SSH to CX23
+ssh monitoring@77.42.41.135
 
-### Monthly
+# Restart all containers
+cd /opt/monitoring
+sudo docker compose restart
 
-- Test alert notifications (trigger manually)
-- Review retention needs (default: 15 days)
-- Update capacity baseline
-- Security updates
+# Restart Caddy
+sudo systemctl restart caddy
+```
 
-### Scaling to CX33
+### View Logs
 
-If memory usage > 85% sustained:
+```bash
+# Docker container logs
+sudo docker logs prometheus
+sudo docker logs grafana
+sudo docker logs alertmanager
 
-1. **Via Hetzner Console:**
-   - Stop CX23
-   - Upgrade to CX33 (8GB RAM)
-   - Start CX23 → becomes CX33
+# Caddy logs
+sudo journalctl -u caddy -f
 
-2. **On Server:**
-   ```bash
-   # Docker restarts automatically
-   docker ps
+# fail2ban
+sudo fail2ban-client status sshd
+```
 
-   # Verify
-   ./scripts/monitoring/test_monitoring.sh
-   ```
+### Check Certificate
 
----
+```bash
+# SSL expiry date
+echo | openssl s_client -connect monitor.synctacles.com:443 2>/dev/null | openssl x509 -noout -dates
+```
 
-## Integration Points
+### Add New Alert Rule
 
-### With Application Servers
-
-- node_exporter exposes metrics at `http://<app_server>:9100/metrics`
-- Prometheus scrapes every 15 seconds
-- No configuration needed on app servers (except opening firewall)
-
-### With Slack (Future)
-
-- AlertManager can send to Slack webhook
-- Configure in docker-compose.yml environment
-- See ALERT_RUNBOOK.md for responses
-
-### With Logging (SKILL_13)
-
-- System metrics (Prometheus): time-series
-- Application logs (journal): events
-- Both visible in operational view
+1. Edit `/opt/monitoring/prometheus/alerts.yml`
+2. Restart Prometheus: `sudo docker compose restart prometheus`
+3. Verify in Grafana → Alerting → Alert rules
 
 ---
 
-## Security Considerations
+## Troubleshooting
 
-### Monitoring Server (CX23)
+### Grafana Not Accessible
 
-- UFW firewall: Only allow needed ports (22, 9090, 3000)
-- fail2ban: SSH brute-force protection
-- SSH: Key-based only (recommend disabling root later)
-- Docker: Services isolated in containers
-- Secrets: None stored in config (no API keys needed)
+```bash
+# Check Caddy
+sudo systemctl status caddy
+sudo journalctl -u caddy --since "5 minutes ago"
 
-### Application Servers
+# Check Grafana container
+sudo docker ps | grep grafana
+sudo docker logs grafana --tail 50
+```
 
-- Firewall: Port 9100 allowed for monitoring server IP only
-- No additional services running
-- node_exporter: Read-only access to metrics
-- No outbound connections needed (monitoring server pulls)
+### No Metrics from API Server
 
----
+```bash
+# On API server
+systemctl status node_exporter
+curl localhost:9100/metrics | head
 
-## Capacity Planning
+# From CX23
+curl http://135.181.255.83:9100/metrics | head
+```
 
-### Current (CX23 + 3-5 app servers)
+### Alerts Not Sending to Slack
 
-- **Monitoring memory:** ~2.5GB used, 1.5GB buffer
-- **Data retention:** 15 days
-- **Disk usage:** ~10GB per 15 days
+```bash
+# Check AlertManager
+sudo docker logs alertmanager --tail 50
 
-### Upgrade to CX33 (10-15 app servers)
+# Test webhook manually
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"Test alert"}' \
+  <SLACK_WEBHOOK_URL>
+```
 
-- **Monitoring memory:** ~3GB used, 5GB buffer
-- **Data retention:** 30+ days possible
-- **Disk usage:** ~30GB per 30 days
+### High Memory on CX23
 
-### Further scaling (30+ servers)
+```bash
+# Check container memory
+sudo docker stats --no-stream
 
-- Consider federation (multiple Prometheus servers)
-- Or external metrics service (Datadog, New Relic, etc.)
-
----
-
-## Next Steps
-
-1. ✅ Phase 1: Monitoring server running
-2. ✅ Phase 2: App servers configured
-3. ⏳ Phase 3: [MONITORING_RUNBOOK.md](MONITORING_RUNBOOK.md) - Operations manual
-4. ⏳ Phase 4: Grafana dashboards (create via UI or from JSON)
-5. ⏳ Phase 5: Load testing (verify system behavior)
+# If >3.5GB total, consider upgrading to CX33
+```
 
 ---
 
-## Support
+## Backup & Recovery
 
-**For technical details:**
-- [SKILL_14_MONITORING_INFRASTRUCTURE.md](../../SKILL_14_MONITORING_INFRASTRUCTURE.md) - Architecture reference
-- [MONITORING_RUNBOOK.md](MONITORING_RUNBOOK.md) - Operations guide
-- [PHASE_1_HANDOFF.md](../../PHASE_1_HANDOFF.md) - Docker setup details
+### What to Backup
 
-**GitHub Issues:**
-- #27 - AlertManager & Slack Integration
-- #28 - Grafana Dashboards
-- #29 - Load Testing
+| Item | Location | Method |
+|------|----------|--------|
+| Prometheus data | Docker volume | Optional (15 day retention) |
+| Grafana dashboards | Docker volume | Export JSON from UI |
+| Config files | /opt/monitoring/ | Git repo |
+| Caddyfile | /etc/caddy/ | Manual backup |
+
+### Recovery Steps
+
+1. Provision new CX23
+2. Copy /opt/monitoring from backup/repo
+3. Install Docker, Caddy
+4. `docker compose up -d`
+5. Configure DNS → new IP
+6. Caddy will auto-obtain new SSL cert
 
 ---
 
-**Last Updated:** 2026-01-06
-**Status:** Ready for deployment
+## Scaling
+
+### Current Capacity
+
+- 1 API server monitored
+- 22 alert rules
+- 15 day data retention
+- ~2GB memory used
+
+### To Add More Servers
+
+1. Install node_exporter on new server
+2. Add target to `/opt/monitoring/prometheus/prometheus.yml`
+3. Restart Prometheus
+
+### Upgrade to CX33
+
+If memory >85% sustained:
+1. Stop CX23 in Hetzner Console
+2. Resize to CX33 (8GB RAM)
+3. Start server
+4. Verify: `docker ps`
+
+---
+
+## Related Documentation
+
+- [SYSTEMD_SERVICES_ANALYSIS.md](../SYSTEMD_SERVICES_ANALYSIS.md) - Service status
+- [SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md](../skills/SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md) - Logging standards
+
+---
+
+**Document Owner:** Leo
+**Last Verified:** 2026-01-07
