@@ -1,7 +1,7 @@
-# SKILL 11 — REPO STRUCTURE & SERVICE ACCOUNTS
+# SKILL 11 â€” REPO STRUCTURE & SERVICE ACCOUNTS
 
 Repository Organisation and Account Management
-Version: 1.1 (2026-01-04)
+Version: 1.2 (2026-01-07)
 
 ---
 
@@ -127,6 +127,50 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api status
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api log --oneline -5
 ```
 
+### GitHub CLI (gh) - Issues, PRs, Releases
+
+**Verschil git vs gh:**
+| Tool | Doel | Authenticatie |
+|------|------|---------------|
+| `git` | Code push/pull/commit | SSH key |
+| `gh` | Issues, PRs, releases, repo management | Personal Access Token (PAT) |
+
+**gh CLI is geconfigureerd voor service user:**
+- Auth storage: `/home/energy-insights-nl/.config/gh/hosts.yml`
+- Permissions: `600` (alleen user kan lezen)
+
+**Gebruik:**
+```bash
+# Issues
+sudo -u energy-insights-nl gh issue list
+sudo -u energy-insights-nl gh issue close 21
+sudo -u energy-insights-nl gh issue create --title "Bug" --body "Description"
+
+# Pull Requests
+sudo -u energy-insights-nl gh pr list
+sudo -u energy-insights-nl gh pr create --title "Feature" --body "Description"
+
+# Releases
+sudo -u energy-insights-nl gh release list
+```
+
+**Bij "not authenticated" of "authentication required" errors:**
+
+1. Vraag Leo om PAT (Personal Access Token)
+2. Configureer met:
+   ```bash
+   sudo -u energy-insights-nl gh auth login --with-token <<< "ghp_xxxx"
+   ```
+3. Verificatie:
+   ```bash
+   sudo -u energy-insights-nl gh auth status
+   ```
+
+**⚠️ NOOIT:**
+- PAT in git committen
+- PAT in logs tonen
+- PAT in `.env` zetten (gebruik gh native storage)
+
 ---
 
 ## DIRECTORY STRUCTURE
@@ -135,24 +179,24 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api log --oneline -5
 
 ```
 /opt/
-├── .env                              # Master config (brand settings)
-├── github/
-│   ├── synctacles-api/               # Backend repo (owned by energy-insights-nl)
-│   │   ├── synctacles_db/            # Backend Python code
-│   │   ├── config/                   # Configuration files
-│   │   ├── alembic/                  # Database migrations
-│   │   ├── systemd/                  # Service templates
-│   │   ├── scripts/                  # Setup/deployment scripts
-│   │   └── docs/                     # Documentation
-│   └── ha-energy-insights-nl/        # HA repo (owned by energy-insights-nl)
-│       └── custom_components/
-│           └── ha_energy_insights_nl/
-└── energy-insights-nl/               # Runtime deployment
-    ├── app/                          # Deployed code (copy from repo)
-    │   ├── synctacles_db/            # Synced from repo
-    │   └── config/                   # Synced from repo
-    ├── venv/                         # Python virtual environment
-    └── logs -> /var/log/energy-insights-nl/
+â”œâ”€â”€ .env                              # Master config (brand settings)
+â”œâ”€â”€ github/
+â”‚   â”œâ”€â”€ synctacles-api/               # Backend repo (owned by energy-insights-nl)
+â”‚   â”‚   â”œâ”€â”€ synctacles_db/            # Backend Python code
+â”‚   â”‚   â”œâ”€â”€ config/                   # Configuration files
+â”‚   â”‚   â”œâ”€â”€ alembic/                  # Database migrations
+â”‚   â”‚   â”œâ”€â”€ systemd/                  # Service templates
+â”‚   â”‚   â”œâ”€â”€ scripts/                  # Setup/deployment scripts
+â”‚   â”‚   â””â”€â”€ docs/                     # Documentation
+â”‚   â””â”€â”€ ha-energy-insights-nl/        # HA repo (owned by energy-insights-nl)
+â”‚       â””â”€â”€ custom_components/
+â”‚           â””â”€â”€ ha_energy_insights_nl/
+â””â”€â”€ energy-insights-nl/               # Runtime deployment
+    â”œâ”€â”€ app/                          # Deployed code (copy from repo)
+    â”‚   â”œâ”€â”€ synctacles_db/            # Synced from repo
+    â”‚   â””â”€â”€ config/                   # Synced from repo
+    â”œâ”€â”€ venv/                         # Python virtual environment
+    â””â”€â”€ logs -> /var/log/energy-insights-nl/
 
 /var/log/energy-insights-nl/          # Log files
 /etc/systemd/system/                  # Generated service units
@@ -160,7 +204,7 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api log --oneline -5
 
 ---
 
-## BACKEND DEPLOYMENT (Server → Running App)
+## BACKEND DEPLOYMENT (Server â†’ Running App)
 
 ### KRITIEK: Sync BEIDE directories
 
@@ -215,21 +259,21 @@ sudo journalctl -u energy-insights-nl-api -n 20
 Contents:
 ```
 ha-energy-insights-nl/
-├── custom_components/
-│   └── ha_energy_insights_nl/
-│       ├── __init__.py
-│       ├── config_flow.py
-│       ├── sensor.py
-│       ├── diagnostics.py
-│       ├── const.py
-│       ├── manifest.json
-│       ├── strings.json
-│       └── tennet_client.py
-├── hacs.json
-└── README.md
+â”œâ”€â”€ custom_components/
+â”‚   â””â”€â”€ ha_energy_insights_nl/
+â”‚       â”œâ”€â”€ __init__.py
+â”‚       â”œâ”€â”€ config_flow.py
+â”‚       â”œâ”€â”€ sensor.py
+â”‚       â”œâ”€â”€ diagnostics.py
+â”‚       â”œâ”€â”€ const.py
+â”‚       â”œâ”€â”€ manifest.json
+â”‚       â”œâ”€â”€ strings.json
+â”‚       â””â”€â”€ tennet_client.py
+â”œâ”€â”€ hacs.json
+â””â”€â”€ README.md
 ```
 
-### Development Workflow (CC → Leo → HA)
+### Development Workflow (CC â†’ Leo â†’ HA)
 
 **CC heeft GEEN directe toegang tot HA OS.**
 
@@ -324,7 +368,7 @@ cd /opt/github/synctacles-api && git push
 **SSH key bestaat ALLEEN voor `energy-insights-nl` user.**
 **Root heeft GEEN GitHub toegang.**
 
-Als CC error ziet `Permission denied (publickey)` → verkeerde user context gebruikt.
+Als CC error ziet `Permission denied (publickey)` â†’ verkeerde user context gebruikt.
 
 ### Automatic Context Detection
 
@@ -500,7 +544,7 @@ APP_PATH="/opt/energy-insights-nl/app"
 sudo -u $SERVICE_USER git -C $REPO_PATH pull origin main
 
 # Step 2: Verify no hardcoded credentials in new code
-grep -r "synctacles@" $REPO_PATH --exclude-dir=.git || echo "✓ No credentials found"
+grep -r "synctacles@" $REPO_PATH --exclude-dir=.git || echo "âœ“ No credentials found"
 
 # Step 3: Sync Python code
 sudo rsync -av --delete \
@@ -522,7 +566,7 @@ sudo rsync -av \
 sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_PATH/
 
 # Step 7: Verify config.settings is present
-test -f $APP_PATH/config/settings.py && echo "✓ settings.py found" || echo "✗ settings.py MISSING"
+test -f $APP_PATH/config/settings.py && echo "âœ“ settings.py found" || echo "âœ— settings.py MISSING"
 
 # Step 8: Restart services
 sudo systemctl restart energy-insights-nl-api
@@ -542,16 +586,16 @@ sudo journalctl -u energy-insights-nl-api -n 10
 Before marking deployment as complete:
 
 ```
-✓ Git pull succeeded (no uncommitted changes blocking)
-✓ Pre-commit hook didn't block (no hardcoded credentials)
-✓ rsync completed successfully
-✓ File ownership is energy-insights-nl:energy-insights-nl
-✓ config/settings.py is in runtime directory
-✓ Services restarted without errors
-✓ curl /health returns 200 OK
-✓ No "DATABASE_URL" or "role" errors in logs
-✓ Normalizers ran without connection errors
-✓ API serving data (check recent query results)
+âœ“ Git pull succeeded (no uncommitted changes blocking)
+âœ“ Pre-commit hook didn't block (no hardcoded credentials)
+âœ“ rsync completed successfully
+âœ“ File ownership is energy-insights-nl:energy-insights-nl
+âœ“ config/settings.py is in runtime directory
+âœ“ Services restarted without errors
+âœ“ curl /health returns 200 OK
+âœ“ No "DATABASE_URL" or "role" errors in logs
+âœ“ Normalizers ran without connection errors
+âœ“ API serving data (check recent query results)
 ```
 
 ---

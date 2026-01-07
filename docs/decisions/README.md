@@ -42,11 +42,12 @@ See SKILL_00 Section O for the full ADR template.
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| - | (No explicit ADRs yet) | - | - |
+| [ADR-001](ADR_001_TENNET_BYO_KEY.md) | TenneT Bring-Your-Own-Key Model | Accepted | 2026-01-07 |
 
 ## Implicit ADRs (in SKILLs)
 
-- **SKILL_02:** TenneT BYO-KEY model (no redistribution)
 - **SKILL_02:** Brand-free architecture
 - **SKILL_06:** Data source hierarchy (ENTSO-E primary, Energy-Charts fallback)
 - **SKILL_12:** Multi-brand deployment pattern
+
+**Note:** ADR-001 formalizes the TenneT BYO-key decision previously implicit in SKILL_02.
