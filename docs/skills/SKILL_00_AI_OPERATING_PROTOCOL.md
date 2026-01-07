@@ -194,6 +194,7 @@ Is dit toegestaan of off-limits?"
 □ Geen edits zonder "1"/"go"
 □ Failed services: vraag deprecated vs broken
 □ Off-limits gebieden: niet aanraken
+□ chown DIRECT na file edits (CC only)
 ```
 
 ### Einde sessie:
@@ -226,11 +227,42 @@ sudo git <command>
 cd /opt/github/synctacles-api && git push
 ```
 
-### Na file edits:
+### Na file edits (KRITIEK):
+
+**⚠️ Na ELKE file creatie of edit → DIRECT chown uitvoeren**
+
+Niet wachten tot het einde van de sessie. Niet wachten tot voor git commit.
+Direct na de edit, vóór de volgende actie.
 
 ```bash
-# VERPLICHT
+# NA ELKE FILE EDIT - GEEN UITZONDERINGEN
 sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+```
+
+**Waarom direct?**
+- Root-owned files blokkeren git operations
+- Service user kan root-owned files niet lezen
+- Problemen stapelen op als je wacht
+
+**Patroon:**
+```bash
+# 1. Edit file (als root is OK)
+nano /opt/github/synctacles-api/docs/file.md
+
+# 2. DIRECT daarna - niet later
+sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+
+# 3. Dan pas volgende actie
+```
+
+**Bij meerdere files:**
+```bash
+# Edit file 1
+# Edit file 2
+# Edit file 3
+# chown (eenmalig voor batch is OK, maar VOOR volgende stap)
+sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+# Dan pas git of andere acties
 ```
 
 ### Commit messages:
@@ -294,12 +326,14 @@ CC heeft WEL:
 | Operatie | User | Command Prefix |
 |----------|------|----------------|
 | Git (status, pull, commit, push) | service user | `sudo -u energy-insights-nl` |
-| File edits in repo | root (dan fix) | `sudo chown -R energy-insights-nl:...` |
+| File edits in repo | root | Direct na edit: `sudo chown -R energy-insights-nl:...` |
 | systemctl (restart, status) | root | `sudo` |
 | apt install | root | `sudo` |
 | /etc/ configuratie | root | `sudo` |
 | alembic migrations | service user | `sudo -u energy-insights-nl` |
 | Python/pip in venv | service user | `sudo -u energy-insights-nl` |
+
+**⚠️ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
 
 ---
 
@@ -421,6 +455,14 @@ ADR_009_TENNET_BYO_KEY.md         → Architecture Decision Record
 │   ├── README.md                       # ADR index + nummering
 │   └── ADR_###_[TITEL].md
 │
+├── templates/                          # Reusable templates
+│   ├── TEMPLATE_STATUS_CC.md
+│   ├── TEMPLATE_STATUS_CAI.md
+│   ├── TEMPLATE_SESSIE.md
+│   ├── TEMPLATE_HANDOFF_CAI_CC.md
+│   ├── TEMPLATE_HANDOFF_CC_CAI.md
+│   └── TEMPLATE_ADR.md
+│
 ├── CC_communication/                   # CC specifieke communicatie
 ├── operations/                         # Operationele docs
 ├── tasks/                              # Taak tracking
@@ -444,6 +486,7 @@ ADR_009_TENNET_BYO_KEY.md         → Architecture Decision Record
 | Huidige project staat | `docs/status/` |
 | Sessie verslagen | `docs/sessions/` |
 | Architectuur beslissingen | `docs/decisions/` |
+| Reusable templates | `docs/templates/` |
 | API documentatie | `docs/api/` of root |
 | CC specifieke zaken | `docs/CC_communication/` |
 | Operationele zaken | `docs/operations/` |
@@ -865,9 +908,10 @@ ADR_009+             → Nieuwe beslissingen
 │  7. FAILED ≠ MOET GEREPAREERD                       │
 │  8. TENNET = OFF-LIMITS                             │
 │  9. GIT = ALTIJD ALS SERVICE USER (CC)              │
-│ 10. BIJ TWIJFEL: STOP EN VRAAG                      │
-│ 11. GEEN "IK FIX EVEN"                              │
-│ 12. UPDATE STATUS BIJ SESSIE EINDE                  │
+│ 10. CHOWN DIRECT NA FILE EDITS (CC)                 │
+│ 11. BIJ TWIJFEL: STOP EN VRAAG                      │
+│ 12. GEEN "IK FIX EVEN"                              │
+│ 13. UPDATE STATUS BIJ SESSIE EINDE                  │
 │                                                     │
 ├─────────────────────────────────────────────────────┤
 │  NAAMCONVENTIE                                      │
@@ -885,6 +929,7 @@ ADR_009+             → Nieuwe beslissingen
 │  docs/status/    → Live state files                 │
 │  docs/sessions/  → Sessie samenvattingen            │
 │  docs/decisions/ → ADRs                             │
+│  docs/templates/ → Reusable templates               │
 │                                                     │
 ├─────────────────────────────────────────────────────┤
 │  HANDOFF                                            │
