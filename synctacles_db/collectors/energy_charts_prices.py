@@ -17,6 +17,61 @@ BASE_URL = "https://api.energy-charts.info/price"
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
 OUTPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAYS = [30, 60, 120]  # seconds between retries (exponential backoff)
+
+
+def _make_request_with_retry(url: str, params: dict) -> requests.Response:
+    """Make HTTP request with retry logic for rate limiting."""
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, params=params, timeout=30)
+
+            if response.status_code == 429:
+                retry_delay = RETRY_DELAYS[min(attempt, len(RETRY_DELAYS) - 1)]
+                retry_after = response.headers.get('Retry-After')
+                if retry_after:
+                    try:
+                        retry_delay = int(retry_after)
+                    except ValueError:
+                        pass
+
+                _LOGGER.warning(
+                    f"Rate limited (429), attempt {attempt + 1}/{MAX_RETRIES}. "
+                    f"Waiting {retry_delay}s before retry..."
+                )
+                time.sleep(retry_delay)
+                continue
+
+            response.raise_for_status()
+            return response
+
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 429:
+                last_error = e
+                continue
+            raise
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            if attempt < MAX_RETRIES - 1:
+                retry_delay = RETRY_DELAYS[min(attempt, len(RETRY_DELAYS) - 1)]
+                _LOGGER.warning(
+                    f"Request failed: {e}. Attempt {attempt + 1}/{MAX_RETRIES}. "
+                    f"Retrying in {retry_delay}s..."
+                )
+                time.sleep(retry_delay)
+            else:
+                raise
+
+    # If we exhausted retries due to rate limiting
+    raise requests.exceptions.HTTPError(
+        f"Rate limited after {MAX_RETRIES} attempts", response=last_error.response if last_error else None
+    )
+
+
 def fetch_prices(country: str = "NL", days: int = 2) -> dict:
     """Fetch day-ahead prices for country."""
     _LOGGER.info(f"Energy-Charts collector starting: country={country}, days={days}")
@@ -33,8 +88,7 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
 
         _LOGGER.debug(f"Request URL: {BASE_URL}, params: {params}")
 
-        response = requests.get(BASE_URL, params=params, timeout=30)
-        response.raise_for_status()
+        response = _make_request_with_retry(BASE_URL, params)
 
         _LOGGER.debug(f"Response status: {response.status_code}, size: {len(response.content)} bytes")
 
