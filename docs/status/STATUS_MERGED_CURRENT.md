@@ -1,99 +1,80 @@
 # STATUS_MERGED_CURRENT.md
 
-**Last Updated:** 2026-01-07 17:15 UTC
-**Updated By:** Leo (merged from CC + CAI)
+**Single Source of Truth (SSOT)**
+**Last Merged:** 2026-01-07 19:45 UTC
+**Merged By:** Leo
+
+---
+
+## SYSTEM STATE
+
+### Server
+| Metric | Value |
+|--------|-------|
+| API | ✅ Running |
+| Collectors | ✅ Active (oneshot timers) |
+| Normalizers | ✅ Active (oneshot timers) |
+| Disk | 16G/75G (22%) |
+| Last Deploy | 2026-01-07 12:36 UTC |
+| Commit | `60f0774` ADR-001 |
+
+### Code
+| Repo | Branch | Uncommitted | Issues |
+|------|--------|-------------|--------|
+| synctacles-api | main | None | None |
+| ha-energy-insights-nl | main | - | - |
 
 ---
 
 ## PROJECT STATE
 
-### Current Phase
-- Sprint 1: Technical Foundation (Jan 7-14)
-- Next Milestone: Jan 14 - Sprint 1 complete
-- Launch Target: Jan 25
+### Sprint 1: Foundation (Jan 7-14)
+| Task | Status |
+|------|--------|
+| SKILL_00 v2.0 | ✅ |
+| SKILL_11 v1.2 | ✅ |
+| Dual Status Model | ✅ |
+| ADR-001 TenneT | ✅ |
+| GitHub Issues | ✅ |
 
-### Active Work
-| Task | Owner | Status |
+**Sprint 1 Foundation: COMPLETE**
+
+### Next Up (P1)
+1. HA Component validatie
+2. API hardening
+3. Phase 2/3 docs
+
+---
+
+## ARCHITECTURE DECISIONS
+
+| ADR | Decision | Status |
+|-----|----------|--------|
+| ADR-001 | TenneT BYO-key (HA only) | ✅ Accepted |
+| - | Dual status model | ✅ Implemented |
+| - | gh CLI native storage | ✅ Decided |
+
+---
+
+## BLOCKERS
+
+| Item | Owner | Status |
 |------|-------|--------|
-| SKILL_00 v2.0 | CAI | ✅ Complete |
-| Phase 1 directories | CC | ✅ Complete |
-| Status files created | CC | ✅ Complete |
-| Monitoring infrastructure | CC | ✅ Complete |
-| Load testing | CC | ✅ Complete |
-| HA Component TenneT BYO-key | CC | 🔲 Pending |
-
-### Blockers
-- None
+| gh CLI token scopes | Leo | Pending (fine-grained vs classic) |
 
 ---
 
-## SERVER STATE
+## TIMELINE
 
-### Services
-| Service | Status | Notes |
-|---------|--------|-------|
-| energy-insights-nl-api | ✅ running | |
-| energy-insights-nl-collector | ✅ inactive | oneshot (runs on timer) |
-| energy-insights-nl-normalizer | ✅ inactive | oneshot (runs on timer) |
-
-### Resources
-- Disk /opt: 16G / 75G (22%)
-- Disk /var/log: 16G / 75G (22%)
-
-### Last Deploy
-- Date: 2026-01-07 12:36:54 UTC
-- Commit: `bc6381e` - docs: implement Phase 1 State Files per HANDOFF_CAI_CC specification
+- **Launch Target:** 2026-01-25
+- **Sprint 1:** Jan 7-14 (Foundation) - ON TRACK
+- **Sprint 2:** Jan 15-21 (Hardening)
+- **Sprint 3:** Jan 22-25 (Launch prep)
 
 ---
 
-## GIT STATE
+## SOURCE FILES
 
-### Uncommitted Changes
-| File | Status | Notes |
-|------|--------|-------|
-| docs/skills/SKILL_00_AI_OPERATING_PROTOCOL.md | Modified | chown aanscherping (CAI) |
-| docs/CC_communication/HANDOFF_CAI_CC_PHASE1_STATE_FILES.md | Untracked | Phase 1 handoff |
-
-### Open GitHub Issues
-- #21, #24 - Need manual closing (gh CLI not authenticated)
-
----
-
-## NEXT PRIORITIES (P1)
-
-1. **HA Component TenneT BYO-key** - implementation
-2. **API endpoint hardening** - error handling
-3. **Phase 2** - Handoff protocol formalization
-4. **Phase 3** - Documentation audit
-
----
-
-## DOCUMENTATION STATE
-
-### Updates Needed
-- README.md index (add new directories)
-- SKILL_11 minor update (reference SKILL_00)
-
-### Recent Deliverables
-- SKILL_00 v2.0 (AI Operating Protocol)
-- Phase 1 directory structure
-- Status file templates
-
----
-
-## ARCHITECTURAL DECISIONS
-
-### Recent
-- TenneT BYO-key model (ADR in SKILL_02)
-- Dual status model for AI coordination (SKILL_00)
-
-### Pending
-- None
-
----
-
-## NOTES
-
-- Phase 1 Shared Knowledge Architecture: COMPLETE
-- Monitoring shows 4x performance improvement after load testing
-- Dual status model now operational (CC + CAI → MERGED)
+- CC: `docs/status/STATUS_CC_CURRENT.md`
+- CAI: `docs/status/STATUS_CAI_CURRENT.md`
+- SSOT: `docs/status/STATUS_MERGED_CURRENT.md`

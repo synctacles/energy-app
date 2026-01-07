@@ -40,7 +40,8 @@ Welcome to the SYNCTACLES project documentation. Everything you need to understa
 - **[troubleshooting.md](troubleshooting.md)** - Common issues & solutions
 
 ### 🛠️ [/skills/](skills/) - Operational Procedures
-13 comprehensive SKILL documents covering:
+14 comprehensive SKILL documents covering:
+- SKILL_00: AI Operating Protocol (PROTECT MODE, dual status model)
 - SKILL_01: Project hard rules
 - SKILL_02: Architecture deep-dive
 - SKILL_03: Coding standards
@@ -50,11 +51,40 @@ Welcome to the SYNCTACLES project documentation. Everything you need to understa
 - SKILL_08: Hardware profiles
 - SKILL_09: Installer specifications
 - SKILL_10: Deployment workflow
-- SKILL_11: Repository & accounts
+- SKILL_11: Repository & accounts (git workflow, gh CLI)
 - SKILL_12: Multi-tenant (brand-free) architecture
 - SKILL_13: Logging, diagnostics & HA standards
 
 See [skills/README.md](skills/README.md) for full overview.
+
+### 📋 [/status/](status/) - Live Project State
+Current state tracking per Dual Status Model:
+- **[STATUS_MERGED_CURRENT.md](status/STATUS_MERGED_CURRENT.md)** - Single Source of Truth (SSOT)
+- **[STATUS_CC_CURRENT.md](status/STATUS_CC_CURRENT.md)** - Claude Code perspective
+- **[STATUS_CAI_CURRENT.md](status/STATUS_CAI_CURRENT.md)** - Claude AI perspective
+- **[NEXT_ACTIONS.md](status/NEXT_ACTIONS.md)** - Prioritized backlog
+
+See [status/README.md](status/README.md) for details.
+
+### 📝 [/sessions/](sessions/) - Session Summaries
+Detailed session logs documenting significant work:
+- SESSIE_CC_YYYYMMDD.md - Claude Code sessions
+- SESSIE_CAI_YYYYMMDD.md - Claude AI sessions
+
+See [sessions/README.md](sessions/README.md) for archive.
+
+### 🏛️ [/decisions/](decisions/) - Architecture Decision Records
+Formal ADRs documenting key architectural choices:
+- **[ADR-001](decisions/ADR_001_TENNET_BYO_KEY.md)** - TenneT Bring-Your-Own-Key Model
+
+See [decisions/README.md](decisions/README.md) for index.
+
+### 📐 [/templates/](templates/) - Reusable Templates
+Standard templates for documentation:
+- TEMPLATE_STATUS_CC.md / TEMPLATE_STATUS_CAI.md
+- TEMPLATE_SESSIE.md
+- TEMPLATE_HANDOFF_CAI_CC.md / TEMPLATE_HANDOFF_CC_CAI.md
+- TEMPLATE_ADR.md
 
 ### 🚀 [/operations/](operations/) - Deployment & Operations
 - **[operations/DEPLOYMENT_SCRIPTS_GUIDE.md](operations/DEPLOYMENT_SCRIPTS_GUIDE.md)** - Automated deployment

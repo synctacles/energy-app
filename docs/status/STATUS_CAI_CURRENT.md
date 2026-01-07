@@ -1,53 +1,55 @@
 # STATUS_CAI_CURRENT.md
 
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-07 19:45 UTC
 **Updated By:** CAI
 
 ---
 
 ## PROJECT PHASE
 
-- Current: Sprint 1 - Technical Foundation
-- Next Milestone: Jan 14 - Sprint 1 complete
-- Launch Target: Jan 25
+- Current: Sprint 1 - Foundation & State Management
+- Sprint Period: 2026-01-07 t/m 2026-01-14
+- Launch Target: 2026-01-25
+
+---
+
+## SPRINT 1 PROGRESS
+
+| Task | Status | Notes |
+|------|--------|-------|
+| SKILL_00 v2.0 (AI Protocol) | ✅ Done | Chown rules enhanced |
+| Dual Status Model | ✅ Done | CC/CAI/MERGED operational |
+| Directory Structure | ✅ Done | docs/ reorganized |
+| ADR-001 TenneT BYO-key | ✅ Done | Formalized in repo |
+| SKILL_11 gh CLI section | ✅ Done | v1.2 |
+| GitHub Issues #21, #24 | ✅ Done | Closed |
 
 ---
 
 ## ARCHITECTURAL STATE
 
-### Recent Decisions
-- TenneT BYO-key model (ADR in SKILL_02)
-- Dual status model for AI coordination
+### Decided
+- TenneT BYO-key model (ADR-001)
+- Dual status model (CC/CAI → MERGED)
+- gh CLI native storage (niet .env)
 
 ### Open Decisions
 - None pending
-
-### Recent ADRs
-- None formalized yet (historical in SKILLs)
-
----
-
-## PLANNING STATUS
-
-### Sprint 1 (Jan 7-14)
-- [ ] HA Component foundations
-- [ ] API hardening
-- [x] Shared Knowledge Phase 1
-
-### Parallel Work
-- [x] SKILL_00 v2.0 expansion
-- [ ] Documentation audit (Phase 3)
 
 ---
 
 ## DOCUMENTATION STATE
 
-### Updates Needed
-- README.md index update (add new directories)
-- SKILL_11 minor update (reference SKILL_00)
+| Document | Status |
+|----------|--------|
+| SKILL_00 | ✅ v2.0 current |
+| SKILL_11 | ✅ v1.2 current |
+| ADR-001 | ✅ Committed |
+| STATUS files | ✅ Operational |
 
-### Reviews Pending
-- None
+### Updates Needed
+- README.md (docs/) - index bijwerken met nieuwe structuur
+- NEXT_ACTIONS.md - Sprint 1 items afvinken
 
 ---
 
@@ -59,16 +61,20 @@
 
 ## BLOCKED BY
 
-- None
+- gh CLI token (scopes issue) - voor automatisch issue management
 
 ---
 
-## HANDOFF NOTES
+## NEXT PRIORITIES (P1)
 
-### For CC
-- Phase 1 implementation ready
-- See this handoff document
+1. HA Component validatie (TenneT BYO-key flow)
+2. API hardening
+3. Phase 2/3 documentation
 
-### From Last Session
-- Shared Knowledge Architecture planning complete
-- SKILL_00 v2.0 delivered
+---
+
+## LAST SESSION
+
+- Date: 2026-01-07
+- Focus: Status merge, SKILL updates, gh CLI config
+- Outcome: Clean state, Sprint 1 foundation complete
