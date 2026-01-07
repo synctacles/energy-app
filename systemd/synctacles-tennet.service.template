@@ -6,6 +6,7 @@ After=network.target
 Type=oneshot
 User={{SERVICE_USER}}
 WorkingDirectory={{INSTALL_PATH}}/app
+Environment="PYTHONDONTWRITEBYTECODE=1"
 ExecStart={{INSTALL_PATH}}/venv/bin/python3 -m synctacles_db.collectors.tennet_ingestor
 StandardOutput=journal
 StandardError=journal

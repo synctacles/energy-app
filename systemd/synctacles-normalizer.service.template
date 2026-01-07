@@ -6,6 +6,7 @@ After=synctacles-importer.service
 Type=oneshot
 User={{SERVICE_USER}}
 WorkingDirectory={{INSTALL_PATH}}/app
+Environment="PYTHONDONTWRITEBYTECODE=1"
 ExecStart={{INSTALL_PATH}}/app/scripts/run_normalizers.sh
 StandardOutput=journal
 StandardError=journal

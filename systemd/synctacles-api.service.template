@@ -11,6 +11,7 @@ Group={{SERVICE_USER}}
 WorkingDirectory={{INSTALL_PATH}}/app
 Environment="PATH={{INSTALL_PATH}}/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH={{INSTALL_PATH}}/app"
+Environment="PYTHONDONTWRITEBYTECODE=1"
 
 ExecStart={{INSTALL_PATH}}/venv/bin/gunicorn \
     synctacles_db.api.main:app \

@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=oneshot
 User={{SERVICE_USER}}
+Environment="PYTHONDONTWRITEBYTECODE=1"
 ExecStart={{INSTALL_PATH}}/app/scripts/health_check.sh
 StandardOutput=journal
 StandardError=journal

@@ -9,6 +9,7 @@ User={{SERVICE_USER}}
 Group={{SERVICE_GROUP}}
 WorkingDirectory={{APP_PATH}}
 Environment="PATH={{INSTALL_PATH}}/venv/bin"
+Environment="PYTHONDONTWRITEBYTECODE=1"
 EnvironmentFile=/opt/.env
 
 # Geoptimaliseerde Gunicorn configuratie

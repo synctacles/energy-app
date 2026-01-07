@@ -71,14 +71,21 @@ else
     echo "⚠️  Alembic not configured, skipping migrations"
 fi
 
-# 6. Restart services
+# 6. Fix ownership (Claude Code runs as root, creates __pycache__ with root ownership)
+echo ""
+echo "--- Fixing file ownership ---"
+chown -R energy-insights-nl:energy-insights-nl "$APP_DIR"
+find "$APP_DIR" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+echo "✅ Ownership fixed, pycache cleaned"
+
+# 7. Restart services
 echo ""
 echo "--- Restarting services ---"
 systemctl restart energy-insights-nl-api
 sleep 3
 echo "✅ API restarted"
 
-# 7. Health check
+# 8. Health check
 echo ""
 echo "--- Health check ---"
 if curl -sf http://localhost:8000/health > /dev/null; then

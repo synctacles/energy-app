@@ -12,6 +12,7 @@ WorkingDirectory={{INSTALL_PATH}}/app
 Environment="DATABASE_URL=postgresql://{{DB_USER}}:{{DB_PASSWORD}}@{{DB_HOST}}:{{DB_PORT}}/{{DB_NAME}}"
 Environment="INSTALL_PATH={{INSTALL_PATH}}"
 Environment="LOG_PATH={{INSTALL_PATH}}/logs"
+Environment="PYTHONDONTWRITEBYTECODE=1"
 EnvironmentFile={{INSTALL_PATH}}/.env
 
 ExecStart={{INSTALL_PATH}}/venv/bin/python3 {{INSTALL_PATH}}/app/scripts/admin/backfill_data.py --source all --max-gap-days 30
