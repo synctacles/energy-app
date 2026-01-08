@@ -131,9 +131,13 @@ LAYER 4: API
      │
      ▼
 HOME ASSISTANT
-├── Generation/Load/Price sensors
+├── ServerDataCoordinator (15-min) → Server API
+├── TennetDataCoordinator (60s) → TenneT API (BYO-key)
+├── EneverDataCoordinator (1hr) → Enever.nl API (BYO-key)
+├── Generation/Load/Price sensors (from Server)
 ├── Signal sensors (is_green, is_cheap)
-└── Balance sensors (optional, with BYO-key)
+├── Balance sensors (TenneT BYO-key, conditional)
+└── Pricing sensors (Enever BYO-key, conditional)
 ```
 
 ---
@@ -560,6 +564,88 @@ Prices:
 - Every API response includes source and quality metadata
 - Clients can decide whether to use based on freshness
 - `_field_sources` shows which generator types are from which source
+
+---
+
+## BYO-KEY ARCHITECTURES
+
+### TenneT BYO-Key Architecture
+
+**Purpose:** Real-time grid balance data (Dutch grid only)
+
+**Flow:**
+```
+User's TenneT API Key
+        ↓
+HA Component (TennetDataCoordinator)
+        ↓
+https://api.tennet.eu/
+        ↓
+Balance Delta + Grid Stress sensors
+```
+
+**Coordinator Details:**
+- **Update interval:** 60 seconds (real-time grid data)
+- **Endpoint:** `/publications/v1/balance-delta-high-res/latest`
+- **Authentication:** Bearer token (user's personal key)
+- **Fallback:** 30-minute cache for resilience
+- **Error handling:** 401, 429, connection errors
+
+**Sensors Created (conditional):**
+- `sensor.energy_insights_nl_balance_delta` - Grid balance (MW)
+- `sensor.energy_insights_nl_grid_stress` - Stress level (0-100%)
+
+**Quality Assessment:**
+- FRESH: < 5 minutes old
+- OK: 5-15 minutes old
+- STALE: > 1 hour old
+
+---
+
+### Enever.nl BYO-Key Architecture
+
+**Purpose:** Leverancier-specific pricing (consumer prices, not wholesale)
+
+**Flow:**
+```
+User's Enever Token
+        ↓
+HA Component (EneverDataCoordinator)
+        ↓
+https://api.enever.nl/
+        ↓
+Prices Today + Tomorrow sensors
+```
+
+**Coordinator Details:**
+- **Update interval:** 1 hour
+- **Smart caching:** Fetches tomorrow after 15:00, promotes at midnight
+- **API reduction:** ~50% fewer calls than naive polling
+- **Fallback:** ENTSO-E server prices if Enever unavailable
+
+**Sensors Created (conditional):**
+- `sensor.energy_insights_nl_prices_today` - Hourly prices today
+- `sensor.energy_insights_nl_prices_tomorrow` - Hourly prices tomorrow
+
+**Resolution Tiers:**
+- Default: 60-min (24 points/day)
+- Supporter + compatible supplier: 15-min (96 points/day)
+
+**Smart Caching Strategy:**
+```
+Daily cycle:
+00:00 - 14:59: Use cached "today" prices (fetched yesterday at 15:00)
+15:00 - 15:59: Fetch tomorrow's prices (becomes today at midnight)
+16:00 - 23:59: Use cached prices, no new fetches
+
+API optimization:
+- Traditional: ~62 calls/month (2/day for today+tomorrow)
+- Smart caching: ~31 calls/month (1/day for tomorrow only)
+- Reduction: 50%
+```
+
+**Leverancier Support:**
+19 Dutch energy suppliers including Tibber, Zonneplan, Frank Energie, Greenchoice, Essent, Budget Energie, and 13 others.
 
 ---
 

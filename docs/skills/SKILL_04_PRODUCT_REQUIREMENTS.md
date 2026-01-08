@@ -149,6 +149,35 @@ Define what SYNCTACLES does, what problems it solves, and what features it provi
 
 ---
 
+### 7. Leverancier-Specific Pricing (Enever BYO-Key)
+
+**What:** Real consumer electricity prices per leverancier
+
+**Data Source:** Enever.nl API (BYO-key in HA component)
+
+**Provides:**
+- Hourly prices today (€/kWh, consumer price)
+- Hourly prices tomorrow (available after 15:00)
+- Leverancier-specific markup and taxes included
+- 19 Dutch energy suppliers supported
+
+**Difference from ENTSO-E Prices:**
+| Aspect | ENTSO-E (Server) | Enever (BYO) |
+|--------|------------------|--------------|
+| Price type | Wholesale | Consumer |
+| Includes taxes | No | Yes |
+| Leverancier markup | No | Yes |
+| Resolution | Hourly | Hourly (15-min for supporters) |
+
+**Use Cases:**
+- Accurate cost calculation per leverancier
+- Compare actual prices vs wholesale
+- Optimize based on real consumer costs
+
+**Endpoint:** Via HA component only (BYO-key)
+
+---
+
 ## HOME ASSISTANT INTEGRATION
 
 ### Custom Component

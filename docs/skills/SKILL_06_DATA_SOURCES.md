@@ -13,6 +13,8 @@ Document the external data sources that feed SYNCTACLES: what data they provide,
 
 ## PRIMARY SOURCES
 
+4 Primary Sources for Dutch Energy Data
+
 ### 1. ENTSO-E (European Network of Transmission System Operators)
 
 **Website:** https://www.entsoe.eu/
@@ -194,6 +196,51 @@ Authorization: Bearer YOUR_PERSONAL_TENNET_KEY
 - Minimal delay
 
 **Cost:** Free (public API, requires personal registration)
+
+---
+
+### 4. Enever.nl (Dutch Energy Pricing - BYO-KEY)
+
+⚠️ **LICENSE NOTICE:** Enever.nl data via BYO-key in Home Assistant component only.
+
+**Website:** https://enever.nl/
+
+**What They Provide:**
+- Leverancier-specific electricity prices (not just ENTSO-E wholesale)
+- Real consumer prices including taxes, markup, delivery costs
+- Day-ahead prices (today + tomorrow)
+- Support for 19 Dutch energy suppliers
+
+**Supported Leveranciers:**
+Tibber, Zonneplan, Frank Energie, ANWB Energie, Greenchoice, Eneco, Vattenfall,
+Essent, Budget Energie, Oxxio, Engie, United Consumers, Vandebron, Next Energy,
+Mijndomein Energie, Innova Energie, Energie VanOns, Gewoon Energie, DELTA Energie
+
+**Access Method:** API token (user registers at enever.nl)
+
+**SYNCTACLES Integration:**
+- ❌ **NOT available via SYNCTACLES API** (BYO-key only)
+- ✅ **Available via Home Assistant component** with user's Enever token
+- User registers at https://enever.nl/
+- User enters token + selects leverancier in HA config
+- Data fetched locally in Home Assistant
+
+**API Details:**
+- **Update interval:** 1 hour
+- **Smart caching:** ~31 API calls/month (vs ~62 without caching)
+- **Resolution:** 60-min default, 15-min for supporters + compatible suppliers
+- **Tomorrow prices:** Available after 15:00
+
+**Data Points:**
+- Hourly prices today (24 values)
+- Hourly prices tomorrow (24 values, after 15:00)
+- Price includes all leverancier-specific costs
+
+**Reliability:**
+- Dependent on enever.nl uptime
+- Fallback to ENTSO-E server prices if unavailable
+
+**Cost:** Free tier available, supporter tier for 15-min resolution
 
 ---
 
