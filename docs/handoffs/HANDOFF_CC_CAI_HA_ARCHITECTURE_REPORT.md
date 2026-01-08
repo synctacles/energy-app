@@ -9,9 +9,14 @@
 
 ## EXECUTIVE SUMMARY
 
-**TenneT BYO-Key Implementation Status:** ✅ **VOLLEDIG GEÏMPLEMENTEERD**
+**BYO-Key Implementation Status:**
+- **TenneT:** ✅ **VOLLEDIG GEÏMPLEMENTEERD**
+- **Enever:** ✅ **VOLLEDIG GEÏMPLEMENTEERD**
 
-De Home Assistant component heeft een **complete, production-ready TenneT BYO-key implementatie**. Alle componenten zijn aanwezig en functioneel:
+De Home Assistant component heeft **2 complete, production-ready BYO-key implementaties**:
+
+### TenneT BYO-Key (Grid Balance Data)
+Alle componenten zijn aanwezig en functioneel:
 
 - ✅ Config flow veld (optional TenneT API key)
 - ✅ Key validatie tegen echte TenneT API
@@ -22,7 +27,20 @@ De Home Assistant component heeft een **complete, production-ready TenneT BYO-ke
 - ✅ Diagnostics support
 - ✅ UI strings voor alle errors
 
-**Geen blocking issues voor Sprint 2.** Code is ready to deploy.
+### Enever BYO-Key (Leverancier-Specific Pricing)
+Alle componenten zijn aanwezig en functioneel:
+
+- ✅ Config flow veld (optional Enever token + leverancier + supporter)
+- ✅ Key validatie tegen echte Enever.nl API
+- ✅ Dedicated Enever client (`enever_client.py`, 123 lines)
+- ✅ Enever data coordinator (1hr updates, smart caching = 50% API reduction)
+- ✅ 2 conditionele sensors (Prices Today, Prices Tomorrow)
+- ✅ 19 leverancier support (Tibber, Zonneplan, Frank Energie, etc.)
+- ✅ Smart resolution (15-min for supporters, 60-min default)
+- ✅ Error handling (401, 429, 400, connection errors)
+- ✅ Seamless fallback naar ENTSO-E server prices
+
+**Geen blocking issues voor Sprint 2.** Beide BYO-key implementaties zijn ready to deploy.
 
 ---
 
@@ -496,6 +514,223 @@ if has_tennet and tennet_coordinator:
 6. **diagnostics.py:112-133** - Include TenneT diagnostics if enabled
 
 **Result:** TenneT sensors only appear in HA if user has provided valid API key during setup.
+
+---
+
+## ENEVER BYO-KEY STATUS
+
+### 1. Config Flow Field
+**Status:** ✅ **VOLLEDIG GEÏMPLEMENTEERD**
+
+**Details:**
+- **Field name:** `CONF_ENEVER_TOKEN` (const.py)
+- **Type:** Optional string (can be empty)
+- **Additional fields:**
+  - `CONF_ENEVER_LEVERANCIER` - Energy supplier selection (19 options)
+  - `CONF_ENEVER_SUPPORTER` - Supporter tier (boolean, enables 15-min resolution)
+- **Location:**
+  - User step (config_flow.py) - Initial setup
+  - Options step (config_flow.py) - Update existing token
+- **Validation function:** `validate_enever_token()` (config_flow.py:79-96)
+  - Makes **real API call** to Enever.nl endpoint
+  - Tests: `/today` endpoint with leverancier param
+  - Returns errors:
+    - `invalid_enever_token` (401) - Invalid token
+    - `enever_rate_limit` (429) - Rate limit exceeded
+    - `enever_not_available` (400) - Data not available for leverancier
+    - `enever_connection_failed` - Network/connection errors
+- **UI text:** "Enever.nl API Token (optional)" with help text for supporter tier
+- **Leverancier support:** 19 Dutch energy suppliers
+- **Behavior:** If empty, Enever sensors are NOT created (fallback to server ENTSO-E prices)
+
+### 2. enever_client.py
+**Status:** ✅ **EXISTS - 123 LINES - FULLY IMPLEMENTED**
+
+**Details:**
+- **Class:** `EneverClient` with dedicated methods
+- **Methods:**
+  - `get_prices_today()` - Fetches today's hourly prices
+  - `get_prices_tomorrow()` - Fetches tomorrow's prices (available after 15:00)
+  - `_fetch()` - Internal HTTP GET with auth and params
+- **Authentication:** `Authorization: Bearer {token}` header
+- **Endpoints:**
+  - Base: `https://api.enever.nl/v1`
+  - `/today` - Today's prices
+  - `/tomorrow` - Tomorrow's prices
+- **Leverancier Support (19 suppliers):**
+  ```python
+  LEVERANCIERS = {
+      "energiedirect": "EnergieDirectNL",
+      "tibber": "Tibber",
+      "zonneplan": "Zonneplan",
+      "frank_energie": "FrankEnergie",
+      "mijndomein_energie": "MijndomeinEnergie",
+      "vandebron": "Vandebron",
+      "next_energy": "NextEnergy",
+      "greenchoice": "GreenChoice",
+      "vrij_op_naam": "VrijOpNaam",
+      "energie_veilig": "EnergieVeilig",
+      "easy_energy": "EasyEnergy",
+      "all_in_power": "AllInPower",
+      "easyswitch": "EasySwitch",
+      "elektra": "Elektra",
+      "energieunie": "Energieunie",
+      "hollands_stroom": "HollandsStroom",
+      "mega": "Mega",
+      "budget_energie": "BudgetEnergie",
+      "anode_energie": "AnodeEnergie"
+  }
+  ```
+- **Smart Resolution Selection:**
+  - **15-min resolution:** If supporter tier AND compatible supplier (Tibber, Zonneplan, Frank Energie)
+  - **60-min resolution:** Default for all others
+  - Auto-detection based on config flags
+- **Error handling:**
+  - 400: Data not available for leverancier
+  - 401: Invalid token
+  - 429: Rate limit exceeded
+  - Connection errors: Network failures
+- **Response format:** List of `{hour: int, price: float}` or `{timestamp: str, price: float}` (15-min)
+
+### 3. Pricing Sensors
+**Status:** ✅ **2 SENSORS - CONDITIONALLY CREATED**
+
+**Conditional logic:** (sensor.py, async_setup_entry)
+```python
+if has_enever and enever_coordinator:
+    entities.extend([
+        PricesTodaySensor(enever_coordinator, entry),
+        PricesTomorrowSensor(enever_coordinator, entry),
+    ])
+```
+
+**Sensor 1: Prices Today [BYO]** (sensor.py:886-975)
+- **Entity ID:** `sensor.energy_insights_nl_prices_today`
+- **Name:** "Prices Today [BYO]"
+- **State:** Number of price points available (24 or 96)
+- **Device class:** None (custom)
+- **Icon:** mdi:chart-line
+- **Attributes:**
+  - `prices` - List of hourly/15-min prices (€/MWh)
+  - `resolution` - "60min" or "15min"
+  - `leverancier` - Energy supplier name
+  - `min_price` - Cheapest price today
+  - `max_price` - Most expensive price today
+  - `avg_price` - Average price today
+  - `current_price` - Current hour price
+  - `source` - "Enever.nl BYO-key"
+  - `data_source` - "Enever"
+  - `last_update` - Timestamp
+
+**Sensor 2: Prices Tomorrow [BYO]** (sensor.py:978-1071)
+- **Entity ID:** `sensor.energy_insights_nl_prices_tomorrow`
+- **Name:** "Prices Tomorrow [BYO]"
+- **State:** Number of price points available (0 before 15:00, 24/96 after)
+- **Device class:** None (custom)
+- **Icon:** mdi:calendar-arrow-right
+- **Attributes:**
+  - Same as Prices Today sensor
+  - **Availability:** Only after 15:00 (Dutch day-ahead market publish time)
+- **Smart behavior:**
+  - Returns empty before 15:00
+  - Auto-fetches after 15:00
+  - Coordinator promotes tomorrow → today at midnight
+
+### 4. EneverDataCoordinator
+**Status:** ✅ **SMART CACHING IMPLEMENTATION**
+
+**Details:** (__init__.py:474-676)
+- **Update interval:** 1 hour (prices only update once/day)
+- **Smart caching strategy:**
+  ```
+  Daily cycle:
+  00:00 - 14:59: Use cached "today" prices (fetched yesterday at 15:00 as "tomorrow")
+  15:00 - 15:59: Fetch tomorrow's prices (becomes today at midnight)
+  16:00 - 23:59: Use cached prices, no new fetches
+  ```
+- **API call optimization:**
+  - Traditional approach: ~62 calls/month (2/day for today+tomorrow)
+  - Smart caching: ~31 calls/month (1/day for tomorrow only)
+  - **50% reduction in API load**
+- **Fallback logic:**
+  - If Enever fails: Fallback to server ENTSO-E prices
+  - Cache validity: 30 minutes (same as other coordinators)
+  - Graceful degradation if token invalid/expired
+- **Data flow:**
+  1. At 15:00: Fetch tomorrow's prices from Enever
+  2. Store as `prices_tomorrow`
+  3. At midnight: Promote `prices_tomorrow` → `prices_today`
+  4. Clear `prices_tomorrow` (empty until next 15:00)
+  5. Repeat cycle
+
+### 5. Conditional Logic - Where Enever Token is Checked
+
+**Flow:**
+1. **__init__.py** - Extract `enever_token` from config entry
+2. **__init__.py** - Create coordinator if token present:
+   ```python
+   has_enever = bool(enever_token)
+   if has_enever:
+       enever_coordinator = EneverDataCoordinator(
+           hass, session, enever_token, leverancier, is_supporter
+       )
+   else:
+       enever_coordinator = None
+   ```
+3. **__init__.py** - Store in hass.data with `has_enever` flag
+4. **sensor.py** - Retrieve flag in sensor setup
+5. **sensor.py** - **Conditionally add sensors:**
+   ```python
+   if has_enever and enever_coordinator:
+       entities.extend([
+           PricesTodaySensor(enever_coordinator, entry),
+           PricesTomorrowSensor(enever_coordinator, entry),
+       ])
+   ```
+6. **sensor.py** - **Server price sensors use Enever as primary source:**
+   ```python
+   def get_price_data_with_fallback():
+       if enever_data and enever_data.get("prices"):
+           return enever_data["prices"]  # Primary: Enever BYO
+       else:
+           return server_data["prices"]  # Fallback: ENTSO-E server
+   ```
+
+**Result:**
+- Enever sensors only appear if user has provided token
+- Server price sensors automatically use Enever data when available
+- Seamless fallback to ENTSO-E if Enever unavailable
+
+### 6. Leverancier & Resolution Logic
+
+**Leverancier Selection:**
+- User selects from dropdown of 19 Dutch energy suppliers
+- Selection determines pricing calculation methodology
+- Each leverancier may have different markup/discounts
+- Stored in config, passed to Enever API
+
+**Resolution Auto-Selection:**
+```python
+def determine_resolution(leverancier, is_supporter):
+    compatible_suppliers = ["Tibber", "Zonneplan", "FrankEnergie"]
+
+    if is_supporter and leverancier in compatible_suppliers:
+        return "15min"  # High-resolution (96 points/day)
+    else:
+        return "60min"  # Standard resolution (24 points/day)
+```
+
+**Benefits of 15-min resolution:**
+- More granular price optimization
+- Better for battery/EV charging automation
+- Smoother price graphs in HA
+- Only available for supporters + compatible suppliers
+
+**Supporter Tier:**
+- Checkbox in config flow
+- Enables 15-min resolution for compatible suppliers
+- User must have Enever.nl supporter account
+- No technical validation (honor system)
 
 ---
 
