@@ -202,7 +202,7 @@ Is dit toegestaan of off-limits?"
 ```
 □ Alle wijzigingen gedocumenteerd
 □ STATUS_[CC|CAI]_CURRENT.md bijgewerkt
-□ SESSIE_[CC|CAI]_[DATUM].md opgeleverd (bij significante sessies)
+□ SESSIE_CC_[DATUM].md opgeleverd bij significante CC sessies
 □ Git commits met accountability (CC only)
 □ Status gerapporteerd aan Leo
 ```
@@ -399,18 +399,16 @@ BRON codes:
 | Status SSOT | `STATUS_MERGED_CURRENT.md` | `docs/status/` |
 | Actions | `NEXT_ACTIONS.md` | `docs/status/` |
 | Sessie CC | `SESSIE_CC_[YYYYMMDD].md` | `docs/sessions/` |
-| Sessie CAI | `SESSIE_CAI_[YYYYMMDD].md` | `docs/sessions/` |
 | ADR | `ADR_###_[TITEL].md` | `docs/decisions/` |
 
 ### Voorbeelden
 
 ```
 STATUS_CC_CURRENT.md              → CC's huidige status
-STATUS_CAI_CURRENT.md             → CAI's huidige status  
+STATUS_CAI_CURRENT.md             → CAI's huidige status
 STATUS_MERGED_CURRENT.md          → SSOT (Leo's merged versie)
 SESSIE_CC_20260107.md             → CC sessie samenvatting
-SESSIE_CAI_20260107.md            → CAI sessie samenvatting
-ADR_009_TENNET_BYO_KEY.md         → Architecture Decision Record
+ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
 ```
 
 ---
@@ -445,10 +443,9 @@ ADR_009_TENNET_BYO_KEY.md         → Architecture Decision Record
 │   ├── STATUS_CAI_CURRENT.md           # CAI's laatste status
 │   └── NEXT_ACTIONS.md                 # Geprioriteerde backlog
 │
-├── sessions/                           # Sessie samenvattingen
+├── sessions/                           # Sessie samenvattingen (CC only)
 │   ├── README.md                       # Index + instructies
 │   ├── SESSIE_CC_[YYYYMMDD].md
-│   ├── SESSIE_CAI_[YYYYMMDD].md
 │   └── archive/                        # Oudere sessies (>30 dagen)
 │
 ├── decisions/                          # Architecture Decision Records
@@ -793,8 +790,8 @@ Concrete, uitvoerbare beslissing.
 ### ADR Nummering
 
 ```
-ADR_001 t/m ADR_008  → Bestaand (implicit in SKILLs)
-ADR_009+             → Nieuwe beslissingen
+ADR nummering start bij volgende beschikbare nummer.
+Check docs/decisions/ voor hoogste bestaande nummer.
 ```
 
 ### ADR Workflow
