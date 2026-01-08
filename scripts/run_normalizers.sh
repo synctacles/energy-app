@@ -25,6 +25,8 @@ PYTHON="${VENV_PATH}/bin/python3"
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting normalizer batch..."
 
 # Run normalizers (they handle failures internally)
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65
 "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a44
 "${PYTHON}" -m synctacles_db.normalizers.normalize_prices
 
