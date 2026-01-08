@@ -225,15 +225,37 @@ The 3-layer architecture (Collectors → Importers → Normalizers → API) prov
 **Components:**
 - `normalize_entso_e_a75.py` - Generation mix: pivot 9 PSR types → columns, add quality metadata
 - `normalize_entso_e_a65.py` - Load: merge actual + forecast into single row, add quality
+- `normalize_entso_e_a44.py` - Prices: denormalize and add quality metadata
+- `normalize_prices.py` - Price post-processing and validation
 - `normalize_tennet_balance.py` - Balance: aggregate 5-min data, add quality metadata
 
 **Process:**
 1. Query RAW table for new/updated data
-2. Pivot/aggregate/enrich data
-3. **Apply Fallback Logic** (see Fallback Strategy section)
-4. Add quality metadata (source, status, age_seconds)
-5. Insert/update to Normalized table
-6. Trigger API cache invalidation
+2. Filter forecast data (`WHERE timestamp <= NOW()`) to exclude future timestamps
+3. Pivot/aggregate/enrich data
+4. **Apply Fallback Logic** (see Fallback Strategy section)
+5. Add quality metadata (source, status, age_seconds)
+6. Insert/update to Normalized table
+7. Trigger API cache invalidation
+
+**⚠️ CRITICAL: Forecast Data Filtering**
+
+ENTSO-E includes forecast data (future timestamps) in API responses. ALL normalizers MUST filter these out:
+
+```python
+# WRONG - Includes future timestamps
+SELECT * FROM raw_entso_e_a65;
+
+# CORRECT - Historical data only
+SELECT * FROM raw_entso_e_a65 WHERE timestamp <= NOW();
+```
+
+**Affected Sources:**
+- **A65 (Load):** 24-hour forecast (~88 future records)
+- **A44 (Prices):** Day-ahead prices (tomorrow's data)
+- **A75 (Generation):** Minimal forecast data
+
+**Consequence of not filtering:** Negative age values in health checks, incorrect data freshness calculations
 
 **Quality Metadata Added:**
 - `source` - Where data came from (ENTSO-E, Energy-Charts, FORWARD_FILL, CACHED)
@@ -1122,7 +1144,10 @@ chmod 750 /opt/energy-insights-nl/app
 
 **Application Level:**
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/health                    # Basic health check
+curl http://localhost:8000/v1/pipeline/health        # Detailed pipeline status (JSON)
+curl http://localhost:8000/v1/pipeline/metrics       # Pipeline metrics (Prometheus)
+curl http://localhost:8000/metrics                   # General app metrics (Prometheus)
 ```
 
 **System Level:**
@@ -1137,19 +1162,129 @@ systemctl status energy-insights-nl-api
 journalctl -u energy-insights-nl-* --since "1 hour ago"
 ```
 
+**Systemd Timers:**
+
+| Timer | Interval | Purpose | Depends On |
+|-------|----------|---------|------------|
+| `energy-insights-nl-collector.timer` | 15 min | Fetch data from ENTSO-E/Energy-Charts APIs | - |
+| `energy-insights-nl-importer.timer` | 15 min | Import collected data to raw_* tables | collector |
+| `energy-insights-nl-normalizer.timer` | 15 min | Normalize data to norm_* tables (A44, A65, A75, prices) | importer |
+| `energy-insights-nl-health.timer` | 5 min | System health checks and diagnostics | - |
+
+**Timer Configuration:**
+- **OnBootSec**: Delay after system boot (1-2 min)
+- **OnUnitActiveSec**: Interval between runs
+- **Dependencies**: Timers run independently, but data flows collector → importer → normalizer
+
 ### Metrics & Observability
 
-**Future Implementation:**
-- Prometheus metrics endpoint (`/metrics`)
-- Grafana dashboards for visualization
-- Alert rules for critical conditions
+**✅ Implemented:**
+- Prometheus metrics endpoint ([/v1/pipeline/metrics](../synctacles_db/api/routes/pipeline.py:168-209))
+- General app metrics endpoint (`/metrics` - FastAPI default)
+- Grafana dashboard: [Pipeline Health](https://monitor.synctacles.com/d/5fd1f7f9-e2bb-4a81-a04e-50f9fbbf0ec0/pipeline-health)
+- Alert rules for pipeline health (7 rules configured)
+
+**Pipeline-Specific Metrics** (`/v1/pipeline/metrics`):
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `pipeline_timer_status` | Timer status (1=active, 0=stopped) | timer={collector\|importer\|normalizer\|health} |
+| `pipeline_timer_last_trigger_minutes` | Minutes since last trigger | timer=... |
+| `pipeline_data_status` | Data status code (0-3) | source={a44\|a65\|a75} |
+| `pipeline_data_freshness_minutes` | Data age in minutes | source=... |
+| `pipeline_raw_norm_gap_minutes` | Gap between raw and normalized data | source=... |
+
+**General App Metrics** (`/metrics`):
+
+| Metric | Description |
+|--------|-------------|
+| `python_gc_*` | Python garbage collection stats |
+| `python_info` | Python platform information |
+| `process_*` | Process memory, CPU usage |
+| `http_*` | HTTP request metrics (if enabled) |
+
+**Data Status Codes:**
+- **0 (FRESH):** Data <90 min old
+- **1 (STALE):** Data 90-180 min old (**NORMAL for A75** due to ENTSO-E delay)
+- **2 (UNAVAILABLE):** Data >180 min old
+- **3 (NO_DATA):** No data in database
 
 **Key Metrics:**
-- Data freshness (age of latest record)
-- Collector success rate (% of runs that completed)
-- API latency (p50, p95, p99)
-- Error rate (5xx errors per minute)
-- Fallback rate (% of requests using Energy-Charts)
+- Data freshness (age of latest record) ✅ Implemented
+- Raw vs Normalized gap (indicates normalizer issues) ✅ Implemented (2026-01-08)
+- Collector success rate (% of runs that completed) ⏳ Future
+- API latency (p50, p95, p99) ⏳ Future
+- Error rate (5xx errors per minute) ⏳ Future
+- Fallback rate (% of requests using Energy-Charts) ⏳ Future
+
+### Cache Management
+
+**Endpoints:**
+
+| Endpoint | Method | Purpose | Response |
+|----------|--------|---------|----------|
+| `/cache/stats` | GET | View cache statistics | `{"size": 0, "maxsize": 100, "hits": 0, "misses": 1, "hit_rate_pct": 0.0}` |
+| `/cache/clear` | POST | Clear entire cache | `{"message": "Cache cleared", "items_removed": N}` |
+| `/cache/invalidate/{pattern}` | POST | Invalidate specific cache entries | `{"message": "Pattern invalidated", "items_removed": N}` |
+
+**Use Cases:**
+- **stats**: Monitor cache performance, hit rates, memory usage
+- **clear**: Force refresh after data quality issues or manual corrections
+- **invalidate**: Selective cache invalidation for specific endpoints (e.g., `/cache/invalidate/generation`)
+
+**Authentication:** Requires admin API key or internal access
+
+**Example Usage:**
+```bash
+# View cache statistics
+curl https://enin.xteleo.nl/cache/stats
+
+# Clear entire cache (requires auth)
+curl -X POST https://enin.xteleo.nl/cache/clear \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+
+# Invalidate specific pattern
+curl -X POST https://enin.xteleo.nl/cache/invalidate/prices \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+```
+
+### Pipeline Health Troubleshooting
+
+**Common Issue: Normalizer Silent Failure**
+
+**Symptom:** Timers show "active" but normalized data becomes stale while raw data is fresh.
+
+**Diagnosis:**
+```bash
+# Check gap between raw and normalized
+psql -d energy_insights_nl -c "
+SELECT
+    'a75' as source,
+    EXTRACT(EPOCH FROM (
+        (SELECT MAX(timestamp) FROM raw_entso_e_a75 WHERE timestamp <= NOW()) -
+        (SELECT MAX(timestamp) FROM norm_entso_e_a75 WHERE timestamp <= NOW())
+    ))/60 as gap_minutes;
+"
+
+# Gap >30 minutes indicates normalizer not processing data
+```
+
+**Root Cause:** Check [scripts/run_normalizers.sh](../scripts/run_normalizers.sh) - verify ALL sources are included:
+```bash
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a44  # Prices
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65  # Load ⚠️ May be missing
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75  # Generation ⚠️ May be missing
+"${PYTHON}" -m synctacles_db.normalizers.normalize_prices       # Price post-processing
+```
+
+**If normalizers are missing:** This is a CRITICAL issue requiring CAI review before fixes (see [HANDOFF_CC_CAI_NORMALIZER_MISSING_CRITICAL.md](handoffs/HANDOFF_CC_CAI_NORMALIZER_MISSING_CRITICAL.md))
+
+**ENTSO-E A75 Normal Behavior:**
+
+A75 showing "STALE" status is **EXPECTED** due to ENTSO-E publishing delay:
+- **Normal delay:** 2-4 hours after actual generation
+- **Update schedule:** 13:01 UTC daily (large batch), 03:54 UTC (smaller update)
+- **Only investigate if:** A75 shows UNAVAILABLE (>180 min) OR raw-to-normalized gap >30 min
 
 ### Log Locations
 
@@ -1255,6 +1390,50 @@ cp /opt/.env /backup/env_$(date +%Y%m%d).backup
 
 ---
 
-**Last Updated:** 2025-12-30
-**Status:** Production Ready
-**Version:** 1.0
+## Critical Known Issues
+
+### 1. Missing Normalizers in run_normalizers.sh
+
+**Status:** ✅ RESOLVED (2026-01-08)
+
+**Description:** `scripts/run_normalizers.sh` was missing A65 (load) and A75 (generation) normalizers.
+
+**Impact (Historical):**
+- A65/A75 normalized data became stale (2+ hours old)
+- Potential ENTSO-E license compliance issue
+- Inconsistent data quality across sources
+
+**Resolution:**
+- Added A65 and A75 normalizers to `scripts/run_normalizers.sh`
+- Added `pipeline_raw_norm_gap_minutes` metric for early detection
+- Created `scripts/validate_pipeline.sh` to prevent regression
+- Deployed 2026-01-08, verified all sources FRESH
+
+**See:**
+- [HANDOFF_CAI_CC_NORMALIZER_FIX_AND_DOCUMENTATION.md](handoffs/HANDOFF_CAI_CC_NORMALIZER_FIX_AND_DOCUMENTATION.md)
+- Git commit: `ce92159`
+
+---
+
+### 2. DNS Resolution Broken on monitor.synctacles.com
+
+**Status:** ⚠️ KNOWN LIMITATION - Workaround in Place
+
+**Description:** Monitoring server cannot resolve external domains (e.g., api.synctacles.com)
+
+**Impact:**
+- Grafana Infinity plugin does NOT work (shows "No data")
+- JSON-based datasources unusable
+- Limits dashboard design options
+
+**Workaround:** Use Prometheus datasource with IP address + SNI header configuration
+
+**See:** [HANDOFF_CC_CAI_GRAFANA_DASHBOARD_COMPLETE.md](handoffs/HANDOFF_CC_CAI_GRAFANA_DASHBOARD_COMPLETE.md)
+
+**Resolution:** Low priority - Prometheus approach works reliably
+
+---
+
+**Last Updated:** 2026-01-08
+**Status:** Production Ready (with known issues documented)
+**Version:** 1.1
