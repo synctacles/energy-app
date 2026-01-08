@@ -184,6 +184,9 @@ Is dit toegestaan of off-limits?"
 □ Goedkeuring ontvangen om te beginnen
 □ PROTECT MODE = actief
 □ STATUS_MERGED_CURRENT.md gelezen (indien bestaat)
+□ GitHub CLI auth verified: sudo -u energy-insights-nl gh auth status
+□ Server context awareness: Check docs/INFRASTRUCTURE.md
+□ Git status checked: sudo -u energy-insights-nl git status
 ```
 
 ### Tijdens sessie:
