@@ -5,11 +5,13 @@ SYNCTACLES Binary Signals API with Energy-Charts Fallback (ASYNC)
 from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import json
 
 from synctacles_db.api.dependencies import get_db
-from synctacles_db.api.cache import cached, signals_cache
+from synctacles_db.cache import api_cache
 from synctacles_db import auth_service
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
@@ -34,12 +36,11 @@ async def get_current_user_from_key(
     }
 
 
-@cached(signals_cache)
 @router.get("/signals")
 async def get_signals(
     current_user: dict = Depends(get_current_user_from_key),
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
     Get binary signals for energy automation with fallback support
 
@@ -54,6 +55,18 @@ async def get_signals(
     """
 
     user_id = current_user["user_id"]
+
+    # Cache key (user-specific for potential future customization)
+    cache_key = f"signals:user:{user_id}"
+
+    # Check cache
+    cached_response = api_cache.get(cache_key)
+    if cached_response:
+        return Response(
+            content=cached_response,
+            media_type="application/json",
+            headers={"X-Cache": "HIT"}
+        )
 
     # Get current metrics (with ASYNC fallback for renewable)
     current_price = get_current_price(db)
@@ -81,7 +94,8 @@ async def get_signals(
         is_cheap = is_green = charge_now = cheap_hour_coming = False
         grid_stable = True
 
-    return {
+    # Build response
+    result_dict = {
         "signals": {
             "is_cheap": is_cheap,
             "is_green": is_green,
@@ -106,6 +120,18 @@ async def get_signals(
             }
         }
     }
+
+    # Serialize to JSON
+    json_content = json.dumps(result_dict, default=str)
+
+    # Cache for 1 minute (60s) - signals change frequently
+    api_cache.set(cache_key, json_content, ttl=60)
+
+    return Response(
+        content=json_content,
+        media_type="application/json",
+        headers={"X-Cache": "MISS"}
+    )
 
 
 async def get_renewable_with_fallback(db: Session) -> Tuple[Optional[float], int, str, str]:

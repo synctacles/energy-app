@@ -3,28 +3,41 @@
 from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import json
 
 from synctacles_db.api.dependencies import get_db
-from synctacles_db.api.cache import cached, generation_cache
+from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
 router = APIRouter(prefix="", tags=["generation"])
 
 
-@cached(generation_cache)
 @router.get("/generation-mix")
 async def get_generation_mix(
     limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
     Get power generation mix by source with Energy-Charts fallback.
-    
+
     Returns latest generation data from ENTSO-E, falls back to Energy-Charts if needed.
     """
-    
+
+    # Cache key
+    cache_key = f"generation-mix:{limit}"
+
+    # Check cache
+    cached_response = api_cache.get(cache_key)
+    if cached_response:
+        return Response(
+            content=cached_response,
+            media_type="application/json",
+            headers={"X-Cache": "HIT"}
+        )
+
     # Try database first
     result = db.execute(text("""
         SELECT
@@ -116,7 +129,20 @@ async def get_generation_mix(
         ec_age = int((datetime.now(timezone.utc) - ec_ts).total_seconds() / 60)
         metadata["ec_age_minutes"] = ec_age
     
-    return {
+    # Build response
+    result_dict = {
         "data": [data],
         "metadata": metadata
     }
+
+    # Serialize to JSON
+    json_content = json.dumps(result_dict, default=str)
+
+    # Cache for 5 minutes (300s)
+    api_cache.set(cache_key, json_content, ttl=300)
+
+    return Response(
+        content=json_content,
+        media_type="application/json",
+        headers={"X-Cache": "MISS"}
+    )

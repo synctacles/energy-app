@@ -3,27 +3,40 @@
 from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import json
 
 from synctacles_db.api.dependencies import get_db
-from synctacles_db.api.cache import cached, load_cache
+from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
 router = APIRouter(prefix="", tags=["load"])
 
 
-@cached(load_cache)
 @router.get("/load")
 async def get_load(
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
     Get actual electricity load with Energy-Charts fallback.
-    
+
     Returns latest load data from ENTSO-E, falls back to Energy-Charts if needed.
     """
-    
+
+    # Cache key
+    cache_key = "load:latest"
+
+    # Check cache
+    cached_response = api_cache.get(cache_key)
+    if cached_response:
+        return Response(
+            content=cached_response,
+            media_type="application/json",
+            headers={"X-Cache": "HIT"}
+        )
+
     # Try database first
     result = db.execute(text("""
         SELECT
@@ -73,7 +86,8 @@ async def get_load(
     else:
         age = db_age
     
-    return {
+    # Build response
+    result_dict = {
         "load_mw": round(data.get("load_mw", 0), 2),
         "metadata": {
             "source": source,
@@ -82,3 +96,15 @@ async def get_load(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     }
+
+    # Serialize to JSON
+    json_content = json.dumps(result_dict, default=str)
+
+    # Cache for 5 minutes (300s)
+    api_cache.set(cache_key, json_content, ttl=300)
+
+    return Response(
+        content=json_content,
+        media_type="application/json",
+        headers={"X-Cache": "MISS"}
+    )
