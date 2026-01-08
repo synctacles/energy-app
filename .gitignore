@@ -77,3 +77,4 @@ cc-task-*.md
 # GitHub Automation (DO NOT COMMIT - contains sensitive token)
 .github-automation.env
 .github-automation.env.local
+docs/skills/SKILL_07_PERSONAL_PROFILE.md
