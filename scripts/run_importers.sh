@@ -31,5 +31,6 @@ echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting importers..."
 # NOTE: TenneT importer intentionally excluded (off-limits, BYO-KEY model per SKILL_02)
 "${PYTHON}" -m synctacles_db.importers.import_entso_e_a75
 "${PYTHON}" -m synctacles_db.importers.import_entso_e_a65
+"${PYTHON}" -m synctacles_db.importers.import_entso_e_a44
 
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Importers complete"

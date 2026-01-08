@@ -62,18 +62,20 @@ def get_timer_status(timer_name: str) -> dict:
 
 
 def get_data_freshness(session: Session, source: str, raw_table: str, norm_table: str) -> dict:
-    """Get data freshness from database."""
-    # Raw data age (created_at)
+    """Get data freshness from database (historical data only, excludes forecasts)."""
+    # Raw data age - only historical (timestamp <= NOW)
     raw_result = session.execute(text(f"""
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {raw_table}
+        WHERE timestamp <= NOW()
     """)).fetchone()
     raw_age = round(raw_result[0], 1) if raw_result and raw_result[0] else None
 
-    # Normalized data age (timestamp)
+    # Normalized data age - only historical (timestamp <= NOW)
     norm_result = session.execute(text(f"""
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {norm_table}
+        WHERE timestamp <= NOW()
     """)).fetchone()
     norm_age = round(norm_result[0], 1) if norm_result and norm_result[0] else None
 
