@@ -1399,34 +1399,37 @@ cp /opt/.env /backup/env_$(date +%Y%m%d).backup
 
 ## Performance Benchmarks
 
-### FastAPI 0.128.0 Upgrade Results (2026-01-08)
+### Cache Migration Results (2026-01-08) ✅ COMPLETED
 
-Load testing performed after FastAPI upgrade from 0.115.7 → 0.128.0 and Starlette 0.45.3 → 0.50.0.
+After migrating all endpoints to unified api_cache pattern with 91.7% hit rate.
 
 **Server:** Hetzner CX33 (4 vCPU, 8GB RAM) with 8 Gunicorn workers
 
-| Concurrent Users | Req/sec | Success Rate | Avg Latency | P95 Latency |
-|------------------|---------|--------------|-------------|-------------|
-| 10 | 66.1 | 100% | 148ms | 205ms |
-| 50 | **283.5** | 100% | 163ms | 235ms |
-| 100 | 151.6 | 90.46% | 292ms | 306ms |
+| Concurrent Users | Req/sec | Success Rate | Avg Latency | Before Cache Fix |
+|------------------|---------|--------------|-------------|-------------------|
+| 10 | **1,621** | 100% | 5ms | 66 req/sec |
+| 50 | **2,370** | 100% | 19ms | 284 req/sec |
+| 100 | **2,596** | 100% | 34ms | 152 req/sec (90% success) |
+| 200 | **2,354** | 100% | 68ms | N/A |
+| 500 | **880** | 100% | 224ms | N/A |
+| 1,000 | **1,623** | 99.97% | 451ms | N/A |
+| 2,000 | **1,362** | 99.97% | 1,402ms | N/A |
 
-**Key Improvements:**
-- ✅ **4.3x throughput** improvement at 50 concurrent users (vs previous test: 66 req/sec with 2.9% errors)
-- ✅ **0% error rate** up to 50 concurrent users
-- ✅ System now handles 100 concurrent users (previously complete failure)
+**Key Achievements:**
+- ✅ **24.5x throughput** improvement at 10 concurrent (66 → 1,621 req/sec)
+- ✅ **17x throughput** improvement at 100 concurrent (152 → 2,596 req/sec)
+- ✅ **20x capacity** increase (100 → 2,000 concurrent users)
+- ✅ **100% success rate** up to 500 concurrent users
+- ✅ **Cache hit rate: 91.7%** across all endpoints
 
-**Known Limits:**
-- ⚠️ 9.54% error rate at 100+ concurrent users (DB connection pool exhaustion)
-- ⚠️ Cache hit rate 0% for decorator-based cache (multi-worker issue)
-- ✅ api_cache hit rate 87.5% (62x speedup: 758ms → 12ms)
+**Production Capacity:**
+- **Sweet spot:** 100-200 concurrent (2,350+ req/sec, <100ms latency)
+- **Conservative limit:** 500 concurrent (100% success, 200ms latency)
+- **Maximum capacity:** 2,000 concurrent (99.97% success)
 
-**Recommendations:**
-- **Stay below 50 concurrent** for guaranteed reliability
-- **Fix decorator cache** by migrating to api_cache pattern (see handoff)
-- Consider connection pool optimization for >100 concurrent users
-
-**See:** [Load Test Report 2026-01-08](reports/LOAD_TEST_REPORT_2026-01-08.md)
+**See:**
+- [Load Test Report 2026-01-08](reports/LOAD_TEST_REPORT_2026-01-08.md) (initial)
+- [Capacity Test Report 2026-01-08](reports/CAPACITY_TEST_2026-01-08.md) (post-fix)
 
 ---
 
