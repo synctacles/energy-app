@@ -1397,6 +1397,39 @@ cp /opt/.env /backup/env_$(date +%Y%m%d).backup
 
 ---
 
+## Performance Benchmarks
+
+### FastAPI 0.128.0 Upgrade Results (2026-01-08)
+
+Load testing performed after FastAPI upgrade from 0.115.7 → 0.128.0 and Starlette 0.45.3 → 0.50.0.
+
+**Server:** Hetzner CX33 (4 vCPU, 8GB RAM) with 8 Gunicorn workers
+
+| Concurrent Users | Req/sec | Success Rate | Avg Latency | P95 Latency |
+|------------------|---------|--------------|-------------|-------------|
+| 10 | 66.1 | 100% | 148ms | 205ms |
+| 50 | **283.5** | 100% | 163ms | 235ms |
+| 100 | 151.6 | 90.46% | 292ms | 306ms |
+
+**Key Improvements:**
+- ✅ **4.3x throughput** improvement at 50 concurrent users (vs previous test: 66 req/sec with 2.9% errors)
+- ✅ **0% error rate** up to 50 concurrent users
+- ✅ System now handles 100 concurrent users (previously complete failure)
+
+**Known Limits:**
+- ⚠️ 9.54% error rate at 100+ concurrent users (DB connection pool exhaustion)
+- ⚠️ Cache hit rate 0% for decorator-based cache (multi-worker issue)
+- ✅ api_cache hit rate 87.5% (62x speedup: 758ms → 12ms)
+
+**Recommendations:**
+- **Stay below 50 concurrent** for guaranteed reliability
+- **Fix decorator cache** by migrating to api_cache pattern (see handoff)
+- Consider connection pool optimization for >100 concurrent users
+
+**See:** [Load Test Report 2026-01-08](reports/LOAD_TEST_REPORT_2026-01-08.md)
+
+---
+
 ## Further Reading
 
 - [API Reference](api-reference.md)
