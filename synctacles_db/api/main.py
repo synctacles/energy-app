@@ -13,6 +13,7 @@ import time
 
 from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
 from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals
+from synctacles_db.api.routes.pipeline import router as pipeline_router
 from synctacles_db.cache import api_cache
 from config.settings import settings
 
@@ -151,6 +152,9 @@ app.include_router(balance.router, prefix="/api/v1", tags=["balance"])
 app.include_router(now.router, prefix="/api/v1", tags=["Unified"])
 app.include_router(prices.router, prefix="/api/v1", tags=["prices"])
 app.include_router(signals.router, prefix="/api", tags=["signals"])
+
+# Pipeline monitoring
+app.include_router(pipeline_router)
 
 # Auth endpoints
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
