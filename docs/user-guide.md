@@ -204,6 +204,51 @@ TenneT's API license prohibits server-side redistribution. Your personal key fet
 
 ---
 
+## Enever.nl Integratie (Optioneel)
+
+Enever.nl biedt leverancier-specifieke stroomprijzen - de prijs die je daadwerkelijk betaalt, niet de wholesale prijs.
+
+### Waarom Enever?
+
+| Aspect | ENTSO-E (Server) | Enever (BYO) |
+|--------|------------------|--------------|
+| Prijstype | Wholesale | Consument |
+| Inclusief BTW | Nee | Ja |
+| Leverancier opslag | Nee | Ja |
+| Resolutie | Uurlijks | Uurlijks (15-min voor supporters) |
+
+### Setup
+
+1. Registreer op https://enever.nl/
+2. Kopieer je API token
+3. In Home Assistant: Instellingen → Integraties → Energy Insights NL → Configureren
+4. Voer token in + selecteer je leverancier
+
+### Ondersteunde Leveranciers
+
+Tibber, Zonneplan, Frank Energie, ANWB Energie, Greenchoice, Eneco, Vattenfall,
+Essent, Budget Energie, Oxxio, Engie, United Consumers, Vandebron, Next Energy,
+Mijndomein Energie, Innova Energie, Energie VanOns, Gewoon Energie, DELTA Energie
+
+### Sensors
+
+Na configuratie verschijnen 2 extra sensors:
+- `sensor.energy_insights_nl_prices_today` - Uurprijzen vandaag
+- `sensor.energy_insights_nl_prices_tomorrow` - Uurprijzen morgen (na 15:00)
+
+### Smart Caching
+
+De component haalt morgen-prijzen automatisch op na 15:00 en promoveert deze om middernacht. Dit resulteert in ~31 API calls/maand in plaats van ~62.
+
+**Enever Sensors (indien geconfigureerd)**
+
+| Sensor | Beschrijving |
+|--------|--------------|
+| `prices_today` | 24 uurprijzen vandaag (€/kWh) |
+| `prices_tomorrow` | 24 uurprijzen morgen (na 15:00) |
+
+---
+
 ## Automations
 
 ### Alert: High Renewable Energy

@@ -47,9 +47,29 @@ Manual: [link to docs]
 
 ## Technical
 
-- Data sources: ENTSO-E, TenneT, Energy-Charts
+### Data Sources
+- **ENTSO-E** - European grid data (generation, load, wholesale prices)
+- **TenneT** - Dutch grid balance (BYO-key in HA component)
+- **Enever.nl** - Leverancier-specific consumer prices (BYO-key in HA component)
+- **Energy-Charts** - Fallback data source
+
+### BYO-Key Features (Home Assistant)
+
+De HA component ondersteunt optionele BYO-keys voor extra functionaliteit:
+
+| Feature | Data | Update Interval |
+|---------|------|-----------------|
+| TenneT API key | Real-time grid balance | 60 seconden |
+| Enever.nl token | Leverancier-specific prijzen | 1 uur |
+
+**Enever voordelen:**
+- Echte consumentenprijzen (niet wholesale)
+- 19 Nederlandse leveranciers ondersteund
+- Inclusief belastingen en leveranciers-opslag
+
+### System
 - Update interval: 15 minutes
-- Sensors: 8 entities
+- Sensors: 8+ entities (12+ with BYO-keys)
 - Requirements: Home Assistant 2024.1+
 
 ## Production Monitoring
