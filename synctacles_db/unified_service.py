@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
-from synctacles_db.models import NormEntsoeA75, NormEntsoeA65, NormTennetBalance
+from synctacles_db.models import NormEntsoeA75, NormEntsoeA65
 
 
 def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
@@ -114,35 +114,19 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
             "reason": "no_data"
         }
     
-    # === BALANCE ===
-    balance_record = db.query(NormTennetBalance)\
-        .filter(NormTennetBalance.timestamp <= aggregation_time)\
-        .order_by(desc(NormTennetBalance.timestamp))\
-        .first()
-    
-    if balance_record:
-        balance_freshness = (aggregation_time - balance_record.timestamp).total_seconds()
-        balance_status = calculate_component_status(balance_freshness)
-        balance_data = {
-            "delta_mw": round(balance_record.delta_mw, 2) if balance_record.delta_mw else None,
-            "price_eur_mwh": round(balance_record.price_eur_mwh, 2) if balance_record.price_eur_mwh else None,
-            "available": True,
-            "status": balance_status,
-            "freshness_seconds": int(balance_freshness),
-            "timestamp": balance_record.timestamp.isoformat(),
-            "reason": None
-        }
-    else:
-        balance_status = "MISSING"
-        balance_data = {
-            "delta_mw": None,
-            "price_eur_mwh": None,
-            "available": False,
-            "status": balance_status,
-            "freshness_seconds": None,
-            "timestamp": None,
-            "reason": "no_data"
-        }
+    # === BALANCE (DEPRECATED - TenneT BYO-key model) ===
+    # TenneT balance data is no longer collected server-side (ADR-001)
+    # Users must configure their own TenneT API key in Home Assistant integration
+    balance_status = "DEPRECATED"
+    balance_data = {
+        "delta_mw": None,
+        "price_eur_mwh": None,
+        "available": False,
+        "status": balance_status,
+        "freshness_seconds": None,
+        "timestamp": None,
+        "reason": "deprecated_tennet_byo_key"
+    }
     
     # === OVERALL STATUS ===
     component_statuses = [gen_status, load_status, balance_status]

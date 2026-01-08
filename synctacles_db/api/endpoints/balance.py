@@ -21,11 +21,16 @@ async def get_balance():
     Configure your TenneT API key in Home Assistant for real-time balance data.
     """
     return JSONResponse(
-        status_code=501,
+        status_code=410,
         content={
-            "error": "Not Implemented",
-            "message": "Balance data available via BYO-key in HA component",
-            "documentation": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key",
-            "reason": "TenneT API license prohibits server-side redistribution"
+            "error": "Gone",
+            "message": "TenneT balance endpoint is deprecated. Data is now available via BYO-key (Bring Your Own Key) model in the Home Assistant integration.",
+            "documentation": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key-setup",
+            "reason": "TenneT API license prohibits server-side redistribution (ADR-001)",
+            "migration": {
+                "setup_guide": "https://github.com/DATADIO/ha-energy-insights-nl#tennet-byo-key-setup",
+                "get_api_key": "https://www.tennet.org/",
+                "alternative": "Use Home Assistant integration with your personal TenneT API key"
+            }
         }
     )
