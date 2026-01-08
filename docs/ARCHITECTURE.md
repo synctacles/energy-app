@@ -492,18 +492,25 @@ CREATE TABLE raw_entso_e_a44 (
 );
 ```
 
-#### `raw_tennet_balance` - Balance Delta
+#### `archive_raw_tennet_balance` - Balance Delta (DEPRECATED)
+
+**⚠️ DEPRECATED:** This table has been archived and renamed to `archive_raw_tennet_balance`. TenneT data is no longer collected server-side.
+
+**Migration:** TenneT balance data is now available via BYO-key (Bring Your Own Key) in the Home Assistant integration. See [ADR-001: TenneT BYO-Key Model](decisions/ADR_001_TENNET_BYO_KEY.md).
+
 ```sql
-CREATE TABLE raw_tennet_balance (
+CREATE TABLE archive_raw_tennet_balance (
     id BIGSERIAL PRIMARY KEY,
     timestamp TIMESTAMP NOT NULL,
-    balance_mw FLOAT NOT NULL,       -- Positive = surplus, Negative = deficit
-    imbalance_price_eur FLOAT,       -- Price if imbalance persists
+    platform VARCHAR(20) NOT NULL,   -- aFRR, IGCC, MARI, mFRRda, PICASSO
+    delta_mw FLOAT NOT NULL,         -- Positive = surplus, Negative = deficit
+    price_eur_mwh FLOAT,             -- Price if imbalance persists
     source_file VARCHAR(255),
-    inserted_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE (timestamp)
+    imported_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+**Status:** Historical data preserved, collectors/importers/normalizers moved to `archive/` directories.
 
 ### Normalized Tables (Layer 3 Output)
 
@@ -562,7 +569,12 @@ CREATE TABLE norm_load (
 );
 ```
 
-#### `norm_grid_balance` - Balance with Quality Metadata
+#### `norm_grid_balance` - Balance with Quality Metadata (DEPRECATED)
+
+**⚠️ DEPRECATED:** This table is no longer actively populated. TenneT data collection has been discontinued.
+
+**Migration:** Use BYO-key model in Home Assistant integration for real-time TenneT balance data. See [ADR-001](decisions/ADR_001_TENNET_BYO_KEY.md).
+
 ```sql
 CREATE TABLE norm_grid_balance (
     id BIGSERIAL PRIMARY KEY,
@@ -581,13 +593,15 @@ CREATE TABLE norm_grid_balance (
 );
 ```
 
+**Status:** Table schema preserved for historical data access. No longer updated by normalizers.
+
 ### Indexes
 
 ```sql
 -- For time-series queries (most common)
 CREATE INDEX idx_norm_generation_timestamp ON norm_generation(timestamp DESC);
 CREATE INDEX idx_norm_load_timestamp ON norm_load(timestamp DESC);
-CREATE INDEX idx_norm_grid_balance_timestamp ON norm_grid_balance(timestamp DESC);
+CREATE INDEX idx_norm_grid_balance_timestamp ON norm_grid_balance(timestamp DESC);  -- DEPRECATED (TenneT)
 
 -- For quality/source queries
 CREATE INDEX idx_norm_generation_quality ON norm_generation(data_quality);
@@ -597,6 +611,8 @@ CREATE INDEX idx_norm_generation_source ON norm_generation(data_source);
 CREATE INDEX idx_norm_generation_timestamp_quality
 ON norm_generation(timestamp DESC, data_quality);
 ```
+
+**Note:** Indexes on `norm_grid_balance` are preserved for historical data queries but no longer actively used in production pipelines.
 
 ---
 

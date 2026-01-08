@@ -108,6 +108,71 @@ X-API-Key: YOUR_CURRENT_API_KEY
 
 ---
 
+### POST /auth/deactivate
+**Requires authentication** - Deactivate current user account
+
+**Headers:**
+```
+X-API-Key: YOUR_API_KEY
+```
+
+**Response:**
+```json
+{
+  "message": "Account deactivated successfully"
+}
+```
+
+**Note:** Deactivated accounts can be reactivated by admin.
+
+---
+
+### GET /auth/admin/users
+**Admin only** - List all users
+
+**Headers:**
+```
+X-Admin-Key: ADMIN_API_KEY
+```
+
+**Response:**
+```json
+{
+  "total": 42,
+  "users": [
+    {
+      "user_id": "d20bedae-6253-41dd-b52b-74d24baab6d5",
+      "email": "user@example.com",
+      "tier": "free",
+      "is_active": true,
+      "created_at": "2025-12-30T10:15:00Z",
+      "rate_limit": 1000
+    },
+    {
+      "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "email": "premium@example.com",
+      "tier": "paid",
+      "is_active": true,
+      "created_at": "2025-12-28T14:30:00Z",
+      "rate_limit": 100000
+    }
+  ]
+}
+```
+
+**Use Cases:**
+- User management and support
+- Monitoring tier distribution
+- Identifying inactive accounts
+- Audit trail for user activity
+
+**Security:**
+- Requires `X-Admin-Key` header (configured in `.env` as `ADMIN_API_KEY`)
+- Returns **403 Forbidden** if admin key is invalid
+- Should only be accessible from internal networks or VPN
+
+---
+
 ## Energy Data Endpoints
 
 All endpoints require `X-API-Key` header.
