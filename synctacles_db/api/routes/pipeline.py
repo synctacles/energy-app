@@ -3,13 +3,47 @@ Pipeline health endpoint for Grafana monitoring.
 KISS approach: JSON endpoint, no Prometheus complexity.
 """
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from datetime import datetime, timezone
 import subprocess
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from synctacles_db.api.dependencies import get_db
+from prometheus_client import Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
 
 router = APIRouter(prefix="/v1/pipeline", tags=["pipeline"])
+
+# Dedicated registry for pipeline metrics (avoid conflicts with main app metrics)
+pipeline_registry = CollectorRegistry()
+
+# Pipeline health metrics
+timer_status_gauge = Gauge(
+    'pipeline_timer_status',
+    'Timer status (1=active, 0=stopped)',
+    ['timer'],
+    registry=pipeline_registry
+)
+
+timer_last_trigger_minutes = Gauge(
+    'pipeline_timer_last_trigger_minutes',
+    'Minutes since timer last triggered',
+    ['timer'],
+    registry=pipeline_registry
+)
+
+data_freshness_minutes = Gauge(
+    'pipeline_data_freshness_minutes',
+    'Data age in minutes (normalized table)',
+    ['source'],
+    registry=pipeline_registry
+)
+
+data_status_gauge = Gauge(
+    'pipeline_data_status',
+    'Data status (0=FRESH, 1=STALE, 2=UNAVAILABLE, 3=NO_DATA)',
+    ['source'],
+    registry=pipeline_registry
+)
 
 
 def get_timer_status(timer_name: str) -> dict:
@@ -129,3 +163,45 @@ def pipeline_health(db: Session = Depends(get_db)):
             "workers": 8
         }
     }
+
+
+@router.get("/metrics")
+def pipeline_metrics(db: Session = Depends(get_db)):
+    """
+    Prometheus metrics endpoint for pipeline health.
+
+    Exposes timer status and data freshness as Prometheus gauges.
+    """
+    # Get timer statuses
+    timers = {
+        "collector": get_timer_status("collector"),
+        "importer": get_timer_status("importer"),
+        "normalizer": get_timer_status("normalizer"),
+        "health": get_timer_status("health")
+    }
+
+    # Update timer metrics
+    for timer_name, status in timers.items():
+        timer_status_gauge.labels(timer=timer_name).set(1 if status["active"] else 0)
+        if status["last_trigger_ago_min"] is not None:
+            timer_last_trigger_minutes.labels(timer=timer_name).set(status["last_trigger_ago_min"])
+
+    # Get data freshness
+    data_sources = {
+        "a75": get_data_freshness(db, "a75", "raw_entso_e_a75", "norm_entso_e_a75"),
+        "a65": get_data_freshness(db, "a65", "raw_entso_e_a65", "norm_entso_e_a65"),
+        "a44": get_data_freshness(db, "a44", "raw_entso_e_a44", "norm_entso_e_a44")
+    }
+
+    # Update data metrics
+    status_map = {"FRESH": 0, "STALE": 1, "UNAVAILABLE": 2, "NO_DATA": 3}
+    for source, data in data_sources.items():
+        if data["norm_age_min"] is not None:
+            data_freshness_minutes.labels(source=source).set(data["norm_age_min"])
+        data_status_gauge.labels(source=source).set(status_map.get(data["status"], 3))
+
+    # Generate Prometheus format output
+    return Response(
+        content=generate_latest(pipeline_registry),
+        media_type=CONTENT_TYPE_LATEST
+    )
