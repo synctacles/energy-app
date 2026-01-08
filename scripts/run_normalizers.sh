@@ -24,10 +24,18 @@ PYTHON="${VENV_PATH}/bin/python3"
 
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting normalizer batch..."
 
-# Run normalizers (they handle failures internally)
-"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75
-"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65
+# ENTSO-E normalizers (alle 3 sources)
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A44 (prices)..."
 "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a44
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A65 (load)..."
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A75 (generation)..."
+"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75
+
+# Price post-processing
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing price aggregation..."
 "${PYTHON}" -m synctacles_db.normalizers.normalize_prices
 
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Normalizer batch complete"

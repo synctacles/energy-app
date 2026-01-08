@@ -45,6 +45,13 @@ data_status_gauge = Gauge(
     registry=pipeline_registry
 )
 
+pipeline_gap_minutes = Gauge(
+    'pipeline_raw_norm_gap_minutes',
+    'Gap between raw and normalized data in minutes',
+    ['source'],
+    registry=pipeline_registry
+)
+
 
 def get_timer_status(timer_name: str) -> dict:
     """Get systemd timer status."""
@@ -199,6 +206,8 @@ def pipeline_metrics(db: Session = Depends(get_db)):
         if data["norm_age_min"] is not None:
             data_freshness_minutes.labels(source=source).set(data["norm_age_min"])
         data_status_gauge.labels(source=source).set(status_map.get(data["status"], 3))
+        if data["pipeline_gap_min"] is not None:
+            pipeline_gap_minutes.labels(source=source).set(data["pipeline_gap_min"])
 
     # Generate Prometheus format output
     return Response(
