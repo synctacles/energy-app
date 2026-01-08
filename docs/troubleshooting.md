@@ -559,6 +559,126 @@ nginx -t
 
 ---
 
+## Pipeline Health Issues
+
+### Normalizer Running But Not Processing Data (Silent Failure)
+
+**Symptom:** Pipeline timers show as "active" but A65/A75 normalized data becomes increasingly stale (2+ hours old) while raw data is fresh.
+
+**Diagnosis:**
+```bash
+# Check gap between raw and normalized data
+psql -U energy-insights-nl -d energy_insights_nl <<EOF
+SELECT
+    'a75_gap' as source,
+    EXTRACT(EPOCH FROM (
+        (SELECT MAX(timestamp) FROM raw_entso_e_a75 WHERE timestamp <= NOW()) -
+        (SELECT MAX(timestamp) FROM norm_entso_e_a75 WHERE timestamp <= NOW())
+    ))/60 as gap_minutes;
+
+SELECT
+    'a65_gap' as source,
+    EXTRACT(EPOCH FROM (
+        (SELECT MAX(timestamp) FROM raw_entso_e_a65 WHERE timestamp <= NOW()) -
+        (SELECT MAX(timestamp) FROM norm_entso_e_a65 WHERE timestamp <= NOW())
+    ))/60 as gap_minutes;
+EOF
+
+# Gap >30 minutes indicates normalizer not processing data
+```
+
+**Root Cause:** Check if normalizers are missing from `/opt/energy-insights-nl/app/scripts/run_normalizers.sh`
+
+**Fix:**
+```bash
+# Verify normalizer script includes all sources
+cat /opt/energy-insights-nl/app/scripts/run_normalizers.sh
+
+# Should include:
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a44
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65  # Load data
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75  # Generation data
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_prices
+
+# Manual run to process backlog
+sudo -u energy-insights-nl bash -c 'set -a && source /opt/.env && set +a && \
+  cd /opt/energy-insights-nl/app && \
+  source /opt/energy-insights-nl/venv/bin/activate && \
+  /opt/energy-insights-nl/venv/bin/python -m synctacles_db.normalizers.normalize_entso_e_a75'
+
+# Restart API to pick up fresh normalized data
+sudo systemctl restart energy-insights-nl-api.service
+```
+
+**Prevention:**
+- Add logging to normalizer scripts indicating which sources are processed
+- Monitor raw vs normalized gap with Prometheus metrics
+- Alert if gap exceeds 30 minutes
+
+---
+
+### ENTSO-E Forecast Data Causing Negative Age Values
+
+**Symptom:** API health checks show negative age values (e.g., -1346 minutes) for data freshness
+
+**Example:**
+```json
+{
+  "a65": {"norm_age_min": -1346.7, "status": "FRESH"},
+  "a44": {"norm_age_min": -1911.2, "status": "FRESH"}
+}
+```
+
+**Root Cause:** ENTSO-E API includes forecast data with future timestamps. Queries using `MAX(timestamp)` without filtering select future records.
+
+**Affected Sources:**
+- **A65 (Load):** Includes 24-hour forecast (88+ future records)
+- **A44 (Prices):** Includes day-ahead prices (tomorrow's data)
+- **A75 (Generation):** Minimal forecast data
+
+**Fix Pattern:**
+```sql
+-- WRONG - Selects future timestamps
+SELECT MAX(timestamp) FROM norm_entso_e_a65;
+
+-- CORRECT - Filters to historical only
+SELECT MAX(timestamp) FROM norm_entso_e_a65 WHERE timestamp <= NOW();
+```
+
+**Rule:** ALL queries selecting `MAX(timestamp)` on ENTSO-E data MUST include `WHERE timestamp <= NOW()`
+
+**Locations to Check:**
+- Pipeline health endpoints ([synctacles_db/api/routes/pipeline.py](../synctacles_db/api/routes/pipeline.py))
+- Grafana dashboard queries
+- Alert rule expressions
+- Data export scripts
+
+---
+
+### A75 Generation Data Shows STALE Status
+
+**Symptom:** A75 data consistently shows "STALE" (90-180 min old) when other sources are FRESH
+
+**Expected Behavior:** This is NORMAL for A75 due to ENTSO-E publishing delay
+
+**ENTSO-E A75 Characteristics:**
+- **Normal delay:** 2-4 hours after actual generation
+- **Update schedule:**
+  - 13:01 UTC daily: Large batch (~104 timestamps, last 24h data)
+  - 03:54 UTC daily: Smaller update (~20h backfill)
+
+**Alert Thresholds:**
+- **FRESH (<90 min):** Ideal but rare for A75
+- **STALE (90-180 min):** **NORMAL** - expected ENTSO-E publishing delay
+- **UNAVAILABLE (>180 min):** **ABNORMAL** - investigate normalizer
+
+**Only investigate if:**
+1. A75 shows UNAVAILABLE (>180 min old)
+2. Raw data is fresh but normalized is stale (indicates normalizer issue)
+3. Other sources (A44, A65) also affected (indicates broader pipeline problem)
+
+---
+
 ## Data Quality Issues
 
 ### Quality Status = FALLBACK
@@ -772,9 +892,60 @@ ss -tlnp | grep 8000
 
 ---
 
-**Last Updated:** 2025-12-30
+## Grafana Dashboard Issues
+
+### Grafana Infinity Plugin Shows "No Data"
+
+**Symptom:** Infinity datasource configured correctly, API endpoint works in browser, but all Grafana panels show "No data"
+
+**Root Cause:** DNS resolution broken on monitor.synctacles.com for external domains
+
+**Diagnosis:**
+```bash
+# SSH to monitor server
+ssh monitoring@monitor.synctacles.com
+
+# Test DNS resolution
+curl https://api.synctacles.com/v1/pipeline/health
+# Result: "Could not resolve host: api.synctacles.com"
+```
+
+**Solution:** Do NOT use Infinity plugin on monitor.synctacles.com. Use Prometheus datasource instead.
+
+**Recommended Approach:**
+1. Expose Prometheus metrics endpoint in API ([/v1/pipeline/metrics](../synctacles_db/api/routes/pipeline.py:134-173))
+2. Configure Prometheus to scrape with IP address + SNI header
+3. Create Grafana dashboard using Prometheus datasource
+
+**Working Prometheus Configuration:**
+```yaml
+# /opt/monitoring/prometheus/prometheus.yml
+- job_name: "pipeline-health"
+  scheme: https
+  tls_config:
+    server_name: enin.xteleo.nl  # SNI header for SSL cert match
+  static_configs:
+    - targets: ["135.181.255.83:443"]  # Direct IP, no DNS
+  metrics_path: /v1/pipeline/metrics
+  scrape_interval: 30s
+```
+
+**Why Prometheus Works:**
+- Uses direct IP address (no DNS lookup required)
+- SNI header matches actual SSL certificate domain
+- Native HTTP client with proper TLS handling
+
+**Why Infinity Plugin Fails:**
+- Relies on host system DNS resolution
+- monitor.synctacles.com DNS configuration is broken
+- Cannot bypass DNS with IP + SNI header (plugin limitation)
+
+---
+
+**Last Updated:** 2026-01-08
 **Status:** Production Ready
 **See Also:**
 - [Architecture Guide](ARCHITECTURE.md) - System design & data flow
 - [API Reference](api-reference.md) - Complete API documentation
-- [Deployment Guide](deployment.md) - Installation & operations
+- [Monitoring Setup](operations/MONITORING_SETUP.md) - Grafana & Prometheus configuration
+- [Pipeline Health Dashboard](https://monitor.synctacles.com/d/5fd1f7f9-e2bb-4a81-a04e-50f9fbbf0ec0/pipeline-health) - Live dashboard

@@ -99,6 +99,46 @@
 | HTTP health | https://enin.xteleo.nl/health | Down >1 min |
 | SSL certificate | enin.xteleo.nl:443 | Expiry <14 days |
 
+### Pipeline Health (Prometheus Metrics)
+
+**Endpoint:** `https://enin.xteleo.nl/v1/pipeline/metrics`
+
+**Metrics Exposed:**
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `pipeline_timer_status` | Timer status (1=active, 0=stopped) | timer={collector\|importer\|normalizer\|health} |
+| `pipeline_timer_last_trigger_minutes` | Minutes since timer last triggered | timer=... |
+| `pipeline_data_status` | Data status (0=FRESH, 1=STALE, 2=UNAVAILABLE, 3=NO_DATA) | source={a44\|a65\|a75} |
+| `pipeline_data_freshness_minutes` | Data age in minutes (normalized table) | source=... |
+
+**Data Status Values:**
+- **0 (FRESH):** Data <90 min old (A44/A65) or <180 min (A75 normal delay)
+- **1 (STALE):** Data 90-180 min old
+- **2 (UNAVAILABLE):** Data >180 min old
+- **3 (NO_DATA):** No data in database
+
+**Alert Rules:**
+```yaml
+# Critical: A44 data unavailable (prices are critical for users)
+- alert: PipelineDataUnavailableA44
+  expr: pipeline_data_status{source="a44"} >= 2
+  for: 15m
+  labels: {severity: critical}
+
+# Warning: A65/A75 data unavailable (tolerate longer for A75)
+- alert: PipelineDataUnavailableA65
+  expr: pipeline_data_status{source="a65"} >= 2
+  for: 15m
+  labels: {severity: warning}
+
+# Critical: Any timer stopped
+- alert: PipelineTimerStopped
+  expr: pipeline_timer_status == 0
+  for: 5m
+  labels: {severity: critical}
+```
+
 ### Services Monitored
 
 ```
@@ -167,6 +207,26 @@ systemctl status fail2ban
 | 3000 | Grafana direct | Closed |
 | 9090 | Prometheus | Closed |
 | 9093 | AlertManager | Closed |
+
+**⚠️ Known Limitations:**
+
+**DNS Resolution Broken:**
+- monitor.synctacles.com cannot resolve external domains (e.g., api.synctacles.com)
+- **Impact:** Grafana Infinity plugin and JSON-based datasources will NOT work
+- **Solution:** Use Prometheus datasource with IP address + SNI header configuration
+- **Do NOT install Grafana Infinity plugin** - it will show "No data" on all panels
+
+**Working Configuration Example:**
+```yaml
+# Prometheus scrape config that works despite DNS issues
+- job_name: "pipeline-health"
+  scheme: https
+  tls_config:
+    server_name: enin.xteleo.nl  # SNI for SSL cert
+  static_configs:
+    - targets: ["135.181.255.83:443"]  # Direct IP, no DNS lookup
+  metrics_path: /v1/pipeline/metrics
+```
 
 **Key Files:**
 ```
@@ -386,5 +446,42 @@ If memory >85% sustained:
 
 ---
 
+## Dashboards
+
+### Pipeline Health Dashboard
+
+**URL:** [https://monitor.synctacles.com/d/5fd1f7f9-e2bb-4a81-a04e-50f9fbbf0ec0/pipeline-health](https://monitor.synctacles.com/d/5fd1f7f9-e2bb-4a81-a04e-50f9fbbf0ec0/pipeline-health)
+
+**UID:** `5fd1f7f9-e2bb-4a81-a04e-50f9fbbf0ec0`
+
+**Folder:** Energy Insights NL
+
+**Panels:**
+
+**Row 1 - Pipeline Components:**
+1. **API Status** - `count(up{job="pipeline-health"})` → Shows "1" (green) if scraping works
+2. **Collector Timer** - `pipeline_timer_status{timer="collector"}` → ACTIVE/STOPPED
+3. **Importer Timer** - `pipeline_timer_status{timer="importer"}` → ACTIVE/STOPPED
+4. **Normalizer Timer** - `pipeline_timer_status{timer="normalizer"}` → ACTIVE/STOPPED
+5. **Health Timer** - `pipeline_timer_status{timer="health"}` → ACTIVE/STOPPED
+
+**Row 2 - Data Status:**
+6. **A44 Day-Ahead Prices** - `pipeline_data_status{source="a44"}` → FRESH/STALE/UNAVAILABLE
+7. **A65 System Load** - `pipeline_data_status{source="a65"}` → FRESH/STALE/UNAVAILABLE
+8. **A75 Generation by Source** - `pipeline_data_status{source="a75"}` → FRESH/STALE/UNAVAILABLE
+
+**Row 3 - Trends:**
+9. **Data Freshness Over Time** - `pipeline_data_freshness_minutes` (timeseries)
+
+**Color Coding:**
+- **Green:** FRESH (<90 min) / ACTIVE
+- **Yellow:** STALE (90-180 min)
+- **Red:** UNAVAILABLE (>180 min) / STOPPED
+- **Gray:** NO_DATA
+
+**Refresh Rate:** 30 seconds (auto)
+
+---
+
 **Document Owner:** Leo
-**Last Verified:** 2026-01-07
+**Last Verified:** 2026-01-08
