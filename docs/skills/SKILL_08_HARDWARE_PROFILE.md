@@ -571,6 +571,49 @@ PermitRootLogin no
 - Code scanning (via CI/CD)
 ```
 
+### Environment Files
+
+#### /opt/.env (Primary Configuration)
+
+**⚠️ KRITIEK: NIET VERWIJDEREN** — Alle services zijn hiervan afhankelijk.
+
+**Gebruikt door:**
+| Service | Methode |
+|---------|---------|
+| `energy-insights-nl-api.service` | `EnvironmentFile=/opt/.env` |
+| `energy-insights-nl-collector.service` | Script sourced `/opt/.env` |
+| `energy-insights-nl-importer.service` | Script sourced `/opt/.env` |
+| `energy-insights-nl-normalizer.service` | Script sourced `/opt/.env` |
+
+**Bevat:**
+```bash
+DATABASE_URL=postgresql://energy_insights_nl@localhost:5432/energy_insights_nl
+DB_USER=energy_insights_nl  # Let op: underscores, niet streepjes!
+INSTALL_PATH=/opt/energy-insights-nl
+LOG_PATH=/var/log/energy-insights-nl
+ENTSOE_API_KEY=...
+SECRET_KEY=...
+```
+
+**Backup locatie:** `/opt/energy-insights-nl/backups/.env.backup-YYYYMMDD`
+
+#### /opt/energy-insights-nl/.env (Secondary)
+
+Identieke kopie van `/opt/.env`. Sommige scripts verwijzen naar deze locatie.
+
+#### Verificatie
+
+```bash
+# Check welke services EnvironmentFile gebruiken
+grep -r "EnvironmentFile" /etc/systemd/system/energy-insights-nl-*.service
+
+# Verifieer .env leesbaar is voor service user
+sudo -u energy-insights-nl cat /opt/.env | head -5
+
+# Test database connectie
+sudo -u energy-insights-nl bash -c 'source /opt/.env && psql $DATABASE_URL -c "SELECT 1"'
+```
+
 ---
 
 ## PERFORMANCE OPTIMIZATION
