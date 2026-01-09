@@ -337,12 +337,11 @@ git log --all --full-history --grep='password\|secret\|key\|token' -i
 
 **Impact:** Prevents direct external access to API, forces traffic through nginx reverse proxy.
 
-### /opt/.env Investigation ✅ COMPLETE
+### /opt/.env Cleanup ✅ COMPLETE
 **Finding:** Old installer template file (53 lines) vs active config `/opt/energy-insights-nl/.env` (36 lines)
 **Content:** Contains same API keys, mostly branding/path configuration
 **Risk:** LOW - No additional secrets, world-readable but safe cruft
-**Recommendation:** Can be removed or `chmod 600` for cleanliness
-**Action:** Documented, no changes needed (non-critical)
+**Action:** File removed - `/opt/.env` deleted to eliminate cruft
 
 ---
 
