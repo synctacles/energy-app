@@ -279,14 +279,31 @@ default_statistics_target = 100
 | 443 | HTTPS | External | Public, needs TLS cert |
 | 22 | SSH | Restricted | Admin only |
 
-### Firewall Rules
+## NETWORK SECURITY
+
+### Hetzner Cloud Firewall (Primary)
+
+Alle netwerkbeveiliging via Hetzner Cloud Firewall, niet OS-level.
+
+**Huidige Ruleset:**
+
+| Rule | Protocol | Port | Source | Action |
+|------|----------|------|--------|--------|
+| SSH | TCP | 22 | Leo's IP(s) | Allow |
+| HTTPS | TCP | 443 | Any | Allow |
+| API (internal) | TCP | 8000 | Localhost only | - |
+| All other | * | * | * | Deny |
+
+**Beheer:** Hetzner Cloud Console → Firewalls
+
+**Waarom geen UFW:**
+- Zie ADR-001 in ARCHITECTURE.md
+- Hetzner FW blokkeert traffic vóór server
+- Centraal beheer, minder drift
+
+### Firewall Rules (Outgoing)
 
 ```bash
-# Incoming (external)
-ufw allow 22/tcp       # SSH (admin only)
-ufw allow 80/tcp       # HTTP (redirect only)
-ufw allow 443/tcp      # HTTPS (main access)
-
 # Outgoing (to APIs)
 Allow: ENTSO-E (api.entso-e.eu)
 Allow: TenneT (api.tennet.nl)
@@ -527,11 +544,8 @@ psql synctacles_nl -c "SELECT COUNT(*) FROM norm_generation"
 ### OS Hardening
 
 ```bash
-# Firewall
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 22/tcp  # SSH
-ufw allow 443/tcp # HTTPS
+# Network Security: Hetzner Cloud Firewall (zie ADR-001)
+# Geen UFW configuratie nodig
 
 # SSH
 PasswordAuthentication no  # Keys only

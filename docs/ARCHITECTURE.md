@@ -1092,6 +1092,29 @@ For production:
 
 ## Security Model
 
+### ADR-001: Network Security via Hetzner Cloud Firewall
+
+**Status:** Accepted
+**Date:** 2026-01-09
+
+**Context:**
+Servers draaien op Hetzner Cloud. Keuze tussen UFW (OS-level) of Hetzner Cloud Firewall (netwerkniveau).
+
+**Decision:**
+Hetzner Cloud Firewall als primaire netwerkbeveiliging. Geen UFW op servers.
+
+**Rationale:**
+- KISS: één firewall-laag, centraal beheerd
+- Traffic geblokkeerd vóór server (minder load)
+- Eenvoudiger auditing via Hetzner console
+- Minder OS-configuratie drift tussen servers
+
+**Consequences:**
+- Firewall rules alleen via Hetzner console/API
+- Security audit checkt Hetzner Firewall, niet UFW
+
+---
+
 ### Current State (Development)
 
 ⚠️ **Not production ready**
@@ -1101,7 +1124,7 @@ For production:
 | API Auth | None | API key / JWT |
 | DB Auth | Peer (Unix socket) | Password + SSL |
 | Secrets | Plain text .env | Encrypted at rest |
-| Network | Open ports | Firewall + reverse proxy |
+| Network | Hetzner Cloud Firewall | Firewall + reverse proxy |
 | TLS | None | Full HTTPS |
 
 ### Production Hardening
