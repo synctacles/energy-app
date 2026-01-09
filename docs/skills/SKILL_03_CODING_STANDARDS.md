@@ -674,6 +674,55 @@ logger.debug(f"Using API key: {api_key}")
 logger.debug(f"Database password: {db_password}")
 ```
 
+### Adding Auth to New Endpoints
+
+API key authentication is implemented via middleware (see [synctacles_db/api/middleware.py](../../synctacles_db/api/middleware.py)).
+
+**Feature Flags (config/settings.py):**
+```python
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "false").lower() == "true"
+```
+
+**Endpoints Protected by Default:**
+All endpoints EXCEPT those in `EXEMPT_PATHS` or `EXEMPT_PREFIXES` (middleware.py):
+```python
+EXEMPT_PATHS = {
+    "/health", "/metrics", "/docs", "/redoc", "/openapi.json", "/auth/signup"
+}
+EXEMPT_PREFIXES = ("/api/v1/",)  # MVP free tier
+```
+
+**Accessing User in Endpoints:**
+```python
+from fastapi import Request
+
+@router.get("/protected")
+async def protected_endpoint(request: Request):
+    """Endpoint requiring authentication."""
+    # User automatically injected by auth_middleware when AUTH_REQUIRED=true
+    user = request.state.user  # Type: User (from auth_models.py)
+
+    return {
+        "user_id": str(user.id),
+        "email": user.email,
+        "tier": user.tier,
+        "rate_limit": user.rate_limit_daily
+    }
+```
+
+**Enabling Auth in Production:**
+```bash
+# /opt/.env
+AUTH_REQUIRED=true          # Require X-API-Key header
+RATE_LIMIT_ENABLED=true     # Enforce daily rate limits
+```
+
+**See Also:**
+- [ARCHITECTURE.md](../ARCHITECTURE.md#authentication-system) — Auth system overview
+- [api-reference.md](../api-reference.md) — Auth endpoint documentation
+- [synctacles_db/api/middleware.py](../../synctacles_db/api/middleware.py) — Implementation
+
 ---
 
 ## FILE OPERATIONS

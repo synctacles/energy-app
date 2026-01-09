@@ -1156,6 +1156,61 @@ Binnen = binnen.
 
 ---
 
+### Authentication System
+
+**Status:** Implemented, disabled by default (MVP free tier)
+
+**Feature Flags:**
+| Flag | Default | Effect |
+|------|---------|--------|
+| AUTH_REQUIRED | false | Endpoints vereisen API key |
+| RATE_LIMIT_ENABLED | false | Rate limiting actief |
+
+**Flow:**
+```
+Request → Middleware → Check AUTH_REQUIRED
+                      ↓
+              false: pass through
+              true: validate X-API-Key header
+                      ↓
+              invalid: 401 Unauthorized
+              valid: attach user to request → continue
+```
+
+**Key Storage:**
+- API keys SHA-256 gehashed in database
+- Plaintext key alleen bij generatie getoond (één keer)
+
+**Models:**
+- `User` — id (UUID), email, license_key (UUID), api_key_hash, tier, rate_limit_daily, is_active, created_at
+- `APIUsage` — tracking per user per endpoint (user_id, endpoint, timestamp, status_code)
+
+**Endpoints:**
+| Endpoint | Method | Auth | Beschrijving |
+|----------|--------|------|--------------|
+| /auth/signup | POST | None | Maak user, ontvang API key |
+| /auth/stats | GET | Key | User info + usage stats |
+| /auth/regenerate-key | POST | Key | Genereer nieuwe key |
+| /auth/deactivate | POST | Key | Deactiveer account |
+| /auth/admin/users | GET | Admin | Lijst alle users |
+
+**Exempt Paths (altijd toegankelijk):**
+- `/health`, `/metrics`, `/docs`, `/redoc`, `/openapi.json`, `/auth/signup`
+- `/api/v1/*` — MVP free tier (temporarily exempt)
+
+**Rate Limiting:**
+- Daily limits per tier (free: 1000, beta: 10000)
+- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- 429 Too Many Requests when exceeded
+
+**Implementation Files:**
+- [synctacles_db/auth_models.py](../synctacles_db/auth_models.py) — Database models
+- [synctacles_db/api/endpoints/auth.py](../synctacles_db/api/endpoints/auth.py) — Auth endpoints
+- [synctacles_db/api/middleware.py](../synctacles_db/api/middleware.py) — Auth & rate limit middleware
+- [synctacles_db/auth_service.py](../synctacles_db/auth_service.py) — Business logic
+
+---
+
 ### Current State (Development)
 
 ⚠️ **Not production ready**
