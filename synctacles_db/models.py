@@ -161,20 +161,44 @@ class RawEntsoeA44(Base):
 
 class NormEntsoeA44(Base):
     __tablename__ = 'norm_entso_e_a44'
-    
+
     id = Column(Integer, primary_key=True)
     timestamp = Column(TIMESTAMP(timezone=True), nullable=False)
     country = Column(String(2), nullable=False)
     price_eur_mwh = Column(Numeric(10, 2))
-    
+
     # Fallback support
     data_source = Column(String(20), server_default='ENTSO-E')
     data_quality = Column(String(20), server_default='OK')
     needs_backfill = Column(Boolean, server_default='false')
-    
+
     created_at = Column(TIMESTAMP(timezone=True), server_default=text('NOW()'))
-    
+
     __table_args__ = (
         UniqueConstraint('timestamp', 'country', name='uq_prices_time_country'),
         Index('idx_prices_country_time', 'country', text('timestamp DESC'))
+    )
+
+
+# === PRICE CACHE (Issue #61) ===
+
+class PriceCache(Base):
+    """24h price cache for Tier 4 fallback.
+
+    Stores consumer prices from any source for 24h persistence.
+    Used when all live sources are unavailable.
+    """
+    __tablename__ = 'price_cache'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(TIMESTAMP(timezone=True), nullable=False)
+    country = Column(String(2), nullable=False, server_default='NL')
+    price_eur_kwh = Column(Numeric(10, 6), nullable=False)
+    source = Column(String(50), nullable=False)  # enever, entsoe+lookup, energy-charts+lookup
+    quality = Column(String(20), nullable=False)  # live, estimated, cached
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text('NOW()'))
+
+    __table_args__ = (
+        Index('idx_price_cache_timestamp', 'timestamp'),
+        Index('idx_price_cache_country_timestamp', 'country', text('timestamp DESC')),
     )

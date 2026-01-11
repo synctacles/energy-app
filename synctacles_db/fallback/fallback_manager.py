@@ -21,6 +21,7 @@ import math
 
 from synctacles_db.fallback.energy_charts_client import EnergyChartsClient
 from synctacles_db.freshness_config import FRESHNESS_THRESHOLDS, QualityStatus, get_quality_status
+from synctacles_db.services.price_cache import price_cache_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -573,12 +574,14 @@ class FallbackManager:
         # Tier 1: Fresh ENTSO-E data
         if db_results and db_age_minutes < fresh_threshold:
             _LOGGER.info(f"Prices FRESH from ENTSO-E ({db_age_minutes} min)")
-            return (db_results, "ENTSO-E", "FRESH", True)  # ✓ GO actions allowed
+            # Store in PostgreSQL cache for persistence
+            FallbackManager._cache_prices_to_db(db_results, "entsoe", "live", country)
+            return (db_results, "ENTSO-E", "FRESH", True)  # GO actions allowed
 
         # Tier 2: Stale ENTSO-E data (acceptable)
         if db_results and db_age_minutes < stale_threshold:
             _LOGGER.info(f"Prices STALE from ENTSO-E ({db_age_minutes} min)")
-            return (db_results, "ENTSO-E", "STALE", True)  # ✓ GO actions allowed
+            return (db_results, "ENTSO-E", "STALE", True)  # GO actions allowed
 
         # Tier 3: Energy-Charts fallback
         if FallbackManager._check_circuit_breaker():
@@ -589,29 +592,68 @@ class FallbackManager:
                 if ec_prices and len(ec_prices) > 0:
                     _LOGGER.warning(f"Using Energy-Charts fallback ({len(ec_prices)} prices)")
 
-                    # Cache the fallback data
+                    # Cache in memory for quick access
                     cache_key = f"prices_{country}"
                     _fallback_cache[cache_key] = ec_prices
 
+                    # Store in PostgreSQL cache for persistence
+                    FallbackManager._cache_prices_to_db(ec_prices, "energy-charts", "estimated", country)
+
                     # CRITICAL: allow_go_action=False for Energy-Charts!
-                    return (ec_prices, "Energy-Charts", "FALLBACK", False)  # ✗ NO GO actions
+                    return (ec_prices, "Energy-Charts", "FALLBACK", False)  # NO GO actions
             except Exception as err:
                 _LOGGER.error(f"Energy-Charts fallback failed: {err}")
                 if "404" in str(err):
                     FallbackManager._open_circuit_breaker()
 
-        # Tier 4: Cache fallback
+        # Tier 4: In-memory cache fallback (quick check)
         cache_key = f"prices_{country}"
         if cache_key in _fallback_cache:
             cached_prices = _fallback_cache[cache_key]
-            _LOGGER.warning(f"Using cached prices ({len(cached_prices)} records)")
-            return (cached_prices, "Cache", "CACHED", False)  # ✗ NO GO actions on cache
+            _LOGGER.warning(f"Using in-memory cached prices ({len(cached_prices)} records)")
+            return (cached_prices, "Cache", "CACHED", False)  # NO GO actions on cache
+
+        # Tier 4b: PostgreSQL cache fallback (persistent, 24h)
+        db_cached = price_cache_service.get_cached_prices(country=country, hours=24)
+        if db_cached:
+            _LOGGER.warning(f"Using PostgreSQL cached prices ({len(db_cached)} records)")
+            return (db_cached, "Cache (DB)", "CACHED", False)  # NO GO actions on cache
 
         # Complete failure - return stale DB if available (but still no GO)
         if db_results:
             _LOGGER.warning(f"All fallback failed, using stale ENTSO-E ({db_age_minutes} min)")
-            return (db_results, "ENTSO-E", "STALE", False)  # ✗ NO GO on very stale data
+            return (db_results, "ENTSO-E", "STALE", False)  # NO GO on very stale data
 
         # No data at all
         _LOGGER.error("All price data sources failed")
         return (None, "None", "UNAVAILABLE", False)
+
+    @staticmethod
+    def _cache_prices_to_db(prices: List[Dict], source: str, quality: str, country: str):
+        """Store prices in PostgreSQL cache for 24h persistence."""
+        try:
+            from datetime import datetime, timezone
+
+            for price_record in prices[:24]:  # Only cache first 24 hours
+                timestamp_str = price_record.get("timestamp")
+                price_value = price_record.get("price_eur_mwh")
+
+                if timestamp_str and price_value is not None:
+                    # Convert MWh to kWh
+                    price_kwh = float(price_value) / 1000.0
+
+                    # Parse timestamp
+                    if isinstance(timestamp_str, str):
+                        ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    else:
+                        ts = timestamp_str
+
+                    price_cache_service.store_price(
+                        price=price_kwh,
+                        source=source,
+                        quality=quality,
+                        country=country.upper(),
+                        timestamp=ts
+                    )
+        except Exception as e:
+            _LOGGER.error(f"Failed to cache prices to DB: {e}")
