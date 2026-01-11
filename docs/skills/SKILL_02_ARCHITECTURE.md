@@ -605,13 +605,57 @@ Based on real-world measurements and structural delays:
 
 | Source | FRESH | STALE | Fallback Trigger | Notes |
 |--------|-------|-------|------------------|-------|
-| ENTSO-E | < 90 min | 90-180 min | > 180 min | ~60min structural delay + 30min buffer |
-| Energy-Charts | < 240 min | 240-480 min | > 480 min | Modeled data, typically 3+ hours behind |
-| Cache | < 120 min | 120-360 min | > 360 min | Last known good value |
+| ENTSO-E | < 15 min | 15-60 min | > 60 min | Primary source |
+| Energy-Charts | N/A | N/A | Tier 3 | Fallback only |
+| PostgreSQL Cache | N/A | N/A | Tier 4b | 24h persistence |
+| In-Memory Cache | N/A | N/A | Tier 4a | 5-min TTL |
 
 **Note:** TenneT is no longer available via SYNCTACLES API (BYO-key in HA component only).
 
-### Primary → Fallback Cascade
+### 5-Tier Price Fallback Chain (Fase 1)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PRICE FALLBACK CHAIN                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Tier 1: ENTSO-E (Fresh)          ← < 15 min old           │
+│     ↓ fail                           allow_go = TRUE        │
+│     │                                quality = "live"       │
+│     │                                confidence = 100%      │
+│                                                             │
+│  Tier 2: ENTSO-E (Stale)          ← 15-60 min old          │
+│     ↓ fail                           allow_go = TRUE        │
+│     │                                quality = "estimated"  │
+│     │                                confidence = 85%       │
+│                                                             │
+│  Tier 3: Energy-Charts            ← Live API call          │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "estimated"  │
+│     │                                confidence = 70%       │
+│                                                             │
+│  Tier 4a: In-Memory Cache         ← TTLCache (5 min)       │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "cached"     │
+│     │                                confidence = 50%       │
+│                                                             │
+│  Tier 4b: PostgreSQL Cache        ← 24h persistence        │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "cached"     │
+│     │                                confidence = 50%       │
+│                                                             │
+│  Tier 5: UNAVAILABLE              ← Return null            │
+│                                      allow_go = FALSE       │
+│                                      quality = "unavailable"│
+│                                      confidence = 0%        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Critical Rule:** Energy-Charts and Cache tiers NEVER allow `allow_go_action = true`.
+This prevents automated actions based on potentially inaccurate fallback data.
+
+### Primary → Fallback Cascade (Legacy)
 
 ```
 Generation Data:
@@ -630,6 +674,8 @@ Load Data:
 Prices:
   1st choice: ENTSO-E A44 (hourly)
   2nd choice: Energy-Charts (estimated)
+  3rd choice: PostgreSQL Cache (24h)
+  4th choice: In-Memory Cache (5 min)
 ```
 
 ### Quality Status Values
@@ -793,6 +839,29 @@ CREATE TABLE enever_prices (
 
 -- 25 providers × 24 hours × 2 collections/day = ~1200 records/day
 -- Retention: Indefinite (B2B data asset)
+```
+
+### Price Cache Table (Fase 1)
+
+```sql
+-- 24h rolling price cache for Tier 4b fallback
+-- Located on Main API Server (135.181.255.83)
+CREATE TABLE price_cache (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    country VARCHAR(2) NOT NULL DEFAULT 'NL',
+    price_eur_kwh NUMERIC(10, 6) NOT NULL,
+    source VARCHAR(50) NOT NULL,      -- entsoe, energy-charts, enever
+    quality VARCHAR(20) NOT NULL,      -- live, estimated, cached
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_price_cache_timestamp ON price_cache(timestamp);
+CREATE INDEX idx_price_cache_country_timestamp ON price_cache(country, timestamp DESC);
+
+-- Purpose: Persistent fallback when all live sources fail
+-- Retention: Rolling 24h window (automatic cleanup)
+-- Usage: Tier 4b in fallback chain
 ```
 
 **Important:** Every normalized table includes:

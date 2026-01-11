@@ -25,12 +25,17 @@ fi
 
 cd "$APP_PATH"
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting importers..."
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting importers (Energy Action Focus mode)..."
 
 # Run importers (they handle failures internally)
 # NOTE: TenneT importer intentionally excluded (off-limits, BYO-KEY model per SKILL_02)
-"${PYTHON}" -m synctacles_db.importers.import_entso_e_a75
-"${PYTHON}" -m synctacles_db.importers.import_entso_e_a65
-"${PYTHON}" -m synctacles_db.importers.import_entso_e_a44
+#
+# Phase 2: Energy Action Focus (2026-01-11)
+# A65 (load) and A75 (generation) importers are SKIPPED
+# Only A44 (prices) is needed for Energy Action
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Importers complete"
+# SKIPPED: "${PYTHON}" -m synctacles_db.importers.import_entso_e_a75  # Generation - DISCONTINUED
+# SKIPPED: "${PYTHON}" -m synctacles_db.importers.import_entso_e_a65  # Load - DISCONTINUED
+"${PYTHON}" -m synctacles_db.importers.import_entso_e_a44  # Prices - ACTIVE
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Importers complete (Energy Action Focus mode)"

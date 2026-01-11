@@ -489,34 +489,88 @@ Try in order:
   4. None (report UNAVAILABLE)
 ```
 
-### Price Data Fallback
+### Price Data Fallback (5-Tier Chain - Fase 1)
 
 ```
-Try in order:
-  1. Frank API + Enever (dual-source validation)
-     - Both agree (< €0.02 delta)
-     - Quality: HIGH (98% accuracy)
-
-  2. Frank API only
-     - Primary source available
-     - Quality: MEDIUM (95% accuracy)
-
-  3. Enever API only (via coefficient proxy)
-     - Secondary source available
-     - Quality: MEDIUM (93% accuracy)
-
-  4. Cached correction factor (< 48h)
-     - Last known calibration
-     - Quality: LOW (91% accuracy)
-
-  5. Coefficient lookup only
-     - Historical hourly patterns
-     - Quality: LOW (89% accuracy)
-
-  6. Daily average fallback
-     - Emergency: €0.17/kWh coefficient
-     - Quality: DEGRADED (85% accuracy)
+┌─────────────────────────────────────────────────────────────┐
+│                    PRICE FALLBACK CHAIN                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Tier 1: ENTSO-E (Fresh)          ← < 15 min old           │
+│     ↓ fail                           allow_go = TRUE        │
+│     │                                quality = "live"       │
+│     │                                confidence = 100%      │
+│                                                             │
+│  Tier 2: ENTSO-E (Stale)          ← 15-60 min old          │
+│     ↓ fail                           allow_go = TRUE        │
+│     │                                quality = "estimated"  │
+│     │                                confidence = 85%       │
+│                                                             │
+│  Tier 3: Energy-Charts            ← Live API call          │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "estimated"  │
+│     │                                confidence = 70%       │
+│                                                             │
+│  Tier 4a: In-Memory Cache         ← TTLCache (5 min)       │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "cached"     │
+│     │                                confidence = 50%       │
+│                                                             │
+│  Tier 4b: PostgreSQL Cache        ← 24h persistence        │
+│     ↓ fail                           allow_go = FALSE       │
+│     │                                quality = "cached"     │
+│     │                                confidence = 50%       │
+│                                                             │
+│  Tier 5: UNAVAILABLE              ← Return null            │
+│                                      allow_go = FALSE       │
+│                                      quality = "unavailable"│
+│                                      confidence = 0%        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**Critical Rule:** Energy-Charts and Cache tiers NEVER allow `allow_go_action = true`.
+This prevents automated actions based on potentially inaccurate fallback data.
+
+### Energy-Charts Price API (Tier 3)
+
+```
+GET https://api.energy-charts.info/price?country=nl
+```
+
+**Response:**
+```json
+{
+  "unix_seconds": [1704024000, 1704027600, ...],
+  "price": [45.50, 42.30, ...]
+}
+```
+
+**Characteristics:**
+- Returns €/MWh (wholesale)
+- 48 hours of data
+- Updates ~every hour
+- Used as Tier 3 fallback when ENTSO-E unavailable
+
+### PostgreSQL Price Cache (Tier 4b)
+
+```sql
+CREATE TABLE price_cache (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    country VARCHAR(2) DEFAULT 'NL',
+    price_eur_kwh NUMERIC(10, 6) NOT NULL,
+    source VARCHAR(50) NOT NULL,
+    quality VARCHAR(20) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Automatic Caching:**
+- Prices cached on every successful Tier 1-3 fetch
+- Rolling 24h window
+- Serves as persistent fallback
+- Auto-cleanup via service method
 
 ### Fallback Features
 

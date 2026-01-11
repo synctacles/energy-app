@@ -12,7 +12,8 @@ from starlette.responses import Response
 import time
 
 from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
-from synctacles_db.api.endpoints import generation_mix, load, balance, now, prices, auth, signals, energy_action
+from synctacles_db.api.endpoints import balance, now, prices, auth, energy_action
+from synctacles_db.api.endpoints.deprecated import router as deprecated_router, signals_router as deprecated_signals_router
 from synctacles_db.api.routes.pipeline import router as pipeline_router
 from synctacles_db.cache import api_cache
 from config.settings import settings
@@ -145,13 +146,15 @@ async def cache_invalidate(pattern: str):
         "status": "success"
     }
 
-# V1 endpoints
-app.include_router(generation_mix.router, prefix="/api/v1", tags=["generation"])
-app.include_router(load.router, prefix="/api/v1", tags=["load"])
+# V1 endpoints - Active
 app.include_router(balance.router, prefix="/api/v1", tags=["balance"])
 app.include_router(now.router, prefix="/api/v1", tags=["Unified"])
 app.include_router(prices.router, prefix="/api/v1", tags=["prices"])
-app.include_router(signals.router, prefix="/api", tags=["signals"])
+
+# V1 endpoints - Deprecated (410 Gone)
+# Fase 2: Soft Delete - Grid endpoints discontinued (2026-01-11)
+app.include_router(deprecated_router, prefix="/api/v1", tags=["deprecated"])
+app.include_router(deprecated_signals_router, prefix="/api", tags=["deprecated"])
 
 # Energy Action (core endpoint with quality indicator)
 app.include_router(energy_action.router, prefix="/api", tags=["energy-action"])

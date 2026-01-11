@@ -726,15 +726,218 @@ Deviations require:
 
 ---
 
+## PART D: QUALITY INDICATOR LOGGING (Energy Action Endpoint)
+
+### Overview
+
+The `/api/v1/energy-action` endpoint includes quality metadata indicating data freshness and reliability. This section documents the quality logging patterns for the 5-tier fallback chain.
+
+### Quality Levels
+
+| Quality | Confidence | Tier | Log Level | Description |
+|---------|------------|------|-----------|-------------|
+| `live` | 100% | 1-2 | DEBUG | Fresh ENTSO-E data (< 60 min) |
+| `estimated` | 70-85% | 3 | INFO | Energy-Charts fallback or stale data |
+| `cached` | 50% | 4a-4b | WARNING | In-memory or PostgreSQL cache |
+| `unavailable` | 0% | 5 | ERROR | No data available |
+
+### FallbackManager Logging Pattern
+
+**File:** `synctacles_db/fallback/fallback_manager.py`
+
+```python
+from synctacles_db.core.logging import get_logger
+
+_LOGGER = get_logger(__name__)
+
+async def get_prices_with_fallback(self, country: str = "NL") -> dict:
+    """Get prices with fallback chain and quality logging."""
+
+    # Tier 1: Fresh ENTSO-E
+    entsoe_data = await self._get_entsoe_prices(country)
+    if entsoe_data and self._is_fresh(entsoe_data, threshold_minutes=15):
+        _LOGGER.debug(f"Tier 1 (ENTSO-E Fresh): {entsoe_data['price']:.4f} EUR/kWh")
+        return {"price": entsoe_data["price"], "quality": "live", "source": "ENTSO-E", "tier": 1}
+
+    # Tier 2: Stale ENTSO-E
+    if entsoe_data and self._is_acceptable(entsoe_data, threshold_minutes=60):
+        _LOGGER.debug(f"Tier 2 (ENTSO-E Stale): {entsoe_data['price']:.4f} EUR/kWh, age={entsoe_data['age_min']}min")
+        return {"price": entsoe_data["price"], "quality": "live", "source": "ENTSO-E", "tier": 2}
+
+    # Tier 3: Energy-Charts
+    ec_data = await self._get_energy_charts_prices(country)
+    if ec_data:
+        _LOGGER.info(f"Tier 3 (Energy-Charts): {ec_data['price']:.4f} EUR/kWh (ENTSO-E unavailable)")
+        return {"price": ec_data["price"], "quality": "estimated", "source": "Energy-Charts", "tier": 3}
+
+    # Tier 4a: In-Memory Cache
+    cached = self._memory_cache.get(f"prices_{country}")
+    if cached:
+        _LOGGER.warning(f"Tier 4a (Memory Cache): {cached['price']:.4f} EUR/kWh, age={cached['age_min']}min")
+        return {"price": cached["price"], "quality": "cached", "source": "Cache", "tier": 4}
+
+    # Tier 4b: PostgreSQL Cache
+    from synctacles_db.services.price_cache import price_cache_service
+    db_cached = price_cache_service.get_last_known(country)
+    if db_cached:
+        _LOGGER.warning(f"Tier 4b (PostgreSQL Cache): {db_cached['price']:.4f} EUR/kWh from {db_cached['source']}")
+        return {"price": db_cached["price"], "quality": "cached", "source": "Cache", "tier": 4}
+
+    # Tier 5: Unavailable
+    _LOGGER.error(f"Tier 5 (UNAVAILABLE): All sources failed for {country}")
+    return {"price": None, "quality": "unavailable", "source": None, "tier": 5}
+```
+
+### Price Cache Service Logging
+
+**File:** `synctacles_db/services/price_cache.py`
+
+```python
+from synctacles_db.core.logging import get_logger
+
+_LOGGER = get_logger(__name__)
+
+def store_price(self, price: float, source: str, quality: str, country: str = "NL") -> bool:
+    """Store price with logging."""
+    try:
+        # ... insert logic ...
+        _LOGGER.debug(f"Price cached: {price:.4f} EUR/kWh from {source}")
+        return True
+    except Exception as e:
+        _LOGGER.error(f"Failed to cache price: {type(e).__name__}: {e}")
+        return False
+
+def get_last_known(self, country: str = "NL") -> Optional[dict]:
+    """Get last known price with logging."""
+    try:
+        row = session.query(PriceCache)...
+        if row:
+            _LOGGER.debug(f"Cache hit: {row.price_eur_kwh:.4f} EUR/kWh from {row.source}")
+            return {...}
+        _LOGGER.debug(f"Cache miss for {country}")
+        return None
+    except Exception as e:
+        _LOGGER.error(f"Cache lookup failed: {type(e).__name__}: {e}")
+        return None
+
+def cleanup_old_entries(self, hours: int = 24) -> int:
+    """Clean old cache entries with logging."""
+    try:
+        # ... delete logic ...
+        if deleted_count > 0:
+            _LOGGER.info(f"Cache cleanup: removed {deleted_count} entries older than {hours}h")
+        return deleted_count
+    except Exception as e:
+        _LOGGER.error(f"Cache cleanup failed: {type(e).__name__}: {e}")
+        return 0
+```
+
+### Energy Action Endpoint Logging
+
+**File:** `synctacles_db/api/endpoints/energy_action.py`
+
+```python
+from synctacles_db.core.logging import get_logger
+
+_LOGGER = get_logger(__name__)
+
+@router.get("/v1/energy-action")
+async def get_energy_action(country: str = "NL"):
+    """Get energy action recommendation with quality logging."""
+    _LOGGER.debug(f"Energy action request: country={country}")
+    start_time = time.time()
+
+    try:
+        result = await fallback_manager.get_prices_with_fallback(country)
+
+        action = calculate_action(result["price"], daily_average)
+
+        elapsed = time.time() - start_time
+        _LOGGER.info(
+            f"Energy action: action={action}, quality={result['quality']}, "
+            f"price={result['price']:.4f}, source={result['source']}, "
+            f"tier={result['tier']}, elapsed={elapsed:.3f}s"
+        )
+
+        return {
+            "action": action,
+            "price_eur_kwh": result["price"],
+            "quality": result["quality"],
+            "source": result["source"],
+            "confidence": CONFIDENCE_MAP[result["quality"]],
+            ...
+        }
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"Energy action failed after {elapsed:.3f}s: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Internal error")
+```
+
+### Quality Monitoring Alerts
+
+**Recommended Alert Rules:**
+
+| Metric | Threshold | Severity | Action |
+|--------|-----------|----------|--------|
+| quality=cached | > 10 requests/hour | WARNING | Check ENTSO-E and Energy-Charts |
+| quality=unavailable | > 1 request/hour | CRITICAL | Immediate investigation |
+| Tier 4b hits | > 5% of requests | WARNING | Verify fallback chain |
+| Cache cleanup failures | Any | ERROR | Check database permissions |
+
+### Log Examples
+
+**Normal operation (Tier 1-2):**
+```
+2026-01-11 12:00:00 - fallback_manager - DEBUG - Tier 1 (ENTSO-E Fresh): 0.0912 EUR/kWh
+2026-01-11 12:00:00 - energy_action - INFO - Energy action: action=WAIT, quality=live, price=0.0912, source=ENTSO-E, tier=1, elapsed=0.015s
+```
+
+**Fallback activated (Tier 3):**
+```
+2026-01-11 12:00:00 - fallback_manager - INFO - Tier 3 (Energy-Charts): 0.0895 EUR/kWh (ENTSO-E unavailable)
+2026-01-11 12:00:00 - energy_action - INFO - Energy action: action=WAIT, quality=estimated, price=0.0895, source=Energy-Charts, tier=3, elapsed=0.234s
+```
+
+**Cache fallback (Tier 4b):**
+```
+2026-01-11 12:00:00 - fallback_manager - WARNING - Tier 4b (PostgreSQL Cache): 0.0920 EUR/kWh from entsoe
+2026-01-11 12:00:00 - energy_action - INFO - Energy action: action=WAIT, quality=cached, price=0.0920, source=Cache, tier=4, elapsed=0.008s
+```
+
+**Complete failure (Tier 5):**
+```
+2026-01-11 12:00:00 - fallback_manager - ERROR - Tier 5 (UNAVAILABLE): All sources failed for NL
+2026-01-11 12:00:00 - energy_action - INFO - Energy action: action=WAIT, quality=unavailable, price=null, source=null, tier=5, elapsed=0.450s
+```
+
+---
+
 ## CONTACT & ESCALATION
 
 Questions about logging standards:
-1. Check this document first (SKILL_13 v2.0)
+1. Check this document first (SKILL_13 v2.1)
 2. Review examples in `/opt/github/synctacles-api/synctacles_db/`
 3. Contact architecture team if unclear
 
 ---
 
-**Last Updated:** 2026-01-03
+**Last Updated:** 2026-01-11
 **Status:** ✅ Implemented and Mandatory
 **Next Review:** Quarterly or after major architectural changes
+
+---
+
+## CHANGELOG
+
+### v2.1 (2026-01-11)
+- Added PART D: Quality Indicator Logging for Energy Action endpoint
+- Added 5-tier fallback chain logging patterns
+- Added Price Cache Service logging examples
+- Added quality monitoring alerts
+
+### v2.0 (2026-01-03)
+- Initial implementation post-TASK 01-06
+- Centralized backend logging via `get_logger()`
+- API middleware logging patterns
+- HA integration logging standards

@@ -22,20 +22,26 @@ mkdir -p "${LOG_PATH}"
 # Python path
 PYTHON="${VENV_PATH}/bin/python3"
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting normalizer batch..."
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting normalizer batch (Energy Action Focus mode)..."
 
-# ENTSO-E normalizers (alle 3 sources)
+# Phase 2: Energy Action Focus (2026-01-11)
+# Only A44 (prices) normalizer is needed for Energy Action
+# A65 (load) and A75 (generation) normalizers are SKIPPED
+
+# ENTSO-E normalizers - Only A44 (prices)
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A44 (prices)..."
 "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a44
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A65 (load)..."
-"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65
+# SKIPPED: A65 (load) - DISCONTINUED
+# echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A65 (load)..."
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a65
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A75 (generation)..."
-"${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75
+# SKIPPED: A75 (generation) - DISCONTINUED
+# echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing A75 (generation)..."
+# "${PYTHON}" -m synctacles_db.normalizers.normalize_entso_e_a75
 
 # Price post-processing
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Processing price aggregation..."
 "${PYTHON}" -m synctacles_db.normalizers.normalize_prices
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Normalizer batch complete"
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Normalizer batch complete (Energy Action Focus mode)"

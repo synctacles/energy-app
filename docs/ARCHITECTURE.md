@@ -300,7 +300,55 @@ When primary data sources (ENTSO-E) are unavailable or stale, the system automat
 - ENTSO-E alone: ~95% uptime
 - ENTSO-E + Energy-Charts: ~99.9% uptime
 
-### Fallback Hierarchy (4 Tiers)
+### Fallback Hierarchy (5 Tiers for Energy Action)
+
+**Updated:** 2026-01-11 (Fase 1 - Energy Action Focus)
+
+The `/api/v1/energy-action` endpoint uses a specialized 5-tier fallback chain:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PRICE FALLBACK CHAIN                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Tier 1: ENTSO-E (Fresh)          ← < 15 min old           │
+│     ↓ fail                           quality = "live"       │
+│                                      confidence = 100%      │
+│                                      allow_automation = TRUE│
+│                                                             │
+│  Tier 2: ENTSO-E (Stale)          ← 15-60 min old          │
+│     ↓ fail                           quality = "live"       │
+│                                      confidence = 100%      │
+│                                      allow_automation = TRUE│
+│                                                             │
+│  Tier 3: Energy-Charts            ← Live API call          │
+│     ↓ fail                           quality = "estimated"  │
+│                                      confidence = 70-85%    │
+│                                      allow_automation = FALSE│
+│                                                             │
+│  Tier 4a: In-Memory Cache         ← TTLCache (5 min)       │
+│     ↓ fail                           quality = "cached"     │
+│                                      confidence = 50%       │
+│                                      allow_automation = FALSE│
+│                                                             │
+│  Tier 4b: PostgreSQL Cache        ← 24h persistence        │
+│     ↓ fail                           quality = "cached"     │
+│                                      confidence = 50%       │
+│                                      allow_automation = FALSE│
+│                                                             │
+│  Tier 5: UNAVAILABLE              ← Return null            │
+│                                      quality = "unavailable"│
+│                                      confidence = 0%        │
+│                                      allow_automation = FALSE│
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Critical Rule:** `allow_automation = TRUE` only for Tier 1-2 (fresh ENTSO-E data). This prevents automated actions based on potentially inaccurate fallback data.
+
+### Legacy Fallback Hierarchy (Generation/Load)
+
+For generation and load endpoints, the original 6-tier fallback remains:
 
 #### Tier 1: Fresh Database Data (Primary)
 ```
@@ -511,6 +559,37 @@ CREATE TABLE archive_raw_tennet_balance (
 ```
 
 **Status:** Historical data preserved, collectors/importers/normalizers moved to `archive/` directories.
+
+### Cache Tables
+
+#### `price_cache` - 24h Price Fallback Cache
+
+**Added:** 2026-01-11 (Fase 1 - Energy Action Focus)
+
+PostgreSQL-backed cache for Tier 4b fallback when all live sources are unavailable.
+
+```sql
+CREATE TABLE price_cache (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    country VARCHAR(2) NOT NULL DEFAULT 'NL',
+    price_eur_kwh NUMERIC(10, 6) NOT NULL,
+    source VARCHAR(50) NOT NULL,      -- entsoe, energy-charts, enever
+    quality VARCHAR(20) NOT NULL,      -- live, estimated, cached
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_price_cache_timestamp ON price_cache(timestamp);
+CREATE INDEX idx_price_cache_country_timestamp ON price_cache(country, timestamp DESC);
+```
+
+**Purpose:**
+- 24h rolling cache for price fallback
+- Automatically populated when prices are fetched from primary sources
+- Used by `/api/v1/energy-action` endpoint as Tier 4b fallback
+- Cleaned up automatically (entries older than 24h removed)
+
+**Service:** `synctacles_db/services/price_cache.py`
 
 ### Normalized Tables (Layer 3 Output)
 
@@ -757,6 +836,60 @@ GET /v1/balance/current
   }
 }
 ```
+
+#### Energy Action (NEW - Fase 1)
+
+**Added:** 2026-01-11
+
+```
+GET /api/v1/energy-action
+```
+
+**Purpose:** Core endpoint for Home Assistant integration with quality metadata. Provides USE/WAIT/SKIP recommendations based on current electricity prices.
+
+**Response:**
+```json
+{
+  "action": "USE",
+  "price_eur_kwh": 0.091,
+  "quality": "live",
+  "source": "ENTSO-E",
+  "confidence": 100,
+  "cheapest_hour": {
+    "timestamp": "2026-01-11T22:45:00+00:00",
+    "hour": 22,
+    "price_eur_kwh": 0.07211
+  },
+  "most_expensive_hour": {
+    "timestamp": "2026-01-11T15:45:00+00:00",
+    "hour": 15,
+    "price_eur_kwh": 0.11652
+  },
+  "daily_average": 0.0925,
+  "timestamp": "2026-01-11T11:59:58.734218+00:00",
+  "allow_automation": true
+}
+```
+
+**Quality Levels:**
+
+| Quality | Confidence | Source |
+|---------|------------|--------|
+| `live` | 100% | Fresh ENTSO-E data (Tier 1-2) |
+| `estimated` | 70-85% | Energy-Charts fallback (Tier 3) |
+| `cached` | 50% | In-memory or PostgreSQL cache (Tier 4) |
+| `unavailable` | 0% | No data available (Tier 5) |
+
+**Action Logic:**
+- `USE`: Current price ≤ 85% of daily average
+- `WAIT`: Current price between 85-115% of daily average
+- `SKIP`: Current price ≥ 115% of daily average
+
+**Critical Rule:** `allow_automation = true` only for quality `live` (Tier 1-2). Home Assistant automations should check this flag before executing actions.
+
+**File:** `synctacles_db/api/endpoints/energy_action.py`
+
+---
 
 #### Signals (Automation Recommendations)
 
@@ -1919,6 +2052,23 @@ Health check endpoint.
 
 ---
 
-**Last Updated:** 2026-01-08
+**Last Updated:** 2026-01-11
 **Status:** Production Ready (with known issues documented)
-**Version:** 1.1
+**Version:** 1.2
+
+---
+
+## Changelog
+
+### v1.2 (2026-01-11)
+- Added `price_cache` table documentation (Cache Tables section)
+- Updated Fallback Hierarchy with 5-tier Energy Action chain
+- Added Energy Action endpoint documentation (`/api/v1/energy-action`)
+- Added quality levels and confidence mapping
+
+### v1.1 (2026-01-08)
+- Cache migration results and performance benchmarks
+- Coefficient Engine B2B infrastructure documentation
+
+### v1.0 (2025-12-30)
+- Initial architecture documentation
