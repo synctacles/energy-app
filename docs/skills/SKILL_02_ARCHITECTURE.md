@@ -99,6 +99,8 @@ Data transformation separated into distinct, testable layers.
 EXTERNAL SOURCES
 ├── ENTSO-E (Generation, Load, Prices)
 ├── Energy-Charts (Fallback)
+├── Frank Energie API (Consumer prices)
+├── Enever API (via Coefficient Proxy)
 └── TenneT (BYO-key via HA only, not server)
      │
      ▼
@@ -106,6 +108,7 @@ LAYER 1: COLLECTORS
 ├── entso_e_a75_generation.py  (15-min)
 ├── entso_e_a65_load.py        (15-min)
 ├── entso_e_a44_prices.py      (hourly)
+├── energy_charts_a75_fallback.py  (15-min, auto-trigger on stale)
 └── energy_charts_client.py    (fallback, cached)
      │
      ▼ (saves to /var/log/{{BRAND}}/collectors/raw/*.xml)
@@ -128,6 +131,13 @@ LAYER 4: API
 ├── /v1/prices/today
 ├── /v1/signals (is_green, is_cheap)
 └── /health (system status)
+     │
+     ▼
+LAYER 5: CONSUMER PRICE ENGINE
+├── Frank calibration (daily 15:05)
+├── Enever validation (via proxy)
+├── Dual-source verification
+└── Coefficient fallback
      │
      ▼
 HOME ASSISTANT
@@ -367,6 +377,91 @@ CREATE TABLE norm_generation (
   }
 }
 ```
+
+---
+
+### Layer 5: Consumer Price Engine
+
+**Purpose:** Transform wholesale prices into consumer prices with dual-source validation
+
+**Location:** Main API + Coefficient Server
+
+**Architecture:**
+```
+                    Main API Server
+                    ┌─────────────────────────────────┐
+                    │                                 │
+ ENTSO-E Wholesale ─┼──▶ Consumer Price Service      │
+                    │         │                       │
+                    │         ▼                       │
+                    │    ┌─────────────┐              │
+                    │    │ Frank API   │──────────────┼──▶ GraphQL (direct)
+                    │    │ (primary)   │              │
+                    │    └─────────────┘              │
+                    │         │                       │
+                    │         ▼                       │
+                    │    ┌─────────────┐              │
+                    │    │ Enever Proxy│──────────────┼──▶ Coefficient Server
+                    │    │ (secondary) │              │         │
+                    │    └─────────────┘              │         ▼
+                    │         │                       │    VPN ──▶ Enever API
+                    │         ▼                       │
+                    │    ┌─────────────┐              │
+                    │    │ Dual-Source │              │
+                    │    │ Validation  │              │
+                    │    └─────────────┘              │
+                    │         │                       │
+                    │         ▼                       │
+                    │    Consumer Price               │
+                    │    (€/kWh incl BTW)             │
+                    └─────────────────────────────────┘
+```
+
+**Components:**
+
+1. **Frank Calibration** (`services/frank_calibration.py`)
+   - Daily update at 15:05
+   - Fetches live Frank prices via GraphQL
+   - Calculates correction factor
+
+2. **Enever Client** (`services/enever_client.py`)
+   - Proxied via coefficient server
+   - 25 Dutch providers
+   - Secondary validation source
+
+3. **Consumer Price Service** (`services/consumer_price.py`)
+   - Combines wholesale + coefficient
+   - Dual-source validation
+   - Fallback cascade
+
+**Calculation:**
+```python
+consumer_price = wholesale + (HOURLY_LOOKUP[hour] × correction_factor)
+```
+
+**Validation Flow:**
+```
+Frank + Enever agree   → confidence: HIGH
+Frank only             → confidence: MEDIUM
+Enever only            → confidence: MEDIUM
+Neither available      → confidence: LOW (coefficient fallback)
+```
+
+**Files:**
+```
+Main API:
+├── config/coefficients.py        # 24-hour lookup table
+├── services/frank_calibration.py # Frank API wrapper
+├── services/enever_client.py     # Enever proxy client
+└── services/consumer_price.py    # Price calculation
+
+Coefficient Server:
+├── routes/enever.py              # Proxy endpoint
+├── services/enever_client.py     # Enever API calls
+└── collectors/enever_collector.py # Historical data
+```
+
+**See:** SKILL_15_CONSUMER_PRICE_ENGINE.md for full documentation
 
 ---
 
@@ -677,6 +772,27 @@ CREATE TABLE norm_generation (
 );
 
 -- API should always query normalized tables
+```
+
+### Consumer Price Tables (Coefficient Server)
+
+```sql
+-- Historical consumer prices from Enever
+-- Located on Coefficient Server (91.99.150.36)
+CREATE TABLE enever_prices (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    hour INTEGER NOT NULL CHECK (hour >= 0 AND hour <= 23),
+    price_total DECIMAL(8,5) NOT NULL,
+    price_energy DECIMAL(8,5),
+    price_tax DECIMAL(8,5),
+    collected_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(timestamp, provider, hour)
+);
+
+-- 25 providers × 24 hours × 2 collections/day = ~1200 records/day
+-- Retention: Indefinite (B2B data asset)
 ```
 
 **Important:** Every normalized table includes:

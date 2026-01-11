@@ -244,6 +244,80 @@ Mijndomein Energie, Innova Energie, Energie VanOns, Gewoon Energie, DELTA Energi
 
 ---
 
+### 5. Frank Energie API (Server-Side)
+
+**Website:** https://frankenergie.nl/
+
+**What They Provide:**
+- Real-time consumer electricity prices for Frank Energie customers
+- Full price breakdown (wholesale, tax, margin)
+- Day-ahead prices
+
+**Access Method:** GraphQL API (no authentication required)
+
+**SYNCTACLES Integration:**
+- ✅ **Available via SYNCTACLES API** (server-side, free)
+- Used for daily coefficient calibration
+- Primary source for consumer price validation
+- Ground truth for dual-source verification
+
+**API Endpoint:**
+```
+POST https://graphcdn.frankenergie.nl/
+Content-Type: application/json
+
+{
+  "query": "query MarketPrices { marketPrices(startDate: \"2026-01-11\", endDate: \"2026-01-11\") { electricityPrices { from till marketPrice marketPriceTax sourcingMarkupPrice energyTaxPrice } } }"
+}
+```
+
+**Response Breakdown:**
+```json
+{
+  "electricityPrices": [{
+    "from": "2026-01-11T00:00:00+01:00",
+    "till": "2026-01-11T01:00:00+01:00",
+    "marketPrice": 0.04532,
+    "marketPriceTax": 0.00952,
+    "sourcingMarkupPrice": 0.0389,
+    "energyTaxPrice": 0.09854
+  }]
+}
+```
+
+**Total Price Calculation:**
+```
+consumer_price = marketPrice + marketPriceTax + sourcingMarkupPrice + energyTaxPrice
+```
+
+**Frank API Details:**
+- **Base URL:** https://graphcdn.frankenergie.nl/
+- **Authentication:** None required
+- **Rate Limit:** Not documented, appears unlimited
+- **Response Format:** JSON (GraphQL)
+- **Response Time:** ~250ms
+- **Timeout:** 10 seconds recommended
+
+**Reliability:**
+- Highly reliable (public endpoint)
+- No auth failures possible
+- Used as primary calibration source
+
+**Cost:** Free (public API)
+
+**Update Schedule:**
+- SYNCTACLES fetches daily at 15:05
+- Tomorrow prices available after ~15:00
+
+**Use in SYNCTACLES:**
+- Daily coefficient calibration
+- Dual-source validation with Enever
+- Consumer price calculation baseline
+
+See SKILL_15_CONSUMER_PRICE_ENGINE.md for full integration details.
+
+---
+
 ### 3. Energy-Charts (Fraunhofer ISE Model)
 
 **Website:** https://energy-charts.info/
@@ -306,6 +380,51 @@ GET https://api.energy-charts.info/public_power
 - Circuit breaker: Skips for 2h after HTTP 404 to respect rate limits
 
 **Cost:** Free (public API)
+
+### A75 Fallback Collector
+
+**Purpose:** Automatische fallback voor generatiedata wanneer ENTSO-E A75 onbeschikbaar of verouderd is.
+
+**Trigger:** Automatisch wanneer ENTSO-E A75 data > 2 uur oud
+
+**Timer:** Elke 15 minuten check via `energy-insights-nl-a75-fallback.timer`
+
+**Bestanden:**
+- Collector: `synctacles_db/collectors/energy_charts_a75_fallback.py`
+- Systemd: `energy-insights-nl-a75-fallback.service` / `.timer`
+- Documentatie: `/opt/energy-insights-nl/docs/FALLBACK_A75_ENERGY_CHARTS.md`
+
+**PSR-Type Mapping (Energy-Charts → ENTSO-E):**
+
+| Energy-Charts | ENTSO-E | Beschrijving |
+|---------------|---------|--------------|
+| Nuclear | B14 | Kernenergie |
+| Biomass | B01 | Biomassa |
+| Fossil gas | B04 | Aardgas |
+| Fossil hard coal | B05 | Steenkool |
+| Solar | B16 | Zonne-energie |
+| Waste | B17 | Afvalverbranding |
+| Wind offshore | B18 | Wind op zee |
+| Wind onshore | B19 | Wind op land |
+
+**Kenmerken:**
+- Schrijft naar `raw_entso_e_a75` met `source_file = 'energy_charts_fallback'`
+- Bestaande normalizer werkt automatisch met beide bronnen
+- Auto-mode: draait alleen als ENTSO-E data stale is
+- Force-mode: `--force` om altijd te draaien
+
+**Handmatig uitvoeren:**
+```bash
+cd /opt/energy-insights-nl/app
+source /opt/energy-insights-nl/venv/bin/activate
+set -a && source /opt/.env && set +a
+
+# Auto-mode (alleen als nodig)
+python synctacles_db/collectors/energy_charts_a75_fallback.py
+
+# Force-mode
+python synctacles_db/collectors/energy_charts_a75_fallback.py --force
+```
 
 ---
 
@@ -374,19 +493,29 @@ Try in order:
 
 ```
 Try in order:
-  1. ENTSO-E A44 (measured, hourly)
-     - Updated daily at 12:42 CET
-     - Quality: FRESH
+  1. Frank API + Enever (dual-source validation)
+     - Both agree (< €0.02 delta)
+     - Quality: HIGH (98% accuracy)
 
-  2. ENTSO-E A46 (intraday, continuous)
-     - Intraday auction prices
-     - Quality: FRESH | STALE
+  2. Frank API only
+     - Primary source available
+     - Quality: MEDIUM (95% accuracy)
 
-  3. Energy-Charts estimate
-     - Modeled estimate
-     - Quality: FALLBACK
+  3. Enever API only (via coefficient proxy)
+     - Secondary source available
+     - Quality: MEDIUM (93% accuracy)
 
-  4. None (report UNAVAILABLE)
+  4. Cached correction factor (< 48h)
+     - Last known calibration
+     - Quality: LOW (91% accuracy)
+
+  5. Coefficient lookup only
+     - Historical hourly patterns
+     - Quality: LOW (89% accuracy)
+
+  6. Daily average fallback
+     - Emergency: €0.17/kWh coefficient
+     - Quality: DEGRADED (85% accuracy)
 ```
 
 ### Fallback Features
@@ -623,6 +752,12 @@ Set alerts for:
 ---
 
 ## FUTURE DATA SOURCES
+
+### Implemented (2026-01)
+
+- **Frank Energie API** - Server-side consumer price calibration
+- **Enever Proxy** - Dual-source validation via coefficient server
+- **Historical Enever Data** - 25 providers, hourly granularity, growing dataset
 
 ### Planned (Phase 7-9)
 
