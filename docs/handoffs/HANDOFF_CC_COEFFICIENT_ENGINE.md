@@ -118,7 +118,43 @@ Leo draait het SYNCTACLES installer script op deze server om het te testen.
 
 **Documenteer alle fixes** die nodig zijn voor het installer script.
 
-### 1.2 Basis Structuur
+### 1.2 PIA VPN Setup (NL Exit)
+
+Server staat in Duitsland. Om niet verdacht te lijken bij Enever/TenneT, routeer verkeer via NL.
+
+**Leo heeft PIA account.** Installatie:
+
+```bash
+# Download PIA installer
+wget https://installers.privateinternetaccess.com/download/pia-linux-3.6.1-08339.run
+
+# Maak executable en installeer (headless)
+chmod +x pia-linux-3.6.1-08339.run
+sudo ./pia-linux-3.6.1-08339.run --headless
+
+# Login (Leo levert credentials)
+piactl login
+
+# Connect NL
+piactl set region netherlands
+piactl connect
+
+# Verify
+piactl get connectionstate
+curl ifconfig.me  # Moet NL IP tonen
+
+# Auto-connect na reboot
+piactl background enable
+```
+
+**Test:**
+```bash
+# Check IP locatie
+curl ipinfo.io
+# Moet "country": "NL" tonen
+```
+
+### 1.3 Basis Structuur
 
 Na installer, clone repo en setup:
 
@@ -165,78 +201,139 @@ coefficient-engine/
 
 ## FASE 2: DATA VERZAMELEN
 
-### 2.1 ENTSO-E Backfill (2022-2025)
+### 2.1 ENTSO-E Import (HELE EU, 2022-2025)
 
-ENTSO-E API staat historische queries toe. Backfill A44 prijzen:
+Leo heeft CSV's gedownload van ENTSO-E File Library. Import ALLE landen (niet alleen NL).
 
-```python
-# scripts/backfill_entso.py
-"""
-Backfill ENTSO-E A44 prijsdata 2022-2025.
-Rate limit: max 400 requests per minuut.
-"""
-
-from datetime import datetime, timedelta
-import time
-
-def backfill_a44(start_year=2022, end_year=2025):
-    """Fetch all A44 price data from ENTSO-E."""
-    
-    for year in range(start_year, end_year + 1):
-        for month in range(1, 13):
-            start = datetime(year, month, 1)
-            if month == 12:
-                end = datetime(year + 1, 1, 1)
-            else:
-                end = datetime(year, month + 1, 1)
-            
-            # Skip future dates
-            if start > datetime.now():
-                continue
-                
-            print(f"Fetching {year}-{month:02d}...")
-            fetch_and_store_a44(start, end)
-            time.sleep(1)  # Rate limiting
+**CSV locatie (Leo levert aan):**
+```
+/mnt/user-data/uploads/ of via transfer
+- 2022_01_EnergyPrices_12_1_D_r3.csv
+- 2022_02_EnergyPrices_12_1_D_r3.csv
+- ... (alle maanden 2022-2025)
 ```
 
-**Database tabel:**
+**CSV structuur (tab-delimited):**
+```
+InstanceCode  DateTime(UTC)  ResolutionCode  AreaCode  AreaDisplayName  AreaTypeCode  MapCode  ContractType  Sequence  Price[Currency/MWh]  Currency  UpdateTime(UTC)
+```
+
+**Database schema:**
 ```sql
-CREATE TABLE hist_entso_a44 (
+CREATE TABLE hist_entso_prices (
     id SERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ NOT NULL,
+    area_code TEXT NOT NULL,           -- 10YNL----------L
+    area_name TEXT,                    -- Netherlands (NL)
+    country_code TEXT NOT NULL,        -- NL
     price_eur_mwh DECIMAL(10,4),
-    import_timestamp TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(timestamp)
+    resolution TEXT,                   -- PT60M
+    currency TEXT DEFAULT 'EUR',
+    import_timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_hist_entso_a44_timestamp ON hist_entso_a44(timestamp);
+CREATE INDEX idx_hist_entso_timestamp ON hist_entso_prices(timestamp);
+CREATE INDEX idx_hist_entso_country ON hist_entso_prices(country_code);
+CREATE INDEX idx_hist_entso_area ON hist_entso_prices(area_code);
+CREATE UNIQUE INDEX idx_hist_entso_unique ON hist_entso_prices(timestamp, area_code);
 ```
 
-### 2.2 Enever Import
-
-Leo wordt Enever Supporter en download CSV's. Import script:
-
+**Import script:**
 ```python
-# scripts/import_enever_csv.py
+# scripts/import_entso_csv.py
 """
-Import Enever historische prijzen uit CSV.
-CSV formaat: timestamp, leverancier, price_eur_kwh
+Import ENTSO-E historische prijzen uit CSV (hele EU).
 """
 
 import pandas as pd
 from sqlalchemy import create_engine
+from pathlib import Path
+import os
 
-def import_enever_csv(csv_path: str, leverancier: str):
-    """Import Enever CSV into database."""
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+def import_entso_csv(csv_path: str):
+    """Import single ENTSO-E CSV into database."""
     
-    df = pd.read_csv(csv_path, parse_dates=['timestamp'])
-    df['leverancier'] = leverancier
+    print(f"Importing {csv_path}...")
     
+    # Read tab-delimited CSV
+    df = pd.read_csv(csv_path, sep='\t', encoding='utf-8')
+    
+    # Rename columns
+    df = df.rename(columns={
+        'DateTime(UTC)': 'timestamp',
+        'AreaCode': 'area_code',
+        'AreaDisplayName': 'area_name',
+        'MapCode': 'country_code',
+        'Price[Currency/MWh]': 'price_eur_mwh',
+        'ResolutionCode': 'resolution',
+        'Currency': 'currency'
+    })
+    
+    # Select only needed columns
+    df = df[['timestamp', 'area_code', 'area_name', 'country_code', 
+             'price_eur_mwh', 'resolution', 'currency']]
+    
+    # Parse timestamp
+    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+    
+    # Filter alleen EUR (skip andere currencies)
+    df = df[df['currency'] == 'EUR']
+    
+    # Import to database
     engine = create_engine(DATABASE_URL)
-    df.to_sql('hist_enever_prices', engine, if_exists='append', index=False)
+    df.to_sql('hist_entso_prices', engine, if_exists='append', index=False)
+    
+    print(f"  Imported {len(df)} rows")
+
+def import_all_csvs(folder: str):
+    """Import all ENTSO-E CSVs from folder."""
+    
+    csv_files = sorted(Path(folder).glob('*_EnergyPrices_*.csv'))
+    
+    for csv_file in csv_files:
+        import_entso_csv(str(csv_file))
+    
+    print(f"\nTotal: {len(csv_files)} files imported")
+
+if __name__ == '__main__':
+    import sys
+    folder = sys.argv[1] if len(sys.argv) > 1 else '/tmp/entso_data'
+    import_all_csvs(folder)
 ```
 
-**Database tabel:**
+**Uitvoeren:**
+```bash
+# Maak schema
+psql coefficient_db -f scripts/schema.sql
+
+# Import alle CSVs
+python scripts/import_entso_csv.py /path/to/csv/folder
+
+# Verify
+psql coefficient_db -c "SELECT country_code, COUNT(*) FROM hist_entso_prices GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
+```
+
+**Verwachte output:**
+```
+country_code | count
+-------------+--------
+DE           | ~105000
+FR           | ~105000
+NL           | ~26000
+...
+```
+
+---
+
+### 2.2 Enever Import (LATER - wacht op Leo's Supporter toegang)
+
+Leo krijgt toegang tot Enever Supporter downloads. Tot die tijd: ENTSO-E data is voldoende om infrastructuur te testen.
+
+**Status:** ⏳ WACHTEND op Enever CSV
+
+**Wanneer beschikbaar, database schema:**
 ```sql
 CREATE TABLE hist_enever_prices (
     id SERIAL PRIMARY KEY,
@@ -250,9 +347,43 @@ CREATE INDEX idx_hist_enever_timestamp ON hist_enever_prices(timestamp);
 CREATE INDEX idx_hist_enever_leverancier ON hist_enever_prices(leverancier);
 ```
 
+**Import script (voorbereid):**
+```python
+# scripts/import_enever_csv.py
+"""
+Import Enever historische prijzen uit CSV.
+"""
+
+import pandas as pd
+from sqlalchemy import create_engine
+import os
+
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+def import_enever_csv(csv_path: str):
+    """Import Enever CSV into database."""
+    
+    # Enever CSV formaat nog te bevestigen
+    df = pd.read_csv(csv_path)
+    
+    # Mapping aanpassen zodra we format kennen
+    # df = df.rename(columns={...})
+    
+    engine = create_engine(DATABASE_URL)
+    df.to_sql('hist_enever_prices', engine, if_exists='append', index=False)
+
+if __name__ == '__main__':
+    import sys
+    import_enever_csv(sys.argv[1])
+```
+
 ---
 
-## FASE 3: COEFFICIENT ANALYSE
+## FASE 3: COEFFICIENT ANALYSE (Wacht op Enever data)
+
+**Status:** ⏳ BLOCKED tot Enever CSV beschikbaar
+
+Zodra Enever data geïmporteerd is, kan de analyse starten.
 
 ### 3.1 Berekening
 
@@ -470,54 +601,34 @@ Dit is een **aparte handoff** nadat coefficient engine werkt.
 
 ## DELIVERABLES
 
-### Fase 1 (Server Setup) ✅ VOLTOOID 2026-01-09
-- [x] Installer script getest en gedocumenteerd
-- [x] Repository gecloned (`/opt/github/coefficient-engine`)
-- [x] Basis structuur aangemaakt
-- [x] PostgreSQL 16 draait
-- [x] .env geconfigureerd (`/opt/coefficient/.env`)
+### Fase 1 (Server Setup)
+- [ ] Installer script getest en gedocumenteerd
+- [ ] Repository gecloned
+- [ ] Basis structuur aangemaakt
+- [ ] PostgreSQL draait
+- [ ] .env geconfigureerd
+- [ ] PIA VPN geïnstalleerd en verbonden met NL
 
-**Server configuratie:**
-| Component | Status |
-|-----------|--------|
-| Hostname | `coefficient` |
-| Service user | `coefficient` |
-| PostgreSQL 16 | Running |
-| Node Exporter | Running (:9100) |
-| Fail2ban | Running |
-| Python 3.12 + venv | `/opt/coefficient/venv` |
-| API service | Running (:8000) |
-| SSH hardening | Root disabled, password auth off |
+### Fase 2 (Data Import)
+- [ ] ENTSO-E CSVs ontvangen van Leo
+- [ ] Import script werkt
+- [ ] ENTSO-E data heel EU (2022-2025) geïmporteerd
+- [ ] Data verificatie: counts per land
+- [ ] Enever import script voorbereid (wacht op CSV)
 
-**Toegang:**
-```bash
-# Via SSH (met geautoriseerde key)
-ssh coefficient@91.99.150.36
-
-# API health check
-curl http://91.99.150.36:8000/health
-
-# Service status
-sudo systemctl status coefficient-api
-```
-
-### Fase 2 (Data)
-- [ ] ENTSO-E backfill script werkt
-- [ ] ENTSO-E data 2022-2025 geïmporteerd
-- [ ] Enever CSV import script werkt
-- [ ] Enever data geïmporteerd (wacht op Leo's Supporter toegang)
-
-### Fase 3 (Analyse)
+### Fase 3 (Analyse) — BLOCKED tot Enever data
+- [ ] Enever CSV ontvangen van Leo
+- [ ] Enever data geïmporteerd
 - [ ] Coefficient berekening werkt
 - [ ] Stabiliteitsrapport gegenereerd
 - [ ] Conclusie: lookup of real-time?
 - [ ] Lookup tabel of real-time logic geïmplementeerd
 
-### Fase 4 (API) ✅ VOLTOOID 2026-01-09
-- [x] FastAPI endpoint werkt
-- [x] IP whitelist actief (135.181.255.83)
-- [x] Systemd service draait (`coefficient-api.service`)
-- [x] Health check OK
+### Fase 4 (API)
+- [ ] FastAPI endpoint werkt
+- [ ] IP whitelist actief
+- [ ] Systemd service draait
+- [ ] Health check OK
 
 ### Fase 5 (Integratie)
 - [ ] SYNCTACLES haalt coefficient op
@@ -531,12 +642,12 @@ sudo systemctl status coefficient-api
 
 ```bash
 # Op coefficient server
-sudo -u coefficient git -C /opt/github/coefficient-engine add -A
-sudo -u coefficient git -C /opt/github/coefficient-engine commit -m "message"
-sudo -u coefficient git -C /opt/github/coefficient-engine push
+sudo -u <service-user> git -C /opt/github/coefficient-engine add -A
+sudo -u <service-user> git -C /opt/github/coefficient-engine commit -m "message"
+sudo -u <service-user> git -C /opt/github/coefficient-engine push
 ```
 
-**Service user:** `coefficient`
+**Let op:** Service user naam hangt af van installer script output.
 
 ---
 
@@ -544,14 +655,14 @@ sudo -u coefficient git -C /opt/github/coefficient-engine push
 
 | Dag | Fase | Activiteit |
 |-----|------|------------|
-| 1 | Setup | Server + installer test + repo |
-| 1-2 | Data | ENTSO-E backfill |
-| 2 | Data | Enever import (zodra Leo toegang heeft) |
-| 2-3 | Analyse | Coefficient berekening + stabiliteitsrapport |
-| 3 | API | Endpoint + security |
-| 4 | Integratie | SYNCTACLES koppeling |
+| 1 | Setup | Server + installer test + PIA VPN + repo |
+| 1-2 | Data | ENTSO-E CSV import (heel EU) |
+| - | WACHT | Enever data (Leo levert wanneer beschikbaar) |
+| +1 | Analyse | Coefficient berekening + stabiliteitsrapport |
+| +2 | API | Endpoint + security |
+| +3 | Integratie | SYNCTACLES koppeling |
 
-**Totaal: 4-5 dagen**
+**Let op:** Fase 3-5 zijn BLOCKED tot Enever data beschikbaar is. CC kan doorgaan met Fase 1-2 en API skeleton (Fase 4).
 
 ---
 

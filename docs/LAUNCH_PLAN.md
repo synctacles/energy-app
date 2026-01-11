@@ -3,6 +3,7 @@
 **Van:** Claude (Opus)  
 **Naar:** Claude Code  
 **Datum:** 2026-01-09  
+**Laatste update:** 2026-01-09 (Coefficient Engine toegevoegd)  
 **Doel:** OTP-structuur opzetten voor professionele, gecontroleerde launch
 
 ---
@@ -19,10 +20,48 @@ Huidige staat:
 - O (Ontwikkeling): ✅ Werkt
 - T (Test): ❌ Ontbreekt
 - P (Productie): ✅ Draait
+- Coefficient Engine: ❌ Ontbreekt (KRITIEK)
 
 ---
 
-## FASE 1: OTP FUNDAMENT (Blocker voor alles)
+## FASE 0: COEFFICIENT ENGINE (Blocker voor product waarde)
+
+**Waarom eerst?**  
+Zonder coefficient is Energy Action gebaseerd op wholesale prijzen, niet wat de gebruiker betaalt. Dit is de kern van het product en ons IP.
+
+**Server:** 91.99.150.36 (Hetzner CX23)  
+**Repo:** git@github.com:DATADIO/coefficient-engine.git (PRIVATE)  
+**Handoff:** HANDOFF_CC_COEFFICIENT_ENGINE.md
+
+### 0.1 Server Setup
+- [ ] Installer script testen op nieuwe server
+- [ ] PostgreSQL configureren
+- [ ] Repo clonen en structuur opzetten
+
+### 0.2 Data Verzamelen
+- [ ] ENTSO-E backfill (2022-2025)
+- [ ] Enever CSV import (wacht op Leo's Supporter toegang)
+
+### 0.3 Analyse
+- [ ] Coefficient berekening
+- [ ] Stabiliteitsrapport genereren
+- [ ] Besluit: lookup tabel of real-time?
+
+### 0.4 API
+- [ ] GET /coefficient endpoint
+- [ ] IP whitelist (alleen SYNCTACLES server)
+- [ ] Health check
+
+### 0.5 Integratie
+- [ ] SYNCTACLES haalt coefficient op
+- [ ] Energy Action gebruikt coefficient
+- [ ] Fallback naar historische coefficient
+
+**Geschatte tijd:** 4-5 dagen
+
+---
+
+## FASE 1: OTP FUNDAMENT (Blocker voor kwaliteit)
 
 ### 1.1 Unit Test Suite (#5)
 
@@ -220,15 +259,15 @@ gh api -X PATCH /repos/synctacles/synctacles-api/milestones/1 \
 ## KRITIEKE PAD
 
 ```
-Dag 1: #5 Unit Tests + Branch Protection (MOET EERST)
-       ↓
-Dag 2: #47 Docs + #44 Monitoring + #45 Backup Test
-       ↓
-Dag 3: #53 Beta Onboarding + eerste 5 users
-       ↓
-Week 2: Feedback verwerken + #51 Payment
-       ↓
-V1 PUBLIC LAUNCH
+Dag 1-2:  Fase 0 - Coefficient server setup + ENTSO-E backfill
+Dag 2-3:  Fase 0 - Enever import + analyse + API
+Dag 3-4:  Fase 0 - SYNCTACLES integratie
+Dag 4-5:  Fase 1 - #5 Unit Tests + Branch Protection
+Dag 5-6:  Fase 1 - #47 Docs + #44 Monitoring + #45 Backup Test
+Dag 7:    Fase 3 - #53 Beta Onboarding + eerste 5 users
+Week 2:   Feedback verwerken + #51 Payment
+          ↓
+       V1 PUBLIC LAUNCH
 ```
 
 ---
@@ -247,6 +286,8 @@ V1 PUBLIC LAUNCH
 
 ## EXIT CRITERIA V1 LAUNCH
 
+- [ ] Coefficient engine draait en levert data
+- [ ] Energy Action gebruikt coefficient (niet alleen wholesale)
 - [ ] Tests in CI, branch protection aan
 - [ ] Docs compleet (HA, API, user guide)
 - [ ] External monitoring actief

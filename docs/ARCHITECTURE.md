@@ -1552,6 +1552,320 @@ After migrating all endpoints to unified api_cache pattern with 91.7% hit rate.
 
 ---
 
+## Coefficient Engine (B2B Infrastructure)
+
+### Overview
+
+The coefficient engine is a separate server infrastructure that calculates the relationship between wholesale electricity prices (ENTSO-E) and consumer prices (Enever). This enables SYNCTACLES to provide realistic Energy Action recommendations based on what consumers actually pay, not just wholesale market prices.
+
+**Status:** Phase 1 Infrastructure Complete (2026-01-10)
+**Repo:** `git@github.com:DATADIO/coefficient-engine.git` (PRIVATE)
+**Server:** 91.99.150.36 (Hetzner CX23, Germany)
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  COEFFICIENT SERVER (91.99.150.36)                          │
+│  Location: Hetzner Germany                                  │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Data Collection Layer                                 │ │
+│  │  ├── Enever Collector (NL consumer prices)            │ │
+│  │  │   └── Via VPN split tunnel (Dutch IP)             │ │
+│  │  ├── ENTSO-E Collector (EU wholesale prices)          │ │
+│  │  │   └── Direct connection (no geo-restriction)       │ │
+│  │  └── (TenneT: excluded - see ADR-003)                 │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Analysis Layer                                        │ │
+│  │  ├── Coefficient Calculation                          │ │
+│  │  │   coefficient = Enever / ENTSO-E                   │ │
+│  │  ├── Stability Analysis                               │ │
+│  │  └── Lookup Table Generation (if stable)              │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  API Layer                                             │ │
+│  │  ├── FastAPI: GET /coefficient                        │ │
+│  │  ├── IP Whitelist: 135.181.255.83 only                │ │
+│  │  └── Health Check: GET /health                        │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  PostgreSQL 16 Database: coefficient_db                     │
+└──────────────────────────────────────────────────────────────┘
+                          │
+                          │ IP whitelisted API call
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│  SYNCTACLES SERVER (135.181.255.83)                         │
+│  ├── Fetches coefficient from coefficient server            │
+│  ├── Fallback: historical coefficient from local cache      │
+│  ├── Calculates Energy Action                               │
+│  │   real_price = ENTSO-E_price × coefficient               │
+│  │   if real_price < LOW: action = "USE"                    │
+│  │   if real_price > HIGH: action = "AVOID"                 │
+│  └── Serves to Home Assistant components                    │
+└──────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│  HOME ASSISTANT (End User)                                  │
+│  ├── Energy Action sensor: USE / WAIT / AVOID               │
+│  ├── Price estimate (coefficient-adjusted)                  │
+│  └── User never sees coefficient calculation logic           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Network Topology with VPN Split Tunneling
+
+```
+                    Internet
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+        ▼              ▼              ▼
+   SSH Traffic    Other APIs    Enever Traffic
+   (port 22)     (PostgreSQL,      (84.46.252.107)
+                  Coefficient API)
+        │              │              │
+        │              │              │
+        ▼              ▼              ▼
+    ┌─────────────────────────────────┐
+    │  eth0 (Direct Route)            │
+    │  91.99.150.36                   │───┐
+    └─────────────────────────────────┘   │
+                                          │
+    ┌─────────────────────────────────┐   │
+    │  pia-split (VPN Interface)      │◄──┘
+    │  WireGuard Split Tunnel         │
+    │  Only: 84.46.252.107/32         │
+    └──────────────┬──────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────┐
+    │  PIA VPN Exit - Amsterdam        │
+    │  158.173.21.230                  │
+    │  (Appears as Dutch IP to Enever) │
+    └──────────────┬───────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────┐
+    │  Enever API                      │
+    │  84.46.252.107                   │
+    │  (Accepts request from NL IP)    │
+    └──────────────────────────────────┘
+```
+
+**Key Features:**
+- ✅ **Selective Routing**: Only Enever traffic goes via VPN (AllowedIPs = 84.46.252.107/32)
+- ✅ **SSH Preserved**: Management access uses direct route (eth0)
+- ✅ **Persistent**: Auto-starts on boot via systemd (`wg-quick@pia-split.service`)
+- ✅ **Transparent**: Application code doesn't need proxy configuration
+
+### Why Separate Server?
+
+**IP Protection:**
+- Coefficient calculation logic is proprietary intellectual property
+- Kept in private repository (DATADIO/coefficient-engine)
+- Never exposed in public SYNCTACLES API or HA component
+
+**Data Isolation:**
+- Enever consumer prices are sensitive (license restrictions)
+- Coefficient server is the only system with Enever data
+- SYNCTACLES only receives coefficient multiplier, not raw prices
+
+**Security:**
+- IP whitelist: Only SYNCTACLES server can access coefficient API
+- VPN split tunnel: Only Enever traffic exposed to VPN provider
+- Separate failure domain: Coefficient downtime doesn't affect SYNCTACLES core
+
+**Future B2B:**
+- Multi-country support (DE, BE, FR coefficients)
+- Potential white-label coefficient service
+- Historical coefficient datasets for sale
+
+### Data Flow
+
+```
+1. Collection (every 15 minutes):
+   Enever API ──(via NL VPN)──> Coefficient Server
+   ENTSO-E API ──(direct)────> Coefficient Server
+
+2. Processing:
+   coefficient = consumer_price / wholesale_price
+
+3. API Exposure:
+   Coefficient Server ──(IP whitelisted)──> SYNCTACLES Server
+
+4. Calculation:
+   SYNCTACLES: real_price = ENTSO-E × coefficient
+
+5. Action Decision:
+   if real_price < threshold_low: "USE"
+   if real_price > threshold_high: "AVOID"
+   else: "WAIT"
+
+6. Delivery:
+   SYNCTACLES API ──> Home Assistant component ──> User sees "USE"
+```
+
+### Database Schema (Coefficient Server)
+
+```sql
+-- Historical ENTSO-E prices (all EU countries)
+CREATE TABLE hist_entso_prices (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    area_code TEXT NOT NULL,        -- 10YNL----------L
+    country_code TEXT NOT NULL,     -- NL, DE, BE, etc.
+    price_eur_mwh DECIMAL(10,4),
+    import_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_hist_entso_timestamp ON hist_entso_prices(timestamp);
+CREATE INDEX idx_hist_entso_country ON hist_entso_prices(country_code);
+
+-- Historical Enever consumer prices
+CREATE TABLE hist_enever_prices (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    leverancier TEXT NOT NULL,      -- Enever, others if expanded
+    price_eur_kwh DECIMAL(10,6),
+    import_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_hist_enever_timestamp ON hist_enever_prices(timestamp);
+
+-- Calculated coefficients (if using lookup table)
+CREATE TABLE coefficient_lookup (
+    month INT,                      -- 1-12
+    day_type TEXT,                  -- 'weekday' / 'weekend'
+    hour INT,                       -- 0-23
+    coefficient DECIMAL(6,4),
+    PRIMARY KEY (month, day_type, hour)
+);
+```
+
+### API Specification
+
+**Base URL:** `http://91.99.150.36:8000` (internal only)
+
+#### GET /coefficient
+
+Returns current coefficient for time-based estimation.
+
+**Parameters:**
+- `hour` (optional): Hour of day (0-23), defaults to current hour
+- `month` (optional): Month (1-12), defaults to current month
+- `day_type` (optional): "weekday" or "weekend", defaults to current
+
+**Response:**
+```json
+{
+    "coefficient": 1.25,
+    "month": 1,
+    "day_type": "weekday",
+    "hour": 14,
+    "source": "lookup"
+}
+```
+
+**Security:**
+- IP Whitelist: Only 135.181.255.83 (SYNCTACLES server)
+- No authentication (IP-based access control)
+
+#### GET /health
+
+Health check endpoint.
+
+**Response:**
+```json
+{
+    "status": "ok",
+    "database": "connected",
+    "vpn": "active"
+}
+```
+
+### Deployment Status
+
+**Phase 1: Infrastructure** ✅ COMPLETE (2026-01-10)
+- [x] Server provisioned (91.99.150.36)
+- [x] PostgreSQL 16 installed
+- [x] VPN split tunnel configured (see ADR-002)
+- [x] SSH access secured
+- [x] Repository cloned (private)
+- [x] .env configured
+- [x] Coefficient API skeleton running
+
+**Phase 2: Data Collection** ⏳ PENDING
+- [ ] ENTSO-E CSV import (Leo to provide historical data)
+- [ ] Enever CSV import (waiting on Leo's Supporter access)
+- [ ] Collectors implemented
+- [ ] Data validation
+
+**Phase 3: Analysis** 🔒 BLOCKED (requires Phase 2 data)
+- [ ] Coefficient calculation
+- [ ] Stability analysis
+- [ ] Lookup table vs real-time decision
+
+**Phase 4: API** 🔒 BLOCKED (requires Phase 3)
+- [ ] GET /coefficient implementation
+- [ ] IP whitelist enforcement
+- [ ] Systemd service
+- [ ] Health checks
+
+**Phase 5: Integration** 🔒 BLOCKED (requires Phase 4)
+- [ ] SYNCTACLES integration
+- [ ] Fallback mechanism
+- [ ] Energy Action using coefficient
+- [ ] End-to-end testing
+
+### Monitoring
+
+**Health Checks:**
+1. VPN tunnel status: `wg show pia-split`
+2. VPN handshake freshness: `wg show pia-split latest-handshakes`
+3. Enever routing: `ip route get 84.46.252.107 | grep pia-split`
+4. Database connectivity: `psql -c "SELECT 1"`
+5. API responsiveness: `curl http://localhost:8000/health`
+
+**Alerts:**
+- ❌ VPN tunnel down > 5 minutes
+- ❌ Enever not routing via VPN
+- ⚠️ VPN handshake stale (> 2 minutes)
+- ❌ Database unreachable
+- ⚠️ No data collection in last 30 minutes
+
+### Security Model
+
+**Network Security:**
+- Coefficient API: IP whitelist (only SYNCTACLES)
+- SSH: Key-based auth only, password auth disabled
+- VPN: Split tunnel (only Enever exposed to PIA)
+- Firewall: UFW configured
+
+**Data Security:**
+- Enever data: Never leaves coefficient server
+- Coefficient: Served only to SYNCTACLES (IP restricted)
+- API keys: Stored in .env (not in git)
+- Private repo: DATADIO/coefficient-engine (not public)
+
+**Operational Security:**
+- Root access: Disabled
+- Service user: `coefficient` (non-root)
+- Sudo: Required for privileged operations
+- Logs: Monitored for anomalies
+
+### Related Documentation
+
+- **ADR-002**: VPN Split Tunneling for Coefficient Server
+- **ADR-003**: TenneT Data Exclusion from Coefficient Calculation
+- **SKILL_10**: Coefficient VPN Configuration and Troubleshooting
+- **HANDOFF_CC_COEFFICIENT_ENGINE.md**: Detailed implementation guide
+
+---
+
 ## Further Reading
 
 - [API Reference](api-reference.md)
