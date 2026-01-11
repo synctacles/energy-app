@@ -545,15 +545,15 @@ class FallbackManager:
         country: str = "nl"
     ) -> Tuple[Optional[List[Dict]], str, str, bool]:
         """
-        Get electricity prices with 4-tier fallback strategy.
+        Get electricity prices with 6-tier fallback strategy.
 
-        CRITICAL RULE: Energy-Charts prices MUST NOT trigger GO actions!
-
-        4-Tier Fallback:
-        1. Fresh ENTSO-E data → allow_go_action=True
-        2. Stale ENTSO-E data → allow_go_action=True
-        3. Energy-Charts fallback → allow_go_action=False (CRITICAL!)
-        4. Cache fallback → allow_go_action=False
+        6-Tier Fallback (Consumer Price Priority):
+        1. Consumer Proxy (Frank Energie) → LIVE consumer (100%)
+        2. Consumer Proxy (other providers) → LIVE consumer (99%)
+        3. ENTSO-E Fresh + Coefficient → CALCULATED consumer (89%)
+        4. ENTSO-E Stale + Coefficient → CALCULATED consumer (85%)
+        5. Energy-Charts + Coefficient → FALLBACK (70%)
+        6. Cache → CACHED (50%)
 
         Args:
             db_results: List of price records from database
@@ -563,70 +563,180 @@ class FallbackManager:
         Returns:
             Tuple of (data, source, quality, allow_go_action)
             - data: List of price dicts or None
-            - source: "ENTSO-E" | "Energy-Charts" | "Cache"
+            - source: "Frank Energie" | "Consumer Proxy" | "ENTSO-E+Coef" | etc.
             - quality: "FRESH" | "STALE" | "FALLBACK" | "CACHED" | "UNAVAILABLE"
-            - allow_go_action: bool (False for Energy-Charts!)
+            - allow_go_action: bool
         """
+        from synctacles_db.clients.consumer_price_client import ConsumerPriceClient
+
         thresholds = FallbackManager.THRESHOLDS.get("prices", {"fresh": 15, "stale": 60})
         fresh_threshold = thresholds["fresh"]
         stale_threshold = thresholds["stale"]
 
-        # Tier 1: Fresh ENTSO-E data
+        # =================================================================
+        # TIER 1: Consumer Proxy - Frank Energie (LIVE consumer prices)
+        # =================================================================
+        try:
+            frank_prices = await ConsumerPriceClient.get_frank_prices("today")
+            if frank_prices and len(frank_prices) > 0:
+                # Convert to standard format
+                consumer_prices = [
+                    {
+                        "timestamp": FallbackManager._hour_to_timestamp(p["hour"]),
+                        "price_eur_mwh": p["price"] * 1000  # Convert kWh to MWh for consistency
+                    }
+                    for p in frank_prices
+                ]
+                _LOGGER.info(f"Tier 1: Frank Energie LIVE ({len(consumer_prices)} prices)")
+                FallbackManager._cache_prices_to_db(consumer_prices, "frank-energie", "live", country)
+                return (consumer_prices, "Frank Energie", "FRESH", True)
+        except Exception as err:
+            _LOGGER.debug(f"Tier 1 (Frank Energie) failed: {err}")
+
+        # =================================================================
+        # TIER 2: Consumer Proxy - Other providers (LIVE consumer prices)
+        # =================================================================
+        try:
+            consumer_data = await ConsumerPriceClient.get_consumer_prices()
+            if consumer_data and consumer_data.get("prices_today"):
+                # Try other reliable providers as fallback
+                for provider in ["Tibber", "Vattenfall", "ANWB"]:
+                    provider_prices = consumer_data["prices_today"].get(provider)
+                    if provider_prices and len(provider_prices) > 0:
+                        consumer_prices = [
+                            {
+                                "timestamp": FallbackManager._hour_to_timestamp(p["hour"]),
+                                "price_eur_mwh": p["price"] * 1000
+                            }
+                            for p in provider_prices
+                        ]
+                        _LOGGER.info(f"Tier 2: {provider} LIVE ({len(consumer_prices)} prices)")
+                        FallbackManager._cache_prices_to_db(consumer_prices, provider.lower(), "live", country)
+                        return (consumer_prices, provider, "FRESH", True)
+        except Exception as err:
+            _LOGGER.debug(f"Tier 2 (Consumer Proxy) failed: {err}")
+
+        # =================================================================
+        # TIER 3: ENTSO-E Fresh + Coefficient (CALCULATED consumer prices)
+        # =================================================================
         if db_results and db_age_minutes < fresh_threshold:
-            _LOGGER.info(f"Prices FRESH from ENTSO-E ({db_age_minutes} min)")
-            # Store in PostgreSQL cache for persistence
-            FallbackManager._cache_prices_to_db(db_results, "entsoe", "live", country)
-            return (db_results, "ENTSO-E", "FRESH", True)  # GO actions allowed
+            try:
+                coefficient_data = await ConsumerPriceClient.get_coefficient()
+                coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
+                confidence = coefficient_data.get("confidence", 89) if coefficient_data else 89
 
-        # Tier 2: Stale ENTSO-E data (acceptable)
+                # Apply coefficient to convert wholesale to consumer estimate
+                calculated_prices = FallbackManager._apply_coefficient(db_results, coefficient)
+
+                _LOGGER.info(f"Tier 3: ENTSO-E Fresh + Coefficient {coefficient:.3f} ({db_age_minutes} min)")
+                FallbackManager._cache_prices_to_db(calculated_prices, "entsoe+coef", "estimated", country)
+                return (calculated_prices, f"ENTSO-E+Coef ({confidence}%)", "FRESH", True)
+            except Exception as err:
+                _LOGGER.debug(f"Tier 3 coefficient failed, using raw ENTSO-E: {err}")
+                # Fallback to raw ENTSO-E if coefficient fetch fails
+                _LOGGER.info(f"Tier 3b: ENTSO-E Fresh (raw, {db_age_minutes} min)")
+                FallbackManager._cache_prices_to_db(db_results, "entsoe", "live", country)
+                return (db_results, "ENTSO-E", "FRESH", True)
+
+        # =================================================================
+        # TIER 4: ENTSO-E Stale + Coefficient (CALCULATED consumer prices)
+        # =================================================================
         if db_results and db_age_minutes < stale_threshold:
-            _LOGGER.info(f"Prices STALE from ENTSO-E ({db_age_minutes} min)")
-            return (db_results, "ENTSO-E", "STALE", True)  # GO actions allowed
+            try:
+                coefficient_data = await ConsumerPriceClient.get_coefficient()
+                coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
 
-        # Tier 3: Energy-Charts fallback
-        if FallbackManager._check_circuit_breaker():
-            _LOGGER.warning("EC circuit breaker open - skipping Energy-Charts fallback")
-        else:
+                calculated_prices = FallbackManager._apply_coefficient(db_results, coefficient)
+
+                _LOGGER.info(f"Tier 4: ENTSO-E Stale + Coefficient {coefficient:.3f} ({db_age_minutes} min)")
+                return (calculated_prices, "ENTSO-E+Coef (stale)", "STALE", True)
+            except Exception as err:
+                _LOGGER.debug(f"Tier 4 coefficient failed: {err}")
+                _LOGGER.info(f"Tier 4b: ENTSO-E Stale (raw, {db_age_minutes} min)")
+                return (db_results, "ENTSO-E", "STALE", True)
+
+        # =================================================================
+        # TIER 5: Energy-Charts + Coefficient (FALLBACK)
+        # =================================================================
+        if not FallbackManager._check_circuit_breaker():
             try:
                 ec_prices = await EnergyChartsClient.fetch_prices(country=country, hours=48)
                 if ec_prices and len(ec_prices) > 0:
-                    _LOGGER.warning(f"Using Energy-Charts fallback ({len(ec_prices)} prices)")
+                    # Try to apply coefficient
+                    try:
+                        coefficient_data = await ConsumerPriceClient.get_coefficient()
+                        coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
+                        calculated_prices = FallbackManager._apply_coefficient(ec_prices, coefficient)
+                        source = f"Energy-Charts+Coef"
+                    except:
+                        calculated_prices = ec_prices
+                        source = "Energy-Charts"
 
-                    # Cache in memory for quick access
+                    _LOGGER.warning(f"Tier 5: {source} ({len(calculated_prices)} prices)")
+
                     cache_key = f"prices_{country}"
-                    _fallback_cache[cache_key] = ec_prices
-
-                    # Store in PostgreSQL cache for persistence
-                    FallbackManager._cache_prices_to_db(ec_prices, "energy-charts", "estimated", country)
+                    _fallback_cache[cache_key] = calculated_prices
+                    FallbackManager._cache_prices_to_db(calculated_prices, "energy-charts", "estimated", country)
 
                     # CRITICAL: allow_go_action=False for Energy-Charts!
-                    return (ec_prices, "Energy-Charts", "FALLBACK", False)  # NO GO actions
+                    return (calculated_prices, source, "FALLBACK", False)
             except Exception as err:
-                _LOGGER.error(f"Energy-Charts fallback failed: {err}")
+                _LOGGER.error(f"Tier 5 (Energy-Charts) failed: {err}")
                 if "404" in str(err):
                     FallbackManager._open_circuit_breaker()
+        else:
+            _LOGGER.warning("Tier 5 skipped: EC circuit breaker open")
 
-        # Tier 4: In-memory cache fallback (quick check)
+        # =================================================================
+        # TIER 6: Cache fallback (in-memory and PostgreSQL)
+        # =================================================================
         cache_key = f"prices_{country}"
         if cache_key in _fallback_cache:
             cached_prices = _fallback_cache[cache_key]
-            _LOGGER.warning(f"Using in-memory cached prices ({len(cached_prices)} records)")
-            return (cached_prices, "Cache", "CACHED", False)  # NO GO actions on cache
+            _LOGGER.warning(f"Tier 6a: In-memory cache ({len(cached_prices)} records)")
+            return (cached_prices, "Cache", "CACHED", False)
 
-        # Tier 4b: PostgreSQL cache fallback (persistent, 24h)
         db_cached = price_cache_service.get_cached_prices(country=country, hours=24)
         if db_cached:
-            _LOGGER.warning(f"Using PostgreSQL cached prices ({len(db_cached)} records)")
-            return (db_cached, "Cache (DB)", "CACHED", False)  # NO GO actions on cache
+            _LOGGER.warning(f"Tier 6b: PostgreSQL cache ({len(db_cached)} records)")
+            return (db_cached, "Cache (DB)", "CACHED", False)
 
-        # Complete failure - return stale DB if available (but still no GO)
+        # Complete failure - return stale DB if available (but no GO)
         if db_results:
-            _LOGGER.warning(f"All fallback failed, using stale ENTSO-E ({db_age_minutes} min)")
-            return (db_results, "ENTSO-E", "STALE", False)  # NO GO on very stale data
+            _LOGGER.warning(f"All tiers failed, using very stale ENTSO-E ({db_age_minutes} min)")
+            return (db_results, "ENTSO-E", "STALE", False)
 
         # No data at all
-        _LOGGER.error("All price data sources failed")
+        _LOGGER.error("All 6 tiers failed - no price data available")
         return (None, "None", "UNAVAILABLE", False)
+
+    @staticmethod
+    def _hour_to_timestamp(hour: int) -> str:
+        """Convert hour (0-23) to ISO timestamp for today."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        ts = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+        return ts.isoformat()
+
+    @staticmethod
+    def _apply_coefficient(prices: List[Dict], coefficient: float) -> List[Dict]:
+        """
+        Apply coefficient to wholesale prices to estimate consumer prices.
+
+        Args:
+            prices: List of price dicts with price_eur_mwh
+            coefficient: Multiplier (e.g., 1.85 means consumer = wholesale * 1.85)
+
+        Returns:
+            List of adjusted price dicts
+        """
+        adjusted = []
+        for p in prices:
+            new_p = p.copy()
+            if "price_eur_mwh" in new_p and new_p["price_eur_mwh"] is not None:
+                new_p["price_eur_mwh"] = float(new_p["price_eur_mwh"]) * coefficient
+            adjusted.append(new_p)
+        return adjusted
 
     @staticmethod
     def _cache_prices_to_db(prices: List[Dict], source: str, quality: str, country: str):
