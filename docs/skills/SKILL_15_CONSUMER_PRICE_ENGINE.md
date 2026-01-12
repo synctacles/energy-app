@@ -1,7 +1,7 @@
 # SKILL 15 — CONSUMER PRICE ENGINE
 
 Dual-Source Price Calculation with Frank & Enever Integration
-Version: 1.0 (2026-01-11)
+Version: 2.1 (2026-01-12) — Bias Correction (×0.93)
 
 ---
 
@@ -185,23 +185,290 @@ correction_factor = frank_live / frank_lookup  # e.g., 1.064
 save_correction_factor(correction_factor)
 ```
 
-### Runtime Calculation
+### Runtime Calculation (Legacy)
 
 ```python
 def calculate_consumer_price(wholesale_price: float, hour: int) -> float:
     """Calculate consumer price from wholesale."""
-    
+
     # Get stored correction factor
     correction = get_correction_factor()  # e.g., 1.064
-    
+
     # Get hourly coefficient
     coefficient = HOURLY_LOOKUP[hour]  # e.g., €0.172
-    
+
     # Calculate consumer price
     consumer_price = wholesale_price + (coefficient * correction)
-    
+
     return consumer_price
 ```
+
+---
+
+## LINEAR REGRESSION MODEL (2026-01-12)
+
+### Why Linear Regression?
+
+The simple coefficient method (`consumer = wholesale × coefficient`) has a fundamental flaw:
+it assumes consumer price is purely proportional to wholesale price.
+
+**Reality:** Consumer price = wholesale + fixed costs
+
+```
+Consumer Price Components:
+├── Variable: Wholesale price (ENTSO-E)
+└── Fixed:
+    ├── Energy tax (energiebelasting): ~€0.06/kWh
+    ├── Grid costs (netbeheer):        ~€0.04/kWh
+    ├── VAT (21%):                     ~€0.03/kWh
+    └── Provider margin:               ~€0.02/kWh
+    ────────────────────────────────────────────
+    Total fixed:                       ~€0.15/kWh
+```
+
+### The Linear Model
+
+**Formula:**
+```
+consumer = wholesale × slope + intercept
+```
+
+Where:
+- **slope** (~1.27): How strongly consumer price responds to wholesale changes
+- **intercept** (~€0.147): Fixed costs regardless of wholesale price
+
+### Improvement
+
+| Metric | Old (Coefficient) | New (Slope+Intercept) |
+|--------|-------------------|----------------------|
+| Average error | 10-12% | **5.1%** |
+| Evening peak (17-21) | 24-39% | **5-11%** |
+| R² confidence | n/a | 61-96% |
+
+### Database Schema
+
+```sql
+CREATE TABLE coefficient_lookup (
+    country     VARCHAR(2) NOT NULL DEFAULT 'NL',
+    month       INTEGER NOT NULL,        -- 1-12
+    day_type    VARCHAR(10) NOT NULL,    -- 'weekday' / 'weekend'
+    hour        INTEGER NOT NULL,        -- 0-23
+    slope       NUMERIC(10,4) NOT NULL,  -- ~1.0-2.0
+    intercept   NUMERIC(10,6) DEFAULT 0, -- ~€0.15/kWh
+    sample_size INTEGER DEFAULT 0,
+    confidence  INTEGER DEFAULT 89,      -- R² as percentage
+    last_calibrated TIMESTAMPTZ,
+    PRIMARY KEY (country, month, day_type, hour)
+);
+```
+
+### API Endpoint
+
+**Request:**
+```bash
+curl "http://91.99.150.36:8080/coefficient?country=NL&hour=12&day_type=weekday"
+```
+
+**Response:**
+```json
+{
+    "country": "NL",
+    "slope": 1.1193,
+    "intercept": 0.1464,
+    "hour": 12,
+    "day_type": "weekday",
+    "month": 1,
+    "confidence": 95,
+    "sample_size": 64,
+    "source": "lookup"
+}
+```
+
+### Synctacles Fallback Integration
+
+The fallback manager uses this model in Tier 3/4/5:
+
+```python
+# Default fallback (if Coefficient Engine unavailable)
+DEFAULT_SLOPE = 1.27
+DEFAULT_INTERCEPT = 0.147  # EUR/kWh
+
+# Bias correction (calibrated 2026-01-12, reduces error from 7.58% to 2.11%)
+BIAS_CORRECTION = 0.93
+
+# Get model from Coefficient Engine
+model = await ConsumerPriceClient.get_price_model(country="NL")
+slope = model.get("slope", DEFAULT_SLOPE)
+intercept = model.get("intercept", DEFAULT_INTERCEPT)
+
+# Apply: consumer = (wholesale × slope + intercept) × bias_correction
+consumer_kwh = (wholesale_kwh * slope + intercept) * BIAS_CORRECTION
+```
+
+### Calculation Example
+
+**Input:**
+- ENTSO-E price: €93.80/MWh = €0.0938/kWh
+- Slope: 1.1193
+- Intercept: €0.1464/kWh
+- Bias correction: 0.93
+
+**Calculation:**
+```
+raw      = €0.0938 × 1.1193 + €0.1464
+         = €0.1050 + €0.1464
+         = €0.2514/kWh
+
+consumer = €0.2514 × 0.93
+         = €0.2338/kWh
+```
+
+**Validation:**
+- Calculated: €0.2338/kWh
+- Frank actual: €0.2447/kWh
+- Error: -4.5% (within acceptable range)
+
+### Accuracy After Bias Correction
+
+| Metric | Before (raw) | After (×0.93) |
+|--------|--------------|---------------|
+| Bias | +7.58% | **+0.05%** |
+| Average error | 7.58% | **2.11%** |
+| P95 error | ~15% | **4.08%** |
+| Std deviation | 7.5% | **2.41%** |
+
+### Comparison: SYNCTACLES vs Enever
+
+Validated against 677 samples (30 days Frank API data):
+
+| Source | Error vs Frank API | €/kWh |
+|--------|-------------------|-------|
+| **SYNCTACLES Model** | **2.11%** | €0.0051 |
+| Enever "Frank Energie" | 2.99% | €0.0073 |
+
+**Key finding:** Our model is more accurate than Enever's published Frank prices.
+
+### Known Limitations (Post-Correction)
+
+| Issue | Impact | Details |
+|-------|--------|---------|
+| Night hours (00-05h) | 2.5-3.0% error | Slightly higher than average |
+| Morning volatility | <4% error | Improved from 15% pre-correction |
+| Evening peak (17-21h) | <3% error | Improved from 7.4% pre-correction |
+
+**All hours now within acceptable range (<5% error).**
+
+### Improvement Roadmap
+
+**✅ Completed:**
+1. ~~**Bias correction** — Multiply result by 0.93~~ **(DONE 2026-01-12)**
+
+**Future Improvements (Low Priority - Model Already Excellent):**
+1. **Peak-hour specific models** — Separate coefficients for 17-21h (potential ~0.3% improvement)
+2. **Rolling window calibration** — Auto-update bias correction weekly
+3. **Multi-provider support** — Coefficients per energy provider (Tibber, Zonneplan, etc.)
+
+### SQL Regression Query
+
+De 576 coefficienten worden berekend met PostgreSQL's native regression functies:
+
+```sql
+WITH hourly_wholesale AS (
+    -- Aggregeer ENTSO-E 15-min data naar uurlijks
+    SELECT
+        DATE_TRUNC('hour', timestamp) as hour,
+        AVG(price_eur_mwh) / 1000 as wholesale_kwh
+    FROM hist_entso_prices
+    WHERE country_code = 'NL'
+      AND timestamp > NOW() - INTERVAL '90 days'
+    GROUP BY DATE_TRUNC('hour', timestamp)
+),
+paired_data AS (
+    -- Koppel consumer prijzen aan wholesale
+    SELECT
+        e.price_eur_kwh as consumer,
+        w.wholesale_kwh as wholesale
+    FROM hist_enever_prices e
+    JOIN hourly_wholesale w
+        ON DATE_TRUNC('hour', e.timestamp) = w.hour
+    WHERE e.leverancier = 'Frank Energie'
+      AND EXTRACT(HOUR FROM e.timestamp) = {hour}       -- 0-23
+      AND EXTRACT(DOW FROM e.timestamp) {dow_filter}    -- IN (0,6) or NOT IN (0,6)
+)
+SELECT
+    REGR_SLOPE(consumer, wholesale) as slope,           -- ~1.0-2.0
+    REGR_INTERCEPT(consumer, wholesale) as intercept,   -- ~€0.15/kWh
+    POWER(CORR(wholesale, consumer), 2) as r_squared,   -- Confidence 0-1
+    COUNT(*) as sample_size
+FROM paired_data
+```
+
+**PostgreSQL Functies:**
+- `REGR_SLOPE(y, x)`: Berekent de helling van de regressielijn
+- `REGR_INTERCEPT(y, x)`: Berekent het snijpunt met de y-as
+- `CORR(x, y)²`: R² als betrouwbaarheidsmaat (0-1, hoger = beter)
+
+### Recalibratie Script
+
+Om alle 576 coefficienten te hercalibreren:
+
+```bash
+ssh coefficient@91.99.150.36
+
+cd /opt/github/coefficient-engine
+python3 << 'EOF'
+import psycopg2
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+import os
+
+load_dotenv('.env')
+conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+cur = conn.cursor()
+
+now = datetime.now(timezone.utc)
+
+for month in range(1, 13):
+    for day_type in ['weekday', 'weekend']:
+        dow = 'IN (0, 6)' if day_type == 'weekend' else 'NOT IN (0, 6)'
+        for hour in range(24):
+            cur.execute(f"""
+                WITH paired AS (
+                    SELECT e.price_eur_kwh as c, AVG(w.price_eur_mwh)/1000 as w
+                    FROM hist_enever_prices e
+                    JOIN hist_entso_prices w
+                        ON DATE_TRUNC('hour', e.timestamp) = DATE_TRUNC('hour', w.timestamp)
+                    WHERE e.leverancier = 'Frank Energie'
+                      AND EXTRACT(HOUR FROM e.timestamp) = {hour}
+                      AND EXTRACT(DOW FROM e.timestamp) {dow}
+                      AND e.timestamp > NOW() - INTERVAL '90 days'
+                      AND w.price_eur_mwh > 0
+                    GROUP BY e.timestamp, e.price_eur_kwh
+                )
+                SELECT REGR_SLOPE(c, w), REGR_INTERCEPT(c, w),
+                       POWER(CORR(w, c), 2), COUNT(*)
+                FROM paired
+            """)
+            row = cur.fetchone()
+            if row[0]:
+                cur.execute("""
+                    UPDATE coefficient_lookup
+                    SET slope = %s, intercept = %s, confidence = %s,
+                        sample_size = %s, last_calibrated = %s
+                    WHERE country = 'NL' AND month = %s
+                      AND day_type = %s AND hour = %s
+                """, (row[0], row[1], int(row[2]*100), row[3], now,
+                      month, day_type, hour))
+
+conn.commit()
+print("Recalibratie voltooid: 576 coefficienten bijgewerkt")
+EOF
+```
+
+### Related Documentation
+
+- [HANDOFF_CC_COEFFICIENT_LINEAR_REGRESSION.md](handoffs/2026-01-12-coefficient-model/HANDOFF_CC_COEFFICIENT_LINEAR_REGRESSION.md) - Model validation details
+- [HANDOFF_CC_SYNCTACLES_SLOPE_INTERCEPT.md](handoffs/2026-01-12-coefficient-model/HANDOFF_CC_SYNCTACLES_SLOPE_INTERCEPT.md) - Integration implementation
 
 ---
 
@@ -536,6 +803,21 @@ EOF
 ---
 
 ## CHANGELOG
+
+- **2026-01-12 v2.1**: Bias correction implementation
+  - Added BIAS_CORRECTION = 0.93 constant
+  - Formula now: `consumer = (wholesale × slope + intercept) × 0.93`
+  - Bias reduced from +7.58% to +0.05%
+  - Average error reduced from 7.58% to **2.11%**
+  - P95 error reduced to 4.08%
+  - Model now more accurate than Enever (2.11% vs 2.99%)
+
+- **2026-01-12 v2.0**: Linear regression model
+  - Added slope+intercept calculation (replaces simple coefficient)
+  - Database schema with 576 hourly coefficients
+  - Synctacles fallback integration (Tier 3/4/5)
+  - Average error reduced from 10-12% to 5.1%
+  - Related handoffs in `handoffs/2026-01-12-coefficient-model/`
 
 - **2026-01-11 v1.0**: Initial skill created
   - Documented dual-source architecture

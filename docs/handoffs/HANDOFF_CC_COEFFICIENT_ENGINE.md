@@ -14,15 +14,21 @@
 **Probleem:**  
 SYNCTACLES Energy Action is gebaseerd op ENTSO-E wholesale prijzen. Maar gebruikers betalen consumer prijzen (Enever). Die kunnen significant afwijken. Energy Action kan daardoor verkeerde aanbevelingen geven.
 
-**Oplossing:**  
-Een coefficient die de relatie tussen wholesale en consumer prijzen modelleert. Hiermee wordt Energy Action betrouwbaar zonder dat we Enever data 1-op-1 doorgeven (wat juridisch niet mag).
+**Oplossing:**
+Een lineair regressie model dat de relatie tussen wholesale en consumer prijzen modelleert. Hiermee wordt Energy Action betrouwbaar zonder dat we Enever data 1-op-1 doorgeven (wat juridisch niet mag).
 
-**Formule:**
+**Formule (bijgewerkt 2026-01-12):**
 ```
-coefficient = consumer_prijs (Enever) / wholesale_prijs (ENTSO-E)
-real_price_estimate = ENTSO-E × coefficient
-Energy Action = gebaseerd op real_price_estimate
+consumer_prijs = ENTSO-E × slope + intercept
+Energy Action = gebaseerd op consumer_prijs
+
+Waar:
+- slope (~1.27): hoe sterk reageert consumentenprijs op wholesale
+- intercept (~€0.147): vaste kosten (belasting, netbeheer, marge)
 ```
+
+> **Zie ook:** [HANDOFF_CC_SYNCTACLES_SLOPE_INTERCEPT.md](2026-01-12-coefficient-model/HANDOFF_CC_SYNCTACLES_SLOPE_INTERCEPT.md) voor technische integratie details.
+> **Zie ook:** [HANDOFF_CC_COEFFICIENT_LINEAR_REGRESSION.md](2026-01-12-coefficient-model/HANDOFF_CC_COEFFICIENT_LINEAR_REGRESSION.md) voor model validatie.
 
 ### Business Model Impact
 
