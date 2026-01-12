@@ -1,336 +1,282 @@
 # SKILL 10 — DEPLOYMENT WORKFLOW
 
 Deployment Strategy for SYNCTACLES
-Version: 1.0 (2025-12-21)
+Version: 2.0 (2026-01-12)
 
 ---
 
 ## GOAL
 
-Formalize deployment from DEV → PROD with:
-- Traceability (which files, when, by whom)
-- Rollback capability (previous version restore)
-- Validation (pre/post deploy checks)
-- Automation (reproducible process)
+Simple, reliable deployment:
+```bash
+git pull && sudo systemctl restart energy-insights-nl-api
+```
+
+No symlinks. No sync scripts. Git repo = Production directory.
 
 ---
 
-## DIRECTORY STRUCTURE
+## ARCHITECTURE (V2.0)
 
-Repository (DEV - Git Source of Truth):
+### Design Principle
+**Git repository IS the working directory** for systemd services.
+
 ```
-/opt/github/synctacles-repo/
-├── deployment/
-│   ├── sync/                       ← Staged changes per feature
-│   │   ├── f8.3-fallback/
-│   │   ├── f8.4-license/
-│   │   └── f8.5-usermngmt/
-│   ├── deploy.sh                   ← Master deployment script
-│   ├── rollback.sh                 ← Rollback to previous version
-│   ├── sync-manifest.txt           ← Declarative file mappings
-│   └── pre-deploy-checks.sh        ← Validation before deploy
+/opt/github/synctacles-api/          ← Git repo AND working directory
+├── synctacles_db/                   ← Application code
+├── scripts/                         ← Operational scripts
+├── config/                          ← Configuration modules
+├── alembic/                         ← Database migrations
+├── .env                             ← Environment config (in .gitignore)
+└── docs/                            ← Documentation
 ```
 
-Production (PROD - Runtime):
-```
-{{INSTALL_PATH}}/app/              ← Deployed code
-├── synctacles_db/                 ← Deployed code
-├── alembic/
-└── VERSION                         ← Current production version
+### Environment File
+- Location: `/opt/github/synctacles-api/.env`
+- Protected by `.gitignore`
+- Contains secrets (API keys, database credentials)
+- File permissions: `600` (owner read/write only)
 
-{{INSTALL_PATH}}/backups/deployment/ ← Deployment backups
-└── YYYYMMDD-HHMMSS/                ← Timestamped snapshots
+### Virtual Environment
+- Location: `/opt/energy-insights-nl/venv/`
+- Shared across git repo (not inside repo)
+- Managed separately from deployments
+
+---
+
+## SYSTEMD CONFIGURATION
+
+### API Service
+```ini
+# /etc/systemd/system/energy-insights-nl-api.service
+[Service]
+EnvironmentFile=/opt/github/synctacles-api/.env
+WorkingDirectory=/opt/github/synctacles-api
+Environment="PYTHONPATH=/opt/github/synctacles-api"
+
+ExecStart=/opt/energy-insights-nl/venv/bin/gunicorn \
+    synctacles_db.api.main:app \
+    --workers 8 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8000 \
+    --chdir /opt/github/synctacles-api
 ```
+
+### Background Services
+All services use consistent paths:
+- `WorkingDirectory=/opt/github/synctacles-api`
+- `ExecStart=/opt/github/synctacles-api/scripts/<script>.sh`
 
 ---
 
 ## DEPLOYMENT WORKFLOW
 
-### FASE 1: Pre-Deploy Validation
-
-Run `./deployment/pre-deploy-checks.sh` to verify:
-- ✓ Git status clean (no uncommitted changes)
-- ✓ All tests passing
-- ✓ Database migrations exist
-- ✓ VERSION file updated
-- ✓ No merge conflicts
-
-### FASE 2: Backup Current Production
-
+### Standard Deploy
 ```bash
-mkdir -p {{INSTALL_PATH}}/backups/deployment/$(date +%Y%m%d-%H%M%S)
-rsync -a {{INSTALL_PATH}}/app/ {{INSTALL_PATH}}/backups/deployment/.../
+cd /opt/github/synctacles-api
+git pull origin main
+sudo systemctl restart energy-insights-nl-api
 ```
 
-### FASE 3: Sync Files (via manifest)
-
-Per sync-manifest.txt:
-```
-synctacles_db/              → {{INSTALL_PATH}}/app/synctacles_db/
-alembic/versions/           → {{INSTALL_PATH}}/app/alembic/versions/
-config/                     → {{INSTALL_PATH}}/app/config/
-scripts/                    → {{INSTALL_PATH}}/scripts/
-systemd/*.service           → /etc/systemd/system/
-systemd/*.timer             → /etc/systemd/system/
-```
-
-EXCLUDE:
-```
-.env, venv/, __pycache__/, logs/, .git/
-```
-
-### FASE 4: Post-Sync Actions
-
-1. **Database migrations:**
-   ```bash
-   cd {{INSTALL_PATH}}/app
-   alembic upgrade head
-   ```
-
-2. **Systemd reload:**
-   ```bash
-   systemctl daemon-reload
-   ```
-
-3. **Service restart:**
-   ```bash
-   systemctl restart {{SERVICE_USER}}-api
-   ```
-
-4. **Permissions:**
-   ```bash
-   chown -R {{SERVICE_USER}}:{{SERVICE_GROUP}} {{INSTALL_PATH}}/app
-   ```
-
-### FASE 5: Validation
-
+### With Migrations
 ```bash
-curl http://localhost:8000/health
-  ✓ Status: ok
-  ✓ Version matches deployed VERSION file
-
-systemctl list-timers {{SERVICE_USER}}-*
-  ✓ Expected timer count (≥3)
-
-psql -U {{DB_USER}} -d {{DB_NAME}} -c "SELECT 1"
-  ✓ Database connectivity
+cd /opt/github/synctacles-api
+git pull origin main
+source /opt/energy-insights-nl/venv/bin/activate
+alembic upgrade head
+sudo systemctl restart energy-insights-nl-api
 ```
 
-### FASE 6: Rollback (if validation fails)
-
+### Validation
 ```bash
-./deployment/rollback.sh
-  → Restore from backup
-  → Alembic downgrade (if needed)
-  → Service restart
-  → Re-validate
+# Check service status
+sudo systemctl status energy-insights-nl-api
+
+# Test health endpoint
+curl -s http://localhost:8000/health | jq .
+
+# Check logs for errors
+journalctl -u energy-insights-nl-api -n 50 --no-pager
 ```
 
 ---
 
-## SYNC MANIFEST FORMAT
+## ROLLBACK
 
-**Format:** SOURCE_PATH → DESTINATION_PATH
-
+### Quick Rollback (previous commit)
+```bash
+cd /opt/github/synctacles-api
+git checkout HEAD~1
+sudo systemctl restart energy-insights-nl-api
 ```
-# Core application
-synctacles_db/ → {{INSTALL_PATH}}/app/synctacles_db/
 
+### Rollback to Specific Tag
+```bash
+cd /opt/github/synctacles-api
+git checkout v1.0.0
+sudo systemctl restart energy-insights-nl-api
+```
+
+### Return to Latest
+```bash
+cd /opt/github/synctacles-api
+git checkout main
+git pull origin main
+sudo systemctl restart energy-insights-nl-api
+```
+
+---
+
+## PROHIBITED PATTERNS
+
+### NO symlinks for configuration
+```bash
+# WRONG - creates maintenance burden
+ln -s /opt/.env /opt/github/synctacles-api/.env
+
+# CORRECT - direct file in repo
+cp /opt/.env /opt/github/synctacles-api/.env
+```
+
+### NO separate app directory
+```bash
+# WRONG - requires sync
+/opt/energy-insights-nl/app/     ← Separate from git
+
+# CORRECT - git IS app
+/opt/github/synctacles-api/      ← Git repo = app directory
+```
+
+### NO sync scripts
+```bash
+# WRONG - complex, error-prone
+rsync git-repo/ /opt/app/
+
+# CORRECT - direct git operations
+git pull && systemctl restart
+```
+
+---
+
+## ENVIRONMENT VARIABLES
+
+### Required Variables
+```bash
 # Database
-alembic/versions/ → {{INSTALL_PATH}}/app/alembic/versions/
+DATABASE_URL=postgresql://user@localhost:5432/dbname
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=energy_insights_nl
+DB_USER=energy_insights_nl
 
-# Configuration
-config/ → {{INSTALL_PATH}}/app/config/
+# API Keys (sensitive)
+ENTSOE_API_KEY=<uuid>
+SECRET_KEY=<hex>
 
-# Scripts (runtime)
-scripts/ → {{INSTALL_PATH}}/scripts/
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
 
-# Systemd units
-systemd/*.service → /etc/systemd/system/
-systemd/*.timer → /etc/systemd/system/
+# Paths
+INSTALL_PATH=/opt/energy-insights-nl
+LOG_PATH=/var/log/energy-insights-nl
+```
 
-# Version tracking
-VERSION → {{INSTALL_PATH}}/app/VERSION
-
-# EXCLUDE (never sync)
+### .gitignore Protection
+```
+# Environment (NEVER commit)
 .env
-venv/
-__pycache__/
-*.pyc
-logs/
-.git/
+.env.local
+.env.*.local
 ```
 
 ---
 
-## DEPLOY.SH USAGE
+## MULTI-SERVER DEPLOYMENT
 
-**Basic deployment:**
+### Synctacles Server (135.181.255.83)
 ```bash
-./deployment/deploy.sh
+# Deploy synctacles-api
+cd /opt/github/synctacles-api
+git pull && sudo systemctl restart energy-insights-nl-api
 ```
 
-**With version tag:**
+### Coefficient Server (91.99.150.36)
 ```bash
-./deployment/deploy.sh v1.0.1
+# Deploy coefficient-engine
+cd /opt/github/coefficient-engine
+git pull && sudo systemctl restart coefficient-engine
 ```
 
-**Dry-run (show what would be synced):**
-```bash
-./deployment/deploy.sh --dry-run
-```
-
-**Skip validation (dangerous):**
-```bash
-./deployment/deploy.sh --skip-checks
-```
-
----
-
-## ROLLBACK.SH USAGE
-
-**Rollback to most recent backup:**
-```bash
-./deployment/rollback.sh
-```
-
-**Rollback to specific backup:**
-```bash
-./deployment/rollback.sh 20251220-153045
-```
-
-**List available backups:**
-```bash
-./deployment/rollback.sh --list
-```
-
----
-
-## FEATURE DEPLOYMENT WORKFLOW
-
-Example workflow for deploying features:
-
-1. **Development (local changes)**
-   ```
-   ✓ Code written
-   ✓ Tested locally
-   ```
-
-2. **Sync to staging directory:**
-   ```bash
-   mkdir -p deployment/sync/f8.5-usermngmt/
-   cp files → deployment/sync/f8.5-usermngmt/
-   Create DEPLOY.md (manifest per feature)
-   ```
-
-3. **Commit to git:**
-   ```bash
-   cd /opt/github/synctacles-repo
-   git add deployment/sync/f8.5-usermngmt/
-   git commit -m "ADD: F8.5 user management"
-   git push origin main
-   ```
-
-4. **Deploy to production:**
-   ```bash
-   ./deployment/deploy.sh
-   → Reads sync-manifest.txt
-   → Syncs files to {{INSTALL_PATH}}/app/
-   → Runs migrations
-   → Restarts services
-   ```
-
-5. **Validate:**
-   ```bash
-   curl http://localhost:8000/auth/signup
-   ✓ Working
-   ```
-
----
-
-## VERSION TRACKING
-
-**VERSION file format (repo root):**
-```
-1.0.1
-```
-
-**Increment rules:**
-- MAJOR: Breaking changes (API contract)
-- MINOR: New features (backward compatible)
-- PATCH: Bugfixes
-
-**Deployment updates VERSION:**
-1. Update VERSION file in repo
-2. `git tag v1.0.1`
-3. `git push --tags`
-4. `./deployment/deploy.sh v1.0.1`
-5. Verify: `curl http://localhost:8000/health | jq .version`
+### Cross-Server Dependencies
+1. Synctacles calls Coefficient at `http://91.99.150.36:8080`
+2. IP whitelist on Coefficient: `ALLOWED_IPS=135.181.255.83`
+3. Deploy Coefficient BEFORE Synctacles if API changes
 
 ---
 
 ## EMERGENCY PROCEDURES
 
-### API Down After Deploy
-1. `./deployment/rollback.sh`
-2. Check logs: `journalctl -u {{SERVICE_USER}}-api -n 100`
-3. Verify .env not corrupted
-4. Check database connectivity
+### API Not Starting
+```bash
+# 1. Check logs
+journalctl -u energy-insights-nl-api -n 100 --no-pager
 
-### Database Migration Failed
-1. `alembic downgrade -1`
-2. Fix migration script
-3. `alembic upgrade head`
+# 2. Check .env exists and has correct permissions
+ls -la /opt/github/synctacles-api/.env
+# Should show: -rw------- 1 energy-insights-nl ...
 
-### Service Won't Start
-1. Check systemd unit paths ({{INSTALL_PATH}}/app not /opt/github/)
-2. Verify EnvironmentFile=/opt/.env
-3. Check permissions ({{SERVICE_USER}}:{{SERVICE_GROUP}})
+# 3. Test import manually
+cd /opt/github/synctacles-api
+source /opt/energy-insights-nl/venv/bin/activate
+python -c "from synctacles_db.api.main import app; print('OK')"
+```
 
----
+### Database Connection Failed
+```bash
+# 1. Check PostgreSQL
+sudo systemctl status postgresql
 
-## PRE-DEPLOY CHECKLIST
+# 2. Test connection
+psql -U energy_insights_nl -d energy_insights_nl -c "SELECT 1"
 
-### Development
-- □ All tests pass
-- □ Local testing complete
-- □ Changes committed to git
-- □ VERSION file updated (if needed)
+# 3. Check DATABASE_URL in .env
+grep DATABASE_URL /opt/github/synctacles-api/.env
+```
 
-### Staging
-- □ Files in deployment/sync/<feature>/
-- □ DEPLOY.md created
-- □ Git pushed to origin
+### Missing Module Import
+```bash
+# Common cause: __init__.py imports non-existent module
+grep "from \. import" /opt/github/synctacles-api/synctacles_db/api/endpoints/__init__.py
 
-### Production
-- □ Pre-deploy checks pass
-- □ Backup created
-- □ .env not overwritten
-- □ Migrations tested
-
-### Post-Deploy
-- □ Health check OK
-- □ Services running
-- □ Timers active
-- □ Database accessible
+# Fix: remove import for archived modules
+```
 
 ---
 
-## FUTURE ENHANCEMENTS
+## VERSION TRACKING
 
-### V1.1
-- GitHub Actions trigger
-- Automated testing
-- Slack notifications
+### Git Tags
+```bash
+# Create release tag
+git tag -a v1.0.1 -m "Release 1.0.1 - bugfix"
+git push origin v1.0.1
 
-### V2 (Multi-server)
-- Blue-green deployment
-- Canary releases
-- Auto-rollback on error
+# Deploy specific version
+git checkout v1.0.1
+sudo systemctl restart energy-insights-nl-api
+```
+
+### Health Endpoint Version
+```bash
+curl -s http://localhost:8000/health | jq '.version'
+# Returns: "1.0.0"
+```
 
 ---
 
 ## RELATED SKILLS
 
-- SKILL 9: Installer Specs (with brand-aware .env)
-- SKILL 12: Brand-Free Template Architecture (ENV-driven design)
+- SKILL 8: Hardware Profile (server specs)
+- SKILL 9: Installer Specs (initial setup)
+- SKILL 12: Brand-Free Architecture (naming conventions)
