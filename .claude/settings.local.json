@@ -191,7 +191,9 @@
       "Bash(scp:*)",
       "Bash(sudo -u energy-insights-nl bash:*)",
       "Bash(ssh coefficient:*)",
-      "Bash(gh issue close:*)"
+      "Bash(gh issue close:*)",
+      "Bash(echo \"=== 2. SKILLs met backup secties ===\" grep -l \"backup\\\\|restore\\\\|recovery\" docs/skills/SKILL_*.md echo \"\" echo \"=== 3. Beschikbare SKILL nummers ===\" ls docs/skills/SKILL_*.md)",
+      "Bash(# Check welke SSH keys beschikbaar zijn ls -la ~/.ssh/)"
     ]
   }
 }
