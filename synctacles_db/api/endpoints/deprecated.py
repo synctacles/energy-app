@@ -80,3 +80,23 @@ async def deprecated_signals():
             "note": "Energy Action provides is_cheap, cheapest_hour, and allow_automation signals."
         }
     )
+
+
+@router.get("/now")
+async def deprecated_now():
+    """
+    Unified data endpoint - DISCONTINUED (Phase 3: 2026-01-11)
+
+    This endpoint combined generation, load, and balance data.
+    Use /api/v1/energy-action for actionable energy recommendations.
+    Use /api/v1/prices/today for price data.
+    """
+    return JSONResponse(
+        status_code=410,
+        content={
+            **DISCONTINUED_MESSAGE,
+            "endpoint": "/api/v1/now",
+            "replacement": "/api/v1/energy-action",
+            "note": "The /now endpoint combined generation/load/balance which are no longer collected."
+        }
+    )

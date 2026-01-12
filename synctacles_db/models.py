@@ -11,8 +11,11 @@ Base = declarative_base()
 
 # === RAW DATA MODELS ===
 
+# ARCHIVED MODEL - Phase 3: Hard Delete (2026-01-11)
+# A75 (generation) data collection discontinued for Energy Action Focus.
+# Model retained ONLY for alembic migration compatibility.
 class RawEntsoeA75(Base):
-    """Raw ENTSO-E A75 Generation per PSR-type"""
+    """ARCHIVED: Raw ENTSO-E A75 Generation per PSR-type"""
     __tablename__ = 'raw_entso_e_a75'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -30,8 +33,11 @@ class RawEntsoeA75(Base):
     )
 
 
+# ARCHIVED MODEL - Phase 3: Hard Delete (2026-01-11)
+# A65 (load) data collection discontinued for Energy Action Focus.
+# Model retained ONLY for alembic migration compatibility.
 class RawEntsoeA65(Base):
-    """Raw ENTSO-E A65 Load (actual + forecast)"""
+    """ARCHIVED: Raw ENTSO-E A65 Load (actual + forecast)"""
     __tablename__ = 'raw_entso_e_a65'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -49,18 +55,23 @@ class RawEntsoeA65(Base):
     )
 
 
+# ARCHIVED MODEL - Phase 3: Hard Delete (2026-01-11)
+# TenneT integration removed from SYNCTACLES. BYO-key only in HA.
+# Model retained ONLY for alembic migration compatibility.
 class RawTennetBalance(Base):
     """ARCHIVED: Raw TenneT Balance Delta per platform
 
     TenneT data has been moved to BYO-key (Bring Your Own) model.
-    This model is kept for historical reference only.
-    Data table has been renamed to: archive_raw_tennet_balance
+    This model is kept for alembic migration compatibility only.
+    Data table: archive_raw_tennet_balance
+
+    Phase 3 (2026-01-11): Code removed, model retained for migrations.
     """
     __tablename__ = 'archive_raw_tennet_balance'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
-    platform = Column(String(20), nullable=False)  # aFRR, IGCC, MARI, mFRRda, PICASSO
+    platform = Column(String(20), nullable=False)
     delta_mw = Column(Float, nullable=False)
     price_eur_mwh = Column(Float, nullable=True)
     source_file = Column(String(255), nullable=True)
@@ -75,14 +86,17 @@ class RawTennetBalance(Base):
 
 # === NORMALIZED DATA MODELS ===
 
+# ARCHIVED MODEL - Phase 3: Hard Delete (2026-01-11)
+# A75 (generation) data collection discontinued for Energy Action Focus.
+# Model retained ONLY for alembic migration compatibility.
 class NormEntsoeA75(Base):
-    """Normalized ENTSO-E A75 Generation Mix (pivoted)"""
+    """ARCHIVED: Normalized ENTSO-E A75 Generation Mix (pivoted)"""
     __tablename__ = 'norm_entso_e_a75'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
     country = Column(String(2), nullable=False)
-    
+
     # Generation by PSR type (MW)
     b01_biomass_mw = Column(Float)
     b04_gas_mw = Column(Float)
@@ -94,22 +108,26 @@ class NormEntsoeA75(Base):
     b19_wind_onshore_mw = Column(Float)
     b20_other_mw = Column(Float)
     total_mw = Column(Float)
-    
+
     # Metadata
     quality_status = Column(String(20))
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+
+# ARCHIVED MODEL - Phase 3: Hard Delete (2026-01-11)
+# A65 (load) data collection discontinued for Energy Action Focus.
+# Model retained ONLY for alembic migration compatibility.
 class NormEntsoeA65(Base):
-    """Normalized ENTSO-E A65 Load"""
+    """ARCHIVED: Normalized ENTSO-E A65 Load"""
     __tablename__ = 'norm_entso_e_a65'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
     country = Column(String(2), nullable=False)
-    
+
     actual_mw = Column(Float)
     forecast_mw = Column(Float, nullable=True)
-    
+
     quality_status = Column(String(20))
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

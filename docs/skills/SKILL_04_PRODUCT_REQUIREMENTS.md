@@ -1,7 +1,11 @@
 # SKILL 4 — PRODUCT REQUIREMENTS
 
 Features, Capabilities, and Product Vision
-Version: 1.0 (2025-12-30)
+Version: 2.0 (2026-01-11) - Energy Action Focus
+
+> **Phase 3 Update:** SYNCTACLES now focuses exclusively on Energy Action - actionable
+> price-based recommendations for smart energy consumption. Generation, load, and grid
+> balance features have been discontinued.
 
 ---
 
@@ -13,61 +17,37 @@ Define what SYNCTACLES does, what problems it solves, and what features it provi
 
 ## EXECUTIVE SUMMARY
 
-**SYNCTACLES** (SYNCTACLES = Synchronized Tactical Application for Collective Load Engagement and Sustainable Energy Logistics) is a Dutch energy data aggregation platform that provides real-time insights into electricity generation, load, and pricing to Home Assistant users and other consumers.
+**SYNCTACLES** (Synchronized Tactical Application for Collective Load Engagement and Sustainable Energy Logistics) is a Dutch energy data platform that provides **Energy Action** recommendations - actionable insights for when to use electricity based on real-time prices.
 
-**Problem Solved:** Dutch households and businesses lack easy access to real-time grid data. SYNCTACLES fills this gap by aggregating data from ENTSO-E (European Grid Operator) and TenneT (Dutch System Operator) into a simple REST API, with automatic fallback to modeled data when primary sources fail.
+**Problem Solved:** Dutch households and businesses need simple, actionable guidance on when to use electricity. SYNCTACLES provides a straightforward GO/WAIT/AVOID recommendation based on current and upcoming prices, with quality indicators for confidence levels.
 
 ---
 
 ## KEY CAPABILITIES
 
-### 1. Real-Time Generation Mix
+### 1. Energy Action Recommendations
 
-**What:** Current electricity generation by fuel type in the Dutch grid
+**What:** Simple GO/WAIT/AVOID recommendation for current energy usage
 
-**Data Source:** ENTSO-E A75 (updated every 15 minutes)
+**Data Source:** ENTSO-E A44 prices + coefficient engine
 
 **Provides:**
-- Nuclear generation (MW)
-- Solar generation (MW)
-- Wind power (onshore + offshore, MW)
-- Fossil fuels (coal, gas, oil, MW)
-- Hydro generation (MW)
-- Biomass generation (MW)
-- Waste generation (MW)
-- Other sources (MW)
+- `action`: GO (cheap), WAIT (moderate), AVOID (expensive)
+- `quality`: live, estimated, cached, unavailable
+- `confidence`: 0-100%
+- `cheapest_hour`: Time of cheapest hour today
+- `current_price`: Current price in €/kWh
 
 **Use Cases:**
-- Home Assistant automation (e.g., run dishwasher when solar peaks)
-- Display grid mix on dashboards
-- Optimize electricity consumption based on renewable percentage
+- Home Assistant automation (run dishwasher on GO)
+- Display current recommendation on dashboards
+- Simple decision support for energy usage
 
-**Endpoint:** `GET /v1/generation/current`
+**Endpoint:** `GET /api/v1/energy-action`
 
 ---
 
-### 2. Grid Load & Forecast
-
-**What:** Current and forecasted electricity consumption
-
-**Data Source:** ENTSO-E A65 (updated every 15 minutes)
-
-**Provides:**
-- Actual load (MW)
-- Forecasted load (MW)
-- Load difference (forecast vs actual)
-- Quality score (0.0-1.0)
-
-**Use Cases:**
-- Predict grid stress (high load = expensive, polluting)
-- Schedule power usage during low-load periods
-- Automated load shifting
-
-**Endpoint:** `GET /v1/load/current`
-
----
-
-### 3. Electricity Prices (Day-Ahead)
+### 2. Electricity Prices (Day-Ahead)
 
 **What:** Hourly electricity market prices for today and tomorrow
 

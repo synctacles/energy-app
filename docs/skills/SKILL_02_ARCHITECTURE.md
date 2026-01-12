@@ -1,7 +1,11 @@
 # SKILL 2 — SYSTEM ARCHITECTURE
 
 Design Principles and 3-Layer Data Pipeline
-Version: 2.0 (2025-12-30)
+Version: 3.0 (2026-01-11) - Energy Action Focus
+
+> **Phase 3 Update:** A65 (load), A75 (generation), and TenneT integration have been
+> discontinued. SYNCTACLES now focuses exclusively on Energy Action (price-based
+> recommendations). See FASE_3_COMPLETION_REPORT.md for details.
 
 ---
 
@@ -96,40 +100,31 @@ Data transformation separated into distinct, testable layers.
 ### Component Overview
 
 ```
-EXTERNAL SOURCES
-├── ENTSO-E (Generation, Load, Prices)
-├── Energy-Charts (Fallback)
+EXTERNAL SOURCES (Energy Action Focus - Phase 3)
+├── ENTSO-E A44 (Day-Ahead Prices only)
+├── Energy-Charts (Fallback prices)
 ├── Frank Energie API (Consumer prices)
-├── Enever API (via Coefficient Proxy)
-└── TenneT (BYO-key via HA only, not server)
+└── Enever API (via Coefficient Proxy)
      │
      ▼
 LAYER 1: COLLECTORS
-├── entso_e_a75_generation.py  (15-min)
-├── entso_e_a65_load.py        (15-min)
-├── entso_e_a44_prices.py      (hourly)
-├── energy_charts_a75_fallback.py  (15-min, auto-trigger on stale)
-└── energy_charts_client.py    (fallback, cached)
+└── entso_e_a44_prices.py      (hourly)
      │
      ▼ (saves to /var/log/{{BRAND}}/collectors/raw/*.xml)
 LAYER 2: IMPORTERS
-├── import_entso_e_a75.py  → raw_entso_e_a75
-├── import_entso_e_a65.py  → raw_entso_e_a65
 └── import_entso_e_a44.py  → raw_entso_e_a44
      │
      ▼ (PostgreSQL RAW tables)
 LAYER 3: NORMALIZERS
-├── normalize_entso_e_a75.py  → norm_generation
-├── normalize_entso_e_a65.py  → norm_load
-└── normalize_entso_e_a44.py  → norm_prices
+├── normalize_entso_e_a44.py  → norm_entso_e_a44
+└── normalize_prices.py       → price aggregation
      │
      ▼ (with quality metadata)
 LAYER 4: API
 ├── FastAPI application
-├── /v1/generation/current
-├── /v1/load/current
+├── /v1/energy-action (GO/WAIT/AVOID)
 ├── /v1/prices/today
-├── /v1/signals (is_green, is_cheap)
+├── /v1/prices/tomorrow
 └── /health (system status)
      │
      ▼
@@ -140,14 +135,22 @@ LAYER 5: CONSUMER PRICE ENGINE
 └── Coefficient fallback
      │
      ▼
-HOME ASSISTANT
+HOME ASSISTANT (6 sensors)
 ├── ServerDataCoordinator (15-min) → Server API
-├── TennetDataCoordinator (60s) → TenneT API (BYO-key)
 ├── EneverDataCoordinator (1hr) → Enever.nl API (BYO-key)
-├── Generation/Load/Price sensors (from Server)
-├── Signal sensors (is_green, is_cheap)
-├── Balance sensors (TenneT BYO-key, conditional)
-└── Pricing sensors (Enever BYO-key, conditional)
+├── PriceCurrentSensor
+├── CheapestHourSensor
+├── ExpensiveHourSensor
+├── EnergyActionSensor
+├── PricesTodaySensor (Enever BYO-key)
+└── PricesTomorrowSensor (Enever BYO-key)
+
+DISCONTINUED (Phase 3):
+├── A65 (load) collectors/importers/normalizers → archive/
+├── A75 (generation) collectors/importers/normalizers → archive/
+├── TenneT integration → BYO-key in HA only (not server)
+├── /v1/generation-mix, /v1/load, /v1/signals, /v1/now → 410 Gone
+└── Generation/Load/Balance/GridStress sensors → removed
 ```
 
 ---
@@ -710,36 +713,15 @@ Prices:
 
 ## BYO-KEY ARCHITECTURES
 
-### TenneT BYO-Key Architecture
+### TenneT BYO-Key Architecture (DISCONTINUED)
 
-**Purpose:** Real-time grid balance data (Dutch grid only)
+> **Phase 3 (2026-01-11):** TenneT integration has been discontinued from SYNCTACLES.
+> Users requiring TenneT data should use the official TenneT API directly or alternative
+> Home Assistant integrations.
 
-**Flow:**
-```
-User's TenneT API Key
-        ↓
-HA Component (TennetDataCoordinator)
-        ↓
-https://api.tennet.eu/
-        ↓
-Balance Delta + Grid Stress sensors
-```
-
-**Coordinator Details:**
-- **Update interval:** 60 seconds (real-time grid data)
-- **Endpoint:** `/publications/v1/balance-delta-high-res/latest`
-- **Authentication:** Bearer token (user's personal key)
-- **Fallback:** 30-minute cache for resilience
-- **Error handling:** 401, 429, connection errors
-
-**Sensors Created (conditional):**
-- `sensor.energy_insights_nl_balance_delta` - Grid balance (MW)
-- `sensor.energy_insights_nl_grid_stress` - Stress level (0-100%)
-
-**Quality Assessment:**
-- FRESH: < 5 minutes old
-- OK: 5-15 minutes old
-- STALE: > 1 hour old
+**Historical Note:** TenneT provided real-time grid balance data (Dutch grid only).
+The TennetDataCoordinator and associated sensors (balance_delta, grid_stress) have
+been removed from the HA component.
 
 ---
 

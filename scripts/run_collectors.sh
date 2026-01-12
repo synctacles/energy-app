@@ -47,12 +47,16 @@ run_collector() {
     fi
 }
 
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting collector batch..."
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting collector batch (Energy Action Focus mode)..."
+
+# Phase 3: Energy Action Focus (2026-01-11)
+# Only A44 (prices) and Energy-Charts (fallback) collectors are active
+# A65 (load) and A75 (generation) collectors are DISCONTINUED
 
 # Run collectors - each one independently (failures don't stop others)
 run_collector "ENTSO-E A44 Prices" "synctacles_db.collectors.entso_e_a44_prices"
-run_collector "ENTSO-E A65 Load" "synctacles_db.collectors.entso_e_a65_load"
-run_collector "ENTSO-E A75 Generation" "synctacles_db.collectors.entso_e_a75_generation"
+# SKIPPED: run_collector "ENTSO-E A65 Load" "synctacles_db.collectors.entso_e_a65_load"  # DISCONTINUED
+# SKIPPED: run_collector "ENTSO-E A75 Generation" "synctacles_db.collectors.entso_e_a75_generation"  # DISCONTINUED
 run_collector "Energy-Charts Prices" "synctacles_db.collectors.energy_charts_prices"
 
 # Summary

@@ -161,8 +161,7 @@ def pipeline_health(db: Session = Depends(get_db)):
             "health": get_timer_status("health")
         },
         "data": {
-            "a75": get_data_freshness(db, "a75", "raw_entso_e_a75", "norm_entso_e_a75"),
-            "a65": get_data_freshness(db, "a65", "raw_entso_e_a65", "norm_entso_e_a65"),
+            # Phase 3: A65/A75 removed - Energy Action Focus (2026-01-11)
             "a44": get_data_freshness(db, "a44", "raw_entso_e_a44", "norm_entso_e_a44")
         },
         "api": {
@@ -194,9 +193,8 @@ def pipeline_metrics(db: Session = Depends(get_db)):
             timer_last_trigger_minutes.labels(timer=timer_name).set(status["last_trigger_ago_min"])
 
     # Get data freshness
+    # Phase 3: A65/A75 removed - Energy Action Focus (2026-01-11)
     data_sources = {
-        "a75": get_data_freshness(db, "a75", "raw_entso_e_a75", "norm_entso_e_a75"),
-        "a65": get_data_freshness(db, "a65", "raw_entso_e_a65", "norm_entso_e_a65"),
         "a44": get_data_freshness(db, "a44", "raw_entso_e_a44", "norm_entso_e_a44")
     }
 

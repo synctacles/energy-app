@@ -1,23 +1,32 @@
 # Energy Insights NL - Architecture & Design Guide
 
-**Version:** 1.0
-**Date:** 2025-12-30
-**Status:** Production Ready
+**Version:** 2.0
+**Date:** 2026-01-11
+**Status:** Production Ready - Energy Action Focus
+
+> **Phase 3 Update:** SYNCTACLES now focuses exclusively on Energy Action - actionable
+> price-based recommendations for smart energy consumption. A65 (load), A75 (generation),
+> and TenneT integration have been discontinued.
 
 ---
 
 ## Executive Summary
 
-Energy Insights NL is a Dutch energy data aggregation platform that collects real-time energy generation, load, and price data from ENTSO-E, normalizes it, and provides a REST API for Home Assistant integration. The system features automatic fallback to Energy-Charts when primary sources are unavailable. Grid balance data is available via BYO-key (Bring Your Own) in the Home Assistant component only, complying with TenneT API license restrictions.
+Energy Insights NL is a Dutch energy data platform that provides **Energy Action** recommendations - actionable insights for when to use electricity based on real-time prices. The system collects day-ahead prices from ENTSO-E, with automatic fallback to Energy-Charts when the primary source is unavailable.
 
-**Key Capabilities:**
-- Real-time Dutch generation mix (9 PSR types) updated every 15 minutes
-- Grid load forecasts with actual values
-- Day-ahead electricity prices
-- Grid balance data via BYO-key in HA component (TenneT license restriction)
-- Automatic failover to Energy-Charts (Fraunhofer ISE model)
-- Home Assistant native integration via custom component
-- Production-ready with monitoring, backups, and multi-tenant support
+**Key Capabilities (Energy Action Focus):**
+- Day-ahead electricity prices (ENTSO-E A44)
+- Energy Action recommendations (GO/WAIT/AVOID)
+- Quality indicators for confidence levels
+- Automatic failover to Energy-Charts (Fraunhofer ISE)
+- Home Assistant native integration via custom component (6 sensors)
+- Consumer price engine with coefficient lookup
+
+**Discontinued (Phase 3):**
+- Generation mix (A75) - archived
+- Grid load (A65) - archived
+- TenneT integration - removed
+- Grid stress sensors - removed
 
 ---
 
@@ -38,57 +47,54 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 
 ## System Architecture
 
-### Component Overview
+### Component Overview (Energy Action Focus - Phase 3)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        EXTERNAL SOURCES                          │
-├─────────────────┬───────────────────────────────────────────────┤
-│    ENTSO-E      │      Energy-Charts      │    TenneT (BYO-key) │
-│  (A75/A65/A44)  │       (Fallback)        │   (Client-side HA)  │
-└────────┬────────┴─────────────┬───────────┴────────┬────────────┘
-         │                      │                   │
-         ▼                      ▼             (NOT fetched by server)
-         │                      │                   │
-         │                      │         ╔════════════════════╗
-         │                      │         ║ Home Assistant     ║
-         │                      │         ║ - User provides    ║
-         │                      │         ║   TenneT key       ║
-         │                      │         ║ - Fetches locally  ║
-         │                      │         ║ - Creates sensors  ║
-         │                      │         ║   (balance_delta)  ║
-         │                      │         ╚════════════════════╝
+├─────────────────────────┬───────────────────────────────────────┤
+│    ENTSO-E A44          │      Energy-Charts (Fallback)         │
+│    (Day-Ahead Prices)   │      (Price Fallback)                 │
+└────────────┬────────────┴─────────────┬─────────────────────────┘
+             │                          │
+             ▼                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   LAYER 1: COLLECTORS                            │
 │  synctacles_db/collectors/                                       │
-│  ├── entso_e_a75_generation.py   (15-min interval)              │
-│  ├── entso_e_a65_load.py         (15-min interval)              │
-│  ├── entso_e_a44_prices.py       (hourly)                       │
-│  └── energy_charts_client.py     (fallback, cached)             │
+│  └── entso_e_a44_prices.py       (hourly)                       │
 │                                                                  │
 │  Output: /var/log/{brand}/collectors/raw/*.xml                  │
+│                                                                  │
+│  ARCHIVED (Phase 3):                                            │
+│  ├── entso_e_a75_generation.py   → archive/                     │
+│  └── entso_e_a65_load.py         → archive/                     │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   LAYER 2: IMPORTERS                             │
 │  synctacles_db/importers/                                        │
-│  ├── import_entso_e_a75.py   → raw_entso_e_a75 table            │
-│  ├── import_entso_e_a65.py   → raw_entso_e_a65 table            │
 │  └── import_entso_e_a44.py   → raw_entso_e_a44 table            │
 │                                                                  │
-│  Parse XML/JSON → Insert to PostgreSQL RAW tables                │
+│  Parse XML → Insert to PostgreSQL RAW tables                     │
+│                                                                  │
+│  ARCHIVED (Phase 3):                                            │
+│  ├── import_entso_e_a75.py   → archive/                         │
+│  └── import_entso_e_a65.py   → archive/                         │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                  LAYER 3: NORMALIZERS                            │
 │  synctacles_db/normalizers/                                      │
-│  ├── normalize_entso_e_a75.py  → norm_generation table          │
-│  ├── normalize_entso_e_a65.py  → norm_load table                │
-│  └── normalize_entso_e_a44.py  → norm_prices table              │
+│  ├── normalize_entso_e_a44.py  → norm_entso_e_a44 table         │
+│  └── normalize_prices.py       → price aggregation              │
 │                                                                  │
 │  RAW tables → Normalized tables with quality metadata            │
+│                                                                  │
+│  ARCHIVED (Phase 3):                                            │
+│  ├── normalize_entso_e_a75.py  → archive/                       │
+│  └── normalize_entso_e_a65.py  → archive/                       │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
                           ▼
@@ -96,8 +102,9 @@ Energy Insights NL is a Dutch energy data aggregation platform that collects rea
 │                     LAYER 4: API                                 │
 │  synctacles_db/api/                                              │
 │  ├── main.py                 (FastAPI app)                       │
-│  ├── routes/                 (endpoint definitions)              │
-│  └── schemas/                (Pydantic models)                   │
+│  ├── endpoints/energy_action.py (GO/WAIT/AVOID)                 │
+│  ├── endpoints/prices.py        (today/tomorrow)                │
+│  └── endpoints/deprecated.py    (410 Gone handlers)             │
 │                                                                  │
 │  Endpoints:                                                      │
 │  ├── /v1/generation/current  → Current generation mix           │

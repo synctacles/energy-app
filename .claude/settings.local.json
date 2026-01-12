@@ -190,7 +190,8 @@
       "Bash(ssh -i /root/.ssh/id_ed25519 monitoring@monitor.synctacles.com:*)",
       "Bash(scp:*)",
       "Bash(sudo -u energy-insights-nl bash:*)",
-      "Bash(ssh coefficient:*)"
+      "Bash(ssh coefficient:*)",
+      "Bash(gh issue close:*)"
     ]
   }
 }

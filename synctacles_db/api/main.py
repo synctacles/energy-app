@@ -12,7 +12,7 @@ from starlette.responses import Response
 import time
 
 from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
-from synctacles_db.api.endpoints import balance, now, prices, auth, energy_action
+from synctacles_db.api.endpoints import balance, prices, auth, energy_action
 from synctacles_db.api.endpoints.deprecated import router as deprecated_router, signals_router as deprecated_signals_router
 from synctacles_db.api.routes.pipeline import router as pipeline_router
 from synctacles_db.cache import api_cache
@@ -148,7 +148,7 @@ async def cache_invalidate(pattern: str):
 
 # V1 endpoints - Active
 app.include_router(balance.router, prefix="/api/v1", tags=["balance"])
-app.include_router(now.router, prefix="/api/v1", tags=["Unified"])
+# Phase 3: /now endpoint moved to deprecated (2026-01-11)
 app.include_router(prices.router, prefix="/api/v1", tags=["prices"])
 
 # V1 endpoints - Deprecated (410 Gone)

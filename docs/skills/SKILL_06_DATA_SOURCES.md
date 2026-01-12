@@ -1,19 +1,23 @@
 # SKILL 6 — DATA SOURCES
 
-ENTSO-E, TenneT, Energy-Charts, and Fallback Strategy
-Version: 1.0 (2025-12-30)
+ENTSO-E A44 Prices, Energy-Charts Fallback, and Consumer Price Engine
+Version: 2.0 (2026-01-11) - Energy Action Focus
+
+> **Phase 3 Update:** SYNCTACLES now focuses exclusively on Energy Action (price-based
+> recommendations). A65 (load), A75 (generation), and TenneT integration have been
+> discontinued. Only A44 (day-ahead prices) data is collected.
 
 ---
 
 ## PURPOSE
 
-Document the external data sources that feed SYNCTACLES: what data they provide, how to access them, rate limits, reliability expectations, and fallback strategies when they fail.
+Document the external data sources that feed SYNCTACLES: price data sources, how to access them, rate limits, reliability expectations, and fallback strategies when they fail.
 
 ---
 
 ## PRIMARY SOURCES
 
-4 Primary Sources for Dutch Energy Data
+2 Primary Sources for Dutch Energy Prices (Energy Action Focus)
 
 ### 1. ENTSO-E (European Network of Transmission System Operators)
 
@@ -21,63 +25,17 @@ Document the external data sources that feed SYNCTACLES: what data they provide,
 
 **What They Provide:**
 - Pan-European electricity data
-- Real-time generation, load, prices
+- Day-ahead prices (A44 document type)
 - Published as XML via REST API
 
 **Access Method:** OAuth2 API with security token
 
-**Key Document Types:**
+> **Phase 3 Note:** Only A44 (prices) is now collected. A65 (load) and A75 (generation)
+> document types have been discontinued for Energy Action Focus.
 
-#### A75: Actual Generation per Type
-- **Update Frequency:** Every 15 minutes
-- **Delay:** Published ~15 minutes after data time
-- **Data Points:**
-  - Nuclear generation
-  - Fossil fuels (coal, gas, oil)
-  - Hydro generation
-  - Wind power (onshore + offshore)
-  - Solar generation
-  - Biomass
-  - Waste
-  - Other
+**Key Document Type:**
 
-**Example Request:**
-```
-GET https://web-api.tp.entsoe.eu/api
-  ?securityToken={{ENTSO_E_TOKEN}}
-  &documentType=A75
-  &processType=A16
-  &In_Domain=10YNL----------L  # Netherlands
-  &periodStart=202512301000Z
-  &periodEnd=202512301015Z
-```
-
-**Example Response (XML):**
-```xml
-<GL_MarketDocument>
-  <TimeSeries>
-    <Period>
-      <timeInterval>
-        <start>2025-12-30T10:00Z</start>
-        <end>2025-12-30T10:15Z</end>
-      </timeInterval>
-      <Point>
-        <position>1</position>
-        <quantity>450</quantity>  <!-- Solar: 450 MW -->
-      </Point>
-    </Period>
-  </TimeSeries>
-</GL_MarketDocument>
-```
-
-#### A65: Actual Demand
-- **Update Frequency:** Every 15 minutes
-- **Delay:** Published ~15 minutes after
-- **Data Points:**
-  - Actual load (MW)
-  - Load forecast (MW)
-
-#### A44: Day-Ahead Prices
+#### A44: Day-Ahead Prices (ACTIVE)
 - **Update Frequency:** Hourly (updated ~12:42 CET for next day)
 - **Delay:** Published day-ahead
 - **Data Points:**
@@ -113,89 +71,17 @@ Out_Domain: 10YNL----------L (generation)
 
 ---
 
-### 2. TenneT (Dutch Transmission System Operator) - BYO-KEY ONLY
+### 2. TenneT (Dutch Transmission System Operator) - DISCONTINUED
 
-⚠️ **LICENSE NOTICE:** TenneT API terms prohibit server-side redistribution.
-TenneT data is available via **BYO-key** (Bring Your Own) in the Home Assistant component only.
+> **Phase 3 (2026-01-11):** TenneT integration has been fully discontinued from SYNCTACLES.
+> This includes both server-side and BYO-key integrations in the HA component.
 
-**Website:** https://www.tennet.eu/
+**Historical Note:** TenneT provided Dutch grid-specific data including grid balance delta,
+frequency, and reserve margins. The integration was removed as part of the Energy Action
+Focus initiative to simplify the system to price-based recommendations only.
 
-**What They Provide:**
-- Dutch grid-specific data
-- Grid balance delta (MW)
-- Frequency, reserve margins
-- Grid stress events
-
-**Access Method:** HTTP API with personal API key (Bearer token)
-
-**Key Data Points:**
-
-#### Grid Balance Delta
-- Balance between supply and demand (MW)
-- Positive = surplus, negative = deficit
-- Real-time updates (5-minute intervals)
-- Updated every 5 minutes
-
-#### Frequency
-- Current frequency in Hz (should be ~50 Hz)
-- Part of grid stability
-
-#### Reserve Margin
-- Spinning reserve (MW)
-- Available capacity
-- Used to assess grid stress
-
-**SYNCTACLES Integration:**
-
-- ❌ **NOT available via SYNCTACLES API** (license restriction - no redistribution)
-- ✅ **Available via Home Assistant component** with user's own TenneT API key
-- User registers at TenneT Developer Portal: https://www.tennet.eu/developer-portal/
-- User enters personal API key in HA integration config
-- Data fetched **locally in Home Assistant**, never passes through SYNCTACLES servers
-
-**API Endpoint (for reference):**
-```
-GET https://api.tennet.eu/v1/balance-delta-high-res/latest
-Authorization: Bearer YOUR_PERSONAL_TENNET_KEY
-```
-
-**Example Response (JSON):**
-```json
-{
-  "Response": {
-    "TimeSeries": [{
-      "Period": {
-        "timeInterval": {
-          "start": "2025-12-30T10:15:00Z",
-          "end": "2025-12-30T10:20:00Z"
-        },
-        "points": [{
-          "timeInterval_start": "2025-12-30T10:15:00Z",
-          "timeInterval_end": "2025-12-30T10:20:00Z",
-          "power_afrr_in": 100.5,
-          "power_afrr_out": 45.2,
-          ...
-        }]
-      }
-    }]
-  }
-}
-```
-
-**TenneT API Details:**
-
-- **Base URL:** https://api.tennet.eu/v1/
-- **Authentication:** Bearer token (personal API key)
-- **Rate Limit:** 100 requests per minute
-- **Response Format:** JSON
-- **Timeout:** 10 seconds
-
-**Reliability:**
-- Very reliable (99.9%+ availability)
-- Updates every 5 minutes
-- Minimal delay
-
-**Cost:** Free (public API, requires personal registration)
+**For users requiring TenneT data:** Use the official TenneT API directly or alternative
+Home Assistant integrations such as `tennet-balance` or similar community integrations.
 
 ---
 
