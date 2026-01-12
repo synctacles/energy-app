@@ -105,8 +105,7 @@ class ConsumerPriceClient:
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                # Use /internal/enever/prices which works via routes/enever.py
-                async with session.get(f"{COEFFICIENT_SERVER}/internal/enever/prices") as resp:
+                async with session.get(f"{COEFFICIENT_SERVER}/internal/consumer/prices") as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         _consumer_cache[cache_key] = data
