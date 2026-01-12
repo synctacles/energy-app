@@ -18,6 +18,15 @@ _LOGGER = logging.getLogger(__name__)
 # Coefficient Engine server (internal, IP whitelisted)
 COEFFICIENT_SERVER = "http://91.99.150.36:8080"
 
+# Default price model constants (Frank Energie calibrated, January 2026)
+DEFAULT_SLOPE = 1.27
+DEFAULT_INTERCEPT = 0.147  # EUR/kWh fixed costs
+
+# Bias correction factor (calibrated 2026-01-12 against 30 days Frank API data)
+# Reduces systematic overestimation from +7.58% to +0.05%
+# Average error: 2.11%, P95 error: 4.08%
+BIAS_CORRECTION = 0.93
+
 # Cache: consumer prices (5 min TTL), coefficients (1 hour TTL)
 _consumer_cache = TTLCache(maxsize=10, ttl=300)
 _coefficient_cache = TTLCache(maxsize=100, ttl=3600)
@@ -167,25 +176,30 @@ class ConsumerPriceClient:
         return None
 
     @staticmethod
-    async def get_coefficient(
+    async def get_price_model(
         hour: Optional[int] = None,
         day_type: Optional[str] = None,
-        month: Optional[int] = None
+        month: Optional[int] = None,
+        country: str = "NL"
     ) -> Optional[Dict]:
         """
-        Get coefficient from Coefficient Engine.
+        Get slope + intercept model from Coefficient Engine.
+
+        Linear regression model: consumer = wholesale × slope + intercept
 
         Args:
             hour: Hour 0-23 (default: current)
             day_type: 'weekday' or 'weekend' (default: current)
             month: Month 1-12 (default: current)
+            country: Country code (default: NL)
 
         Returns:
             {
-                "coefficient": 1.847,
-                "confidence": 95,
-                "sample_size": 45,
-                "last_calibrated": "2026-01-11T12:00:00Z",
+                "slope": 1.27,
+                "intercept": 0.147,
+                "confidence": 94,
+                "sample_size": 75,
+                "last_calibrated": "2026-01-12T15:09:42Z",
                 "source": "lookup"
             }
         """
@@ -198,11 +212,11 @@ class ConsumerPriceClient:
         if month is None:
             month = now.month
 
-        cache_key = f"coef_{month}_{day_type}_{hour}"
+        cache_key = f"model_{country}_{month}_{day_type}_{hour}"
 
         # Check cache first
         if cache_key in _coefficient_cache:
-            _LOGGER.debug(f"Coefficient from cache: {cache_key}")
+            _LOGGER.debug(f"Price model from cache: {cache_key}")
             return _coefficient_cache[cache_key]
 
         # Check circuit breaker
@@ -210,7 +224,7 @@ class ConsumerPriceClient:
             return None
 
         try:
-            params = {"month": month, "day_type": day_type, "hour": hour}
+            params = {"country": country, "month": month, "day_type": day_type, "hour": hour}
             timeout = aiohttp.ClientTimeout(total=5)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -219,17 +233,35 @@ class ConsumerPriceClient:
                         data = await resp.json()
                         _coefficient_cache[cache_key] = data
                         ConsumerPriceClient._record_success()
-                        _LOGGER.debug(f"Coefficient fetched: {data.get('coefficient')}")
+                        _LOGGER.debug(f"Price model fetched: slope={data.get('slope')}, intercept={data.get('intercept')}")
                         return data
                     else:
-                        _LOGGER.warning(f"Coefficient returned HTTP {resp.status}")
+                        _LOGGER.warning(f"Price model returned HTTP {resp.status}")
                         ConsumerPriceClient._record_failure()
                         return None
 
         except Exception as e:
-            _LOGGER.error(f"Coefficient fetch failed: {e}")
+            _LOGGER.error(f"Price model fetch failed: {e}")
             ConsumerPriceClient._record_failure()
             return None
+
+    # Legacy method - keep for backward compatibility
+    @staticmethod
+    async def get_coefficient(
+        hour: Optional[int] = None,
+        day_type: Optional[str] = None,
+        month: Optional[int] = None
+    ) -> Optional[Dict]:
+        """
+        Legacy method - wraps get_price_model for backward compatibility.
+
+        Returns dict with slope, intercept, and legacy 'coefficient' field.
+        """
+        result = await ConsumerPriceClient.get_price_model(hour=hour, day_type=day_type, month=month)
+        if result:
+            # Add legacy 'coefficient' field for backward compatibility
+            result["coefficient"] = result.get("slope", 1.0)
+        return result
 
     @staticmethod
     async def get_coefficient_value(
@@ -237,13 +269,39 @@ class ConsumerPriceClient:
         day_type: Optional[str] = None
     ) -> Optional[float]:
         """
-        Get coefficient value only.
+        Legacy method - get slope value only.
 
         Returns:
-            Coefficient float, or None
+            Slope float, or None
         """
-        result = await ConsumerPriceClient.get_coefficient(hour=hour, day_type=day_type)
-        return result.get("coefficient") if result else None
+        result = await ConsumerPriceClient.get_price_model(hour=hour, day_type=day_type)
+        return result.get("slope") if result else None
+
+    @staticmethod
+    def calculate_consumer_price(
+        wholesale_eur_kwh: float,
+        slope: float,
+        intercept: float,
+        apply_bias_correction: bool = True
+    ) -> float:
+        """
+        Calculate consumer price from wholesale using linear model.
+
+        Formula: consumer = (wholesale × slope + intercept) × bias_correction
+
+        Args:
+            wholesale_eur_kwh: ENTSO-E price in EUR/kWh
+            slope: Multiplier (~1.27)
+            intercept: Fixed costs (~€0.147)
+            apply_bias_correction: Apply 0.93 correction factor (default: True)
+
+        Returns:
+            Consumer price in EUR/kWh
+        """
+        raw_price = wholesale_eur_kwh * slope + intercept
+        if apply_bias_correction:
+            return raw_price * BIAS_CORRECTION
+        return raw_price
 
     @staticmethod
     async def get_all_coefficients() -> Optional[Dict]:

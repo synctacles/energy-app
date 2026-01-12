@@ -617,57 +617,64 @@ class FallbackManager:
             _LOGGER.debug(f"Tier 2 (Consumer Proxy) failed: {err}")
 
         # =================================================================
-        # TIER 3: ENTSO-E Fresh + Coefficient (CALCULATED consumer prices)
+        # TIER 3: ENTSO-E Fresh + Price Model (CALCULATED consumer prices)
         # =================================================================
+        # Default fallback coefficients (Frank Energie calibrated)
+        DEFAULT_SLOPE = 1.27
+        DEFAULT_INTERCEPT = 0.147  # EUR/kWh fixed costs
+
         if db_results and db_age_minutes < fresh_threshold:
             try:
-                coefficient_data = await ConsumerPriceClient.get_coefficient()
-                coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
-                confidence = coefficient_data.get("confidence", 89) if coefficient_data else 89
+                model_data = await ConsumerPriceClient.get_price_model(country=country)
+                slope = model_data.get("slope", DEFAULT_SLOPE) if model_data else DEFAULT_SLOPE
+                intercept = model_data.get("intercept", DEFAULT_INTERCEPT) if model_data else DEFAULT_INTERCEPT
+                confidence = model_data.get("confidence", 89) if model_data else 89
 
-                # Apply coefficient to convert wholesale to consumer estimate
-                calculated_prices = FallbackManager._apply_coefficient(db_results, coefficient)
+                # Apply linear model: consumer = wholesale × slope + intercept
+                calculated_prices = FallbackManager._apply_price_model(db_results, slope, intercept)
 
-                _LOGGER.info(f"Tier 3: ENTSO-E Fresh + Coefficient {coefficient:.3f} ({db_age_minutes} min)")
-                FallbackManager._cache_prices_to_db(calculated_prices, "entsoe+coef", "estimated", country)
-                return (calculated_prices, f"ENTSO-E+Coef ({confidence}%)", "FRESH", True)
+                _LOGGER.info(f"Tier 3: ENTSO-E Fresh + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
+                FallbackManager._cache_prices_to_db(calculated_prices, "entsoe+model", "estimated", country)
+                return (calculated_prices, f"ENTSO-E+Model ({confidence}%)", "FRESH", True)
             except Exception as err:
-                _LOGGER.debug(f"Tier 3 coefficient failed, using raw ENTSO-E: {err}")
-                # Fallback to raw ENTSO-E if coefficient fetch fails
+                _LOGGER.debug(f"Tier 3 price model failed, using raw ENTSO-E: {err}")
+                # Fallback to raw ENTSO-E if model fetch fails
                 _LOGGER.info(f"Tier 3b: ENTSO-E Fresh (raw, {db_age_minutes} min)")
                 FallbackManager._cache_prices_to_db(db_results, "entsoe", "live", country)
                 return (db_results, "ENTSO-E", "FRESH", True)
 
         # =================================================================
-        # TIER 4: ENTSO-E Stale + Coefficient (CALCULATED consumer prices)
+        # TIER 4: ENTSO-E Stale + Price Model (CALCULATED consumer prices)
         # =================================================================
         if db_results and db_age_minutes < stale_threshold:
             try:
-                coefficient_data = await ConsumerPriceClient.get_coefficient()
-                coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
+                model_data = await ConsumerPriceClient.get_price_model(country=country)
+                slope = model_data.get("slope", DEFAULT_SLOPE) if model_data else DEFAULT_SLOPE
+                intercept = model_data.get("intercept", DEFAULT_INTERCEPT) if model_data else DEFAULT_INTERCEPT
 
-                calculated_prices = FallbackManager._apply_coefficient(db_results, coefficient)
+                calculated_prices = FallbackManager._apply_price_model(db_results, slope, intercept)
 
-                _LOGGER.info(f"Tier 4: ENTSO-E Stale + Coefficient {coefficient:.3f} ({db_age_minutes} min)")
-                return (calculated_prices, "ENTSO-E+Coef (stale)", "STALE", True)
+                _LOGGER.info(f"Tier 4: ENTSO-E Stale + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
+                return (calculated_prices, "ENTSO-E+Model (stale)", "STALE", True)
             except Exception as err:
-                _LOGGER.debug(f"Tier 4 coefficient failed: {err}")
+                _LOGGER.debug(f"Tier 4 price model failed: {err}")
                 _LOGGER.info(f"Tier 4b: ENTSO-E Stale (raw, {db_age_minutes} min)")
                 return (db_results, "ENTSO-E", "STALE", True)
 
         # =================================================================
-        # TIER 5: Energy-Charts + Coefficient (FALLBACK)
+        # TIER 5: Energy-Charts + Price Model (FALLBACK)
         # =================================================================
         if not FallbackManager._check_circuit_breaker():
             try:
                 ec_prices = await EnergyChartsClient.fetch_prices(country=country, hours=48)
                 if ec_prices and len(ec_prices) > 0:
-                    # Try to apply coefficient
+                    # Try to apply price model
                     try:
-                        coefficient_data = await ConsumerPriceClient.get_coefficient()
-                        coefficient = coefficient_data.get("coefficient", 1.0) if coefficient_data else 1.0
-                        calculated_prices = FallbackManager._apply_coefficient(ec_prices, coefficient)
-                        source = f"Energy-Charts+Coef"
+                        model_data = await ConsumerPriceClient.get_price_model(country=country)
+                        slope = model_data.get("slope", DEFAULT_SLOPE) if model_data else DEFAULT_SLOPE
+                        intercept = model_data.get("intercept", DEFAULT_INTERCEPT) if model_data else DEFAULT_INTERCEPT
+                        calculated_prices = FallbackManager._apply_price_model(ec_prices, slope, intercept)
+                        source = f"Energy-Charts+Model"
                     except:
                         calculated_prices = ec_prices
                         source = "Energy-Charts"
@@ -719,24 +726,42 @@ class FallbackManager:
         return ts.isoformat()
 
     @staticmethod
-    def _apply_coefficient(prices: List[Dict], coefficient: float) -> List[Dict]:
+    def _apply_price_model(
+        prices: List[Dict],
+        slope: float,
+        intercept: float
+    ) -> List[Dict]:
         """
-        Apply coefficient to wholesale prices to estimate consumer prices.
+        Apply linear regression model to wholesale prices.
+
+        Formula: consumer = (wholesale × slope + intercept) × bias_correction
 
         Args:
-            prices: List of price dicts with price_eur_mwh
-            coefficient: Multiplier (e.g., 1.85 means consumer = wholesale * 1.85)
+            prices: List of price dicts with price_eur_mwh (in EUR/MWh)
+            slope: Multiplier (~1.27)
+            intercept: Fixed costs in EUR/kWh (~0.147)
 
         Returns:
-            List of adjusted price dicts
+            List of adjusted price dicts with consumer prices
         """
+        from synctacles_db.clients.consumer_price_client import BIAS_CORRECTION
+
         adjusted = []
         for p in prices:
             new_p = p.copy()
             if "price_eur_mwh" in new_p and new_p["price_eur_mwh"] is not None:
-                new_p["price_eur_mwh"] = float(new_p["price_eur_mwh"]) * coefficient
+                # Convert MWh to kWh, apply model with bias correction, convert back to MWh
+                wholesale_kwh = float(new_p["price_eur_mwh"]) / 1000.0
+                consumer_kwh = (wholesale_kwh * slope + intercept) * BIAS_CORRECTION
+                new_p["price_eur_mwh"] = consumer_kwh * 1000.0
             adjusted.append(new_p)
         return adjusted
+
+    # Legacy method for backward compatibility
+    @staticmethod
+    def _apply_coefficient(prices: List[Dict], coefficient: float) -> List[Dict]:
+        """Legacy: Apply simple coefficient (deprecated, use _apply_price_model)."""
+        return FallbackManager._apply_price_model(prices, slope=coefficient, intercept=0.0)
 
     @staticmethod
     def _cache_prices_to_db(prices: List[Dict], source: str, quality: str, country: str):
