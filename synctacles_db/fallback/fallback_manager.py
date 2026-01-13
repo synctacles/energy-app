@@ -23,6 +23,13 @@ from synctacles_db.fallback.energy_charts_client import EnergyChartsClient
 from synctacles_db.freshness_config import FRESHNESS_THRESHOLDS, QualityStatus, get_quality_status
 from synctacles_db.services.price_cache import price_cache_service
 
+# Database access for Tier 1/2
+import asyncpg
+from config.settings import DATABASE_URL
+
+# Max data age for GO action authorization (6 hours)
+MAX_DATA_AGE_HOURS = 6
+
 _LOGGER = logging.getLogger(__name__)
 
 # Cache: 100 entries, 5 min TTL
@@ -545,79 +552,89 @@ class FallbackManager:
         country: str = "nl"
     ) -> Tuple[Optional[List[Dict]], str, str, bool]:
         """
-        Get electricity prices with 6-tier fallback strategy.
+        Get electricity prices with 7-tier fallback strategy.
 
-        6-Tier Fallback (Consumer Price Priority):
-        1. Consumer Proxy (Frank Energie) → LIVE consumer (100%)
-        2. Consumer Proxy (other providers) → LIVE consumer (99%)
-        3. ENTSO-E Fresh + Coefficient → CALCULATED consumer (89%)
-        4. ENTSO-E Stale + Coefficient → CALCULATED consumer (85%)
-        5. Energy-Charts + Coefficient → FALLBACK (70%)
-        6. Cache → CACHED (50%)
+        7-Tier Fallback (Database-Backed Consumer Price Priority):
+        1. Frank DB (local database) → LIVE consumer (100%) [PRIMARY]
+        2. Enever-Frank DB (local database) → LIVE consumer (99%)
+        3. Frank Direct API (real-time fallback) → LIVE consumer (98%)
+        4. ENTSO-E Fresh + Coefficient → CALCULATED consumer (89%)
+        5. ENTSO-E Stale + Coefficient → CALCULATED consumer (85%)
+        6. Energy-Charts + Coefficient → FALLBACK (70%)
+        7. Cache → CACHED (50%)
+
+        GO Action requires data < 6 hours old.
 
         Args:
-            db_results: List of price records from database
-            db_age_minutes: Age of database data
+            db_results: List of price records from database (ENTSO-E)
+            db_age_minutes: Age of database data (ENTSO-E)
             country: Country code
 
         Returns:
             Tuple of (data, source, quality, allow_go_action)
             - data: List of price dicts or None
-            - source: "Frank Energie" | "Consumer Proxy" | "ENTSO-E+Coef" | etc.
+            - source: "Frank DB" | "Enever-Frank DB" | "Frank Direct" | "ENTSO-E+Coef" | etc.
             - quality: "FRESH" | "STALE" | "FALLBACK" | "CACHED" | "UNAVAILABLE"
             - allow_go_action: bool
         """
         from synctacles_db.clients.consumer_price_client import ConsumerPriceClient
+        from synctacles_db.clients.frank_energie_client import FrankEnergieClient
 
         thresholds = FallbackManager.THRESHOLDS.get("prices", {"fresh": 15, "stale": 60})
         fresh_threshold = thresholds["fresh"]
         stale_threshold = thresholds["stale"]
 
         # =================================================================
-        # TIER 1: Consumer Proxy - Frank Energie (LIVE consumer prices)
+        # TIER 1: Frank DB - Local database (collected 2x daily)
+        # Primary source: pre-collected consumer prices
         # =================================================================
         try:
-            frank_prices = await ConsumerPriceClient.get_frank_prices("today")
+            frank_prices, frank_age = await FallbackManager._get_frank_from_db()
             if frank_prices and len(frank_prices) > 0:
-                # Convert to standard format
+                allow_go = FallbackManager._check_data_freshness(frank_age)
+                quality = "FRESH" if frank_age < 360 else "STALE"  # 6 hours
+                _LOGGER.info(f"Tier 1: Frank DB ({len(frank_prices)} prices, {frank_age} min, GO={allow_go})")
+                return (frank_prices, "Frank DB", quality, allow_go)
+        except Exception as err:
+            _LOGGER.debug(f"Tier 1 (Frank DB) failed: {err}")
+
+        # =================================================================
+        # TIER 2: Enever-Frank DB - Local database (collected 2x daily)
+        # Fallback: Enever-sourced Frank prices
+        # =================================================================
+        try:
+            enever_prices, enever_age = await FallbackManager._get_enever_frank_from_db()
+            if enever_prices and len(enever_prices) > 0:
+                allow_go = FallbackManager._check_data_freshness(enever_age)
+                quality = "FRESH" if enever_age < 360 else "STALE"
+                _LOGGER.info(f"Tier 2: Enever-Frank DB ({len(enever_prices)} prices, {enever_age} min, GO={allow_go})")
+                return (enever_prices, "Enever-Frank DB", quality, allow_go)
+        except Exception as err:
+            _LOGGER.debug(f"Tier 2 (Enever-Frank DB) failed: {err}")
+
+        # =================================================================
+        # TIER 3: Frank Direct API - Real-time fallback
+        # Only used if DB collectors failed
+        # =================================================================
+        try:
+            frank_direct = await FrankEnergieClient.get_prices_today()
+            if frank_direct and len(frank_direct) > 0:
+                # Convert to standard format (price_eur_mwh for consistency)
                 consumer_prices = [
                     {
-                        "timestamp": FallbackManager._hour_to_timestamp(p["hour"]),
-                        "price_eur_mwh": p["price"] * 1000  # Convert kWh to MWh for consistency
+                        "timestamp": p["timestamp"],
+                        "price_eur_mwh": p["price_eur_kwh"] * 1000  # Convert kWh to MWh
                     }
-                    for p in frank_prices
+                    for p in frank_direct
                 ]
-                _LOGGER.info(f"Tier 1: Frank Energie LIVE ({len(consumer_prices)} prices)")
-                FallbackManager._cache_prices_to_db(consumer_prices, "frank-energie", "live", country)
-                return (consumer_prices, "Frank Energie", "FRESH", True)
+                _LOGGER.info(f"Tier 3: Frank Direct API ({len(consumer_prices)} prices)")
+                FallbackManager._cache_prices_to_db(consumer_prices, "frank-direct", "live", country)
+                return (consumer_prices, "Frank Direct", "FRESH", True)
         except Exception as err:
-            _LOGGER.debug(f"Tier 1 (Frank Energie) failed: {err}")
+            _LOGGER.debug(f"Tier 3 (Frank Direct API) failed: {err}")
 
         # =================================================================
-        # TIER 2: Consumer Proxy - Other providers (LIVE consumer prices)
-        # =================================================================
-        try:
-            consumer_data = await ConsumerPriceClient.get_consumer_prices()
-            if consumer_data and consumer_data.get("prices_today"):
-                # Try other reliable providers as fallback
-                for provider in ["Tibber", "Vattenfall", "ANWB"]:
-                    provider_prices = consumer_data["prices_today"].get(provider)
-                    if provider_prices and len(provider_prices) > 0:
-                        consumer_prices = [
-                            {
-                                "timestamp": FallbackManager._hour_to_timestamp(p["hour"]),
-                                "price_eur_mwh": p["price"] * 1000
-                            }
-                            for p in provider_prices
-                        ]
-                        _LOGGER.info(f"Tier 2: {provider} LIVE ({len(consumer_prices)} prices)")
-                        FallbackManager._cache_prices_to_db(consumer_prices, provider.lower(), "live", country)
-                        return (consumer_prices, provider, "FRESH", True)
-        except Exception as err:
-            _LOGGER.debug(f"Tier 2 (Consumer Proxy) failed: {err}")
-
-        # =================================================================
-        # TIER 3: ENTSO-E Fresh + Price Model (CALCULATED consumer prices)
+        # TIER 4: ENTSO-E Fresh + Price Model (CALCULATED consumer prices)
         # =================================================================
         # Default fallback coefficients (Frank Energie calibrated)
         DEFAULT_SLOPE = 1.27
@@ -633,18 +650,18 @@ class FallbackManager:
                 # Apply linear model: consumer = wholesale × slope + intercept
                 calculated_prices = FallbackManager._apply_price_model(db_results, slope, intercept)
 
-                _LOGGER.info(f"Tier 3: ENTSO-E Fresh + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
+                _LOGGER.info(f"Tier 4: ENTSO-E Fresh + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
                 FallbackManager._cache_prices_to_db(calculated_prices, "entsoe+model", "estimated", country)
                 return (calculated_prices, f"ENTSO-E+Model ({confidence}%)", "FRESH", True)
             except Exception as err:
-                _LOGGER.debug(f"Tier 3 price model failed, using raw ENTSO-E: {err}")
+                _LOGGER.debug(f"Tier 4 price model failed, using raw ENTSO-E: {err}")
                 # Fallback to raw ENTSO-E if model fetch fails
-                _LOGGER.info(f"Tier 3b: ENTSO-E Fresh (raw, {db_age_minutes} min)")
+                _LOGGER.info(f"Tier 4b: ENTSO-E Fresh (raw, {db_age_minutes} min)")
                 FallbackManager._cache_prices_to_db(db_results, "entsoe", "live", country)
                 return (db_results, "ENTSO-E", "FRESH", True)
 
         # =================================================================
-        # TIER 4: ENTSO-E Stale + Price Model (CALCULATED consumer prices)
+        # TIER 5: ENTSO-E Stale + Price Model (CALCULATED consumer prices)
         # =================================================================
         if db_results and db_age_minutes < stale_threshold:
             try:
@@ -654,15 +671,15 @@ class FallbackManager:
 
                 calculated_prices = FallbackManager._apply_price_model(db_results, slope, intercept)
 
-                _LOGGER.info(f"Tier 4: ENTSO-E Stale + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
+                _LOGGER.info(f"Tier 5: ENTSO-E Stale + Model (slope={slope:.3f}, int={intercept:.4f}, {db_age_minutes} min)")
                 return (calculated_prices, "ENTSO-E+Model (stale)", "STALE", True)
             except Exception as err:
-                _LOGGER.debug(f"Tier 4 price model failed: {err}")
-                _LOGGER.info(f"Tier 4b: ENTSO-E Stale (raw, {db_age_minutes} min)")
+                _LOGGER.debug(f"Tier 5 price model failed: {err}")
+                _LOGGER.info(f"Tier 5b: ENTSO-E Stale (raw, {db_age_minutes} min)")
                 return (db_results, "ENTSO-E", "STALE", True)
 
         # =================================================================
-        # TIER 5: Energy-Charts + Price Model (FALLBACK)
+        # TIER 6: Energy-Charts + Price Model (FALLBACK)
         # =================================================================
         if not FallbackManager._check_circuit_breaker():
             try:
@@ -679,7 +696,7 @@ class FallbackManager:
                         calculated_prices = ec_prices
                         source = "Energy-Charts"
 
-                    _LOGGER.warning(f"Tier 5: {source} ({len(calculated_prices)} prices)")
+                    _LOGGER.warning(f"Tier 6: {source} ({len(calculated_prices)} prices)")
 
                     cache_key = f"prices_{country}"
                     _fallback_cache[cache_key] = calculated_prices
@@ -688,24 +705,24 @@ class FallbackManager:
                     # CRITICAL: allow_go_action=False for Energy-Charts!
                     return (calculated_prices, source, "FALLBACK", False)
             except Exception as err:
-                _LOGGER.error(f"Tier 5 (Energy-Charts) failed: {err}")
+                _LOGGER.error(f"Tier 6 (Energy-Charts) failed: {err}")
                 if "404" in str(err):
                     FallbackManager._open_circuit_breaker()
         else:
-            _LOGGER.warning("Tier 5 skipped: EC circuit breaker open")
+            _LOGGER.warning("Tier 6 skipped: EC circuit breaker open")
 
         # =================================================================
-        # TIER 6: Cache fallback (in-memory and PostgreSQL)
+        # TIER 7: Cache fallback (in-memory and PostgreSQL)
         # =================================================================
         cache_key = f"prices_{country}"
         if cache_key in _fallback_cache:
             cached_prices = _fallback_cache[cache_key]
-            _LOGGER.warning(f"Tier 6a: In-memory cache ({len(cached_prices)} records)")
+            _LOGGER.warning(f"Tier 7a: In-memory cache ({len(cached_prices)} records)")
             return (cached_prices, "Cache", "CACHED", False)
 
         db_cached = price_cache_service.get_cached_prices(country=country, hours=24)
         if db_cached:
-            _LOGGER.warning(f"Tier 6b: PostgreSQL cache ({len(db_cached)} records)")
+            _LOGGER.warning(f"Tier 7b: PostgreSQL cache ({len(db_cached)} records)")
             return (db_cached, "Cache (DB)", "CACHED", False)
 
         # Complete failure - return stale DB if available (but no GO)
@@ -714,7 +731,7 @@ class FallbackManager:
             return (db_results, "ENTSO-E", "STALE", False)
 
         # No data at all
-        _LOGGER.error("All 6 tiers failed - no price data available")
+        _LOGGER.error("All 7 tiers failed - no price data available")
         return (None, "None", "UNAVAILABLE", False)
 
     @staticmethod
@@ -792,3 +809,125 @@ class FallbackManager:
                     )
         except Exception as e:
             _LOGGER.error(f"Failed to cache prices to DB: {e}")
+
+    # =========================================================================
+    # DATABASE-BACKED TIER 1/2 METHODS
+    # =========================================================================
+
+    @staticmethod
+    async def _get_frank_from_db() -> Tuple[Optional[List[Dict]], int]:
+        """
+        Get today's Frank prices from local database (frank_prices table).
+
+        Returns:
+            Tuple of (prices_list, data_age_minutes)
+            - prices_list: List of price dicts or None
+            - data_age_minutes: Age of newest record in minutes
+        """
+        try:
+            conn = await asyncpg.connect(DATABASE_URL)
+
+            # Get today's prices
+            today = datetime.now(timezone.utc).date()
+            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc)
+            end_ts = start_ts + timedelta(days=1)
+
+            rows = await conn.fetch("""
+                SELECT timestamp, price_eur_kwh, created_at
+                FROM frank_prices
+                WHERE timestamp >= $1 AND timestamp < $2
+                ORDER BY timestamp ASC
+            """, start_ts, end_ts)
+
+            await conn.close()
+
+            if not rows:
+                return (None, 9999)
+
+            # Calculate data age from newest created_at
+            newest_created = max(row['created_at'] for row in rows)
+            now = datetime.now(timezone.utc)
+            data_age_minutes = int((now - newest_created).total_seconds() / 60)
+
+            # Convert to standard format
+            prices = [
+                {
+                    "timestamp": row['timestamp'].isoformat(),
+                    "price_eur_mwh": float(row['price_eur_kwh']) * 1000  # Convert kWh to MWh
+                }
+                for row in rows
+            ]
+
+            _LOGGER.debug(f"Frank DB: {len(prices)} prices, age {data_age_minutes} min")
+            return (prices, data_age_minutes)
+
+        except Exception as e:
+            _LOGGER.error(f"Frank DB read failed: {e}")
+            return (None, 9999)
+
+    @staticmethod
+    async def _get_enever_frank_from_db() -> Tuple[Optional[List[Dict]], int]:
+        """
+        Get today's Enever-Frank prices from local database (enever_frank_prices table).
+
+        Returns:
+            Tuple of (prices_list, data_age_minutes)
+            - prices_list: List of price dicts or None
+            - data_age_minutes: Age of newest record in minutes
+        """
+        try:
+            conn = await asyncpg.connect(DATABASE_URL)
+
+            # Get today's prices
+            today = datetime.now(timezone.utc).date()
+            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc)
+            end_ts = start_ts + timedelta(days=1)
+
+            rows = await conn.fetch("""
+                SELECT timestamp, price_eur_kwh, created_at
+                FROM enever_frank_prices
+                WHERE timestamp >= $1 AND timestamp < $2
+                ORDER BY timestamp ASC
+            """, start_ts, end_ts)
+
+            await conn.close()
+
+            if not rows:
+                return (None, 9999)
+
+            # Calculate data age from newest created_at
+            newest_created = max(row['created_at'] for row in rows)
+            now = datetime.now(timezone.utc)
+            data_age_minutes = int((now - newest_created).total_seconds() / 60)
+
+            # Convert to standard format
+            prices = [
+                {
+                    "timestamp": row['timestamp'].isoformat(),
+                    "price_eur_mwh": float(row['price_eur_kwh']) * 1000  # Convert kWh to MWh
+                }
+                for row in rows
+            ]
+
+            _LOGGER.debug(f"Enever-Frank DB: {len(prices)} prices, age {data_age_minutes} min")
+            return (prices, data_age_minutes)
+
+        except Exception as e:
+            _LOGGER.error(f"Enever-Frank DB read failed: {e}")
+            return (None, 9999)
+
+    @staticmethod
+    def _check_data_freshness(data_age_minutes: int) -> bool:
+        """
+        Check if data is fresh enough for GO action authorization.
+
+        GO action requires data younger than MAX_DATA_AGE_HOURS (6 hours).
+
+        Args:
+            data_age_minutes: Age of data in minutes
+
+        Returns:
+            True if data is fresh enough for GO action
+        """
+        max_age_minutes = MAX_DATA_AGE_HOURS * 60
+        return data_age_minutes < max_age_minutes

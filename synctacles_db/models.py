@@ -220,3 +220,43 @@ class PriceCache(Base):
         Index('idx_price_cache_timestamp', 'timestamp'),
         Index('idx_price_cache_country_timestamp', 'country', text('timestamp DESC')),
     )
+
+
+# === FRANK PRICES (Database-backed Fallback Chain) ===
+
+class FrankPrices(Base):
+    """Frank Energie direct prices (Tier 1 in fallback chain).
+
+    Collected 2x daily (07:00, 15:00 UTC) from Frank GraphQL API.
+    Contains full consumer prices including all taxes and markups.
+    """
+    __tablename__ = 'frank_prices'
+
+    timestamp = Column(TIMESTAMP(timezone=True), primary_key=True)
+    price_eur_kwh = Column(Numeric(10, 6), nullable=False)
+    market_price = Column(Numeric(10, 6), nullable=True)
+    market_price_tax = Column(Numeric(10, 6), nullable=True)
+    sourcing_markup = Column(Numeric(10, 6), nullable=True)
+    energy_tax = Column(Numeric(10, 6), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text('NOW()'))
+
+    __table_args__ = (
+        Index('idx_frank_prices_timestamp', text('timestamp DESC')),
+    )
+
+
+class EneverFrankPrices(Base):
+    """Enever-Frank prices via Coefficient server (Tier 2 in fallback chain).
+
+    Collected 2x daily (07:00, 15:00 UTC) from Coefficient API.
+    Fallback when Frank Direct is unavailable.
+    """
+    __tablename__ = 'enever_frank_prices'
+
+    timestamp = Column(TIMESTAMP(timezone=True), primary_key=True)
+    price_eur_kwh = Column(Numeric(10, 6), nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text('NOW()'))
+
+    __table_args__ = (
+        Index('idx_enever_frank_prices_timestamp', text('timestamp DESC')),
+    )

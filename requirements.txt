@@ -11,6 +11,7 @@ python-multipart==0.0.21
 
 # Database
 psycopg2-binary==2.9.10
+asyncpg==0.30.0  # Async PostgreSQL for collectors and fallback chain
 sqlalchemy==2.0.36
 alembic==1.14.1
 
