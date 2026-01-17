@@ -41,7 +41,7 @@ class PriceCacheService:
 
         Args:
             price: Consumer price in EUR/kWh
-            source: Data source (enever, entsoe+lookup, energy-charts+lookup)
+            source: Data source (frank, entsoe+offset, energy-charts+offset, easyenergy)
             quality: Quality level (live, estimated, cached)
             country: Country code (default: NL)
             timestamp: Price timestamp (default: now)

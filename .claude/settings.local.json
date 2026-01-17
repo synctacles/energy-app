@@ -195,7 +195,17 @@
       "Bash(echo \"=== 2. SKILLs met backup secties ===\" grep -l \"backup\\\\|restore\\\\|recovery\" docs/skills/SKILL_*.md echo \"\" echo \"=== 3. Beschikbare SKILL nummers ===\" ls docs/skills/SKILL_*.md)",
       "Bash(# Check welke SSH keys beschikbaar zijn ls -la ~/.ssh/)",
       "Bash(ssh:*)",
-      "Bash(ssh cc-hub \"pwd && ls -la ~/\")"
+      "Bash(ssh cc-hub \"pwd && ls -la ~/\")",
+      "Bash(pip3 install:*)",
+      "Bash(gh issue view:*)",
+      "Bash(pip install:*)",
+      "Bash(systemctl:*)",
+      "Bash(sudo kill:*)",
+      "Bash(pip3 show:*)",
+      "Bash(sudo cat:*)",
+      "Bash(/opt/energy-insights-nl/venv/bin/python3.12:*)",
+      "Bash(ssh ha 'hostname && ls /config/custom_components/')",
+      "Bash(ssh ha:*)"
     ]
   }
 }

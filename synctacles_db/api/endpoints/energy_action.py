@@ -27,8 +27,8 @@ router = APIRouter(prefix="/v1", tags=["energy-action"])
 
 class PriceQuality:
     """Quality levels for price data."""
-    LIVE = "live"           # 100% accurate (Enever/Frank)
-    ESTIMATED = "estimated"  # 89% accurate (ENTSO-E + lookup)
+    LIVE = "live"           # 100% accurate (Frank DB/Direct)
+    ESTIMATED = "estimated"  # 85-89% accurate (ENTSO-E/EasyEnergy + static offset)
     CACHED = "cached"        # Stale but functional
     UNAVAILABLE = "unavailable"
 
@@ -54,14 +54,14 @@ async def get_energy_action(
         - action: USE / WAIT / SKIP recommendation
         - price_eur_kwh: Current consumer price
         - quality: live / estimated / cached / unavailable
-        - source: Data source (enever, entsoe+lookup, energy-charts+lookup, cache)
+        - source: Data source (frank, easyenergy, entsoe+offset, energy-charts+offset, cache)
         - confidence: 0-100 percentage
         - cheapest_hour: Next cheapest hour today
         - most_expensive_hour: Next most expensive hour today
 
     Quality levels:
-        - live (100%): Real consumer prices from Frank/Enever
-        - estimated (89%): ENTSO-E + lookup table calculation
+        - live (100%): Real consumer prices from Frank DB/Direct
+        - estimated (85-89%): ENTSO-E/EasyEnergy + static offset
         - cached (50%): Stale data from cache
         - unavailable (0%): No data available
     """

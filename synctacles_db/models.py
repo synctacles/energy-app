@@ -245,18 +245,6 @@ class FrankPrices(Base):
     )
 
 
-class EneverFrankPrices(Base):
-    """Enever-Frank prices via Coefficient server (Tier 2 in fallback chain).
-
-    Collected 2x daily (07:00, 15:00 UTC) from Coefficient API.
-    Fallback when Frank Direct is unavailable.
-    """
-    __tablename__ = 'enever_frank_prices'
-
-    timestamp = Column(TIMESTAMP(timezone=True), primary_key=True)
-    price_eur_kwh = Column(Numeric(10, 6), nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=text('NOW()'))
-
-    __table_args__ = (
-        Index('idx_enever_frank_prices_timestamp', text('timestamp DESC')),
-    )
+# DEPRECATED: EneverFrankPrices removed in KISS Migration v2.0.0
+# Table 'enever_frank_prices' no longer used - coefficient server discontinued
+# Data remains in DB for historical reference but no new data collected

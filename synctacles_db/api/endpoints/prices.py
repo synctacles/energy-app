@@ -11,7 +11,7 @@ CRITICAL RULE: Energy-Charts prices MUST NEVER trigger GO actions!
 """
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, desc
@@ -38,16 +38,32 @@ DB_URL = DATABASE_URL
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 
+class ExpectedRange(BaseModel):
+    """Expected price range for anomaly detection."""
+    low: float
+    high: float
+    expected: float
+
+class ReferenceData(BaseModel):
+    """Reference data for HA anomaly detection (KISS Migration)."""
+    source: str
+    tier: int
+    expected_range: ExpectedRange
+    timestamp: Optional[str] = None
+    market: Optional[dict] = None
+
 class PriceRecord(BaseModel):
     timestamp: datetime
     price_eur_mwh: float
+    # Pydantic v2: use Field with serialization_alias for underscore-prefixed fields
+    reference: Optional[ReferenceData] = Field(default=None, serialization_alias="_reference")
 
 class MetaData(BaseModel):
     source: str
     quality_status: str
     data_age_seconds: int
     count: int
-    allow_go_action: bool  # NEW: Flag for GO action safety
+    allow_go_action: bool  # Flag for GO action safety
 
 class PricesResponse(BaseModel):
     data: List[PriceRecord]
@@ -134,13 +150,27 @@ async def get_prices(
 
     # Build response
     if data:
-        price_records = [
-            PriceRecord(
-                timestamp=datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")),
-                price_eur_mwh=float(d["price_eur_mwh"])
-            )
-            for d in data
-        ]
+        price_records = []
+        for i, d in enumerate(data):
+            record_kwargs = {
+                "timestamp": datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")),
+                "price_eur_mwh": float(d["price_eur_mwh"])
+            }
+            # Include reference only on first record (KISS Migration anomaly detection)
+            if i == 0 and "_reference" in d:
+                ref = d["_reference"]
+                record_kwargs["reference"] = ReferenceData(
+                    source=ref.get("source", "unknown"),
+                    tier=ref.get("tier", 0),
+                    expected_range=ExpectedRange(
+                        low=ref["expected_range"]["low"],
+                        high=ref["expected_range"]["high"],
+                        expected=ref["expected_range"].get("expected", 0)
+                    ),
+                    timestamp=ref.get("timestamp"),
+                    market=ref.get("market")
+                )
+            price_records.append(PriceRecord(**record_kwargs))
 
         result = PricesResponse(
             data=price_records,
@@ -149,7 +179,7 @@ async def get_prices(
                 quality_status=quality,
                 data_age_seconds=db_age_minutes * 60 if db_age_minutes < 999 else 999999,
                 count=len(price_records),
-                allow_go_action=allow_go_action  # NEW: Safety flag
+                allow_go_action=allow_go_action  # Safety flag
             )
         )
     else:
@@ -164,8 +194,8 @@ async def get_prices(
             )
         )
 
-    # Serialize and cache
-    json_content = result.model_dump_json()
+    # Serialize and cache (by_alias=True for '_reference', exclude_none to omit null fields)
+    json_content = result.model_dump_json(by_alias=True, exclude_none=True)
     cache_ttl = 60 if quality == "UNAVAILABLE" else 300
     api_cache.set(cache_key, json_content, ttl=cache_ttl)
 

@@ -1,11 +1,27 @@
 """
 Consumer Price Client.
 
+DEPRECATED: This module is deprecated as of KISS Migration (2026-01-17).
+The coefficient server (91.99.150.36) is being decommissioned.
+
+Use instead:
+- synctacles_db.clients.frank_energie_client.FrankEnergieClient (for consumer prices)
+- synctacles_db.clients.easyenergy_client.EasyEnergyClient (for wholesale prices)
+- synctacles_db.config.static_offsets (for wholesale → consumer conversion)
+
 HTTP client for Coefficient Engine API (91.99.150.36:8080).
 Provides consumer prices and coefficient data for 6-tier fallback chain.
 
 Brand-free implementation - no external brand names in code.
 """
+import warnings
+
+warnings.warn(
+    "ConsumerPriceClient is deprecated. Use FrankEnergieClient, EasyEnergyClient, "
+    "or static_offsets instead. Coefficient server will be decommissioned.",
+    DeprecationWarning,
+    stacklevel=2
+)
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, List, Tuple
