@@ -29,7 +29,7 @@ Define what SYNCTACLES does, what problems it solves, and what features it provi
 
 **What:** Simple GO/WAIT/AVOID recommendation for current energy usage
 
-**Data Source:** ENTSO-E A44 prices + coefficient engine
+**Data Source:** ENTSO-E A44 prices + Enever consumer prices
 
 **Provides:**
 - `action`: GO (cheap), WAIT (moderate), AVOID (expensive)
@@ -68,27 +68,7 @@ Define what SYNCTACLES does, what problems it solves, and what features it provi
 
 ---
 
-### 4. Grid Balance Status
-
-**What:** Grid frequency and reserve margin
-
-**Data Source:** TenneT Ingestor (updated every 5 minutes)
-
-**Provides:**
-- Grid frequency (Hz, should be ~50 Hz)
-- Reserve margin (MW)
-- Activation status (normal, increased reserves, etc.)
-
-**Use Cases:**
-- Awareness of grid stress events
-- Automation triggers (if frequency low, reduce consumption)
-- Historical grid stability analysis
-
-**Endpoint:** `GET /v1/balance/current`
-
----
-
-### 5. Automation Signals
+### 4. Automation Signals
 
 **What:** Pre-computed signals for common automation scenarios
 
@@ -115,7 +95,7 @@ Define what SYNCTACLES does, what problems it solves, and what features it provi
 
 **Provides:**
 - Overall system status (healthy/degraded/critical)
-- Status of each data source (ENTSO-E, TenneT, Energy-Charts)
+- Status of each data source (ENTSO-E, Enever, Energy-Charts)
 - Last successful data collection timestamp
 - Uptime statistics
 - API version
@@ -250,7 +230,7 @@ sensor.synctacles_carbon_intensity
 - ✅ ENTSO-E A75 data collection (generation)
 - ✅ ENTSO-E A65 data collection (load)
 - ✅ ENTSO-E A44 data collection (prices)
-- ✅ TenneT balance data collection
+- ✅ Enever consumer price integration
 - ✅ 3-layer pipeline (Collectors → Importers → Normalizers)
 - ✅ PostgreSQL storage with quality metadata
 - ✅ REST API (FastAPI)
@@ -290,7 +270,7 @@ sensor.synctacles_carbon_intensity
 ### Availability
 
 - Target uptime: 99.5% (production)
-- Automatic failover to Energy-Charts if ENTSO-E/TenneT down
+- Automatic failover to Energy-Charts if ENTSO-E down
 - Graceful degradation (serve last-known-good if all sources fail)
 
 ### Reliability
@@ -362,12 +342,12 @@ X-RateLimit-Reset: 1735689600     # Unix timestamp of reset (midnight UTC)
 
 - ENTSO-E A75/A65: Every 15 minutes (published ~15 min delayed)
 - ENTSO-E A44: Hourly (published day-ahead + intraday updates)
-- TenneT: Every 5 minutes
+- Enever: Hourly consumer prices (15-min for supporters)
 - Energy-Charts: Cached, updated daily
 
 ### Geographic Scope
 
-- **Primary:** Dutch electricity grid (operated by TenneT)
+- **Primary:** Dutch electricity grid
 - **Data from:** ENTSO-E (European data) filtered for Netherlands
 - **Future:** Can be extended to other countries/regions
 

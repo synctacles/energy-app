@@ -380,13 +380,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     api_url = entry.data.get(CONF_API_URL, "").rstrip("/")
     has_api_key = bool(entry.data.get(CONF_API_KEY))
-    has_tennet_key = bool(entry.data.get(CONF_TENNET_API_KEY))
+    has_enever_key = bool(entry.data.get(CONF_ENEVER_API_KEY))
 
     _LOGGER.debug(
-        "Configuration: api_url=%s, has_api_key=%s, has_tennet_key=%s",
+        "Configuration: api_url=%s, has_api_key=%s, has_enever_key=%s",
         api_url[:20] if api_url else "not set",
         has_api_key,
-        has_tennet_key
+        has_enever_key
     )
 
     # Server coordinator
@@ -434,35 +434,6 @@ async def _async_update_data(self) -> dict[str, Any]:
     return data
 ```
 
-### TenneT Coordinator Logging
-
-```python
-async def _async_update_data(self) -> dict[str, Any]:
-    """Fetch data from TenneT API."""
-    _LOGGER.debug("TenneT coordinator update starting")
-
-    try:
-        _LOGGER.debug("Fetching TenneT balance data from %s%s", TENNET_BASE_URL[:20], TENNET_BALANCE_ENDPOINT)
-        async with self._session.get(...) as response:
-            if response.status == 200:
-                raw_data = await response.json()
-                _LOGGER.debug("TenneT data fetched successfully, parsing response")
-                parsed = self._parse_tennet_response(raw_data)
-
-                _LOGGER.info(
-                    "TenneT coordinator update complete: balance=%.2f MW, quality=%s",
-                    parsed.get("balance_delta_mw") or 0,
-                    parsed.get("quality")
-                )
-                return parsed
-            elif response.status == 401:
-                _LOGGER.error("TenneT API key invalid or expired (401)")
-                raise UpdateFailed("TenneT API key invalid or expired")
-    except aiohttp.ClientError as err:
-        _LOGGER.error("TenneT connection error: %s", err)
-        raise UpdateFailed(f"TenneT connection error: {err}") from err
-```
-
 ### Diagnostics Module (MANDATORY)
 
 **File:** `custom_components/ha_energy_insights_nl/diagnostics.py`
@@ -478,14 +449,13 @@ async def async_get_config_entry_diagnostics(hass, entry):
 
     data = hass.data[DOMAIN][entry.entry_id]
     server_coordinator = data["server_coordinator"]
-    tennet_coordinator = data.get("tennet_coordinator")
 
     diagnostics = {
         "entry_id": entry.entry_id,
         "config": {
             "api_url": entry.data.get("api_url", "")[:20],  # Redact for privacy
             "has_api_key": bool(entry.data.get("api_key")),
-            "has_tennet_key": bool(entry.data.get("tennet_api_key")),
+            "has_enever_key": bool(entry.data.get("enever_api_key")),
         },
         "server_coordinator": {
             "name": server_coordinator.name,
@@ -498,13 +468,6 @@ async def async_get_config_entry_diagnostics(hass, entry):
             "has_prices": bool(server_coordinator.data.get("prices")) if server_coordinator.data else False,
         },
     }
-
-    if tennet_coordinator:
-        diagnostics["tennet_coordinator"] = {
-            "name": tennet_coordinator.name,
-            "last_update_success": tennet_coordinator.last_update_success,
-            "last_update_time": tennet_coordinator.last_update_time,
-        }
 
     _LOGGER.info("Diagnostics generated: generation=%s, load=%s, prices=%s",
                  diagnostics["data_status"].get("has_generation"),

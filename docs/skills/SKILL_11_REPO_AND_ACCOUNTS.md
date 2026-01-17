@@ -268,7 +268,6 @@ ha-energy-insights-nl/
 â”‚       â”œâ”€â”€ const.py
 â”‚       â”œâ”€â”€ manifest.json
 â”‚       â”œâ”€â”€ strings.json
-â”‚       â””â”€â”€ tennet_client.py
 â”œâ”€â”€ hacs.json
 â””â”€â”€ README.md
 ```
@@ -299,7 +298,7 @@ Workflow:
 Users install via HACS:
 1. Add custom repository: `DATADIO/ha-energy-insights-nl`
 2. Install integration
-3. Configure API URL + optional TenneT key
+3. Configure API URL + optional Enever API key
 
 ---
 

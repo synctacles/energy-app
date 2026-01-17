@@ -260,7 +260,7 @@ default_statistics_target = 100
 - Generation (A75): 5 GB
 - Load (A65): 1 GB
 - Prices (A44): 500 MB
-- Balance (TenneT): 1 GB
+- Enever prices: 500 MB
 - Indexes: 2 GB
 - Backups (weekly): 10 GB
 - **Total: ~20 GB**
@@ -306,7 +306,7 @@ Alle netwerkbeveiliging via Hetzner Cloud Firewall, niet OS-level.
 ```bash
 # Outgoing (to APIs)
 Allow: ENTSO-E (api.entso-e.eu)
-Allow: TenneT (api.tennet.nl)
+Allow: Enever (enever.nl)
 Allow: Energy-Charts (api.energy-charts.info)
 
 # DNS
