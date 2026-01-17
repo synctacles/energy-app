@@ -1,0 +1,88 @@
+================================================================================
+EXECUTIVE SUMMARY: USP Analysis Results
+================================================================================
+
+KERNVRAAG: Kunnen wij betere prijzen leveren dan Enever?
+
+ANTWOORD: NEE - verschil is €5/jaar per huishouden (verwaarloosbaar)
+
+--------------------------------------------------------------------------------
+DE HARDE CIJFERS (NumPy analyse over 26K-28K uren)
+--------------------------------------------------------------------------------
+
+Frank Energie:
+  • Enever accuracy: 90.10%
+  • Financieel verschil: €4.60/jaar (€0.38/maand)
+  • 46.7% van uren < 5% error
+  • 69.4% van uren < 10% error
+
+EasyEnergy:
+  • Enever accuracy: 88.78%
+  • Financieel verschil: €0.68/jaar (€0.06/maand)
+  • 39.6% van uren < 5% error
+  • 64.9% van uren < 10% error
+
+TOTAAL IMPACT: €5.28/jaar per huishouden = 1 kopje koffie
+
+--------------------------------------------------------------------------------
+WAT IS ONS VERSCHIL?
+--------------------------------------------------------------------------------
+
+❌ NIET accuracy    - Enever is 88-90% accuraat (prima!)
+❌ NIET actualiteit - Enever is zelfs iets actueler
+❌ NIET coverage    - Enever heeft 26 leveranciers, wij 2
+
+✅ WEL EasyEnergy historie - 3.8 jaar EXTRA (2019 vs 2022)
+✅ WEL API stabiliteit      - Geen scraping = geen breaking changes
+✅ WEL real-time GraphQL    - Flexibel voor custom integraties
+✅ WEL tomorrow prices      - Frank API na 14:00 CET
+
+--------------------------------------------------------------------------------
+CONCLUSIE: ENEVER HEEFT BESTAANSRECHT
+--------------------------------------------------------------------------------
+
+Waarom Enever waardevol is:
+  • 26 leveranciers (wij: 2)
+  • Bewezen stabiel scraping (3+ jaar)
+  • Consistente 88-90% accuracy
+  • Breed marktoverzicht
+
+Waarom wij NIET moeten scrapen:
+  • Enever doet dit al goed
+  • Onze waarde zit in API access, niet in meer providers
+  • €5/jaar verschil rechtvaardigt geen scraping overhead
+
+--------------------------------------------------------------------------------
+AANBEVELING
+--------------------------------------------------------------------------------
+
+OPTIE A: Focus op API-gedreven use cases
+  → Developers, automation, smart home
+  → Complementair aan Enever (niet concurrent)
+  → Lever waarde via real-time integratie + ML corrections
+
+OPTIE B: Gebruik Enever data + onze correctie (93%)
+  → Beste van beide werelden
+  → 26 providers via Enever
+  → Onze corrections voor Frank/Easy specifieke cases
+
+OPTIE C: Samenwerking met Enever
+  → Zij scrapen (hun expertise)
+  → Wij leveren API + ML layer
+  → Win-win samenwerking
+
+--------------------------------------------------------------------------------
+VOOR ENERGY ACTIONS BETROUWBAARHEID
+--------------------------------------------------------------------------------
+
+Enever data: 88-90% betrouwbaar → PRIMA voor meeste use cases
+Met onze correctie (93%): ~95% → MARGINALE verbetering
+
+Advies: Focus op high-value cases waar die 5% ertoe doet
+        (automation, large-scale, financial optimization)
+
+================================================================================
+
+Volledige analyse: /tmp/FINAL_USP_VERDICT.md
+Technische details: /tmp/run_comprehensive_analysis_v2.py (gedraaid op coefficient)
+

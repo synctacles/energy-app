@@ -636,9 +636,10 @@ class FallbackManager:
         # =================================================================
         # TIER 4: ENTSO-E Fresh + Price Model (CALCULATED consumer prices)
         # =================================================================
-        # Default fallback coefficients (Frank Energie calibrated)
-        DEFAULT_SLOPE = 1.27
-        DEFAULT_INTERCEPT = 0.147  # EUR/kWh fixed costs
+        # Default fallback coefficients (Frank Energie calibrated, updated 2026-01-17)
+        # Frank uses wholesale passthrough: slope=1.0, intercept=0.0
+        DEFAULT_SLOPE = 1.0
+        DEFAULT_INTERCEPT = 0.0  # EUR/kWh fixed costs
 
         if db_results and db_age_minutes < fresh_threshold:
             try:

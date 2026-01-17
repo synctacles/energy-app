@@ -1,15 +1,15 @@
-# SKILL 00 — AI OPERATING PROTOCOL
+# SKILL 00 â€” AI OPERATING PROTOCOL
 
 **MANDATORY READING BEFORE ANY ACTION**
-Version: 2.0 (2026-01-07)
+Version: 2.2 (2026-01-16)
 Status: ENFORCED
 Scope: Claude Code (CC) + Claude AI (CAI)
 
 ---
 
-## ⛔ STOP — READ THIS FIRST
+## â›” STOP â€” READ THIS FIRST
 
-Dit document is VERPLICHT voor elke AI sessie (CC én CAI).
+Dit document is VERPLICHT voor elke AI sessie (CC Ã©n CAI).
 Geen acties, geen fixes, geen edits voordat je dit hebt gelezen EN bewezen dat je het snapt.
 
 **Incident aanleiding:** 4.5 uur verspild door CC die:
@@ -69,14 +69,14 @@ Mag ik beginnen?"
 ### Wat PROTECT MODE betekent:
 
 ```
-✅ TOEGESTAAN:
+âœ… TOEGESTAAN:
 - Lezen (cat, view, less)
 - Analyseren (grep, find, ls)
 - Vragen stellen
 - Documenteren
 - Plannen maken
 
-❌ VERBODEN:
+âŒ VERBODEN:
 - Bestanden aanpassen
 - Services herstarten
 - Git commits
@@ -102,16 +102,16 @@ Mag ik beginnen?"
 
 ## SECTIE C: VERIFICATIE VOOR CONCLUSIES
 
-### ❌ VERBODEN gedrag:
+### âŒ VERBODEN gedrag:
 
 ```
-"Script mist" → zonder `ls -la` output
-"Service is broken" → zonder te vragen of het deprecated is
-"Ik fix even" → zonder expliciete toestemming
-"Volgens mij..." → zonder verificatie
+"Script mist" â†’ zonder `ls -la` output
+"Service is broken" â†’ zonder te vragen of het deprecated is
+"Ik fix even" â†’ zonder expliciete toestemming
+"Volgens mij..." â†’ zonder verificatie
 ```
 
-### ✅ VERPLICHT gedrag:
+### âœ… VERPLICHT gedrag:
 
 ```
 STAP 1: Observatie
@@ -131,13 +131,137 @@ STAP 4: Pas DAN actie voorstellen
 
 ---
 
+## SECTIE C2: CC SESSION MODES
+
+### Twee operationele modes:
+
+**SUPERVISED MODE (default):**
+```
+1. CC presenteert plan: "Ik ga X doen"
+2. CC wacht op expliciete goedkeuring: "go" / "1" / "execute"
+3. CC voert uit
+4. CC rapporteert resultaat
+```
+
+**AUTONOMOUS MODE (opt-in):**
+```
+1. CC voert direct uit zonder te vragen
+2. CC rapporteert alleen resultaat
+```
+
+### Wanneer SUPERVISED verplicht:
+
+- **ALTIJD** voor HIGH risk servers (productie)
+- **ALTIJD** voor destructieve acties (delete, drop, restart prod services)
+- **ALTIJD** voor nieuwe/onbekende taken
+- **ALTIJD** bij twijfel over impact
+- **ALTIJD** voor off-limits gebieden
+
+### Wanneer AUTONOMOUS toegestaan:
+
+**Alleen als ALLE voorwaarden waar zijn:**
+- Leo heeft expliciet "autonomous mode" aangegeven voor deze sessie
+- Server is LOW risk (dev/test/monitor)
+- Actie staat op whitelist (zie beneden)
+- Geen productie impact
+- Reversible zonder data loss
+
+### Action Whitelist (autonomous safe):
+
+```
+âœ… READ-ONLY:
+- cat, less, view, grep, find, ls
+- systemctl status
+- journalctl (read)
+- git log, git status, git diff
+- Database SELECT queries (read-only)
+
+âœ… LOW-RISK WRITES:
+- git pull (op dev/test)
+- Documentation updates
+- Log file analysis
+- Test runs (niet-productie)
+
+âŒ ALTIJD SUPERVISED:
+- systemctl restart/stop/start
+- git push/commit
+- File edits (code, config)
+- Database INSERT/UPDATE/DELETE
+- Service installs/updates
+- Firewall changes
+- User management
+```
+
+### Server Risk Levels:
+
+| Server | Risk | Default Mode | Override |
+|--------|------|--------------|----------|
+| synct-prd (prod) | HIGH | SUPERVISED | Geen |
+| coefficient (prod) | HIGH | SUPERVISED | Geen |
+| synct-dev (ENIN-NL) | LOW | SUPERVISED | Autonomous OK |
+| synct-tst (test) | LOW | SUPERVISED | Autonomous OK |
+| monitor | LOW | SUPERVISED | Autonomous OK |
+| sideproject | MEDIUM | SUPERVISED | Alleen voor specifieke taken |
+
+### Mode Activation:
+
+**Leo activeert autonomous:**
+```
+"CC autonomous mode voor deze sessie op synct-dev"
+"CC, autonomous deployment naar test"
+```
+
+**Leo schakelt terug naar supervised:**
+```
+"CC supervised mode"
+"CC, vraag toestemming voor acties"
+```
+
+**CC gedrag:**
+- **Zonder expliciete autonomous activatie** → ALTIJD SUPERVISED
+- **Bij activatie** → Check server risk + action whitelist
+- **Bij twijfel** → SUPERVISED (veiligste optie)
+- **Rapporteer modus** aan start sessie
+
+### Voorbeeld Flow:
+
+```
+# SUPERVISED (default)
+CC: "Ik ga API service herstarten. Plan:
+     1. systemctl restart energy-insights-nl-api
+     2. Check logs
+     3. Verify health endpoint
+     
+     Execute? (go/1)"
+Leo: "go"
+CC: [uitvoeren + rapporteren]
+
+# AUTONOMOUS (opt-in, whitelisted action)
+Leo: "CC autonomous mode, check logs op dev"
+CC: [direct uitvoeren]
+CC: "Logs geanalyseerd. Laatste 50 entries tonen geen errors."
+```
+
+### Safety Override:
+
+**CC moet ALTIJD stoppen en vragen bij:**
+- Onverwachte situatie tijdens autonomous mode
+- Impact groter dan verwacht
+- Twijfel over juiste actie
+- Potentieel data loss
+
+**Autonomous betekent NIET "blindly execute"**
+**Het betekent: "execute pre-approved safe actions without asking"**
+
+---
+
 ## SECTIE D: OFF-LIMITS GEBIEDEN
 
 ### Raak NOOIT aan zonder expliciete instructie:
 
 | Gebied | Reden | Documentatie |
 |--------|-------|--------------|
-| **TenneT services** | Juridisch: geen redistributie | SKILL_02 §TenneT BYO-KEY |
+| **TenneT services** | Juridisch: geen redistributie | SKILL_02 Â§TenneT BYO-KEY |
 | **synctacles-* services** | Deprecated (oude naming) | SKILL_11 |
 | **/opt/.env** | Productie secrets | SKILL_01 |
 | **Database credentials** | Security | SKILL_03 |
@@ -164,7 +288,7 @@ Is dit toegestaan of off-limits?"
 ### Format:
 
 ```
-⚠️ ESCALATIE:
+âš ï¸ ESCALATIE:
 - Situatie: [wat ik zie]
 - Twijfel: [waarom ik stop]
 - Opties: [a, b, c]
@@ -178,36 +302,33 @@ Is dit toegestaan of off-limits?"
 ### Start sessie:
 
 ```
-□ SKILL_00 gelezen (dit document)
-□ SKILL_01, SKILL_02, SKILL_11 gelezen
-□ Key points samengevat aan Leo
-□ Goedkeuring ontvangen om te beginnen
-□ PROTECT MODE = actief
-□ STATUS_MERGED_CURRENT.md gelezen (indien bestaat)
-□ GitHub CLI auth verified: sudo -u energy-insights-nl gh auth status
-□ Server context awareness: Check docs/INFRASTRUCTURE.md
-□ Git status checked: sudo -u energy-insights-nl git status
+â–¡ SKILL_00 gelezen (dit document)
+â–¡ SKILL_01, SKILL_02, SKILL_11 gelezen
+â–¡ Key points samengevat aan Leo
+â–¡ Goedkeuring ontvangen om te beginnen
+â–¡ PROTECT MODE = actief
+â–¡ STATUS_MERGED_CURRENT.md gelezen (indien bestaat)
 ```
 
 ### Tijdens sessie:
 
 ```
-□ Verificatie VOOR conclusies
-□ Vragen VOOR acties
-□ Geen edits zonder "1"/"go"
-□ Failed services: vraag deprecated vs broken
-□ Off-limits gebieden: niet aanraken
-□ chown DIRECT na file edits (CC only)
+â–¡ Verificatie VOOR conclusies
+â–¡ Vragen VOOR acties
+â–¡ Geen edits zonder "1"/"go"
+â–¡ Failed services: vraag deprecated vs broken
+â–¡ Off-limits gebieden: niet aanraken
+â–¡ chown DIRECT na file edits (CC only)
 ```
 
 ### Einde sessie:
 
 ```
-□ Alle wijzigingen gedocumenteerd
-□ STATUS_[CC|CAI]_CURRENT.md bijgewerkt
-□ SESSIE_CC_[DATUM].md opgeleverd bij significante CC sessies
-□ Git commits met accountability (CC only)
-□ Status gerapporteerd aan Leo
+â–¡ Alle wijzigingen gedocumenteerd
+â–¡ STATUS_[CC|CAI]_CURRENT.md bijgewerkt
+â–¡ SESSIE_CC_[DATUM].md opgeleverd bij significante CC sessies
+â–¡ Git commits met accountability (CC only)
+â–¡ Status gerapporteerd aan Leo
 ```
 
 ---
@@ -232,10 +353,10 @@ cd /opt/github/synctacles-api && git push
 
 ### Na file edits (KRITIEK):
 
-**⚠️ Na ELKE file creatie of edit → DIRECT chown uitvoeren**
+**âš ï¸ Na ELKE file creatie of edit â†’ DIRECT chown uitvoeren**
 
 Niet wachten tot het einde van de sessie. Niet wachten tot voor git commit.
-Direct na de edit, vóór de volgende actie.
+Direct na de edit, vÃ³Ã³r de volgende actie.
 
 ```bash
 # NA ELKE FILE EDIT - GEEN UITZONDERINGEN
@@ -304,11 +425,271 @@ Welke zijn:
 
 **STAP 4:** Onderzoek ALLEEN wat Leo aanwijst als "broken"
 
-### ⛔ NOOIT:
+### â›” NOOIT:
 
 - Aannemen dat failed = moet gerepareerd
 - Alle services tegelijk proberen te fixen
 - TenneT services aanraken (BYO-KEY model, zie SKILL_02)
+
+---
+
+## SECTIE H2: HUB-SPOKE INFRASTRUCTURE
+
+### Vanaf 2026-01-16: CC werkt via Hub-Spoke model
+
+```
+â"Œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"
+â"‚                    CC HUB                       â"‚
+â"‚             135.181.201.253                     â"‚
+â"‚          User: ccops (dedicated)                â"‚
+â"‚                                                 â"‚
+â"‚  â"Œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"  â"‚
+â"‚  â"‚  SSH Config + Spoke Keys:            â"‚  â"‚
+â"‚  â"‚  - coefficient  (91.99.150.36)        â"‚  â"‚
+â"‚  â"‚  - monitor      (77.42.41.135)        â"‚  â"‚
+â"‚  â"‚  - synct-dev    (135.181.255.83)      â"‚  â"‚
+â"‚  â"‚  - synct-tst    (TBD)                 â"‚  â"‚
+â"‚  â"‚  - synct-prd    (TBD)                 â"‚  â"‚
+â"‚  â"‚  - sideproject  (TBD)                 â"‚  â"‚
+â"‚  â""â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"˜  â"‚
+â""â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"˜
+         â"‚          â"‚          â"‚
+    â"Œâ"€â"€â"€â"€â"´â"€â"€â"    â"Œâ"€â"€â"´â"€â"€â"    â"Œâ"€â"€â"´â"€â"€â"
+    â"‚ SPOKE 1â"‚    â"‚ ... â"‚    â"‚ SPOKE Nâ"‚
+    â""â"€â"€â"€â"€â"€â"€â"€â"€â"˜    â""â"€â"€â"€â"€â"€â"˜    â""â"€â"€â"€â"€â"€â"€â"€â"€â"˜
+```
+
+### CC Workflow (NIEUWE STANDAARD):
+
+**ALTIJD via Hub:**
+```bash
+# CC draait op synct-dev (135.181.255.83)
+# CC SSH't naar hub als ccops
+ssh cc-hub
+
+# Vanuit hub naar spoke servers
+ssh coefficient
+ssh monitor
+ssh synct-dev  # (ja, terug naar synct-dev is mogelijk)
+```
+
+**Directe SSH = ALLEEN in noodgevallen**
+
+### Key Architecture:
+
+**Hub (ccops user):**
+- 6 spoke key pairs (`id_coefficient`, `id_monitor`, etc.)
+- SSH config met alle spoke aliassen
+- Centrale security boundary
+
+**Spoke servers:**
+- Accepteren ALLEEN hub's public key
+- Firewall: SSH poort 22 alleen open voor hub IP
+- Service-specifieke users (coefficient, energy-insights-nl, monitoring, etc.)
+
+### CC Access Pattern:
+
+```bash
+# CC heeft private key: id_ccops_hub
+# Opgeslagen op synct-dev: ~/.ssh/id_ccops_hub
+
+# CC → Hub
+ssh -i ~/.ssh/id_ccops_hub ccops@135.181.201.253
+
+# Hub → Spoke (via SSH config)
+ssh coefficient  # Automatisch: id_coefficient key
+```
+
+### Security Voordelen:
+
+- **1 inbound SSH** per spoke (alleen hub IP)
+- **Centrale audit trail** (alle CC acties via hub)
+- **Key rotation** simpeler (1x op hub)
+- **Schaalbaarheid** (nieuwe servers = nieuwe spoke config)
+
+### Bidirectioneel vs Unidirectioneel
+
+**CRITICAL - Belangrijke distinctie:**
+
+**synct-dev = BIDIRECTIONEEL (synct-dev ↔ hub):**
+```
+synct-dev heeft:
+- id_ccops_hub (private key naar hub)
+- SSH config met cc-hub entry
+- Kan naar hub verbinden
+
+WAAROM:
+- CC draait op synct-dev (operator locatie)
+- CC moet handoffs lezen op hub
+- CC moet via hub naar spokes
+- Dit is CC's "werkplek"
+```
+
+**Alle andere spokes = UNIDIRECTIONEEL (hub → spoke only):**
+```
+coefficient, monitor, synct-tst, synct-prd hebben GEEN:
+- Private key naar hub
+- SSH config voor hub
+- Mogelijkheid om hub te bereiken
+
+WAAROM:
+- CC draait daar NIET
+- Geen operationele behoefte
+- Security: least privilege
+- Managed servers, geen operator locaties
+```
+
+**Regel van duim:**
+- **Operator locatie** (waar CC draait) = bidirectioneel
+- **Managed servers** (CC beheert via hub) = unidirectioneel
+
+**Toekomst:**
+Als CC later ook op andere servers draait (bijv. monitoring server voor local tasks), dan wordt die ook bidirectioneel. Het gaat om "waar opereert CC", niet om "alle spokes symmetrisch".
+
+### Emergency Bypass:
+
+**Als hub down is:**
+- Leo kan direct SSH naar spoke servers
+- Leo's persoonlijke SSH key blijft altijd werkend op alle servers
+- CC kan tijdelijk direct vanaf synct-dev (na toestemming Leo)
+
+### Migration Status:
+
+- âœ… Hub opgezet (135.181.201.253)
+- âœ… ccops user aangemaakt
+- âœ… Spoke keys gegenereerd
+- âœ… SSH config aangemaakt
+- â¬œ Public keys deployen naar spokes (in progress)
+- â¬œ Firewall restricties (hub-only)
+- â¬œ Test alle connections
+
+**VANAF NU: CC gebruikt ALLEEN hub-spoke model voor server toegang**
+
+---
+
+## SECTIE H3: HOME ASSISTANT DEPLOYMENT ACCESS
+
+### Architectuur Positie
+
+Home Assistant is **GEEN spoke server** in de hub-spoke infrastructuur:
+- HA is een **consumer test device** (development/test doeleinden)
+- Draait lokaal op Leo's netwerk (VM op 192.168.2.1)
+- Niet deel van productie infrastructuur
+- Outside de managed server topology
+
+### Connection Details
+
+**Direct Access (synct-dev → HA):**
+```
+Host: ha
+  HostName: 82.169.33.175 (public IP)
+  Port: 22222
+  User: root
+  IdentityFile: ~/.ssh/id_ha
+  IdentitiesOnly: yes
+```
+
+**Network Path:**
+```
+CC (synct-dev) → Internet → Router NAT (82.169.33.175:22222)
+                 → Port Forward → HA VM (192.168.2.1:22222)
+```
+
+**Security Model:**
+- SSH key-based authentication (no password)
+- Router firewall: Source IP restricted to 135.181.255.83 (synct-dev only)
+- HA SSH add-on: authorized_keys configured with CC's public key
+- Test device = acceptable exposure via port forwarding
+
+### SSH Key Setup
+
+**Private key location (synct-dev):**
+```bash
+~/.ssh/id_ha
+```
+
+**Public key (added to HA SSH add-on config):**
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII9/glpxNjnwimQRVJXVlSnK03fwKsjA9DmZAD8u4IBH cc-to-homeassistant
+```
+
+**Key fingerprint:**
+```
+SHA256:gtLeDOfanRpD7oZa6+xRsr0GGuezRVhpup8AWu58+9o
+```
+
+### HA Component Deployment
+
+**Custom Component Path:**
+```
+/config/custom_components/ha_energy_insights_nl/
+```
+
+**Deployment Commands:**
+```bash
+# Test connection
+ssh ha 'hostname && ls /config/custom_components/'
+
+# Upload single file
+scp sensor.py ha:/config/custom_components/ha_energy_insights_nl/
+
+# Sync entire directory
+rsync -av --delete local_dir/ ha:/config/custom_components/ha_energy_insights_nl/
+
+# Dashboard deployment (if needed)
+scp dashboard.yaml ha:/config/dashboards/
+```
+
+### IP Address Changes
+
+**Internal IP kan wijzigen** (192.168.2.1 → 192.168.2.X):
+- CC verbindt naar **public IP** (82.169.33.175:22222)
+- Leo past **port forwarding** aan in router (nieuwe interne destination)
+- CC SSH config hoeft **niet** gewijzigd (public IP blijft stabiel)
+
+**Bij public IP wijziging:**
+- Leo update SSH config op synct-dev: `HostName: NEW.PUBLIC.IP`
+- Of gebruik DynDNS voor stabiele hostname
+
+### Deployment Protocol
+
+**SUPERVISED MODE:**
+- HA is test device = lage risk
+- Maar blijf protocol volgen:
+  1. CC genereert/wijzigt code lokaal
+  2. Toont diff aan Leo
+  3. Wacht op "Go" approval
+  4. Deploy via `scp` of `rsync`
+  5. Leo restart HA integration indien nodig
+
+**NOT via hub:**
+- HA deployment gaat **niet** via hub
+- Hub is voor managed servers (coefficient, monitor, etc.)
+- HA is consumer device met directe toegang
+
+### Troubleshooting
+
+**Connection failed:**
+```bash
+# Test port reachability
+nc -zv 82.169.33.175 22222
+
+# Test auth (should succeed)
+ssh -i ~/.ssh/id_ha -p 22222 root@82.169.33.175 'echo SUCCESS'
+
+# Check source IP (should be 135.181.255.83)
+curl -4 ifconfig.me
+```
+
+**Permission denied:**
+- Check HA SSH add-on running
+- Verify public key in HA authorized_keys config
+- Check router firewall allows source IP 135.181.255.83
+
+**Port forwarding not working:**
+- Verify router NAT rule: 22222 → 192.168.2.1:22222
+- Check HA internal IP hasn't changed
+- Test from local network first (192.168.2.1:22222)
 
 ---
 
@@ -336,7 +717,7 @@ CC heeft WEL:
 | alembic migrations | service user | `sudo -u energy-insights-nl` |
 | Python/pip in venv | service user | `sudo -u energy-insights-nl` |
 
-**⚠️ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
+**âš ï¸ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
 
 ---
 
@@ -349,25 +730,25 @@ CC heeft WEL:
 ### CAI doet WEL:
 
 ```
-✅ Architectuur design en review
-✅ Planning en projectmanagement
-✅ Documentatie schrijven en structureren
-✅ Code review (op basis van gedeelde code)
-✅ SKILL updates en uitbreidingen
-✅ ADR's opstellen
-✅ Strategische adviezen
-✅ Troubleshooting analyse (zonder server toegang)
+âœ… Architectuur design en review
+âœ… Planning en projectmanagement
+âœ… Documentatie schrijven en structureren
+âœ… Code review (op basis van gedeelde code)
+âœ… SKILL updates en uitbreidingen
+âœ… ADR's opstellen
+âœ… Strategische adviezen
+âœ… Troubleshooting analyse (zonder server toegang)
 ```
 
 ### CAI doet NIET:
 
 ```
-❌ Directe server toegang
-❌ Git commits (geen repo toegang)
-❌ Service restarts
-❌ File edits op server
-❌ Database queries
-❌ API calls naar productie
+âŒ Directe server toegang
+âŒ Git commits (geen repo toegang)
+âŒ Service restarts
+âŒ File edits op server
+âŒ Database queries
+âŒ API calls naar productie
 ```
 
 ### CAI's output = altijd voor Leo/CC om uit te voeren
@@ -386,10 +767,10 @@ CC heeft WEL:
 [TYPE]_[BRON]_[BESCHRIJVING]_[DATUM].md
 
 BRON codes:
-- CC    → Claude Code gemaakt
-- CAI   → Claude AI gemaakt  
-- LEO   → Leo gemaakt
-- MERGED → Geconsolideerd door Leo
+- CC    â†’ Claude Code gemaakt
+- CAI   â†’ Claude AI gemaakt  
+- LEO   â†’ Leo gemaakt
+- MERGED â†’ Geconsolideerd door Leo
 ```
 
 ### Per Document Type
@@ -407,75 +788,75 @@ BRON codes:
 ### Voorbeelden
 
 ```
-STATUS_CC_CURRENT.md              → CC's huidige status
-STATUS_CAI_CURRENT.md             → CAI's huidige status
-STATUS_MERGED_CURRENT.md          → SSOT (Leo's merged versie)
-SESSIE_CC_20260107.md             → CC sessie samenvatting
-ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
+STATUS_CC_CURRENT.md              â†’ CC's huidige status
+STATUS_CAI_CURRENT.md             â†’ CAI's huidige status
+STATUS_MERGED_CURRENT.md          â†’ SSOT (Leo's merged versie)
+SESSIE_CC_20260107.md             â†’ CC sessie samenvatting
+ADR_001_TENNET_BYO_KEY.md         â†’ Architecture Decision Record
 ```
 
 ---
 
 ## SECTIE L: DIRECTORY STRUCTUUR
 
-### Officiële docs/ structuur
+### OfficiÃ«le docs/ structuur
 
 ```
 /opt/github/synctacles-api/docs/
-│
-├── README.md                           # Index van alle documentatie
-│
-├── skills/                             # SKILL documenten
-│   ├── SKILL_00_AI_OPERATING_PROTOCOL.md
-│   ├── SKILL_01_HARD_RULES.md
-│   ├── SKILL_02_ARCHITECTURE.md
-│   ├── SKILL_03_CODING_STANDARDS.md
-│   ├── SKILL_04_PRODUCT_REQUIREMENTS.md
-│   ├── SKILL_05_COMMUNICATION_RULES.md
-│   ├── SKILL_06_DATA_SOURCES.md
-│   ├── SKILL_08_HARDWARE_PROFILE.md
-│   ├── SKILL_09_INSTALLER_SPECS.md
-│   ├── SKILL_10_DEPLOYMENT_WORKFLOW.md
-│   ├── SKILL_11_REPO_AND_ACCOUNTS.md
-│   ├── SKILL_12_BRAND_FREE_ARCHITECTURE.md
-│   └── SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md
-│
-├── status/                             # Live state files
-│   ├── STATUS_MERGED_CURRENT.md        # SSOT (Leo's versie)
-│   ├── STATUS_CC_CURRENT.md            # CC's laatste status
-│   ├── STATUS_CAI_CURRENT.md           # CAI's laatste status
-│   └── NEXT_ACTIONS.md                 # Geprioriteerde backlog
-│
-├── sessions/                           # Sessie samenvattingen (CC only)
-│   ├── README.md                       # Index + instructies
-│   ├── SESSIE_CC_[YYYYMMDD].md
-│   └── archive/                        # Oudere sessies (>30 dagen)
-│
-├── decisions/                          # Architecture Decision Records
-│   ├── README.md                       # ADR index + nummering
-│   └── ADR_###_[TITEL].md
-│
-├── templates/                          # Reusable templates
-│   ├── TEMPLATE_STATUS_CC.md
-│   ├── TEMPLATE_STATUS_CAI.md
-│   ├── TEMPLATE_SESSIE.md
-│   ├── TEMPLATE_HANDOFF_CAI_CC.md
-│   ├── TEMPLATE_HANDOFF_CC_CAI.md
-│   └── TEMPLATE_ADR.md
-│
-├── CC_communication/                   # CC specifieke communicatie
-├── operations/                         # Operationele docs
-├── tasks/                              # Taak tracking
-├── reports/                            # Rapporten
-├── incidents/                          # Incident logs
-├── api/                                # API specifieke docs
-├── archived/                           # Deprecated docs
-│
-├── ARCHITECTURE.md                     # Systeem architectuur
-├── api-reference.md                    # API documentatie
-├── troubleshooting.md                  # Troubleshooting guide
-├── user-guide.md                       # Gebruikershandleiding
-└── SYSTEMD_SERVICES_ANALYSIS.md        # Service analyse
+â”‚
+â”œâ”€â”€ README.md                           # Index van alle documentatie
+â”‚
+â”œâ”€â”€ skills/                             # SKILL documenten
+â”‚   â”œâ”€â”€ SKILL_00_AI_OPERATING_PROTOCOL.md
+â”‚   â”œâ”€â”€ SKILL_01_HARD_RULES.md
+â”‚   â”œâ”€â”€ SKILL_02_ARCHITECTURE.md
+â”‚   â”œâ”€â”€ SKILL_03_CODING_STANDARDS.md
+â”‚   â”œâ”€â”€ SKILL_04_PRODUCT_REQUIREMENTS.md
+â”‚   â”œâ”€â”€ SKILL_05_COMMUNICATION_RULES.md
+â”‚   â”œâ”€â”€ SKILL_06_DATA_SOURCES.md
+â”‚   â”œâ”€â”€ SKILL_08_HARDWARE_PROFILE.md
+â”‚   â”œâ”€â”€ SKILL_09_INSTALLER_SPECS.md
+â”‚   â”œâ”€â”€ SKILL_10_DEPLOYMENT_WORKFLOW.md
+â”‚   â”œâ”€â”€ SKILL_11_REPO_AND_ACCOUNTS.md
+â”‚   â”œâ”€â”€ SKILL_12_BRAND_FREE_ARCHITECTURE.md
+â”‚   â””â”€â”€ SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md
+â”‚
+â”œâ”€â”€ status/                             # Live state files
+â”‚   â”œâ”€â”€ STATUS_MERGED_CURRENT.md        # SSOT (Leo's versie)
+â”‚   â”œâ”€â”€ STATUS_CC_CURRENT.md            # CC's laatste status
+â”‚   â”œâ”€â”€ STATUS_CAI_CURRENT.md           # CAI's laatste status
+â”‚   â””â”€â”€ NEXT_ACTIONS.md                 # Geprioriteerde backlog
+â”‚
+â”œâ”€â”€ sessions/                           # Sessie samenvattingen (CC only)
+â”‚   â”œâ”€â”€ README.md                       # Index + instructies
+â”‚   â”œâ”€â”€ SESSIE_CC_[YYYYMMDD].md
+â”‚   â””â”€â”€ archive/                        # Oudere sessies (>30 dagen)
+â”‚
+â”œâ”€â”€ decisions/                          # Architecture Decision Records
+â”‚   â”œâ”€â”€ README.md                       # ADR index + nummering
+â”‚   â””â”€â”€ ADR_###_[TITEL].md
+â”‚
+â”œâ”€â”€ templates/                          # Reusable templates
+â”‚   â”œâ”€â”€ TEMPLATE_STATUS_CC.md
+â”‚   â”œâ”€â”€ TEMPLATE_STATUS_CAI.md
+â”‚   â”œâ”€â”€ TEMPLATE_SESSIE.md
+â”‚   â”œâ”€â”€ TEMPLATE_HANDOFF_CAI_CC.md
+â”‚   â”œâ”€â”€ TEMPLATE_HANDOFF_CC_CAI.md
+â”‚   â””â”€â”€ TEMPLATE_ADR.md
+â”‚
+â”œâ”€â”€ CC_communication/                   # CC specifieke communicatie
+â”œâ”€â”€ operations/                         # Operationele docs
+â”œâ”€â”€ tasks/                              # Taak tracking
+â”œâ”€â”€ reports/                            # Rapporten
+â”œâ”€â”€ incidents/                          # Incident logs
+â”œâ”€â”€ api/                                # API specifieke docs
+â”œâ”€â”€ archived/                           # Deprecated docs
+â”‚
+â”œâ”€â”€ ARCHITECTURE.md                     # Systeem architectuur
+â”œâ”€â”€ api-reference.md                    # API documentatie
+â”œâ”€â”€ troubleshooting.md                  # Troubleshooting guide
+â”œâ”€â”€ user-guide.md                       # Gebruikershandleiding
+â””â”€â”€ SYSTEMD_SERVICES_ANALYSIS.md        # Service analyse
 ```
 
 ### Waar hoort wat?
@@ -499,22 +880,22 @@ ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
 ### Principe
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    LEO (Owner)                       │
-│              STATUS_MERGED_CURRENT.md                │
-│                 (Single Source of Truth)             │
-│                    ▲      ▲                          │
-│          ┌────────┘      └────────┐                  │
-│          │                        │                  │
-│  STATUS_CC_CURRENT.md    STATUS_CAI_CURRENT.md      │
-│  ├─ Server state          ├─ Project context         │
-│  ├─ Code changes          ├─ Architectural state     │
-│  ├─ Git status            ├─ Planning status         │
-│  ├─ Service health        ├─ Open beslissingen       │
-│  └─ Runtime issues        └─ Dependencies            │
-│                                                      │
-│     Claude Code               Claude AI              │
-└─────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    LEO (Owner)                       â”‚
+â”‚              STATUS_MERGED_CURRENT.md                â”‚
+â”‚                 (Single Source of Truth)             â”‚
+â”‚                    â–²      â–²                          â”‚
+â”‚          â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”˜      â””â”€â”€â”€â”€â”€â”€â”€â”€â”                  â”‚
+â”‚          â”‚                        â”‚                  â”‚
+â”‚  STATUS_CC_CURRENT.md    STATUS_CAI_CURRENT.md      â”‚
+â”‚  â”œâ”€ Server state          â”œâ”€ Project context         â”‚
+â”‚  â”œâ”€ Code changes          â”œâ”€ Architectural state     â”‚
+â”‚  â”œâ”€ Git status            â”œâ”€ Planning status         â”‚
+â”‚  â”œâ”€ Service health        â”œâ”€ Open beslissingen       â”‚
+â”‚  â””â”€ Runtime issues        â””â”€ Dependencies            â”‚
+â”‚                                                      â”‚
+â”‚     Claude Code               Claude AI              â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### Workflow
@@ -607,12 +988,12 @@ ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
 
 | Situatie | Handoff nodig? |
 |----------|----------------|
-| Sessie-einde met onafgerond werk | ✅ JA |
-| Taak overdracht CC ↔ CAI | ✅ JA |
-| Volledige taak afgerond, geen follow-up | ❌ NEE |
-| Mini-taak < 5 min zonder context | ❌ NEE |
+| Sessie-einde met onafgerond werk | âœ… JA |
+| Taak overdracht CC â†” CAI | âœ… JA |
+| Volledige taak afgerond, geen follow-up | âŒ NEE |
+| Mini-taak < 5 min zonder context | âŒ NEE |
 
-### CC → CAI Handoff
+### CC â†’ CAI Handoff
 
 **Trigger:** CC klaar met taak, CAI input nodig (review, planning, docs)
 
@@ -620,7 +1001,7 @@ ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
 
 **CC levert in `docs/handoffs/HANDOFF_CC_CAI_YYYYMMDD_[topic].md`:**
 ```markdown
-## HANDOFF: CC → CAI
+## HANDOFF: CC â†’ CAI
 
 ### PRE-HANDOFF CHECKLIST
 - [ ] Alle wijzigingen gecommit
@@ -651,7 +1032,7 @@ ADR_001_TENNET_BYO_KEY.md         → Architecture Decision Record
 CAI bevestigt: [ ] Ontvangen en begrepen
 ```
 
-### CAI → CC Handoff
+### CAI â†’ CC Handoff
 
 **Trigger:** CAI klaar met planning/docs, CC executie nodig
 
@@ -659,12 +1040,12 @@ CAI bevestigt: [ ] Ontvangen en begrepen
 
 **CAI levert in `docs/handoffs/HANDOFF_CAI_CC_YYYYMMDD_[topic].md`:**
 ```markdown
-## HANDOFF: CAI → CC
+## HANDOFF: CAI â†’ CC
 
 ### PRE-HANDOFF CHECKLIST
 - [ ] Taak is concreet en uitvoerbaar
 - [ ] Acceptance criteria gedefinieerd
-- [ ] Relevante SKILLs geïdentificeerd
+- [ ] Relevante SKILLs geÃ¯dentificeerd
 - [ ] Out of scope duidelijk
 
 ### Task Description
@@ -695,7 +1076,7 @@ CAI bevestigt: [ ] Ontvangen en begrepen
 CC bevestigt: [ ] Ontvangen, begrepen, kan starten
 ```
 
-### Leo → AI Handoff
+### Leo â†’ AI Handoff
 
 **Leo specificeert:**
 - Welke AI (CC of CAI)
@@ -706,7 +1087,7 @@ CC bevestigt: [ ] Ontvangen, begrepen, kan starten
 
 ### Handoff Archivering
 
-**Retentie:** Handoffs ouder dan 30 dagen → `docs/archived/handoffs/`
+**Retentie:** Handoffs ouder dan 30 dagen â†’ `docs/archived/handoffs/`
 
 **Cleanup:** Maandelijks door CC bij sessie-start
 
@@ -717,12 +1098,142 @@ CC bevestigt: [ ] Ontvangen, begrepen, kan starten
 
 ---
 
+## SECTIE N2: HUB-BASED HANDOFF LOCATIES
+
+### VANAF 2026-01-16: Handoffs op HUB server
+
+**Oude workflow (DEPRECATED):**
+- Handoffs in GitHub repo: `/opt/github/synctacles-api/docs/handoffs/`
+- CC leest vanuit repo
+- Git commits nodig
+
+**Nieuwe workflow (ACTIEF):**
+- Handoffs op HUB: `/home/ccops/handoffs/`
+- CC SSH't naar hub, leest handoff
+- Geen Git overhead
+- Geen GitHub pollution
+
+### Directory Structuur op HUB
+
+```
+/home/ccops/
+├── handoffs/
+│   ├── HANDOFF_CAI_CC_YYYYMMDD_[topic].md
+│   ├── HANDOFF_CC_CAI_YYYYMMDD_[topic].md
+│   └── archive/                    # Completed handoffs >30 dagen
+├── status/
+│   ├── [server]-cleanup.txt
+│   └── deployment-status.txt
+└── logs/
+    └── cc-activity-YYYYMMDD.log
+```
+
+### CC Workflow
+
+**1. Leo informeert CC:**
+"Handoff beschikbaar op hub: HANDOFF_CAI_CC_20260116_ssh_cleanup.md"
+
+**2. CC leest handoff:**
+```bash
+# Vanaf synct-dev
+ssh cc-hub
+cat /home/ccops/handoffs/HANDOFF_CAI_CC_20260116_ssh_cleanup.md
+```
+
+**3. CC voert uit volgens handoff**
+
+**4. CC schrijft completion status:**
+```bash
+# Op hub als ccops
+cat > /home/ccops/status/ssh-cleanup-synctdev-complete.txt << 'EOF'
+Completed: 2026-01-16 14:30 UTC
+Task: SSH cleanup synct-dev
+Status: SUCCESS
+Details: [samenvatting]
+EOF
+```
+
+**5. CC archiveert handoff (optional):**
+```bash
+mv /home/ccops/handoffs/HANDOFF_CAI_CC_20260116_ssh_cleanup.md \
+   /home/ccops/handoffs/archive/
+```
+
+### CAI & CC Workflow
+
+**SKILLs (blijven in GitHub repo):**
+- CAI maakt/update SKILL docs via project knowledge
+- CAI gebruikt present_files tool voor download
+- Leo commit naar GitHub (synctacles-api repo)
+- **CC leest SKILLs:** `/opt/github/synctacles-api/docs/skills/` op synct-dev
+- Geen HUB cache nodig (CC heeft repo toegang)
+
+**Handoffs (operationeel op HUB):**
+- CAI maakt handoff document
+- CAI gebruikt present_files tool
+- Leo download + upload naar HUB `/home/ccops/handoffs/`
+- **CC leest handoffs:** Via `ssh cc-hub` → `/home/ccops/handoffs/`
+
+**Scheiding:**
+- SKILLs = Development (GitHub repo op synct-dev)
+- Handoffs = Operations (HUB server)
+
+### Permissions op HUB
+
+```bash
+# Setup (eenmalig door Leo)
+sudo -u ccops mkdir -p /home/ccops/{handoffs,status,logs,handoffs/archive}
+sudo -u ccops chmod 700 /home/ccops/{handoffs,status,logs}
+```
+
+### File Naming (unchanged)
+
+```
+HANDOFF_[BRON]_[DOEL]_YYYYMMDD_[topic].md
+
+Examples:
+- HANDOFF_CAI_CC_20260116_ssh_cleanup_synctdev.md
+- HANDOFF_CC_CAI_20260116_coefficient_deployment_complete.md
+```
+
+### CRITICAL: Waar CC leest
+
+**SKILLs (op synct-dev):**
+```
+✅ CORRECT:
+cat /opt/github/synctacles-api/docs/skills/SKILL_00.md
+grep "TenneT" /opt/github/synctacles-api/docs/skills/SKILL_02.md
+```
+
+**Handoffs (op HUB):**
+```
+❌ FOUT:
+cat /opt/github/synctacles-api/docs/handoffs/HANDOFF_*.md
+
+✅ CORRECT:
+ssh cc-hub
+cat /home/ccops/handoffs/HANDOFF_*.md
+```
+
+**Waarom deze scheiding:**
+- CC draait op synct-dev → repo direct beschikbaar
+- SKILLs = development docs → blijven in version control
+- Handoffs = operationele taken → leven op operationele hub
+- Geen dubbele administratie (KISS principe)
+
+---
+
+*Sectie N2 versie: 1.1 (2026-01-16)*
+*Reden: Verduidelijkt SKILL locatie (synct-dev repo), handoffs op HUB, geen cache*
+
+---
+
 ## SECTIE O: ADR PROTOCOL
 
 ### Wanneer ADR maken?
 
 ```
-✅ ADR NODIG:
+âœ… ADR NODIG:
 - Architectuur keuze met lange termijn impact
 - Technologie selectie
 - Data model beslissingen
@@ -730,7 +1241,7 @@ CC bevestigt: [ ] Ontvangen, begrepen, kan starten
 - Integratie patronen
 - Security beslissingen
 
-❌ GEEN ADR:
+âŒ GEEN ADR:
 - Bug fixes
 - Kleine refactors
 - Documentatie updates
@@ -801,7 +1312,7 @@ Check docs/decisions/ voor hoogste bestaande nummer.
 
 1. **CAI** stelt ADR op (Proposed)
 2. **Leo** reviewt en keurt goed
-3. **Status** → Accepted
+3. **Status** â†’ Accepted
 4. **CC** implementeert (indien nodig)
 5. **Update** relevante SKILLs
 
@@ -812,39 +1323,39 @@ Check docs/decisions/ voor hoogste bestaande nummer.
 ### Beslissingsboom
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ BESLISSING NODIG                                    │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│ Architectuur/Design?  ─────► CAI adviseert          │
-│                              Leo beslist            │
-│                              CC executes            │
-│                                                     │
-│ Code implementatie?   ─────► CC doet                │
-│                              CAI review (optioneel) │
-│                              Leo approves           │
-│                                                     │
-│ Productie impact?     ─────► Leo ALTIJD approve     │
-│                              Geen uitzonderingen    │
-│                                                     │
-│ Quick fix < 15 min?   ─────► CC mag uitvoeren       │
-│                              MITS: verified +       │
-│                              documented             │
-│                                                     │
-│ Scope change?         ─────► CAI signaleert         │
-│                              Leo beslist            │
-│                                                     │
-│ Off-limits gebied?    ─────► STOP. Vraag Leo.       │
-│                              Geen uitzonderingen    │
-│                                                     │
-│ Documentatie?         ─────► CAI schrijft           │
-│                              CC commit              │
-│                              Leo reviews            │
-│                                                     │
-│ Planning/Roadmap?     ─────► CAI stelt voor         │
-│                              Leo beslist            │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ BESLISSING NODIG                                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚                                                     â”‚
+â”‚ Architectuur/Design?  â”€â”€â”€â”€â”€â–º CAI adviseert          â”‚
+â”‚                              Leo beslist            â”‚
+â”‚                              CC executes            â”‚
+â”‚                                                     â”‚
+â”‚ Code implementatie?   â”€â”€â”€â”€â”€â–º CC doet                â”‚
+â”‚                              CAI review (optioneel) â”‚
+â”‚                              Leo approves           â”‚
+â”‚                                                     â”‚
+â”‚ Productie impact?     â”€â”€â”€â”€â”€â–º Leo ALTIJD approve     â”‚
+â”‚                              Geen uitzonderingen    â”‚
+â”‚                                                     â”‚
+â”‚ Quick fix < 15 min?   â”€â”€â”€â”€â”€â–º CC mag uitvoeren       â”‚
+â”‚                              MITS: verified +       â”‚
+â”‚                              documented             â”‚
+â”‚                                                     â”‚
+â”‚ Scope change?         â”€â”€â”€â”€â”€â–º CAI signaleert         â”‚
+â”‚                              Leo beslist            â”‚
+â”‚                                                     â”‚
+â”‚ Off-limits gebied?    â”€â”€â”€â”€â”€â–º STOP. Vraag Leo.       â”‚
+â”‚                              Geen uitzonderingen    â”‚
+â”‚                                                     â”‚
+â”‚ Documentatie?         â”€â”€â”€â”€â”€â–º CAI schrijft           â”‚
+â”‚                              CC commit              â”‚
+â”‚                              Leo reviews            â”‚
+â”‚                                                     â”‚
+â”‚ Planning/Roadmap?     â”€â”€â”€â”€â”€â–º CAI stelt voor         â”‚
+â”‚                              Leo beslist            â”‚
+â”‚                                                     â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### RACI Matrix
@@ -948,51 +1459,51 @@ Check docs/decisions/ voor hoogste bestaande nummer.
 ## SECTIE R: QUICK REFERENCE CARD
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  AI OPERATING PROTOCOL - QUICK REFERENCE            │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  1. LEES SKILLS EERST (00, 01, 02, 11 minimum)     │
-│  2. BEWIJS DAT JE ZE GELEZEN HEBT                  │
-│  3. LEES STATUS_MERGED_CURRENT.md                   │
-│  4. PROTECT MODE = DEFAULT                          │
-│  5. VERIFICATIE VOOR CONCLUSIES                     │
-│  6. VRAAG VOOR ACTIES                               │
-│  7. FAILED ≠ MOET GEREPAREERD                       │
-│  8. TENNET = OFF-LIMITS                             │
-│  9. GIT = ALTIJD ALS SERVICE USER (CC)              │
-│ 10. CHOWN DIRECT NA FILE EDITS (CC)                 │
-│ 11. BIJ TWIJFEL: STOP EN VRAAG                      │
-│ 12. GEEN "IK FIX EVEN"                              │
-│ 13. UPDATE STATUS BIJ SESSIE EINDE                  │
-│                                                     │
-├─────────────────────────────────────────────────────┤
-│  NAAMCONVENTIE                                      │
-├─────────────────────────────────────────────────────┤
-│  STATUS_CC_CURRENT.md    → CC's status              │
-│  STATUS_CAI_CURRENT.md   → CAI's status             │
-│  STATUS_MERGED_CURRENT.md → SSOT (Leo)              │
-│  SESSIE_[CC|CAI]_YYYYMMDD.md → Sessie log          │
-│  ADR_###_[TITEL].md      → Decision record          │
-│                                                     │
-├─────────────────────────────────────────────────────┤
-│  DIRECTORY STRUCTUUR                                │
-├─────────────────────────────────────────────────────┤
-│  docs/skills/    → SKILL documenten                 │
-│  docs/status/    → Live state files                 │
-│  docs/sessions/  → Sessie samenvattingen            │
-│  docs/decisions/ → ADRs                             │
-│  docs/templates/ → Reusable templates               │
-│                                                     │
-├─────────────────────────────────────────────────────┤
-│  HANDOFF                                            │
-├─────────────────────────────────────────────────────┤
-│  CC → CAI: Completed work + needs from CAI          │
-│  CAI → CC: Task specs + files to modify             │
-│  Both: Update own STATUS file                       │
-│  Leo: Merge to SSOT                                 │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  AI OPERATING PROTOCOL - QUICK REFERENCE            â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚                                                     â”‚
+â”‚  1. LEES SKILLS EERST (00, 01, 02, 11 minimum)     â”‚
+â”‚  2. BEWIJS DAT JE ZE GELEZEN HEBT                  â”‚
+â”‚  3. LEES STATUS_MERGED_CURRENT.md                   â”‚
+â”‚  4. PROTECT MODE = DEFAULT                          â”‚
+â”‚  5. VERIFICATIE VOOR CONCLUSIES                     â”‚
+â”‚  6. VRAAG VOOR ACTIES                               â”‚
+â”‚  7. FAILED â‰  MOET GEREPAREERD                       â”‚
+â”‚  8. TENNET = OFF-LIMITS                             â”‚
+â”‚  9. GIT = ALTIJD ALS SERVICE USER (CC)              â”‚
+â”‚ 10. CHOWN DIRECT NA FILE EDITS (CC)                 â”‚
+â”‚ 11. BIJ TWIJFEL: STOP EN VRAAG                      â”‚
+â”‚ 12. GEEN "IK FIX EVEN"                              â”‚
+â”‚ 13. UPDATE STATUS BIJ SESSIE EINDE                  â”‚
+â”‚                                                     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  NAAMCONVENTIE                                      â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  STATUS_CC_CURRENT.md    â†’ CC's status              â”‚
+â”‚  STATUS_CAI_CURRENT.md   â†’ CAI's status             â”‚
+â”‚  STATUS_MERGED_CURRENT.md â†’ SSOT (Leo)              â”‚
+â”‚  SESSIE_[CC|CAI]_YYYYMMDD.md â†’ Sessie log          â”‚
+â”‚  ADR_###_[TITEL].md      â†’ Decision record          â”‚
+â”‚                                                     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  DIRECTORY STRUCTUUR                                â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  docs/skills/    â†’ SKILL documenten                 â”‚
+â”‚  docs/status/    â†’ Live state files                 â”‚
+â”‚  docs/sessions/  â†’ Sessie samenvattingen            â”‚
+â”‚  docs/decisions/ â†’ ADRs                             â”‚
+â”‚  docs/templates/ â†’ Reusable templates               â”‚
+â”‚                                                     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  HANDOFF                                            â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  CC â†’ CAI: Completed work + needs from CAI          â”‚
+â”‚  CAI â†’ CC: Task specs + files to modify             â”‚
+â”‚  Both: Update own STATUS file                       â”‚
+â”‚  Leo: Merge to SSOT                                 â”‚
+â”‚                                                     â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -1023,10 +1534,10 @@ Check docs/decisions/ voor hoogste bestaande nummer.
 
 ### De 4.5-uur incident bewees:
 
-- AI las SKILLs niet → TenneT rabbit hole (45 min verspild)
-- AI verifieerde niet → Verkeerde script geblamed (60 min verspild)
-- AI vroeg niet → Productie bijna gesloopt
-- AI nam aan → 3.5 uur verspild van 4.5 uur totaal
+- AI las SKILLs niet â†’ TenneT rabbit hole (45 min verspild)
+- AI verifieerde niet â†’ Verkeerde script geblamed (60 min verspild)
+- AI vroeg niet â†’ Productie bijna gesloopt
+- AI nam aan â†’ 3.5 uur verspild van 4.5 uur totaal
 
 **Dit protocol bestaat om herhaling te voorkomen.**
 
@@ -1042,5 +1553,5 @@ Geen uitzonderingen.
 
 **Document Owner:** Leo
 **Enforcement:** Strict
-**Version:** 2.0
-**Last Updated:** 2026-01-07
+**Version:** 2.2
+**Last Updated:** 2026-01-16 (Added H3: HA Deployment Access)
