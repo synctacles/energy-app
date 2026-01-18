@@ -489,3 +489,152 @@ def _get_price_at_time(prices: List[Dict], target: datetime) -> Optional[float]:
             return _extract_price_kwh(p)
 
     return None
+
+
+# =============================================================================
+# DASHBOARD (BUNDLED ENDPOINT)
+# =============================================================================
+
+@router.get("/dashboard")
+async def get_dashboard(
+    country: str = Query("NL", description="Country code"),
+    window_duration: int = Query(3, ge=1, le=8, description="Best window duration in hours"),
+):
+    """
+    Bundled endpoint returning all energy insights in a single call.
+
+    Designed for Home Assistant integration to minimize API calls.
+    Returns prices, best window, tomorrow preview, and energy action in one response.
+
+    Benefits:
+    - Single API call instead of 3-4 separate calls
+    - Atomic data: all values from same timestamp
+    - Simpler rate limiting
+    - Lower latency for HA coordinator
+
+    Args:
+        country: Country code (NL, BE, DE)
+        window_duration: Duration for best window calculation (1-8 hours)
+    """
+    cache_key = f"dashboard:{country.upper()}:{window_duration}"
+
+    cached = api_cache.get(cache_key)
+    if cached:
+        return Response(
+            content=cached,
+            media_type="application/json",
+            headers={"X-Cache": "HIT"}
+        )
+
+    now = datetime.now(timezone.utc)
+
+    # Get all prices (shared data source)
+    all_prices = await _get_all_prices(country)
+
+    # === CURRENT PRICE & ENERGY ACTION ===
+    current_price = None
+    energy_action = "WAIT"
+    action_reason = "No data"
+
+    if all_prices:
+        current_price = _get_price_at_time(all_prices, now)
+
+        # Calculate daily stats for action
+        today = now.date()
+        today_prices = [p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == today]
+
+        if today_prices:
+            values = [_extract_price_kwh(p) for p in today_prices if _extract_price_kwh(p)]
+            if values and current_price:
+                avg = sum(values) / len(values)
+                deviation = ((current_price - avg) / avg) * 100 if avg > 0 else 0
+
+                if deviation <= -15:
+                    energy_action = "GO"
+                    action_reason = f"Price {abs(deviation):.0f}% below average"
+                elif deviation >= 20:
+                    energy_action = "AVOID"
+                    action_reason = f"Price {deviation:.0f}% above average"
+                else:
+                    energy_action = "WAIT"
+                    action_reason = f"Price {deviation:+.0f}% vs average"
+
+    # === BEST WINDOW ===
+    best_window = None
+    runner_up = None
+
+    if all_prices and len(all_prices) >= window_duration:
+        best_window, runner_up = _find_best_windows(all_prices, window_duration, now)
+
+    # === TOMORROW PREVIEW ===
+    tomorrow_data = None
+    tomorrow_status = "PENDING"
+    tomorrow_date = (now + timedelta(days=1)).date()
+
+    tomorrow_prices = [
+        p for p in all_prices
+        if _parse_timestamp(p["timestamp"]).date() == tomorrow_date
+    ] if all_prices else []
+
+    if len(tomorrow_prices) >= 12:
+        tomorrow_values = [_extract_price_kwh(p) for p in tomorrow_prices]
+        tomorrow_values = [v for v in tomorrow_values if v is not None]
+
+        if tomorrow_values:
+            tomorrow_avg = sum(tomorrow_values) / len(tomorrow_values)
+            tomorrow_status = _determine_status(tomorrow_avg,
+                [p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == now.date()])
+
+            sorted_tomorrow = sorted(tomorrow_prices, key=lambda x: _extract_price_kwh(x) or 999)
+            cheapest = sorted_tomorrow[0]
+            expensive = sorted_tomorrow[-1]
+
+            # Best 3h window for tomorrow
+            best_3h, _ = _find_best_windows(
+                tomorrow_prices, 3,
+                datetime.combine(tomorrow_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            )
+
+            tomorrow_data = {
+                "date": tomorrow_date.isoformat(),
+                "status": tomorrow_status,
+                "cheapest_hour": _parse_timestamp(cheapest["timestamp"]).strftime("%H:%M"),
+                "cheapest_price_eur_kwh": round(min(tomorrow_values), 4),
+                "most_expensive_hour": _parse_timestamp(expensive["timestamp"]).strftime("%H:%M"),
+                "most_expensive_price_eur_kwh": round(max(tomorrow_values), 4),
+                "average_price_eur_kwh": round(tomorrow_avg, 4),
+                "best_window_3h": best_3h,
+                "hours_available": len(tomorrow_prices),
+            }
+
+    # === BUILD RESPONSE ===
+    result = {
+        "current": {
+            "price_eur_kwh": round(current_price, 4) if current_price else None,
+            "action": energy_action,
+            "action_reason": action_reason,
+        },
+        "best_window": best_window,
+        "runner_up": runner_up,
+        "tomorrow": tomorrow_data if tomorrow_data else {
+            "status": "PENDING",
+            "message": "Tomorrow's prices not yet available (usually after 13:00 CET)",
+        },
+        "meta": {
+            "source": all_prices[0].get("_source", "unknown") if all_prices else "none",
+            "quality": all_prices[0].get("_quality", "unknown") if all_prices else "UNAVAILABLE",
+            "country": country.upper(),
+            "window_duration": window_duration,
+            "hours_analyzed": len(all_prices) if all_prices else 0,
+        },
+        "timestamp": now.isoformat(),
+    }
+
+    json_content = json.dumps(result, default=str)
+    api_cache.set(cache_key, json_content, ttl=120)  # 2 min cache
+
+    return Response(
+        content=json_content,
+        media_type="application/json",
+        headers={"X-Cache": "MISS"}
+    )
