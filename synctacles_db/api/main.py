@@ -12,7 +12,7 @@ from starlette.responses import Response
 import time
 
 from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
-from synctacles_db.api.endpoints import balance, prices, auth, energy_action
+from synctacles_db.api.endpoints import balance, prices, auth, energy_action, windows
 from synctacles_db.api.endpoints.deprecated import router as deprecated_router, signals_router as deprecated_signals_router
 from synctacles_db.api.routes.pipeline import router as pipeline_router
 from synctacles_db.cache import api_cache
@@ -158,6 +158,9 @@ app.include_router(deprecated_signals_router, prefix="/api", tags=["deprecated"]
 
 # Energy Action (core endpoint with quality indicator)
 app.include_router(energy_action.router, prefix="/api", tags=["energy-action"])
+
+# Best Window Finder & Tomorrow Preview (wow features)
+app.include_router(windows.router, prefix="/api", tags=["windows"])
 
 # Pipeline monitoring
 app.include_router(pipeline_router)
