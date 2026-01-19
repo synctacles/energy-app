@@ -405,7 +405,12 @@ def _determine_status(tomorrow_avg: float, today_prices: List[Dict]) -> str:
 
 async def _get_all_prices(country: str) -> List[Dict]:
     """
-    Get all available prices (today + tomorrow) using FallbackManager.
+    Get all available prices (today + tomorrow).
+
+    Strategy:
+    - FallbackManager for TODAY (Frank DB = accurate consumer prices)
+    - ENTSO-E directly for TOMORROW (day-ahead data that Frank doesn't have)
+    - Merge both for complete 48h coverage
     """
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
@@ -416,9 +421,12 @@ async def _get_all_prices(country: str) -> List[Dict]:
     session = Session()
 
     now = datetime.now(timezone.utc)
+    today = now.date()
+    tomorrow = (now + timedelta(days=1)).date()
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_tomorrow = start_of_today + timedelta(days=2)
 
+    # Get ENTSO-E data directly (has both today AND tomorrow)
     try:
         result = session.execute(text("""
             SELECT timestamp, price_eur_mwh
@@ -435,31 +443,78 @@ async def _get_all_prices(country: str) -> List[Dict]:
     finally:
         session.close()
 
-    db_age_minutes = 999
-    db_results = None
-
+    entsoe_prices = []
     if result:
-        db_results = [
+        entsoe_prices = [
             {"timestamp": row[0].isoformat(), "price_eur_mwh": float(row[1])}
             for row in result
         ]
-        latest = max(row[0] for row in result)
+
+    # Get FallbackManager data for TODAY (Frank = more accurate consumer prices)
+    db_age_minutes = 999
+    if entsoe_prices:
+        from datetime import datetime as dt
+        latest = max(dt.fromisoformat(p["timestamp"].replace("Z", "+00:00")) for p in entsoe_prices)
         db_age_minutes = int((now - latest).total_seconds() / 60)
 
-    # Use FallbackManager for quality data
-    prices, source, quality, _ = await FallbackManager.get_prices_with_fallback(
-        db_results=db_results,
+    fallback_prices, source, quality, _ = await FallbackManager.get_prices_with_fallback(
+        db_results=entsoe_prices,
         db_age_minutes=db_age_minutes,
         country=country.lower()
     )
 
-    if prices:
-        # Add metadata to prices
-        for p in prices:
+    # Split ENTSO-E data into today/tomorrow
+    entsoe_today = []
+    entsoe_tomorrow = []
+    for p in entsoe_prices:
+        ts_str = p["timestamp"]
+        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if ts.date() == today:
+            entsoe_today.append(p)
+        elif ts.date() == tomorrow:
+            entsoe_tomorrow.append(p)
+
+    # Merge strategy:
+    # - Use FallbackManager data for today (Frank prices if available)
+    # - Add ENTSO-E tomorrow data (Frank doesn't have day-ahead)
+    all_prices = []
+
+    if fallback_prices:
+        # FallbackManager returned data (likely Frank for today)
+        for p in fallback_prices:
             p["_source"] = source
             p["_quality"] = quality
+        all_prices.extend(fallback_prices)
 
-    return prices or []
+        # Check if fallback already has tomorrow data
+        has_tomorrow = False
+        for p in fallback_prices:
+            ts_str = p.get("timestamp", "")
+            if ts_str:
+                ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                if ts.date() == tomorrow:
+                    has_tomorrow = True
+                    break
+
+        # Add ENTSO-E tomorrow if not already included
+        if not has_tomorrow and entsoe_tomorrow:
+            _LOGGER.info(f"Adding {len(entsoe_tomorrow)} ENTSO-E tomorrow prices to {source} today data")
+            for p in entsoe_tomorrow:
+                p["_source"] = "ENTSO-E"
+                p["_quality"] = "FRESH"
+            all_prices.extend(entsoe_tomorrow)
+    else:
+        # No fallback data, use ENTSO-E directly
+        for p in entsoe_prices:
+            p["_source"] = "ENTSO-E"
+            p["_quality"] = "FRESH"
+        all_prices = entsoe_prices
+
+    # Sort by timestamp
+    all_prices.sort(key=lambda x: x.get("timestamp", ""))
+
+    _LOGGER.debug(f"_get_all_prices: {len(all_prices)} total ({source} today + ENTSO-E tomorrow)")
+    return all_prices
 
 
 def _parse_timestamp(ts_str: str) -> datetime:
@@ -536,18 +591,37 @@ async def get_dashboard(
     energy_action = "WAIT"
     action_reason = "No data"
 
+    today = now.date()
+    today_prices = []
+
     if all_prices:
         current_price = _get_price_at_time(all_prices, now)
-
-        # Calculate daily stats for action
-        today = now.date()
         today_prices = [p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == today]
 
-        if today_prices:
-            values = [_extract_price_kwh(p) for p in today_prices if _extract_price_kwh(p)]
-            if values and current_price:
-                avg = sum(values) / len(values)
-                deviation = ((current_price - avg) / avg) * 100 if avg > 0 else 0
+    # Today's stats (for cheapest/expensive hour sensors)
+    today_cheapest_hour = None
+    today_cheapest_price = None
+    today_expensive_hour = None
+    today_expensive_price = None
+    today_average = None
+
+    if today_prices:
+        values = [_extract_price_kwh(p) for p in today_prices if _extract_price_kwh(p)]
+        if values:
+            today_average = sum(values) / len(values)
+
+            # Find cheapest and most expensive hours
+            sorted_today = sorted(today_prices, key=lambda x: _extract_price_kwh(x) or 999)
+            if sorted_today:
+                cheapest = sorted_today[0]
+                expensive = sorted_today[-1]
+                today_cheapest_hour = _parse_timestamp(cheapest["timestamp"]).strftime("%H:%M")
+                today_cheapest_price = _extract_price_kwh(cheapest)
+                today_expensive_hour = _parse_timestamp(expensive["timestamp"]).strftime("%H:%M")
+                today_expensive_price = _extract_price_kwh(expensive)
+
+            if current_price:
+                deviation = ((current_price - today_average) / today_average) * 100 if today_average > 0 else 0
 
                 if deviation <= -15:
                     energy_action = "GO"
@@ -613,6 +687,12 @@ async def get_dashboard(
             "price_eur_kwh": round(current_price, 4) if current_price else None,
             "action": energy_action,
             "action_reason": action_reason,
+            "cheapest_hour": today_cheapest_hour,
+            "cheapest_price_eur_kwh": round(today_cheapest_price, 4) if today_cheapest_price else None,
+            "most_expensive_hour": today_expensive_hour,
+            "most_expensive_price_eur_kwh": round(today_expensive_price, 4) if today_expensive_price else None,
+            "average_price_eur_kwh": round(today_average, 4) if today_average else None,
+            "hours_available": len(today_prices) if today_prices else 0,
         },
         "best_window": best_window,
         "runner_up": runner_up,
