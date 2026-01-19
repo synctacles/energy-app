@@ -408,13 +408,15 @@ async def _get_all_prices(country: str) -> List[Dict]:
     Get all available prices (today + tomorrow).
 
     Strategy:
-    - FallbackManager for TODAY (Frank DB = accurate consumer prices)
-    - ENTSO-E directly for TOMORROW (day-ahead data that Frank doesn't have)
+    - FallbackManager for TODAY (Frank DB/Direct = consumer prices)
+    - Frank Direct for TOMORROW (consumer prices, available after ~14:00 CET)
+    - ENTSO-E as fallback for TOMORROW (wholesale prices)
     - Merge both for complete 48h coverage
     """
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
     from config.settings import DATABASE_URL
+    from synctacles_db.clients.frank_energie_client import FrankEnergieClient
 
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
@@ -426,7 +428,7 @@ async def _get_all_prices(country: str) -> List[Dict]:
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_tomorrow = start_of_today + timedelta(days=2)
 
-    # Get ENTSO-E data directly (has both today AND tomorrow)
+    # Get ENTSO-E data directly (has both today AND tomorrow) - as fallback
     try:
         result = session.execute(text("""
             SELECT timestamp, price_eur_mwh
@@ -450,7 +452,7 @@ async def _get_all_prices(country: str) -> List[Dict]:
             for row in result
         ]
 
-    # Get FallbackManager data for TODAY (Frank = more accurate consumer prices)
+    # Get FallbackManager data for TODAY (Frank = consumer prices)
     db_age_minutes = 999
     if entsoe_prices:
         from datetime import datetime as dt
@@ -463,20 +465,36 @@ async def _get_all_prices(country: str) -> List[Dict]:
         country=country.lower()
     )
 
-    # Split ENTSO-E data into today/tomorrow
-    entsoe_today = []
+    # Split ENTSO-E data into today/tomorrow (fallback only)
     entsoe_tomorrow = []
     for p in entsoe_prices:
         ts_str = p["timestamp"]
         ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        if ts.date() == today:
-            entsoe_today.append(p)
-        elif ts.date() == tomorrow:
+        if ts.date() == tomorrow:
             entsoe_tomorrow.append(p)
+
+    # Try Frank Direct for TOMORROW (consumer prices!)
+    frank_tomorrow = []
+    tomorrow_source = "ENTSO-E"  # default fallback
+    try:
+        frank_data = await FrankEnergieClient.get_prices_tomorrow()
+        if frank_data and len(frank_data) > 0:
+            _LOGGER.info(f"Frank Direct: got {len(frank_data)} tomorrow prices (consumer)")
+            for p in frank_data:
+                frank_tomorrow.append({
+                    "timestamp": p["timestamp"],
+                    "price_eur_kwh": p["price_eur_kwh"],
+                    "_source": "Frank Direct",
+                    "_quality": "FRESH",
+                    "_price_type": "consumer"  # Includes taxes + markup
+                })
+            tomorrow_source = "Frank Direct"
+    except Exception as e:
+        _LOGGER.warning(f"Frank Direct tomorrow failed, using ENTSO-E: {e}")
 
     # Merge strategy:
     # - Use FallbackManager data for today (Frank prices if available)
-    # - Add ENTSO-E tomorrow data (Frank doesn't have day-ahead)
+    # - Use Frank Direct for tomorrow (consumer prices) or ENTSO-E (wholesale)
     all_prices = []
 
     if fallback_prices:
@@ -496,24 +514,32 @@ async def _get_all_prices(country: str) -> List[Dict]:
                     has_tomorrow = True
                     break
 
-        # Add ENTSO-E tomorrow if not already included
-        if not has_tomorrow and entsoe_tomorrow:
-            _LOGGER.info(f"Adding {len(entsoe_tomorrow)} ENTSO-E tomorrow prices to {source} today data")
-            for p in entsoe_tomorrow:
-                p["_source"] = "ENTSO-E"
-                p["_quality"] = "FRESH"
-            all_prices.extend(entsoe_tomorrow)
+        # Add tomorrow data if not already included
+        if not has_tomorrow:
+            if frank_tomorrow:
+                # Prefer Frank consumer prices for tomorrow
+                _LOGGER.info(f"Adding {len(frank_tomorrow)} Frank consumer prices for tomorrow")
+                all_prices.extend(frank_tomorrow)
+            elif entsoe_tomorrow:
+                # Fallback to ENTSO-E wholesale
+                _LOGGER.info(f"Adding {len(entsoe_tomorrow)} ENTSO-E wholesale prices for tomorrow")
+                for p in entsoe_tomorrow:
+                    p["_source"] = "ENTSO-E"
+                    p["_quality"] = "FRESH"
+                    p["_price_type"] = "wholesale"  # Excludes taxes
+                all_prices.extend(entsoe_tomorrow)
     else:
         # No fallback data, use ENTSO-E directly
         for p in entsoe_prices:
             p["_source"] = "ENTSO-E"
             p["_quality"] = "FRESH"
+            p["_price_type"] = "wholesale"
         all_prices = entsoe_prices
 
     # Sort by timestamp
     all_prices.sort(key=lambda x: x.get("timestamp", ""))
 
-    _LOGGER.debug(f"_get_all_prices: {len(all_prices)} total ({source} today + ENTSO-E tomorrow)")
+    _LOGGER.debug(f"_get_all_prices: {len(all_prices)} total ({source} today + {tomorrow_source} tomorrow)")
     return all_prices
 
 
