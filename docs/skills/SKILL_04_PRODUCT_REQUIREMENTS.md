@@ -1,433 +1,487 @@
 # SKILL 4 — PRODUCT REQUIREMENTS
 
-Features, Capabilities, and Product Vision
-Version: 2.0 (2026-01-11) - Energy Action Focus
+Features, Sensors, and Product Vision
+**Version: 3.0 (2026-01-19) - Generated from source code**
 
-> **Phase 3 Update:** SYNCTACLES now focuses exclusively on Energy Action - actionable
-> price-based recommendations for smart energy consumption. Generation, load, and grid
-> balance features have been discontinued.
-
----
-
-## PURPOSE
-
-Define what SYNCTACLES does, what problems it solves, and what features it provides. This is the "what" and "why" from the user/customer perspective.
+> **KISS Migration v2.0.0:** Focus on actionable price-based recommendations.
+> P1 Live Cost and Savings sensors added in v2.2.0.
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**SYNCTACLES** (Synchronized Tactical Application for Collective Load Engagement and Sustainable Energy Logistics) is a Dutch energy data platform that provides **Energy Action** recommendations - actionable insights for when to use electricity based on real-time prices.
-
-**Problem Solved:** Dutch households and businesses need simple, actionable guidance on when to use electricity. SYNCTACLES provides a straightforward GO/WAIT/AVOID recommendation based on current and upcoming prices, with quality indicators for confidence levels.
-
----
-
-## KEY CAPABILITIES
-
-### 1. Energy Action Recommendations
-
-**What:** Simple GO/WAIT/AVOID recommendation for current energy usage
-
-**Data Source:** ENTSO-E A44 prices + Enever consumer prices
-
-**Provides:**
-- `action`: GO (cheap), WAIT (moderate), AVOID (expensive)
-- `quality`: live, estimated, cached, unavailable
-- `confidence`: 0-100%
-- `cheapest_hour`: Time of cheapest hour today
-- `current_price`: Current price in €/kWh
-
-**Use Cases:**
-- Home Assistant automation (run dishwasher on GO)
-- Display current recommendation on dashboards
-- Simple decision support for energy usage
-
-**Endpoint:** `GET /api/v1/energy-action`
+**SYNCTACLES** provides Dutch energy price data and actionable recommendations:
+- **GO/WAIT/AVOID** - Simple action recommendation
+- **Best Window Finder** - Optimal consumption window
+- **Tomorrow Preview** - Next day outlook
+- **Live Cost** - Real-time electricity cost calculation
+- **Savings** - Track savings vs peak price
 
 ---
 
-### 2. Electricity Prices (Day-Ahead)
+## HOME ASSISTANT SENSORS
 
-**What:** Hourly electricity market prices for today and tomorrow
+### Core Sensors (Server Data)
 
-**Data Source:** ENTSO-E A44 (updated hourly)
+| Sensor | Entity ID | State | Type |
+|--------|-----------|-------|------|
+| Electricity Price | `sensor.energy_insights_nl_electricity_price` | €/kWh | float |
+| Cheapest Hour | `sensor.energy_insights_nl_cheapest_hour` | HH:00 | string |
+| Most Expensive Hour | `sensor.energy_insights_nl_most_expensive_hour` | HH:00 | string |
+| Energy Action | `sensor.energy_insights_nl_energy_action` | GO/WAIT/AVOID | string |
+| Best Window | `sensor.energy_insights_nl_best_window` | HH:00 (start) | string |
+| Tomorrow Preview | `sensor.energy_insights_nl_tomorrow_preview` | FAVORABLE/NORMAL/EXPENSIVE/PENDING | string |
 
-**Provides:**
-- Current hour price (€/MWh)
-- Today's price profile
-- Tomorrow's price forecast
-- Min/max/average prices
+### P1/Power Sensors (Requires Power Sensor Config)
 
-**Use Cases:**
-- Price-based automation (charge battery at cheap hours)
-- User awareness (know when electricity is expensive)
-- Load shifting (move consumption to cheap periods)
+| Sensor | Entity ID | State | Type |
+|--------|-----------|-------|------|
+| Live Cost | `sensor.energy_insights_nl_live_cost` | €/h | float |
+| Savings | `sensor.energy_insights_nl_savings` | € | float |
 
-**Endpoint:** `GET /v1/prices/today`
+### BYO Sensors (Requires Enever API Key)
 
----
-
-### 4. Automation Signals
-
-**What:** Pre-computed signals for common automation scenarios
-
-**Calculated From:** Generation, load, and price data
-
-**Provides Signals:**
-- `renewable_percentage` - Percentage of renewable generation
-- `grid_stress` - Indicator of grid stress (0-100)
-- `price_level` - Relative price (cheap/normal/expensive)
-- `carbon_intensity` - CO2 emissions per kWh
-
-**Use Cases:**
-- Trigger automation based on renewable energy
-- Example: "If renewable > 80%, turn on EV charger"
-- Example: "If grid stress > 80%, reduce HVAC"
-
-**Endpoint:** `GET /v1/signals/automation`
+| Sensor | Entity ID | State | Type |
+|--------|-----------|-------|------|
+| Prices Today (BYO) | `sensor.energy_insights_nl_prices_today_byo` | "Today" | string |
+| Prices Tomorrow (BYO) | `sensor.energy_insights_nl_prices_tomorrow_byo` | "Tomorrow" / "Not Available" | string |
 
 ---
 
-### 6. System Health
+## SENSOR DETAILS
 
-**What:** Status of all data sources and system health
+### 1. Electricity Price Sensor
 
-**Provides:**
-- Overall system status (healthy/degraded/critical)
-- Status of each data source (ENTSO-E, Enever, Energy-Charts)
-- Last successful data collection timestamp
-- Uptime statistics
-- API version
+**File:** `sensor.py:404-517`
 
-**Use Cases:**
-- Alerting (notify if data sources down)
-- Debugging (understand which source is failing)
-- Health dashboards
+| Property | Value |
+|----------|-------|
+| State | Current price in €/kWh (e.g., `0.2509`) |
+| Device class | `monetary` |
+| State class | `measurement` |
+| Unit | €/kWh |
 
-**Endpoint:** `GET /health`
-
----
-
-### 7. Leverancier-Specific Pricing (Enever BYO-Key)
-
-**What:** Real consumer electricity prices per leverancier
-
-**Data Source:** Enever.nl API (BYO-key in HA component)
-
-**Provides:**
-- Hourly prices today (€/kWh, consumer price)
-- Hourly prices tomorrow (available after 15:00)
-- Leverancier-specific markup and taxes included
-- 19 Dutch energy suppliers supported
-
-**Difference from ENTSO-E Prices:**
-| Aspect | ENTSO-E (Server) | Enever (BYO) |
-|--------|------------------|--------------|
-| Price type | Wholesale | Consumer |
-| Includes taxes | No | Yes |
-| Leverancier markup | No | Yes |
-| Resolution | Hourly | Hourly (15-min for supporters) |
-
-**Use Cases:**
-- Accurate cost calculation per leverancier
-- Compare actual prices vs wholesale
-- Optimize based on real consumer costs
-
-**Endpoint:** Via HA component only (BYO-key)
-
----
-
-## HOME ASSISTANT INTEGRATION
-
-### Custom Component
-
-SYNCTACLES provides a Home Assistant custom component that:
-
-1. **Auto-Discovery:** Detects SYNCTACLES API and auto-configures
-2. **Entities:** Creates sensors for all data types
-3. **Updates:** Polls API every 5 minutes
-4. **Fallback:** Uses last-known-good value if API unavailable
-5. **Quality:** Displays data quality scores
-
-### Available Entities
-
-```
-sensor.generation_nuclear_mw
-sensor.generation_solar_mw
-sensor.generation_wind_onshore_mw
-sensor.generation_wind_offshore_mw
-sensor.generation_fossil_fuels_mw
-sensor.generation_hydro_mw
-sensor.generation_biomass_mw
-sensor.generation_waste_mw
-sensor.generation_renewable_percentage
-
-sensor.load_current_mw
-sensor.load_forecast_mw
-sensor.load_quality
-
-sensor.price_current_eur_per_mwh
-sensor.price_min_today
-sensor.price_max_today
-sensor.price_quality
-
-sensor.balance_frequency_hz
-sensor.balance_reserve_margin_mw
-sensor.balance_status
-
-sensor.synctacles_health_status
-sensor.synctacles_renewable_percentage
-sensor.synctacles_grid_stress_level
-sensor.synctacles_carbon_intensity
+**Attributes:**
+```yaml
+source: "Frank Direct"         # Data source
+quality: "FRESH"               # Data quality
+daily_average_kwh: 0.2401      # Today's average
+daily_min_kwh: 0.1982          # Today's minimum
+daily_max_kwh: 0.3421          # Today's maximum
+best_hours: "02:00, 03:00, 04:00, 05:00"  # 4 cheapest hours
+leverancier: "Zonneplan"       # Only if Enever BYO configured
 ```
 
-### Automation Examples
+---
+
+### 2. Cheapest Hour Sensor
+
+**File:** `sensor.py:520-592`
+
+| Property | Value |
+|----------|-------|
+| State | Hour as string (e.g., `"03:00"`) |
+| Icon | `mdi:clock-time-three` |
+
+**Attributes:**
+```yaml
+price_eur_mwh: 198.20          # Price in EUR/MWh
+timestamp: "2026-01-19T03:00:00+00:00"
+best_4_hours: "02:00, 03:00, 04:00, 05:00"
+source: "Frank Direct"
+```
+
+---
+
+### 3. Most Expensive Hour Sensor
+
+**File:** `sensor.py:595-659`
+
+| Property | Value |
+|----------|-------|
+| State | Hour as string (e.g., `"18:00"`) |
+| Icon | `mdi:clock-time-six` |
+
+**Attributes:**
+```yaml
+price_eur_mwh: 342.10          # Price in EUR/MWh
+timestamp: "2026-01-19T18:00:00+00:00"
+source: "Frank Direct"
+```
+
+---
+
+### 4. Energy Action Sensor
+
+**File:** `sensor.py:662-818`
+
+| Property | Value |
+|----------|-------|
+| State | `GO` / `WAIT` / `AVOID` |
+| Icon | Dynamic based on action |
+
+**Action Thresholds (configurable):**
+- **GO**: Price < daily average - 15% (default)
+- **WAIT**: Price within ±15-20% of average
+- **AVOID**: Price > daily average + 20% (default)
+
+**Attributes:**
+```yaml
+reason: "Price -18% vs average"
+action_description: "Good time to use electricity"
+go_threshold: -15              # User-configurable
+avoid_threshold: 20            # User-configurable
+next_go_time: "03:00"          # Next GO period
+next_go_price: 0.1982          # Price at next GO
+price_level_percent: -18.5     # Current vs average
+best_hours_today: ["02:00", "03:00", "04:00", "05:00"]
+```
+
+---
+
+### 5. Best Window Sensor
+
+**File:** `sensor.py:1013-1068`
+
+| Property | Value |
+|----------|-------|
+| State | Start hour (e.g., `"02:00"`) |
+| Icon | `mdi:clock-star` |
+
+**Attributes:**
+```yaml
+start_time: "02:00"
+end_time: "05:00"
+start_iso: "2026-01-19T02:00:00+00:00"
+end_iso: "2026-01-19T05:00:00+00:00"
+duration_hours: 3
+average_price_eur_kwh: 0.2012
+total_cost_estimate_eur: 0.6036  # For 1kW load over duration
+runner_up_start: "13:00"
+runner_up_end: "16:00"
+runner_up_average_price: 0.2156
+```
+
+---
+
+### 6. Tomorrow Preview Sensor
+
+**File:** `sensor.py:1071-1147`
+
+| Property | Value |
+|----------|-------|
+| State | `FAVORABLE` / `NORMAL` / `EXPENSIVE` / `PENDING` |
+| Icon | `mdi:calendar-arrow-right` |
+
+**State Meanings:**
+- **FAVORABLE**: Tomorrow cheaper than today (good to wait)
+- **NORMAL**: Similar prices
+- **EXPENSIVE**: Tomorrow more expensive
+- **PENDING**: Prices not yet available (usually before 13:00 CET)
+
+**Attributes:**
+```yaml
+date: "2026-01-20"
+cheapest_hour: "04:00"
+cheapest_price_eur_kwh: 0.1845
+most_expensive_hour: "17:00"
+most_expensive_price_eur_kwh: 0.3012
+average_price_eur_kwh: 0.2234
+best_3h_start: "03:00"
+best_3h_end: "06:00"
+best_3h_average: 0.1901
+hours_available: 24
+message: "Tomorrow's prices not yet available"  # Only when PENDING
+```
+
+---
+
+### 7. Live Cost Sensor
+
+**File:** `sensor.py:1153-1319`
+
+**Requires:** Power sensor configuration in Options Flow
+
+| Property | Value |
+|----------|-------|
+| State | Current cost in €/h (e.g., `0.1234`) |
+| Device class | `monetary` |
+| Unit | €/h |
+
+**Calculation (line 1240-1242):**
+```python
+cost_per_hour = (power_w / 1000) * price_kwh
+```
+
+**Attributes:**
+```yaml
+power_sensor_entity: "sensor.p1_meter_power"
+quality: "FRESH"
+current_power_w: 1250.0
+current_price_eur_kwh: 0.2509
+cost_today_so_far: 1.23        # Running total
+projected_cost_today: 4.56      # Estimated end-of-day
+status: "consuming"             # "consuming" or "exporting"
+```
+
+**Special Behavior:**
+- Shows negative values when exporting power
+- Updates every 5 seconds (synced with power sensor)
+- Falls back to server price if Enever unavailable
+
+---
+
+### 8. Savings Sensor
+
+**File:** `sensor.py:1321-1583`
+
+**Requires:** Power sensor configuration
+
+| Property | Value |
+|----------|-------|
+| State | Today's savings in € (e.g., `0.45`) |
+| Device class | `monetary` |
+| State class | `total_increasing` |
+| Unit | € |
+
+**Calculation (line 1499-1504):**
+```python
+kwh_estimate = (power_w / 1000) * (5 / 3600)  # 5-sec interval
+actual_cost = kwh_estimate * current_price
+peak_cost = kwh_estimate * peak_price
+savings = peak_cost - actual_cost
+```
+
+**Attributes:**
+```yaml
+savings_today: 0.45
+cost_actual_today: 2.34         # What you actually paid
+cost_if_peak_today: 2.79        # What you would have paid at peak
+smart_usage_score_today: 84     # Percentage (0-100)
+savings_month: 12.50            # Month-to-date
+tracking_since: "2026-01-01"
+peak_price_source: "Enever BYO" # or "Server dashboard"
+```
+
+**Peak Price Resolution:**
+1. Enever BYO `prices_today` → `max(price_eur_kwh)`
+2. Server dashboard → `current.most_expensive_price_eur_kwh`
+
+**RestoreEntity:** Savings persist across HA restarts.
+
+---
+
+### 9. Prices Today Sensor (BYO)
+
+**File:** `sensor.py:821-910`
+
+**Requires:** Enever API key
+
+| Property | Value |
+|----------|-------|
+| State | "Today" |
+| Icon | `mdi:calendar-today` |
+
+**Attributes:**
+```yaml
+hours:
+  "00": {price_eur_kwh: 0.22, color: "green", status: "GO"}
+  "01": {price_eur_kwh: 0.21, color: "green", status: "GO"}
+  ...
+  "18": {price_eur_kwh: 0.34, color: "red", status: "AVOID"}
+daily_average: 0.2401
+daily_min: 0.1982
+daily_max: 0.3421
+leverancier: "Zonneplan"
+resolution_minutes: 60         # or 15 for supporters
+```
+
+---
+
+### 10. Prices Tomorrow Sensor (BYO)
+
+**File:** `sensor.py:913-1006`
+
+**Requires:** Enever API key
+
+| Property | Value |
+|----------|-------|
+| State | "Tomorrow" or "Not Available" |
+| Icon | `mdi:calendar-arrow-right` |
+
+**Attributes:** Same as Prices Today + `note` when unavailable.
+
+**Availability:** Usually after 13:00-15:00 CET.
+
+---
+
+## CONFIG FLOW
+
+### Step 1: User Credentials
+
+**File:** `config_flow.py:117-190`
+
+| Field | Type | Required | Default |
+|-------|------|----------|---------|
+| `api_url` | string | Yes | `https://energy.synctacles.com/api` |
+| `api_key` | string | Yes | - |
+| `enever_token` | string | No | `""` |
+| `enever_leverancier` | dropdown | No | Zonneplan |
+| `enever_supporter` | bool | No | False |
+
+### Step 2: Power Sensor (Optional)
+
+**File:** `config_flow.py:193-263`
+
+| Field | Type | Required | Default |
+|-------|------|----------|---------|
+| `power_sensor` | entity selector | No | Auto-detected |
+| `skip_power_sensor` | bool | No | False |
+
+**Auto-detection priority:**
+1. HomeWizard P1 meter (`sensor.*p1*power*`)
+2. Any power sensor (`device_class: power`)
+
+### Options Flow (Reconfigure)
+
+**File:** `config_flow.py:266-373`
+
+All fields from Step 1 + 2, plus:
+
+| Field | Type | Default | Range |
+|-------|------|---------|-------|
+| `go_threshold` | int | -15 | -50 to 0 |
+| `avoid_threshold` | int | 20 | 0 to 100 |
+
+---
+
+## POLLING INTERVALS
+
+| Coordinator | Interval | Endpoint |
+|-------------|----------|----------|
+| ServerDataCoordinator | 15 min | `/api/v1/dashboard` |
+| EneverDataCoordinator | 1 hour | Enever API |
+| Live Cost updates | 5 sec | Tracks power sensor |
+| Savings updates | 5 sec | Tracks power sensor |
+
+---
+
+## FEATURE MATRIX
+
+| Feature | Required Config | Sensors Created |
+|---------|-----------------|-----------------|
+| Basic pricing | API key only | 6 core sensors |
+| P1/Live Cost | + Power sensor | + 2 sensors (Live Cost, Savings) |
+| Enever BYO | + Enever token | + 2 sensors (Today, Tomorrow) |
+| 15-min resolution | + Supporter tier | Enhanced Enever sensors |
+
+---
+
+## VERSIONING
+
+| Component | Current | Released |
+|-----------|---------|----------|
+| HA Integration | **2.2.3** | 2026-01-19 |
+| Server API | v1 (no explicit version) | - |
+
+**Changelog Highlights:**
+- v2.2.0: P1 Live Cost + Savings sensors
+- v2.2.1: Enever BYO priority + anomaly detection
+- v2.2.2: Options flow UI fixes
+- v2.2.3: 5 new Enever providers + translations
+
+---
+
+## ENEVER PROVIDERS (24)
+
+| Provider | 15-min Support |
+|----------|----------------|
+| Tibber | Yes (supporter) |
+| Zonneplan | Yes (supporter) |
+| Frank Energie | Yes (supporter) |
+| All others | 60-min only |
+
+**Note:** Eneco does NOT offer dynamic electricity, only gas.
+
+---
+
+## AUTOMATION EXAMPLES
+
+### Basic GO/WAIT/AVOID
 
 ```yaml
-# Automation: Charge EV when renewable percentage is high
-- alias: "Charge EV when renewable energy high"
-  trigger:
-    platform: numeric_state
-    entity_id: sensor.synctacles_renewable_percentage
-    above: 80
-  action:
-    service: switch.turn_on
-    target:
-      entity_id: switch.ev_charger
-
-# Automation: Reduce HVAC when grid stressed
-- alias: "Reduce HVAC when grid stressed"
-  trigger:
-    platform: numeric_state
-    entity_id: sensor.synctacles_grid_stress_level
-    above: 80
-  action:
-    service: climate.set_temperature
-    target:
-      entity_id: climate.living_room
-    data:
-      temperature: 20  # Reduce to 20°C during stress
-
-# Automation: Notify if renewable energy is very high
-- alias: "Alert when renewable > 90%"
-  trigger:
-    platform: numeric_state
-    entity_id: sensor.synctacles_renewable_percentage
-    above: 90
-  action:
-    service: notify.telegram
-    data:
-      message: "Dutch grid is 90%+ renewable! Now is the time to use electricity."
+automation:
+  - alias: "Start dishwasher on GO"
+    trigger:
+      - platform: state
+        entity_id: sensor.energy_insights_nl_energy_action
+        to: "GO"
+    condition:
+      - condition: time
+        after: "08:00:00"
+        before: "22:00:00"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.dishwasher
 ```
 
----
+### Best Window Charging
 
-## CURRENT FEATURE SET (MVP)
-
-### Implemented (Phase 1-3)
-
-- ✅ ENTSO-E A75 data collection (generation)
-- ✅ ENTSO-E A65 data collection (load)
-- ✅ ENTSO-E A44 data collection (prices)
-- ✅ Enever consumer price integration
-- ✅ 3-layer pipeline (Collectors → Importers → Normalizers)
-- ✅ PostgreSQL storage with quality metadata
-- ✅ REST API (FastAPI)
-- ✅ Home Assistant custom component
-- ✅ Automatic fallback to Energy-Charts
-- ✅ Systemd integration (timers for scheduling)
-- ✅ Multi-tenant deployment support
-- ✅ Comprehensive API documentation
-
-### In Development (Phase 4)
-
-- 🔄 Complete documentation suite
-- 🔄 Skills migration and consolidation
-- 🔄 User guide and troubleshooting
-- ✅ API key authentication
-- ✅ Rate limiting per tier
-
-### Planned (Phase 7-9)
-
-- 📅 Advanced forecasting (ML-based generation/price prediction)
-- 📅 Enhanced automation signals
-- 📅 Price-triggered actions
-- 📅 Battery scheduling optimization
-- 📅 Data marketplace (sell aggregated data)
-
----
-
-## NON-FUNCTIONAL REQUIREMENTS
-
-### Performance
-
-- API response time: < 100 ms (p95)
-- Data collection: < 30 second per source
-- Data freshness: < 15 minutes for generation/load
-- Database queries: < 500 ms
-
-### Availability
-
-- Target uptime: 99.5% (production)
-- Automatic failover to Energy-Charts if ENTSO-E down
-- Graceful degradation (serve last-known-good if all sources fail)
-
-### Reliability
-
-- Data quality scoring (0.0-1.0) for every data point
-- Automatic fallback strategy
-- Health checks every 5 minutes
-- Alerting for data source failures
-
-### Security
-
-- No secrets in git repository
-- Environment-based configuration
-- Database credentials protected
-- HTTPS/TLS for all external connections
-- Per-tenant isolation (no data leakage)
-- API key authentication with rate limiting
-
----
-
-## SUBSCRIPTION TIERS
-
-### Tier Structure
-
-SYNCTACLES uses API key-based authentication with daily rate limits per tier:
-
-| Tier | Rate Limit | Use Case | Notes |
-|------|-----------|----------|-------|
-| **Beta** | 10,000 req/day | Testing & early access | Default for new users |
-| **Free** | 1,000 req/day | Home Assistant integration | Community tier |
-| **Paid** | 100,000 req/day | Premium users | Commercial use |
-| **Unlimited** | 100,000 req/day | Enterprise | Priority support |
-
-### Authentication
-
-1. **Signup:** `POST /auth/signup` with email
-2. **Response:** Receive API key (shown only once!)
-3. **Usage:** Include `X-API-Key` header in all API requests
-4. **Rate Limits:** Daily counter resets at midnight UTC
-
-### Rate Limit Headers
-
-Responses include rate limit information:
-
-```
-X-RateLimit-Limit: 10000          # Daily limit for your tier
-X-RateLimit-Remaining: 9876       # Requests remaining today
-X-RateLimit-Reset: 1735689600     # Unix timestamp of reset (midnight UTC)
+```yaml
+automation:
+  - alias: "Schedule EV charging in best window"
+    trigger:
+      - platform: time
+        at: "00:05:00"
+    action:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.ev_charge_start
+        data:
+          time: "{{ state_attr('sensor.energy_insights_nl_best_window', 'start_time') }}"
 ```
 
-### Management Endpoints
+### Tomorrow-Aware Decisions
 
-- `GET /auth/stats` - View usage and rate limit info
-- `POST /auth/regenerate-key` - Generate new key (invalidates old)
-- `POST /auth/deactivate` - Deactivate account
+```yaml
+automation:
+  - alias: "Notify if tomorrow is favorable"
+    trigger:
+      - platform: state
+        entity_id: sensor.energy_insights_nl_tomorrow_preview
+        to: "FAVORABLE"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Tomorrow's electricity is cheaper - consider waiting for big appliances!"
+```
 
-### Scalability
+### Live Cost Alerts
 
-- Support multiple concurrent tenants
-- Each tenant completely independent
-- Scale from 1 server to N servers
-- Horizontal scaling via additional tenants
-
----
-
-## CONSTRAINTS & LIMITATIONS
-
-### Data Availability
-
-- ENTSO-E A75/A65: Every 15 minutes (published ~15 min delayed)
-- ENTSO-E A44: Hourly (published day-ahead + intraday updates)
-- Enever: Hourly consumer prices (15-min for supporters)
-- Energy-Charts: Cached, updated daily
-
-### Geographic Scope
-
-- **Primary:** Dutch electricity grid
-- **Data from:** ENTSO-E (European data) filtered for Netherlands
-- **Future:** Can be extended to other countries/regions
-
-### Accuracy
-
-- ENTSO-E data: Published as-is (no validation)
-- Quality metadata indicates reliability
-- Fallback data (Energy-Charts) is modeled/estimated
-
----
-
-## PRODUCT ROADMAP
-
-### Phase 5: Advanced Monitoring
-- Detailed history graphs (7-day, 30-day views)
-- Peak/low analysis per hour
-- Trend detection (generation/price trends)
-- Anomaly alerting
-
-### Phase 6: Enhanced Automation
-- Custom signal definitions (user-configurable)
-- Price-based actions (buy electricity at X €/MWh)
-- Load shifting recommendations
-- Battery optimization (when to charge/discharge)
-
-### Phase 7: Forecasting
-- ML-based generation forecast (24-48 hours)
-- Price forecast improvements
-- Demand prediction
-- Seasonal trend analysis
-
-### Phase 8: Community Features
-- Data sharing (public APIs for community apps)
-- Leaderboards (renewable consumption %)
-- Community forecasts (crowdsourced predictions)
-
-### Phase 9: Data Marketplace
-- Sell aggregated, anonymized data
-- API for third-party developers
-- Data quality guarantees
-- Subscription models
-
----
-
-## SUCCESS METRICS
-
-### User Adoption
-
-- Home Assistant installation count
-- Active API users per month
-- Automation rules created (from user bases)
-
-### Data Quality
-
-- Average data quality score (target: > 0.95)
-- Fallback activation rate (target: < 1%)
-- API uptime (target: > 99.5%)
-
-### User Satisfaction
-
-- Support request volume
-- Bug report rate
-- Feature request frequency
-
----
-
-## COMPETITIVE ADVANTAGES
-
-1. **Free & Open:** No subscription required
-2. **Real-Time:** 15-minute granularity (vs daily competitors)
-3. **Smart Integration:** Works directly with Home Assistant
-4. **Reliable:** Automatic fallback prevents data gaps
-5. **Transparent:** Shows data quality scores
-6. **Extensible:** Custom automation signals
+```yaml
+automation:
+  - alias: "Alert when spending fast"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.energy_insights_nl_live_cost
+        above: 0.50  # €0.50/hour
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "High electricity usage: €{{ states('sensor.energy_insights_nl_live_cost') }}/hour"
+```
 
 ---
 
 ## RELATED SKILLS
 
 - **SKILL 2**: Architecture (how features are implemented)
-- **SKILL 9**: Installer (how to deploy features)
-- **SKILL 10**: Deployment (how to release features)
+- **SKILL 3**: Coding Standards
 - **SKILL 6**: Data Sources (where data comes from)
+- **SKILL 13**: Logging & Diagnostics
+
+---
+
+*Generated from source code: 2026-01-19*
+*Scanned files: sensor.py, config_flow.py, const.py, enever_client.py, __init__.py*
