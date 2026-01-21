@@ -363,6 +363,23 @@ All fields from Step 1 + 2, plus:
 | Live Cost updates | 5 sec | Tracks power sensor |
 | Savings updates | 5 sec | Tracks power sensor |
 
+### Hourly Scheduling (v2.4.0)
+
+Naast de normale polling interval, scheduled de `ServerDataCoordinator` ook callbacks op elk uur-transitiepunt. Dit zorgt ervoor dat de Energy Action (GO/WAIT/AVOID) **instant** update wanneer de elektriciteitsprijs verandert, in plaats van tot 15 minuten te wachten op de volgende poll.
+
+```
+Normale flow (vóór v2.4.0):
+  13:50 poll → prijs = WAIT
+  14:00 prijs verandert → GO (maar HA weet het nog niet)
+  14:05 poll → GO (5+ min vertraging)
+
+Met hourly scheduling (v2.4.0):
+  13:50 poll → prijs = WAIT, schedules timer voor 14:00
+  14:00:00 timer triggert → instant refresh → GO
+```
+
+**Implementatie:** `_schedule_hourly_updates()` zet timers voor de komende 24 uur. Elke timer triggert `async_request_refresh()` op de coordinator.
+
 ---
 
 ## FEATURE MATRIX
