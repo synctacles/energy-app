@@ -87,7 +87,6 @@ leverancier: "Zonneplan"       # Only if Enever BYO configured
 ```yaml
 price_eur_mwh: 198.20          # Price in EUR/MWh
 timestamp: "2026-01-19T03:00:00+00:00"
-best_4_hours: "02:00, 03:00, 04:00, 05:00"
 source: "Frank Direct"
 ```
 
