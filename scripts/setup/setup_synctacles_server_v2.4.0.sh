@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
-# setup_synctacles_server_v2.3.4.sh
+# setup_synctacles_server_v2.4.0.sh
 # ⚠️  DEPRECATED — Use FASE 3+ installers instead
 # Complete SYNCTACLES Server Installer — Ubuntu 24.04 / Hetzner
+#
+# CHANGELOG v2.4.0 (2026-01-22)
+#
+# MAJOR: SKILL_10 v2.0 compliance - Git repo = Production directory
+# - REMOVED: rsync deployment (FASE 3.5)
+# - Git repository at /opt/github/${REPO_NAME} IS the working directory
+# - .env moved to /opt/.env (single source of truth, systemd-compatible)
+# - No separate ${INSTALL_PATH}/app/ directory anymore
+# - Venv remains at ${INSTALL_PATH}/venv/ (external to repo)
+# - Service names use BRAND_SLUG (e.g., energy-insights-nl-api.service)
+# - Added GITHUB_REPO_DEV to systemd template replacements
+# - Deployment is now: git pull && systemctl restart ${BRAND_SLUG}-api
 #
 # CHANGELOG v2.3.4 (2025-12-20)
 # - FIX: daemon-reload met info/ok melding vóór enable-loop (cosmetisch)
@@ -383,7 +395,6 @@ fase0() {
     SERVICE_USER="$BRAND_SLUG"
     SERVICE_GROUP="$BRAND_SLUG"
     INSTALL_PATH="/opt/$BRAND_SLUG"
-    APP_PATH="$INSTALL_PATH/app"
     LOG_PATH="/var/log/$BRAND_SLUG"
     DATA_PATH="/var/lib/$BRAND_SLUG"
     DB_NAME="${BRAND_SLUG//-/_}"
@@ -391,68 +402,76 @@ fase0() {
     GITHUB_REPO="git@github.com:${GITHUB_ACCOUNT}/${REPO_NAME}.git"
     GITHUB_REPO_DEV="/opt/github/${REPO_NAME}"
     GIT_USER_NAME="$GITHUB_ACCOUNT"
+    # SKILL_10 v2.0: APP_PATH = git repo (no separate /app directory)
+    APP_PATH="$GITHUB_REPO_DEV"
 
     # Generate DATABASE_URL from components
     DB_URL="postgresql://${DB_USER}@localhost:5432/${DB_NAME}"
 
-    # Generate .env with export statements
+    # Generate .env (plain KEY=VALUE format for systemd EnvironmentFile compatibility)
+    # Shell scripts use 'set -a && source /opt/.env && set +a' to export variables
     info "Generating .env at $ENV_FILE..."
     cat > "$ENV_FILE" << EOF
 # =============================================================================
 # Environment Configuration
 # Generated: $(date -Iseconds)
 # Generator: setup_synctacles_server_v2.3.4.sh
+#
+# Format: KEY=VALUE (no 'export' - compatible with systemd EnvironmentFile)
+# Shell scripts: use 'set -a && source /opt/.env && set +a' to export vars
 # =============================================================================
 
 # Brand Configuration
-export BRAND_NAME="$BRAND_NAME"
-export BRAND_SLUG="$BRAND_SLUG"
-export BRAND_DOMAIN="$BRAND_DOMAIN"
+BRAND_NAME="$BRAND_NAME"
+BRAND_SLUG="$BRAND_SLUG"
+BRAND_DOMAIN="$BRAND_DOMAIN"
 
 # Installation Paths
-export INSTALL_PATH="$INSTALL_PATH"
-export APP_PATH="$APP_PATH"
-export LOG_PATH="$LOG_PATH"
-export DATA_PATH="$DATA_PATH"
+INSTALL_PATH="$INSTALL_PATH"
+APP_PATH="$APP_PATH"
+LOG_PATH="$LOG_PATH"
+DATA_PATH="$DATA_PATH"
 
 # Database Configuration
-export DB_HOST="localhost"
-export DB_PORT="5432"
-export DB_NAME="$DB_NAME"
-export DB_USER="$DB_USER"
-export DATABASE_URL="$DB_URL"
+DB_HOST="localhost"
+DB_PORT="5432"
+DB_NAME="$DB_NAME"
+DB_USER="$DB_USER"
+DATABASE_URL="$DB_URL"
 
 # API Keys (user must fill in)
-export ENTSOE_API_KEY="${ENTSOE_API_KEY:-}"
-export ADMIN_API_KEY="${ADMIN_API_KEY:-}"
+ENTSOE_API_KEY="${ENTSOE_API_KEY:-}"
+ADMIN_API_KEY="${ADMIN_API_KEY:-}"
 
 # Service Configuration
-export SERVICE_USER="$SERVICE_USER"
-export SERVICE_GROUP="$SERVICE_GROUP"
+SERVICE_USER="$SERVICE_USER"
+SERVICE_GROUP="$SERVICE_GROUP"
 
 # GitHub Configuration
-export GITHUB_ACCOUNT="$GITHUB_ACCOUNT"
-export REPO_NAME="$REPO_NAME"
-export GITHUB_REPO="$GITHUB_REPO"
-export GITHUB_REPO_DEV="$GITHUB_REPO_DEV"
-export GIT_USER_NAME="$GIT_USER_NAME"
-export GIT_USER_EMAIL="$GIT_USER_EMAIL"
+GITHUB_ACCOUNT="$GITHUB_ACCOUNT"
+REPO_NAME="$REPO_NAME"
+GITHUB_REPO="$GITHUB_REPO"
+GITHUB_REPO_DEV="$GITHUB_REPO_DEV"
+GIT_USER_NAME="$GIT_USER_NAME"
+GIT_USER_EMAIL="$GIT_USER_EMAIL"
 
 # Home Assistant Configuration
-export HA_DOMAIN="$HA_DOMAIN"
-export HA_COMPONENT_NAME="$BRAND_NAME"
+HA_DOMAIN="$HA_DOMAIN"
+HA_COMPONENT_NAME="$BRAND_NAME"
 
 # API Configuration
-export API_HOST="0.0.0.0"
-export API_PORT="8000"
+API_HOST="0.0.0.0"
+API_PORT="8000"
 EOF
 
     chmod 600 "$ENV_FILE"
     chown root:root "$ENV_FILE"
-    ok ".env created at $ENV_FILE with export statements"
+    ok ".env created at $ENV_FILE (systemd-compatible format)"
 
-    # Source it for current script
+    # Source it for current script (set -a exports all vars)
+    set -a
     source "$ENV_FILE"
+    set +a
 
     # Generate manifest.json from template
     info "Generating manifest.json from template..."
@@ -754,10 +773,10 @@ host    ${SERVICE_USER}      ${SERVICE_USER}      ::1/128                 trust'
     fi
 
     # -----------------------------
-    # .env configuration (create or overwrite)
+    # .env configuration (single location: /opt/.env)
+    # SKILL_10 v2.0: .env at /opt/.env, not in INSTALL_PATH
     # -----------------------------
-    ENV_FILE="$SYNCTACLES_PROD/.env"
-    mkdir -p "$SYNCTACLES_PROD"
+    ENV_FILE="/opt/.env"
 
     CREATE_ENV=1
     if [[ -f "$ENV_FILE" ]]; then
@@ -1032,10 +1051,12 @@ fase3() {
     ensure_ssh_dir_for_user "${SERVICE_USER}" "$SYN_HOME"
 
     # Fix ownership for .env so services can read it
-    if [[ -f "$SYNCTACLES_PROD/.env" ]]; then
-        chown "${SERVICE_USER}:${SERVICE_GROUP}" "$SYNCTACLES_PROD/.env" 2>/dev/null || true
-        chmod 600 "$SYNCTACLES_PROD/.env" 2>/dev/null || true
-        ok ".env ownership/perms gezet op ${SERVICE_USER} (600)"
+    # SKILL_10 v2.0: .env at /opt/.env (readable by root, not service user for security)
+    if [[ -f "/opt/.env" ]]; then
+        # .env stays owned by root (systemd EnvironmentFile reads it as root)
+        chown root:root "/opt/.env" 2>/dev/null || true
+        chmod 600 "/opt/.env" 2>/dev/null || true
+        ok ".env ownership/perms gezet (root:root, 600)"
     fi
 
     # -----------------------------
@@ -1400,57 +1421,39 @@ EOF"
     fi
 
     # ====================================
-    # 3.5 Deploy Code to Production
+    # 3.5 Verify Git Repository (SKILL_10 v2.0: Git repo = Production)
     # ====================================
-    info "Deploying code from ${GITHUB_REPO_DEV} to ${INSTALL_PATH}/app/..."
+    # NOTE: No rsync! Git repository IS the working directory for systemd services.
+    # Deployment is simply: git pull && systemctl restart
+    info "Verifying git repository at ${GITHUB_REPO_DEV}..."
 
-    # Create app directory
-    mkdir -p "${INSTALL_PATH}/app"
-
-    # Deploy with rsync (always runs, regardless of clone/pull)
-    if rsync -a --delete \
-        --exclude '.git' \
-        --exclude '.github' \
-        --exclude '.claude' \
-        --exclude '__pycache__' \
-        --exclude '*.pyc' \
-        --exclude '.env' \
-        --exclude 'venv' \
-        --exclude '.venv' \
-        --exclude 'logs/' \
-        --exclude '*.md' \
-        --exclude 'tests/' \
-        "${GITHUB_REPO_DEV}/" "${INSTALL_PATH}/app/" >/dev/null 2>&1; then
-
-        # Set ownership
-        chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/app"
-        ok "App deployed: ${INSTALL_PATH}/app"
-
-        # Verify critical files were deployed
-        if [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && [[ -f "${INSTALL_PATH}/app/start_api.py" ]]; then
-            info "Critical files verified:"
-            [[ -f "${INSTALL_PATH}/app/requirements.txt" ]] && echo "  ✓ requirements.txt"
-            [[ -f "${INSTALL_PATH}/app/start_api.py" ]] && echo "  ✓ start_api.py"
-            [[ -d "${INSTALL_PATH}/app/synctacles_db" ]] && echo "  ✓ synctacles_db/"
-        else
-            warn "Some expected files missing in deployment (may be OK if structure differs)"
-        fi
+    # Verify critical files exist in git repo
+    if [[ -f "${GITHUB_REPO_DEV}/requirements.txt" ]] && [[ -f "${GITHUB_REPO_DEV}/start_api.py" ]]; then
+        info "Critical files verified:"
+        echo "  ✓ requirements.txt"
+        echo "  ✓ start_api.py"
+        [[ -d "${GITHUB_REPO_DEV}/synctacles_db" ]] && echo "  ✓ synctacles_db/"
+        ok "Git repository ready: ${GITHUB_REPO_DEV}"
     else
-        error "Rsync deployment failed"
-        error "Check permissions on ${INSTALL_PATH}"
+        error "Missing critical files in ${GITHUB_REPO_DEV}"
+        error "Ensure repository is properly cloned"
         exit 1
     fi
 
     # Store deployment state
     state_set "LAST_DEPLOYMENT_HASH" "$(cd ${GITHUB_REPO_DEV} && git rev-parse HEAD 2>/dev/null || echo 'unknown')"
 
+    info "NOTE: Future deployments are simply:"
+    info "  cd ${GITHUB_REPO_DEV} && git pull && sudo systemctl restart ${BRAND_SLUG}-api"
+
     # ====================================
     # 3.6 Generate alembic.ini from Template
     # ====================================
     info "Generating alembic.ini from template..."
 
-    ALEMBIC_TEMPLATE="${INSTALL_PATH}/app/alembic.ini.template"
-    ALEMBIC_CONFIG="${INSTALL_PATH}/app/alembic.ini"
+    # SKILL_10 v2.0: Git repo is working directory
+    ALEMBIC_TEMPLATE="${GITHUB_REPO_DEV}/alembic.ini.template"
+    ALEMBIC_CONFIG="${GITHUB_REPO_DEV}/alembic.ini"
 
     if [[ ! -f "${ALEMBIC_TEMPLATE}" ]]; then
         error "Template not found: ${ALEMBIC_TEMPLATE}"
@@ -1697,9 +1700,10 @@ EOF
 fase4() {
     header "FASE 4 — Python Environment Setup (venv)"
 
-    VENV_PATH="$SYNCTACLES_PROD/venv"
-    REQUIREMENTS_FILE="$SYNCTACLES_PROD/requirements.txt"
-    REQUIREMENTS_FROZEN="$SYNCTACLES_PROD/requirements-frozen.txt"
+    # SKILL_10 v2.0: Venv stays at INSTALL_PATH, requirements from git repo
+    VENV_PATH="${INSTALL_PATH}/venv"
+    REQUIREMENTS_FILE="${GITHUB_REPO_DEV}/requirements.txt"
+    REQUIREMENTS_FROZEN="${GITHUB_REPO_DEV}/requirements-frozen.txt"
 
     # -----------------------------
     # 4.1 Verify Python 3.12
@@ -1743,8 +1747,8 @@ fase4() {
         pip install lxml >/dev/null 2>&1
         ok "lxml installed"
     else
-        fail "requirements.txt niet gevonden in $SYNCTACLES_PROD"
-        fail "Zorg dat FASE 3 correct is uitgevoerd (kopieert requirements.txt van DEV naar PROD)"
+        fail "requirements.txt niet gevonden in ${GITHUB_REPO_DEV}"
+        fail "Zorg dat FASE 3 correct is uitgevoerd (git clone)"
         exit 1
     fi
 
@@ -1785,14 +1789,14 @@ fase4() {
 fase5() {
     header "FASE 5 — Production Automation (systemd services + timers)"
 
-    # Production log directories (SKILL 9 compliant)
+    # Production log directories (use LOG_PATH from .env)
     info "Creating production log structure..."
-    mkdir -p "${INSTALL_PATH}/logs/{api,scheduler,collectors/{entso_e_raw,tennet_raw},importers,normalizers}"
-    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_PATH}/logs"
-    chmod -R 755 "${INSTALL_PATH}/logs"
-    ok "Log structure: ${INSTALL_PATH}/logs"
+    mkdir -p "${LOG_PATH}"
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${LOG_PATH}"
+    chmod -R 755 "${LOG_PATH}"
+    ok "Log structure: ${LOG_PATH}"
 
-    # Verify repo exists (deployment already ran in FASE 3)
+    # Verify repo exists (SKILL_10 v2.0: Git repo = working directory)
     if [[ ! -d "${GITHUB_REPO_DEV}/systemd" ]]; then
         fail "systemd folder niet gevonden in repo: ${GITHUB_REPO_DEV}/systemd"
         warn "Je repo is mogelijk niet up-to-date."
@@ -1800,109 +1804,59 @@ fase5() {
         exit 1
     fi
 
-    # Note: Code deployment to ${INSTALL_PATH}/app/ happens in FASE 3
-    # FASE 5 focuses on systemd service setup with already-deployed code
+    # SKILL_10 v2.0: Git repository IS the working directory
+    # No separate ${INSTALL_PATH}/app/ - we run directly from git repo
 
-    # Verify deployment from FASE 3 was successful
-    if [[ ! -f "${INSTALL_PATH}/app/start_api.py" ]]; then
-        fail "Application code not deployed. Run FASE 3 first."
+    # Verify git repo has required files
+    if [[ ! -f "${GITHUB_REPO_DEV}/start_api.py" ]]; then
+        fail "start_api.py not found in ${GITHUB_REPO_DEV}. Run FASE 3 first."
         exit 1
     fi
-    ok "Application code deployed (from FASE 3)"
+    ok "Git repository ready: ${GITHUB_REPO_DEV}"
 
-    # Continue with systemd setup
-    # Verify VERSION file (v2.3.0 FIX)
-    # (This file should exist from rsync in FASE 3)
-    # -----
-    if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
-        APP_VERSION=$(cat ${INSTALL_PATH}/app/VERSION)
+    # Verify VERSION file in git repo
+    if [[ -f "${GITHUB_REPO_DEV}/VERSION" ]]; then
+        APP_VERSION=$(cat ${GITHUB_REPO_DEV}/VERSION)
         ok "VERSION file found: $APP_VERSION"
     else
-        fail "VERSION file NOT FOUND in ${INSTALL_PATH}/app/"
+        fail "VERSION file NOT FOUND in ${GITHUB_REPO_DEV}/"
         fail "Zorg dat VERSION bestaat in de repo root"
         exit 1
     fi
 
-    # Symlink .env into app (collectors expect it there)
-    if [[ -f "${INSTALL_PATH}/.env" ]]; then
-        ln -sf ${INSTALL_PATH}/.env ${INSTALL_PATH}/app/.env 2>/dev/null || true
-        chown -h ${SERVICE_USER}:${SERVICE_GROUP} ${INSTALL_PATH}/app/.env 2>/dev/null || true
-        ok ".env accessible from app directory"
-    fi
-
-    # Add LOG_DIR to .env if missing (v2.3.0 FIX: use grep -q)
-    if [[ -f "${INSTALL_PATH}/.env" ]]; then
-        if ! grep -q "^LOG_PATH=" ${INSTALL_PATH}/.env 2>/dev/null; then
-            echo "LOG_PATH=${LOG_PATH}" >> ${INSTALL_PATH}/.env
-            ok "LOG_PATH added to .env"
-        else
-            ok "LOG_PATH already in .env"
-        fi
-    fi
-
-    # Legacy compatibility (symlink for old scripts)
-    if [[ ! -L /var/log/application ]]; then
-        ln -sf ${LOG_PATH} /var/log/application 2>/dev/null || true
-    fi
+    # SKILL_10 v2.0: .env is at /opt/.env, no symlinks needed
+    # Scripts source /opt/.env directly with 'set -a && source /opt/.env && set +a'
+    ok ".env location: /opt/.env (systemd-compatible format)"
 
     # ========================================
-    # Generate Run Scripts from Templates
+    # Verify Run Scripts in Git Repo
     # ========================================
-    info "Generating run scripts from templates..."
+    # SKILL_10 v2.0: Scripts live in git repo, no template generation needed
+    # Scripts at ${GITHUB_REPO_DEV}/scripts/ source /opt/.env directly
+    info "Verifying run scripts in git repo..."
 
-    # Directory for generated scripts
-    SCRIPTS_DIR="${INSTALL_PATH}/app/scripts"
-    mkdir -p "$SCRIPTS_DIR"
+    # Scripts directory in repo
+    SCRIPTS_DIR="${GITHUB_REPO_DEV}/scripts"
 
-    # Template directory (in repo)
+    # Template directory (for systemd units only)
     TEMPLATE_SCRIPTS_DIR="${GITHUB_REPO_DEV}/systemd/scripts"
 
-    # Function to generate script from template
-    generate_script() {
-        local template="$1"
-        local output="$2"
+    # SKILL_10 v2.0: Scripts live in git repo, source /opt/.env directly
+    # No template generation needed - scripts are version controlled
 
-        if [[ ! -f "$template" ]]; then
-            warn "Template not found: $template"
-            return 1
-        fi
-
-        sed -e "s|{{INSTALL_PATH}}|${INSTALL_PATH}|g" \
-            -e "s|{{LOG_PATH}}|${LOG_PATH}|g" \
-            -e "s|{{ENV_FILE}}|/opt/.env|g" \
-            -e "s|{{BRAND_SLUG}}|${BRAND_SLUG}|g" \
-            -e "s|{{SERVICE_USER}}|${SERVICE_USER}|g" \
-            "$template" > "$output"
-
-        chmod +x "$output"
-        chown "${SERVICE_USER}:${SERVICE_USER}" "$output"
-        success "Generated: $output"
-    }
-
-    # Generate all run scripts
-    generate_script "${TEMPLATE_SCRIPTS_DIR}/run_collectors.sh.template" "${SCRIPTS_DIR}/run_collectors.sh"
-    generate_script "${TEMPLATE_SCRIPTS_DIR}/run_importers.sh.template" "${SCRIPTS_DIR}/run_importers.sh"
-    generate_script "${TEMPLATE_SCRIPTS_DIR}/run_normalizers.sh.template" "${SCRIPTS_DIR}/run_normalizers.sh"
-    generate_script "${TEMPLATE_SCRIPTS_DIR}/health_check.sh.template" "${SCRIPTS_DIR}/health_check.sh"
-
-    # Verify generated scripts
-    info "Verifying generated scripts..."
-    for script in run_collectors.sh run_importers.sh run_normalizers.sh health_check.sh; do
+    # Verify required scripts exist
+    for script in run_collectors.sh run_importers.sh run_normalizers.sh; do
         if [[ -f "${SCRIPTS_DIR}/${script}" ]]; then
-            # Check no unresolved placeholders
-            if grep -q '{{' "${SCRIPTS_DIR}/${script}"; then
-                error "Unresolved placeholders in ${script}"
-                grep '{{' "${SCRIPTS_DIR}/${script}"
-                exit 1
-            fi
+            chmod +x "${SCRIPTS_DIR}/${script}"
             ok "✓ ${script}"
         else
-            error "Missing: ${script}"
+            error "Missing script: ${SCRIPTS_DIR}/${script}"
+            error "Repository may be outdated - run: git pull"
             exit 1
         fi
     done
 
-    ok "All run scripts generated successfully"
+    ok "All run scripts verified in git repo"
 
     # ========================================
     # Generate Systemd Units from Templates
@@ -1958,9 +1912,11 @@ fase5() {
         output_file="${SYSTEMD_TARGET_DIR}/${unit_name}"
 
         # Generate unit file with ENV replacements
+        # SKILL_10 v2.0: GITHUB_REPO_DEV is the working directory for services
         sed -e "s|{{BRAND_NAME}}|${BRAND_NAME}|g" \
             -e "s|{{SERVICE_USER}}|${SERVICE_USER}|g" \
             -e "s|{{INSTALL_PATH}}|${INSTALL_PATH}|g" \
+            -e "s|{{GITHUB_REPO_DEV}}|${GITHUB_REPO_DEV}|g" \
             -e "s|{{LOG_PATH}}|${LOG_PATH}|g" \
             -e "s|{{ENV_FILE}}|/opt/.env|g" \
             -e "s|{{BRAND_SLUG}}|${BRAND_SLUG}|g" \
@@ -1997,9 +1953,9 @@ fase5() {
     systemctl daemon-reload
     ok "Systemd daemon reloaded"
 
-    # Enable timers/services (v2.3.0 FIX: explicitly enable collector timer)
+    # Enable timers/services (use BRAND_SLUG for service names)
     for unit in collector.timer importer.timer normalizer.timer health.timer; do
-        UNIT_NAME="synctacles-${unit}"
+        UNIT_NAME="${BRAND_SLUG}-${unit}"
         if systemctl list-unit-files | grep -q "$UNIT_NAME"; then
             systemctl enable --now "$UNIT_NAME" >/dev/null 2>&1 || true
             ok "Enabled: $UNIT_NAME"
@@ -2008,24 +1964,25 @@ fase5() {
         fi
     done
 
-    # API service
-    if systemctl list-unit-files | grep -q "synctacles-api.service"; then
-        systemctl enable --now synctacles-api.service >/dev/null 2>&1 || true
-        ok "Enabled: synctacles-api.service"
+    # API service (uses BRAND_SLUG)
+    API_SERVICE="${BRAND_SLUG}-api.service"
+    if systemctl list-unit-files | grep -q "${API_SERVICE}"; then
+        systemctl enable --now "${API_SERVICE}" >/dev/null 2>&1 || true
+        ok "Enabled: ${API_SERVICE}"
     else
-        warn "Unit not found: synctacles-api.service"
+        warn "Unit not found: ${API_SERVICE}"
     fi
 
     # Restart API service (pickup new code on redeploy)
-    if systemctl is-active --quiet synctacles-api.service 2>/dev/null; then
+    if systemctl is-active --quiet "${API_SERVICE}" 2>/dev/null; then
         info "Restarting API service (code update)..."
-        systemctl restart synctacles-api.service
+        systemctl restart "${API_SERVICE}"
         sleep 3  # Allow restart to complete
         ok "API service restarted"
     else
         # First-time install: start fresh
         info "Starting API service (first install)..."
-        systemctl enable --now synctacles-api.service >/dev/null 2>&1 || true
+        systemctl enable --now "${API_SERVICE}" >/dev/null 2>&1 || true
         ok "API service started"
     fi
 
@@ -2042,19 +1999,20 @@ fase5() {
     fi
     ok "Alembic found in venv"
 
-    if [[ -d "${INSTALL_PATH}/app/alembic" ]]; then
+    # SKILL_10 v2.0: Alembic runs from git repo
+    if [[ -d "${GITHUB_REPO_DEV}/alembic" ]]; then
         info "Running Alembic migrations..."
-        cd ${INSTALL_PATH}/app || exit 1
+        cd ${GITHUB_REPO_DEV} || exit 1
 
         # Run with PYTHONPATH set correctly
-        export PYTHONPATH="${INSTALL_PATH}/app:${PYTHONPATH:-}"
+        export PYTHONPATH="${GITHUB_REPO_DEV}:${PYTHONPATH:-}"
 
         if sudo -u ${SERVICE_USER} PYTHONPATH="$PYTHONPATH" ${INSTALL_PATH}/venv/bin/alembic upgrade head 2>&1; then
             ok "Database schema up-to-date"
         else
             fail "Alembic migration FAILED"
-            warn "Check: ${INSTALL_PATH}/app/alembic/versions/"
-            warn "Manual: cd ${INSTALL_PATH}/app && sudo -u ${SERVICE_USER} PYTHONPATH=. ${INSTALL_PATH}/venv/bin/alembic upgrade head"
+            warn "Check: ${GITHUB_REPO_DEV}/alembic/versions/"
+            warn "Manual: cd ${GITHUB_REPO_DEV} && sudo -u ${SERVICE_USER} PYTHONPATH=. ${INSTALL_PATH}/venv/bin/alembic upgrade head"
             exit 1
         fi
 
@@ -2084,8 +2042,8 @@ fase5() {
         fi
 
         # Compare with deployed version
-        if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
-            DEPLOYED_VER=$(cat ${INSTALL_PATH}/app/VERSION)
+        if [[ -f "${GITHUB_REPO_DEV}/VERSION" ]]; then
+            DEPLOYED_VER=$(cat ${GITHUB_REPO_DEV}/VERSION)
             if [[ "$API_VERSION" == "$DEPLOYED_VER" ]]; then
                 ok "Version match: $API_VERSION"
             else
@@ -2094,45 +2052,45 @@ fase5() {
         fi
     else
         warn "API not responding on port 8000"
-        warn "Check: journalctl -u synctacles-api.service -n 50"
+        warn "Check: journalctl -u ${BRAND_SLUG}-api.service -n 50"
     fi
 
-    # Timer check
-    TIMER_COUNT=$(systemctl list-timers synctacles-* --no-legend 2>/dev/null | wc -l)
+    # Timer check (use BRAND_SLUG pattern)
+    TIMER_COUNT=$(systemctl list-timers ${BRAND_SLUG}-* --no-legend 2>/dev/null | wc -l)
     if [[ $TIMER_COUNT -ge 3 ]]; then
         ok "$TIMER_COUNT automation timers active"
     else
         warn "Only $TIMER_COUNT timers active (expected ≥3)"
-        warn "Check: systemctl list-timers synctacles-*"
+        warn "Check: systemctl list-timers ${BRAND_SLUG}-*"
     fi
 
-    # Database connectivity
-    if sudo -u ${SERVICE_USER} psql synctacles -c "SELECT 1" >/dev/null 2>&1; then
+    # Database connectivity (use DB_NAME from .env)
+    if sudo -u ${SERVICE_USER} psql ${DB_NAME} -c "SELECT 1" >/dev/null 2>&1; then
         ok "Database connection working"
     else
         fail "Database connection failed"
     fi
 
-    # VERSION file check
-    if [[ -f "${INSTALL_PATH}/app/VERSION" ]]; then
-        ok "VERSION file exists: $(cat ${INSTALL_PATH}/app/VERSION)"
+    # VERSION file check (SKILL_10 v2.0: in git repo)
+    if [[ -f "${GITHUB_REPO_DEV}/VERSION" ]]; then
+        ok "VERSION file exists: $(cat ${GITHUB_REPO_DEV}/VERSION)"
     else
-        fail "VERSION file missing after deploy"
+        fail "VERSION file missing in git repo"
     fi
 
     ok "FASE 5 voltooid — services/timers geïnstalleerd."
 
     echo
     echo "📊 Monitoring:"
-    echo "   Timers:  systemctl list-timers synctacles-*"
+    echo "   Timers:  systemctl list-timers ${BRAND_SLUG}-*"
     echo "   API:     curl http://localhost:8000/health"
-    echo "   Logs:    journalctl -u synctacles-api.service -f"
+    echo "   Logs:    journalctl -u ${BRAND_SLUG}-api.service -f"
     echo
     echo "🚀 Next: Test end-to-end pipeline"
-    echo "   1. Trigger collector:  systemctl start synctacles-collector.service"
-    echo "   2. Trigger importer:   systemctl start synctacles-importer.service"
-    echo "   3. Trigger normalizer: systemctl start synctacles-normalizer.service"
-    echo "   4. Test API:           curl http://localhost:8000/api/v1/balance | jq"
+    echo "   1. Trigger collector:  systemctl start ${BRAND_SLUG}-collector.service"
+    echo "   2. Trigger importer:   systemctl start ${BRAND_SLUG}-importer.service"
+    echo "   3. Trigger normalizer: systemctl start ${BRAND_SLUG}-normalizer.service"
+    echo "   4. Test API:           curl http://localhost:8000/api/v1/energy-action | jq"
     echo
 }
 
