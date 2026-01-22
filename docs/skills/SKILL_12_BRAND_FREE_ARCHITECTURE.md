@@ -1,7 +1,7 @@
 # SKILL 12 — BRAND-FREE TEMPLATE ARCHITECTURE
 
 Multi-Tenant Deployment Architecture via Template System
-Version: 1.0 (2025-12-28)
+Version: 1.1 (2026-01-22)
 
 ---
 
@@ -263,19 +263,19 @@ Result: Git conflicts, confusion, security leak
 ### Pattern 1: Regional Instances
 
 ```
-Repository: energy-data-platform (brand-free)
+Repository: synctacles-api (brand-free)
 
-Server NL:
-  .env → BRAND_NAME="Energy Insights NL"
-  Domain: energy-insights.nl
+Server NL (Production):
+  .env → BRAND_NAME="SYNCTACLES"
+  Domain: synctacles.com
 
-Server DE:
-  .env → BRAND_NAME="Energie Einblicke"
-  Domain: energie-einblicke.de
+Server NL (Development):
+  .env → BRAND_NAME="SYNCTACLES [DEV]"
+  Domain: dev.synctacles.com
 
-Server FR:
-  .env → BRAND_NAME="Aperçu Énergie"
-  Domain: apercu-energie.fr
+Server DE (Future):
+  .env → BRAND_NAME="SYNCTACLES DE"
+  Domain: synctacles.de
 ```
 
 **Benefits:**
@@ -307,19 +307,19 @@ Customer B:
 ### Pattern 3: Environment Segregation
 
 ```
-Repository: energy-platform (brand-free)
+Repository: synctacles-api (brand-free)
 
 Production:
-  .env → BRAND_NAME="Energy Insights"
-  BRAND_DOMAIN="energy-insights.io"
+  .env → BRAND_NAME="SYNCTACLES"
+  BRAND_DOMAIN="synctacles.com"
 
 Staging:
-  .env → BRAND_NAME="Energy Insights [STAGING]"
-  BRAND_DOMAIN="staging.energy-insights.io"
+  .env → BRAND_NAME="SYNCTACLES [STAGING]"
+  BRAND_DOMAIN="staging.synctacles.com"
 
 Development:
-  .env → BRAND_NAME="Energy Insights [DEV]"
-  BRAND_DOMAIN="localhost:8000"
+  .env → BRAND_NAME="SYNCTACLES [DEV]"
+  BRAND_DOMAIN="dev.synctacles.com"
 ```
 
 **Benefits:**
@@ -377,8 +377,8 @@ ssh server "./setup.sh fase1-6"
 ```yaml
 # docker-compose.yml
 environment:
-  - BRAND_NAME=Energy Insights
-  - BRAND_SLUG=energy-insights
+  - BRAND_NAME=SYNCTACLES
+  - BRAND_SLUG=synctacles
 ```
 
 **Pros:**

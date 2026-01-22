@@ -1,7 +1,7 @@
 # SKILL 00 â€” AI OPERATING PROTOCOL
 
 **MANDATORY READING BEFORE ANY ACTION**
-Version: 2.2 (2026-01-16)
+Version: 2.3 (2026-01-22)
 Status: ENFORCED
 Scope: Claude Code (CC) + Claude AI (CAI)
 
@@ -198,7 +198,7 @@ STAP 4: Pas DAN actie voorstellen
 |--------|------|--------------|----------|
 | synct-prd (prod) | HIGH | SUPERVISED | Geen |
 | coefficient (prod) | HIGH | SUPERVISED | Geen |
-| synct-dev (ENIN-NL) | LOW | SUPERVISED | Autonomous OK |
+| synct-dev (SYNCTACLES DEV) | LOW | SUPERVISED | Autonomous OK |
 | synct-tst (test) | LOW | SUPERVISED | Autonomous OK |
 | monitor | LOW | SUPERVISED | Autonomous OK |
 | sideproject | MEDIUM | SUPERVISED | Alleen voor specifieke taken |
@@ -438,25 +438,25 @@ Welke zijn:
 ### Vanaf 2026-01-16: CC werkt via Hub-Spoke model
 
 ```
-â"Œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"
-â"‚                    CC HUB                       â"‚
-â"‚             135.181.201.253                     â"‚
-â"‚          User: ccops (dedicated)                â"‚
-â"‚                                                 â"‚
-â"‚  â"Œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"  â"‚
-â"‚  â"‚  SSH Config + Spoke Keys:            â"‚  â"‚
-â"‚  â"‚  - coefficient  (91.99.150.36)        â"‚  â"‚
-â"‚  â"‚  - monitor      (77.42.41.135)        â"‚  â"‚
-â"‚  â"‚  - synct-dev    (135.181.255.83)      â"‚  â"‚
-â"‚  â"‚  - synct-tst    (TBD)                 â"‚  â"‚
-â"‚  â"‚  - synct-prd    (TBD)                 â"‚  â"‚
-â"‚  â"‚  - sideproject  (TBD)                 â"‚  â"‚
-â"‚  â""â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"˜  â"‚
-â""â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"˜
-         â"‚          â"‚          â"‚
-    â"Œâ"€â"€â"€â"€â"´â"€â"€â"    â"Œâ"€â"€â"´â"€â"€â"    â"Œâ"€â"€â"´â"€â"€â"
-    â"‚ SPOKE 1â"‚    â"‚ ... â"‚    â"‚ SPOKE Nâ"‚
-    â""â"€â"€â"€â"€â"€â"€â"€â"€â"˜    â""â"€â"€â"€â"€â"€â"˜    â""â"€â"€â"€â"€â"€â"€â"€â"€â"˜
+┌─────────────────────────────────────────────────┐
+│                    CC HUB                       │
+│             135.181.201.253                     │
+│          User: ccops (dedicated)                │
+│                                                 │
+│  ┌────────────────────────────────────────┐    │
+│  │  SSH Config + Spoke Keys:              │    │
+│  │  - coefficient  (91.99.150.36)         │    │
+│  │  - monitor      (77.42.41.135)         │    │
+│  │  - synct-dev    (135.181.255.83)       │    │
+│  │  - synct-tst    (TBD)                  │    │
+│  │  - synct-prd    (TBD)                  │    │
+│  │  - sideproject  (TBD)                  │    │
+│  └────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────┘
+         │          │          │
+    ┌────┴──┐   ┌──┴──┐   ┌──┴────┐
+    │SPOKE 1│   │ ... │   │SPOKE N│
+    └───────┘   └─────┘   └───────┘
 ```
 
 ### CC Workflow (NIEUWE STANDAARD):
@@ -695,7 +695,7 @@ curl -4 ifconfig.me
 
 ## SECTIE I: CC NETWERK & PERMISSIES
 
-### CC draait op ENIN-NL server (NIET in sandbox)
+### CC draait op SYNCTACLES DEV server (NIET in sandbox)
 
 CC heeft WEL:
 - Internet toegang

@@ -1,7 +1,7 @@
 # SKILL 1 — HARD RULES
 
 Fundamental Non-Negotiable Rules for SYNCTACLES
-Version: 1.0 (2025-12-30)
+Version: 1.1 (2026-01-22)
 
 ---
 
@@ -115,8 +115,8 @@ def load_config():
 **Statement:** The git repository contains NO hardcoded branding, domains, or tenant-specific values.
 
 **What This Means:**
-- No "Energy Insights NL" strings in code
-- No `energy-insights.nl` domains in config
+- No "SYNCTACLES" or brand strings hardcoded in code
+- No `synctacles.com` domains in config
 - No tenant-specific paths like `/opt/synctacles`
 - All values come from templates or `.env`
 
@@ -128,7 +128,7 @@ def load_config():
 **Enforcement:**
 ```bash
 # Should return 0 (no matches):
-grep -r "Energy Insights" . | grep -v ".template" | grep -v ".example" | wc -l
+grep -r "SYNCTACLES" . | grep -v ".template" | grep -v ".example" | grep -v "docs/skills" | wc -l
 grep -r "/opt/synctacles" . | grep -v ".template" | grep -v "{{" | wc -l
 ```
 
@@ -137,8 +137,8 @@ grep -r "/opt/synctacles" . | grep -v ".template" | grep -v "{{" | wc -l
 ❌ **Bad (Branded):**
 ```python
 # const.py
-BRAND_NAME = "Energy Insights NL"
-DOMAIN = "energy-insights.nl"
+BRAND_NAME = "SYNCTACLES"
+DOMAIN = "synctacles.com"
 ```
 
 ✅ **Good (Brand-free):**
@@ -262,7 +262,7 @@ if not db_port:
 ❌ **Bad (Hardcoded):**
 ```python
 API_KEY = "sk_live_abc123"
-BASE_URL = "https://energy-insights.nl"
+BASE_URL = "https://synctacles.com"
 DB_HOST = "localhost"
 ```
 

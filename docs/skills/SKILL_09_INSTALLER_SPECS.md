@@ -1,7 +1,7 @@
 # SKILL 9 — SYNCTACLES INSTALLER SPECS (BRAND-FREE EDITION)
 
 Server Installation Script Specifications
-Version: 3.0 (2025-12-28) - Brand-Free Template System
+Version: 3.1 (2026-01-22) - Brand-Free Template System
 
 ---
 
@@ -70,10 +70,10 @@ Runtime (Brand-Specific):
 
 **Required User Inputs:**
 ```
-Brand Name:        Display name (e.g., "Energy Insights NL")
-Brand Slug:        Technical identifier (e.g., "energy-insights")
-Brand Domain:      Production domain (e.g., "energy-insights.io")
-GitHub Account:    Repository owner (e.g., "DATADIO")
+Brand Name:        Display name (e.g., "SYNCTACLES")
+Brand Slug:        Technical identifier (e.g., "synctacles")
+Brand Domain:      Production domain (e.g., "synctacles.com")
+GitHub Account:    Repository owner (e.g., "synctacles")
 Repository Name:   Repo name (e.g., "ha-energy-insights-nl")
 ```
 
@@ -297,15 +297,15 @@ sudo ./scripts/setup/setup_*.sh fase6  # Development tools (optional)
 
 **Multi-Brand Deployment:**
 ```bash
-# Server A: Brand X
+# Server A: Production
 sudo ./setup.sh fase0
-> Brand Name: Energy Insights NL
+> Brand Name: SYNCTACLES
 > ...
 sudo ./setup.sh fase1-6
 
-# Server B: Brand Y (same repo!)
+# Server B: Development (same repo!)
 sudo ./setup.sh fase0
-> Brand Name: Power Data Pro
+> Brand Name: SYNCTACLES [DEV]
 > ...
 sudo ./setup.sh fase1-6
 
@@ -323,7 +323,7 @@ sudo ./setup.sh fase1-6
 grep -r "Energy Insights" . | \
   grep -v ".template" | grep -v ".example" | wc -l
 
-grep -r "DATADIO" . | \
+grep -r "synctacles" . | \
   grep -v ".template" | grep -v ".example" | wc -l
 ```
 

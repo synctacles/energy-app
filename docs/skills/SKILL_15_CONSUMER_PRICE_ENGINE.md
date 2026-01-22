@@ -780,7 +780,7 @@ ip route get 84.46.252.107
 # Expected: dev pia-split
 ```
 
-See SKILL_10_COEFFICIENT_VPN.md for full documentation.
+> **Note:** VPN configuration documentation archived. See `archive/SKILL_10_COEFFICIENT_VPN.md.DEPRECATED`.
 
 ---
 
@@ -875,9 +875,8 @@ EOF
 ## RELATED SKILLS
 
 - **SKILL 2**: Architecture (system overview)
-- **SKILL 6**: Data Sources (ENTSO-E, TenneT, Energy-Charts)
-- **SKILL 10**: Coefficient VPN (WireGuard setup)
-- **SKILL 14**: Coefficient Business Model (B2B potential)
+- **SKILL 6**: Data Sources (ENTSO-E, Energy-Charts)
+- **SKILL 16**: Backup & Recovery (server overview)
 
 ---
 

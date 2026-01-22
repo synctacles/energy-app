@@ -1,7 +1,7 @@
 # SKILL 5 — COMMUNICATION RULES
 
 How to Structure Messages, Documentation, and Team Communication
-Version: 1.0 (2025-12-30)
+Version: 1.1 (2026-01-22)
 
 ---
 
@@ -307,14 +307,14 @@ Be clear and friendly:
 ```bash
 # Good: Clear progress, actionable next steps
 Setting up brand configuration...
-  ✓ BRAND_NAME: Energy Insights NL
-  ✓ DATABASE: synctacles_ei_nl
-  ✓ SERVICE USER: ei-nl
+  ✓ BRAND_NAME: SYNCTACLES
+  ✓ DATABASE: synctacles
+  ✓ SERVICE USER: synctacles
 
 Next steps:
   1. Run: sudo ./setup.sh fase1
   2. Wait for installation to complete
-  3. Check status: sudo systemctl status ei-nl-api
+  3. Check status: sudo systemctl status synctacles-api
 ```
 
 ```bash

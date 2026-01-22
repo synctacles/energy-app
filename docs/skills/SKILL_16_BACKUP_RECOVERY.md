@@ -20,8 +20,10 @@ Ensure business continuity through documented backup and recovery procedures for
 
 | Server | IP | Purpose | Critical Data |
 |--------|-----|---------|---------------|
-| Synctacles | 135.181.255.83 | Main API | PostgreSQL, .env |
-| Coefficient | 91.99.150.36 | Price proxy | PostgreSQL, .env, VPN config |
+| PROD | 46.62.212.227 | Production API (synctacles.com) | PostgreSQL, .env |
+| DEV/HUB | 135.181.255.83 | Development + Claude Code (dev.synctacles.com) | PostgreSQL, .env, repos |
+| HA/VPN | 91.99.150.36 | Home Assistant + WireGuard | HA config, VPN config |
+| Monitor | 77.42.41.135 | Grafana + Prometheus (monitor.synctacles.com) | Dashboards, metrics |
 
 ### Critical Components
 
@@ -29,7 +31,6 @@ Ensure business continuity through documented backup and recovery procedures for
 2. **PostgreSQL Databases** - All application data
 3. **Systemd Services** - Service configurations
 4. **SSL Certificates** - If custom certs configured
-5. **VPN Configuration** - Coefficient server WireGuard config
 
 ---
 
@@ -46,11 +47,6 @@ Ensure business continuity through documented backup and recovery procedures for
 sudo mkdir -p /opt/backups/env
 sudo cp /opt/github/synctacles-api/.env /opt/backups/env/synctacles-api.env.$(date +%Y%m%d)
 sudo chmod 600 /opt/backups/env/*
-
-# Coefficient Server
-sudo mkdir -p /opt/backups/env
-sudo cp /opt/github/coefficient-engine/.env /opt/backups/env/coefficient-engine.env.$(date +%Y%m%d)
-sudo chmod 600 /opt/backups/env/*
 ```
 
 ### 2. PostgreSQL Database
@@ -64,26 +60,12 @@ pg_dump -U energy_insights_nl energy_insights_nl > /opt/backups/db/synctacles_$(
 pg_dump -U energy_insights_nl energy_insights_nl | gzip > /opt/backups/db/synctacles_$(date +%Y%m%d).sql.gz
 ```
 
-**Coefficient Database:**
-```bash
-pg_dump -U coefficient coefficient_db > /opt/backups/db/coefficient_$(date +%Y%m%d).sql
-```
-
 ### 3. Systemd Service Files
 
 ```bash
 # Backup all custom services
 sudo cp /etc/systemd/system/energy-insights-nl-*.service /opt/backups/systemd/
 sudo cp /etc/systemd/system/energy-insights-nl-*.timer /opt/backups/systemd/
-sudo cp /etc/systemd/system/coefficient-*.service /opt/backups/systemd/
-```
-
-### 4. VPN Configuration (Coefficient Server)
-
-```bash
-# WireGuard config
-sudo cp /etc/wireguard/wg0.conf /opt/backups/vpn/wg0.conf.$(date +%Y%m%d)
-sudo chmod 600 /opt/backups/vpn/*
 ```
 
 ---
@@ -186,7 +168,7 @@ sudo useradd -m -s /bin/bash energy-insights-nl
 # 3. Clone repository
 sudo mkdir -p /opt/github
 cd /opt/github
-sudo git clone git@github.com:DATADIO/synctacles-api.git
+sudo git clone git@github.com:synctacles/synctacles-api.git
 sudo chown -R energy-insights-nl:energy-insights-nl synctacles-api
 
 # 4. Restore .env from backup (copy from secure location)
@@ -266,18 +248,17 @@ aws s3 sync /opt/backups/ s3://bucket-name/synctacles-backups/
 |------|---------|
 | Server Admin | Leo Bultmann |
 | Hetzner Support | support@hetzner.com |
-| GitHub | github.com/DATADIO |
+| GitHub | github.com/synctacles |
 
 ---
 
 ## BACKUP LOCATIONS SUMMARY
 
-| Component | Synctacles | Coefficient |
-|-----------|------------|-------------|
-| .env | `/opt/backups/env/synctacles.env.*` | `/opt/backups/env/coefficient.env.*` |
-| Database | `/opt/backups/db/synctacles_*.sql.gz` | `/opt/backups/db/coefficient_*.sql.gz` |
-| Systemd | `/opt/backups/systemd/` | `/opt/backups/systemd/` |
-| VPN | N/A | `/opt/backups/vpn/wg0.conf.*` |
+| Component | Location |
+|-----------|----------|
+| .env | `/opt/backups/env/synctacles.env.*` |
+| Database | `/opt/backups/db/synctacles_*.sql.gz` |
+| Systemd | `/opt/backups/systemd/` |
 
 ---
 

@@ -1,4 +1,4 @@
-# SKILL 16 — GO-TO-MARKET STRATEGY
+# SKILL 17 — GO-TO-MARKET STRATEGY
 
 Business Model, Pricing, and Adoption Strategy
 **Version: 1.0 (2026-01-21)**

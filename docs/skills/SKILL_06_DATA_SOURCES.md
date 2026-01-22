@@ -95,12 +95,15 @@ Home Assistant integrations such as `tennet-balance` or similar community integr
 - Leverancier-specific electricity prices (not just ENTSO-E wholesale)
 - Real consumer prices including taxes, markup, delivery costs
 - Day-ahead prices (today + tomorrow)
-- Support for 19 Dutch energy suppliers
+- Support for 24 Dutch energy suppliers
 
-**Supported Leveranciers:**
-Tibber, Zonneplan, Frank Energie, ANWB Energie, Greenchoice, Eneco, Vattenfall,
-Essent, Budget Energie, Oxxio, Engie, United Consumers, Vandebron, Next Energy,
-Mijndomein Energie, Innova Energie, Energie VanOns, Gewoon Energie, DELTA Energie
+**Supported Leveranciers (24):**
+ANWB Energie, Budget Energie, Coolblue Energie, EasyEnergy, Energiedirect,
+Energie van Ons, Energiek, EnergyZero, Essent, Frank Energie, Groenestroom Lokaal,
+Hegg Energy, Innova Energie, Mijndomein Energie, NextEnergy, Pure Energie, Quatt,
+SamSam, Tibber, Vandebron, Vattenfall, Vrij op naam, Wout Energie, Zonneplan
+
+**Note:** Eneco is NOT included — they only offer dynamic gas, not electricity.
 
 **Access Method:** API token (user registers at enever.nl)
 
@@ -267,51 +270,6 @@ GET https://api.energy-charts.info/public_power
 
 **Cost:** Free (public API)
 
-### A75 Fallback Collector
-
-**Purpose:** Automatische fallback voor generatiedata wanneer ENTSO-E A75 onbeschikbaar of verouderd is.
-
-**Trigger:** Automatisch wanneer ENTSO-E A75 data > 2 uur oud
-
-**Timer:** Elke 15 minuten check via `energy-insights-nl-a75-fallback.timer`
-
-**Bestanden:**
-- Collector: `synctacles_db/collectors/energy_charts_a75_fallback.py`
-- Systemd: `energy-insights-nl-a75-fallback.service` / `.timer`
-- Documentatie: `/opt/energy-insights-nl/docs/FALLBACK_A75_ENERGY_CHARTS.md`
-
-**PSR-Type Mapping (Energy-Charts → ENTSO-E):**
-
-| Energy-Charts | ENTSO-E | Beschrijving |
-|---------------|---------|--------------|
-| Nuclear | B14 | Kernenergie |
-| Biomass | B01 | Biomassa |
-| Fossil gas | B04 | Aardgas |
-| Fossil hard coal | B05 | Steenkool |
-| Solar | B16 | Zonne-energie |
-| Waste | B17 | Afvalverbranding |
-| Wind offshore | B18 | Wind op zee |
-| Wind onshore | B19 | Wind op land |
-
-**Kenmerken:**
-- Schrijft naar `raw_entso_e_a75` met `source_file = 'energy_charts_fallback'`
-- Bestaande normalizer werkt automatisch met beide bronnen
-- Auto-mode: draait alleen als ENTSO-E data stale is
-- Force-mode: `--force` om altijd te draaien
-
-**Handmatig uitvoeren:**
-```bash
-cd /opt/energy-insights-nl/app
-source /opt/energy-insights-nl/venv/bin/activate
-set -a && source /opt/.env && set +a
-
-# Auto-mode (alleen als nodig)
-python synctacles_db/collectors/energy_charts_a75_fallback.py
-
-# Force-mode
-python synctacles_db/collectors/energy_charts_a75_fallback.py --force
-```
-
 ---
 
 ## FALLBACK STRATEGY
@@ -328,52 +286,8 @@ Automated fallback cascade when primary sources fail or are too stale.
 
 **Note:** TenneT is no longer available via SYNCTACLES API (BYO-key in HA component). ENTSO-E has structural ~60 minute delay due to upstream data processing. Thresholds account for this plus 30-minute buffer.
 
-### Generation Data Fallback
-
-```
-Try in order:
-  1. ENTSO-E A75 (measured, 15-min)
-     - Tier: FRESH (< 90 min) or STALE (90-180 min)
-     - Quality: FRESH | STALE
-     - Data age: Typically 55-60 minutes
-
-  2. Energy-Charts (modeled, fills NULLs or fallback)
-     - Hybrid merge: Fills ENTSO-E NULL values from Energy-Charts
-     - Complete fallback: If ENTSO-E > 180 min old
-     - Quality: PARTIAL (hybrid) | FALLBACK
-     - Data age: ~3 hours
-
-  3. Known Capacity (pragmatic estimates)
-     - Nuclear: 485 MW (Borssele)
-     - Biomass: 350 MW (avg)
-     - Solar: Estimated based on time/season
-     - Quality: PARTIAL (estimates)
-
-  4. Cache (in-memory, 5-min TTL)
-     - Last successful response
-     - Quality: CACHED
-
-  5. None (report UNAVAILABLE)
-     - Quality: UNAVAILABLE
-```
-
-### Load Data Fallback
-
-```
-Try in order:
-  1. ENTSO-E A65 (measured, 15-min)
-     - Tier: FRESH (< 90 min) or STALE (90-180 min)
-     - Quality: FRESH | STALE
-
-  2. Energy-Charts generation total (proxy for load)
-     - If ENTSO-E > 180 min old
-     - Quality: FALLBACK
-
-  3. Cache (in-memory, 5-min TTL)
-     - Quality: CACHED
-
-  4. None (report UNAVAILABLE)
-```
+> **Phase 3 Note:** Generation (A75) and Load (A65) fallback chains have been discontinued.
+> SYNCTACLES now focuses exclusively on Price Data (A44) for Energy Action recommendations.
 
 ### Price Data Fallback (6-Tier Chain - 2026-01-22)
 
@@ -581,46 +495,8 @@ Server-side has no TenneT dependency.
 
 ### When Energy-Charts Fails
 
-Energy-Charts fallback is best-effort for generation data.
-Does not affect balance data (no longer server-side).
-
----
-
-## DATA QUALITY SCORING
-
-### ENTSO-E A75 Quality Score
-
-```python
-def score_entso_e_a75(raw_data):
-    """Score quality of generation data."""
-    age_minutes = (now - raw_data.source_timestamp).total_seconds() / 60
-
-    if age_minutes < 20:
-        quality = 0.99  # Fresh data
-    elif age_minutes < 40:
-        quality = 0.90  # Slightly delayed
-    elif age_minutes < 60:
-        quality = 0.80  # Older
-    elif age_minutes < 240:
-        quality = 0.50  # Very old, use fallback
-    else:
-        quality = 0.0   # Too old, unusable
-
-    # Penalty if data is incomplete (some PSR types missing)
-    if missing_psr_types:
-        quality *= 0.9
-
-    return quality
-```
-
-### Energy-Charts Quality Score
-
-```python
-def score_energy_charts():
-    """Score quality of modeled data."""
-    # Always lower than real-time ENTSO-E
-    return 0.65  # Modeled, not measured
-```
+Energy-Charts is used as Tier 5 fallback for price data.
+See SKILL_02 for current 6-tier fallback stack.
 
 ---
 

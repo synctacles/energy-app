@@ -1,7 +1,7 @@
 # SKILL 13 — LOGGING, DIAGNOSTICS & HA INTEGRATION STANDARDS
 
 Logging, Error Handling, and Home Assistant Integration Standards
-Version: 2.0 (2026-01-03) - Post-Implementation
+Version: 2.1 (2026-01-22) - Post-Implementation
 
 ---
 
@@ -375,8 +375,8 @@ HA components use standard Python logging (not centralized, as HA manages logs).
 
 ```python
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Energy Insights NL from a config entry."""
-    _LOGGER.info("Setting up Energy Insights NL integration (entry_id=%s)", entry.entry_id)
+    """Set up SYNCTACLES from a config entry."""
+    _LOGGER.info("Setting up SYNCTACLES integration (entry_id=%s)", entry.entry_id)
 
     api_url = entry.data.get(CONF_API_URL, "").rstrip("/")
     has_api_key = bool(entry.data.get(CONF_API_KEY))

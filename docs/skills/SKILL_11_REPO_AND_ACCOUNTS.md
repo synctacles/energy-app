@@ -1,7 +1,7 @@
 # SKILL 11 â€” REPO STRUCTURE & SERVICE ACCOUNTS
 
 Repository Organisation and Account Management
-Version: 1.2 (2026-01-07)
+Version: 1.3 (2026-01-22)
 
 ---
 
@@ -17,15 +17,15 @@ Define the GitHub repository structure, service account conventions, and git wor
 
 | Repository | Purpose | Contains |
 |------------|---------|----------|
-| `DATADIO/synctacles-api` | Backend API server | Python API, collectors, importers, normalizers, systemd units |
-| `DATADIO/ha-energy-insights-nl` | Home Assistant integration | HA custom component only (HACS compatible) |
+| `synctacles/synctacles-api` | Backend API server | Python API, collectors, importers, normalizers, systemd units |
+| `synctacles/ha-energy-insights-nl` | Home Assistant integration | HA custom component only (HACS compatible) |
 
 ### Archived Repositories
 
 | Repository | Status | Reason |
 |------------|--------|--------|
-| `DATADIO/synctacles-ha` | ARCHIVED | Replaced by `ha-energy-insights-nl` |
-| `DATADIO/synctacles-repo` | ARCHIVED | Replaced by `synctacles-api` |
+| `synctacles/synctacles-ha` | ARCHIVED | Replaced by `ha-energy-insights-nl` |
+| `synctacles/synctacles-repo` | ARCHIVED | Replaced by `synctacles-api` |
 
 ### Repository Rules
 
@@ -179,24 +179,24 @@ sudo -u energy-insights-nl gh release list
 
 ```
 /opt/
-â”œâ”€â”€ .env                              # Master config (brand settings)
-â”œâ”€â”€ github/
-â”‚   â”œâ”€â”€ synctacles-api/               # Backend repo (owned by energy-insights-nl)
-â”‚   â”‚   â”œâ”€â”€ synctacles_db/            # Backend Python code
-â”‚   â”‚   â”œâ”€â”€ config/                   # Configuration files
-â”‚   â”‚   â”œâ”€â”€ alembic/                  # Database migrations
-â”‚   â”‚   â”œâ”€â”€ systemd/                  # Service templates
-â”‚   â”‚   â”œâ”€â”€ scripts/                  # Setup/deployment scripts
-â”‚   â”‚   â””â”€â”€ docs/                     # Documentation
-â”‚   â””â”€â”€ ha-energy-insights-nl/        # HA repo (owned by energy-insights-nl)
-â”‚       â””â”€â”€ custom_components/
-â”‚           â””â”€â”€ ha_energy_insights_nl/
-â””â”€â”€ energy-insights-nl/               # Runtime deployment
-    â”œâ”€â”€ app/                          # Deployed code (copy from repo)
-    â”‚   â”œâ”€â”€ synctacles_db/            # Synced from repo
-    â”‚   â””â”€â”€ config/                   # Synced from repo
-    â”œâ”€â”€ venv/                         # Python virtual environment
-    â””â”€â”€ logs -> /var/log/energy-insights-nl/
+├── .env                              # Master config (brand settings)
+├── github/
+│   ├── synctacles-api/               # Backend repo (owned by energy-insights-nl)
+│   │   ├── synctacles_db/            # Backend Python code
+│   │   ├── config/                   # Configuration files
+│   │   ├── alembic/                  # Database migrations
+│   │   ├── systemd/                  # Service templates
+│   │   ├── scripts/                  # Setup/deployment scripts
+│   │   └── docs/                     # Documentation
+│   └── ha-energy-insights-nl/        # HA repo (owned by energy-insights-nl)
+│       └── custom_components/
+│           └── ha_energy_insights_nl/
+└── energy-insights-nl/               # Runtime deployment
+    ├── app/                          # Deployed code (copy from repo)
+    │   ├── synctacles_db/            # Synced from repo
+    │   └── config/                   # Synced from repo
+    ├── venv/                         # Python virtual environment
+    └── logs -> /var/log/energy-insights-nl/
 
 /var/log/energy-insights-nl/          # Log files
 /etc/systemd/system/                  # Generated service units
@@ -259,17 +259,17 @@ sudo journalctl -u energy-insights-nl-api -n 20
 Contents:
 ```
 ha-energy-insights-nl/
-â”œâ”€â”€ custom_components/
-â”‚   â””â”€â”€ ha_energy_insights_nl/
-â”‚       â”œâ”€â”€ __init__.py
-â”‚       â”œâ”€â”€ config_flow.py
-â”‚       â”œâ”€â”€ sensor.py
-â”‚       â”œâ”€â”€ diagnostics.py
-â”‚       â”œâ”€â”€ const.py
-â”‚       â”œâ”€â”€ manifest.json
-â”‚       â”œâ”€â”€ strings.json
-â”œâ”€â”€ hacs.json
-â””â”€â”€ README.md
+├── custom_components/
+│   └── ha_energy_insights_nl/
+│       ├── __init__.py
+│       ├── config_flow.py
+│       ├── sensor.py
+│       ├── diagnostics.py
+│       ├── const.py
+│       ├── manifest.json
+│       ├── strings.json
+├── hacs.json
+└── README.md
 ```
 
 ### Development Workflow (CC â†’ Leo â†’ HA)
@@ -296,7 +296,7 @@ Workflow:
 ### User Installation (Productie)
 
 Users install via HACS:
-1. Add custom repository: `DATADIO/ha-energy-insights-nl`
+1. Add custom repository: `synctacles/ha-energy-insights-nl`
 2. Install integration
 3. Configure API URL + optional Enever API key
 
@@ -309,15 +309,15 @@ Users install via HACS:
 **Same code, different .env:**
 
 ```bash
-# Netherlands (Energy Insights NL)
-BRAND_NAME="Energy Insights NL"
-BRAND_SLUG="energy-insights-nl"
-BRAND_DOMAIN="energy-insights.nl"
-
-# Commercial (SYNCTACLES)
+# Production (SYNCTACLES)
 BRAND_NAME="SYNCTACLES"
 BRAND_SLUG="synctacles"
-BRAND_DOMAIN="synctacles.io"
+BRAND_DOMAIN="synctacles.com"
+
+# Development
+BRAND_NAME="SYNCTACLES [DEV]"
+BRAND_SLUG="synctacles"
+BRAND_DOMAIN="dev.synctacles.com"
 ```
 
 ### What Changes Per Brand
@@ -335,7 +335,7 @@ BRAND_DOMAIN="synctacles.io"
 
 ### Netwerk Toegang
 
-**CC draait op ENIN-NL server (NIET in sandbox).**
+**CC draait op SYNCTACLES DEV server (NIET in sandbox).**
 
 CC heeft WEL:
 - Internet toegang
@@ -457,7 +457,7 @@ sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
 
 ### PostgreSQL User Per Environment
 
-**For Energy Insights NL (Current):**
+**For SYNCTACLES (Current):**
 
 ```sql
 -- User for running services/scripts
