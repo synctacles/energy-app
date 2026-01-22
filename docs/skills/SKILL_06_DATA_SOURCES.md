@@ -1,7 +1,7 @@
 # SKILL 6 — DATA SOURCES
 
 ENTSO-E A44 Prices, Energy-Charts Fallback, and Consumer Price Engine
-Version: 2.0 (2026-01-11) - Energy Action Focus
+Version: 2.1 (2026-01-22) - Hybrid Conversion + EasyEnergy Fallback
 
 > **Phase 3 Update:** SYNCTACLES now focuses exclusively on Energy Action (price-based
 > recommendations). A65 (load), A75 (generation), and TenneT integration have been
@@ -375,48 +375,57 @@ Try in order:
   4. None (report UNAVAILABLE)
 ```
 
-### Price Data Fallback (5-Tier Chain - Fase 1)
+### Price Data Fallback (6-Tier Chain - 2026-01-22)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PRICE FALLBACK CHAIN                     │
+│              PRICE FALLBACK CHAIN (Consumer Prices)         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Tier 1: ENTSO-E (Fresh)          ← < 15 min old           │
-│     ↓ fail                           allow_go = TRUE        │
-│     │                                quality = "live"       │
-│     │                                confidence = 100%      │
+│  Tier 1: Frank DB                 ← Pre-collected           │
+│     ↓ fail                           price_type = consumer  │
+│     │                                accuracy = 100%        │
+│     │                                quality = FRESH/STALE  │
 │                                                             │
-│  Tier 2: ENTSO-E (Stale)          ← 15-60 min old          │
-│     ↓ fail                           allow_go = TRUE        │
-│     │                                quality = "estimated"  │
-│     │                                confidence = 85%       │
+│  Tier 2: Frank Direct API         ← Live GraphQL call       │
+│     ↓ fail                           price_type = consumer  │
+│     │                                accuracy = 100%        │
+│     │                                quality = FRESH        │
 │                                                             │
-│  Tier 3: Energy-Charts            ← Live API call          │
-│     ↓ fail                           allow_go = FALSE       │
-│     │                                quality = "estimated"  │
-│     │                                confidence = 70%       │
+│  Tier 3: EasyEnergy + Hybrid      ← Wholesale + conversion  │
+│     ↓ fail                           price_type = estimate  │
+│     │                                accuracy = 100%*       │
+│     │                                quality = FRESH        │
 │                                                             │
-│  Tier 4a: In-Memory Cache         ← TTLCache (5 min)       │
-│     ↓ fail                           allow_go = FALSE       │
-│     │                                quality = "cached"     │
-│     │                                confidence = 50%       │
+│  Tier 4: ENTSO-E + Hybrid         ← Wholesale + conversion  │
+│     ↓ fail                           price_type = estimate  │
+│     │                                accuracy = 100%*       │
+│     │                                quality = FRESH/STALE  │
 │                                                             │
-│  Tier 4b: PostgreSQL Cache        ← 24h persistence        │
-│     ↓ fail                           allow_go = FALSE       │
-│     │                                quality = "cached"     │
-│     │                                confidence = 50%       │
+│  Tier 5: Energy-Charts + Hybrid   ← Wholesale + conversion  │
+│     ↓ fail                           price_type = estimate  │
+│     │                                accuracy = 100%*       │
+│     │                                quality = FRESH        │
 │                                                             │
-│  Tier 5: UNAVAILABLE              ← Return null            │
-│                                      allow_go = FALSE       │
-│                                      quality = "unavailable"│
-│                                      confidence = 0%        │
+│  Tier 6: Cache                    ← PostgreSQL 24h          │
+│     ↓ fail                           price_type = varies    │
+│     │                                accuracy = varies      │
+│     │                                quality = CACHED       │
+│                                                             │
+│  Tier 7: UNAVAILABLE              ← Return null             │
+│                                      quality = UNAVAILABLE  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
+
+* Hybrid conversion: consumer = wholesale × 1.21 + €0.129
+  (BTW 21% + energiebelasting €0.111 + sourcing €0.018)
 ```
 
-**Critical Rule:** Energy-Charts and Cache tiers NEVER allow `allow_go_action = true`.
-This prevents automated actions based on potentially inaccurate fallback data.
+**Key Changes (2026-01-22):**
+- Frank DB added as Tier 1 (requires `--tomorrow` flag on collector)
+- EasyEnergy added as Tier 3 (was missing)
+- Hybrid conversion replaces static offset (100% vs 85% accuracy)
+- See SKILL_15 for hybrid formula details
 
 ### Energy-Charts Price API (Tier 3)
 

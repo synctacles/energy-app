@@ -417,6 +417,8 @@ async def _get_all_prices(country: str) -> List[Dict]:
     from sqlalchemy.orm import sessionmaker
     from config.settings import DATABASE_URL
     from synctacles_db.clients.frank_energie_client import FrankEnergieClient
+    from synctacles_db.clients.easyenergy_client import EasyEnergyClient
+    from synctacles_db.config.static_offsets import apply_static_offset
 
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
@@ -473,24 +475,67 @@ async def _get_all_prices(country: str) -> List[Dict]:
         if ts.date() == tomorrow:
             entsoe_tomorrow.append(p)
 
-    # Try Frank Direct for TOMORROW (consumer prices!)
+    # Try Frank DB for TOMORROW first, then Frank Direct API (consumer prices!)
     frank_tomorrow = []
     tomorrow_source = "ENTSO-E"  # default fallback
+
+    # Tier 1: Frank DB tomorrow (pre-collected, 100% accurate)
     try:
-        frank_data = await FrankEnergieClient.get_prices_tomorrow()
-        if frank_data and len(frank_data) > 0:
-            _LOGGER.info(f"Frank Direct: got {len(frank_data)} tomorrow prices (consumer)")
-            for p in frank_data:
+        frank_db_tomorrow, frank_db_age = await FallbackManager._get_frank_tomorrow_from_db()
+        if frank_db_tomorrow and len(frank_db_tomorrow) > 0:
+            _LOGGER.info(f"Frank DB: got {len(frank_db_tomorrow)} tomorrow prices (consumer, age {frank_db_age} min)")
+            for p in frank_db_tomorrow:
                 frank_tomorrow.append({
                     "timestamp": p["timestamp"],
-                    "price_eur_kwh": p["price_eur_kwh"],
-                    "_source": "Frank Direct",
-                    "_quality": "FRESH",
+                    "price_eur_kwh": p["price_eur_mwh"] / 1000,  # Convert MWh to kWh
+                    "_source": "Frank DB",
+                    "_quality": "FRESH" if frank_db_age < 360 else "STALE",
                     "_price_type": "consumer"  # Includes taxes + markup
                 })
-            tomorrow_source = "Frank Direct"
+            tomorrow_source = "Frank DB"
     except Exception as e:
-        _LOGGER.warning(f"Frank Direct tomorrow failed, using ENTSO-E: {e}")
+        _LOGGER.debug(f"Frank DB tomorrow failed: {e}")
+
+    # Tier 2: Frank Direct API tomorrow (live fallback)
+    if not frank_tomorrow:
+        try:
+            frank_data = await FrankEnergieClient.get_prices_tomorrow()
+            if frank_data and len(frank_data) > 0:
+                _LOGGER.info(f"Frank Direct: got {len(frank_data)} tomorrow prices (consumer)")
+                for p in frank_data:
+                    frank_tomorrow.append({
+                        "timestamp": p["timestamp"],
+                        "price_eur_kwh": p["price_eur_kwh"],
+                        "_source": "Frank Direct",
+                        "_quality": "FRESH",
+                        "_price_type": "consumer"  # Includes taxes + markup
+                    })
+                tomorrow_source = "Frank Direct"
+        except Exception as e:
+            _LOGGER.debug(f"Frank Direct tomorrow failed: {e}")
+
+    # Tier 3: EasyEnergy API tomorrow + Hybrid conversion (~97% accurate)
+    # Formula: consumer = wholesale × 1.21 + €0.129 (BTW + fixed markup)
+    if not frank_tomorrow:
+        try:
+            easy_data = await EasyEnergyClient.get_prices_tomorrow()
+            if easy_data and len(easy_data) > 0:
+                _LOGGER.info(f"EasyEnergy: got {len(easy_data)} tomorrow prices, applying hybrid conversion")
+                for p in easy_data:
+                    ts_str = p["timestamp"]
+                    # Convert wholesale to consumer estimate (hybrid model)
+                    wholesale_kwh = p["price_eur_mwh"] / 1000
+                    consumer_kwh = apply_static_offset(wholesale_kwh)  # Now uses hybrid formula
+                    frank_tomorrow.append({
+                        "timestamp": ts_str,
+                        "price_eur_kwh": consumer_kwh,
+                        "_source": "EasyEnergy+Hybrid",
+                        "_quality": "FRESH",
+                        "_price_type": "consumer_estimate"  # Wholesale × 1.21 + €0.129
+                    })
+                tomorrow_source = "EasyEnergy+Hybrid"
+        except Exception as e:
+            _LOGGER.warning(f"EasyEnergy tomorrow failed, falling back to ENTSO-E: {e}")
 
     # Merge strategy:
     # - Use FallbackManager data for today (Frank prices if available)
