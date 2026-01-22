@@ -26,5 +26,5 @@ def validate_db_connection():
     except Exception as e:
         _LOGGER.critical(f"✗ Database connectie FAILED: {e}")
         _LOGGER.critical("  Check DATABASE_URL in /opt/.env")
-        _LOGGER.critical("  Verwacht user: energy_insights_nl")
+        _LOGGER.critical("  Verify DB_USER and DB_NAME match your .env configuration")
         raise SystemExit(1)

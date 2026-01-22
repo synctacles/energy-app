@@ -63,9 +63,13 @@ DEFAULT_TIER = optional_env("DEFAULT_TIER", "beta")
 API_PORT = int(optional_env("API_PORT", "8000"))
 API_HOST = optional_env("API_HOST", "0.0.0.0")
 
-# Brand (for multi-tenant)
-BRAND_NAME = optional_env("BRAND_NAME", "Synctacles")
-BRAND_SLUG = optional_env("BRAND_SLUG", "synctacles")
+# Brand (for multi-tenant) - REQUIRED for systemd service naming
+BRAND_NAME = require_env("BRAND_NAME", "Display name for the brand")
+BRAND_SLUG = require_env("BRAND_SLUG", "URL-safe slug used for systemd services (e.g., 'energy-insights-nl')")
+
+# GitHub (for documentation links) - REQUIRED for API responses
+GITHUB_ACCOUNT = require_env("GITHUB_ACCOUNT", "GitHub account name (e.g., 'DATADIO')")
+HA_REPO_NAME = require_env("REPO_NAME", "Home Assistant integration repo name")
 
 # Log Level
 LOG_LEVEL = optional_env("LOG_LEVEL", "INFO")
@@ -96,6 +100,8 @@ class Settings:
         self.api_host = API_HOST
         self.brand_name = BRAND_NAME
         self.brand_slug = BRAND_SLUG
+        self.github_account = GITHUB_ACCOUNT
+        self.ha_repo_name = HA_REPO_NAME
         self.auth_required = AUTH_REQUIRED
         self.rate_limit_enabled = RATE_LIMIT_ENABLED
         self.default_tier = DEFAULT_TIER

@@ -8,13 +8,17 @@ See: PVA_ENERGY_ACTION_FOCUS.md - Phase 2: Soft Delete
 """
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
+from config.settings import GITHUB_ACCOUNT
 
 router = APIRouter(prefix="", tags=["deprecated"])
+
+# Build documentation URL from ENV (brand-free)
+_DOC_URL = f"https://github.com/{GITHUB_ACCOUNT}/synctacles-api#energy-action-focus"
 
 DISCONTINUED_MESSAGE = {
     "error": "Gone",
     "message": "This endpoint has been discontinued. SYNCTACLES now focuses exclusively on Energy Action.",
-    "documentation": "https://github.com/DATADIO/synctacles-api#energy-action-focus",
+    "documentation": _DOC_URL,
     "migration": {
         "energy_action": "/api/v1/energy-action",
         "prices": "/api/v1/prices/today",

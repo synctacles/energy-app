@@ -12,9 +12,10 @@ from entsoe import EntsoePandasClient
 import pandas as pd
 
 from synctacles_db.core.logging import get_logger
+from config.settings import LOG_PATH
 
 SCRIPT_DIR = Path(__file__).parent
-LOG_DIR = Path(os.getenv('LOG_PATH', '/var/log/energy-insights'))
+LOG_DIR = Path(LOG_PATH)
 OUTPUT_DIR = LOG_DIR / 'collectors' / 'entso_e_raw'
 
 _LOGGER = get_logger(__name__)

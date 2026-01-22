@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from synctacles_db.api.dependencies import get_db
 from prometheus_client import Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
+from config.settings import BRAND_SLUG
 
 router = APIRouter(prefix="/v1/pipeline", tags=["pipeline"])
 
@@ -55,7 +56,7 @@ pipeline_gap_minutes = Gauge(
 
 def get_timer_status(timer_name: str) -> dict:
     """Get systemd timer status."""
-    full_name = f"energy-insights-nl-{timer_name}.timer"
+    full_name = f"{BRAND_SLUG}-{timer_name}.timer"
 
     # Check if active
     result = subprocess.run(

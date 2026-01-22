@@ -16,9 +16,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from synctacles_db.models import RawEntsoeA44
 from synctacles_db.core.logging import get_logger
-from config.settings import DATABASE_URL
+from config.settings import DATABASE_URL, LOG_PATH
 
-LOG_DIR = Path('/var/log/energy-insights-nl/collectors/entso_e_raw')
+LOG_DIR = Path(LOG_PATH) / 'collectors' / 'entso_e_raw'
 
 _LOGGER = get_logger(__name__)
 

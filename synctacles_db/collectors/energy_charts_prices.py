@@ -2,7 +2,6 @@
 Energy-Charts Day-Ahead Price Collector
 Fetches NL electricity prices from Fraunhofer ISE API
 """
-import os
 import json
 import requests
 import time
@@ -10,11 +9,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from synctacles_db.core.logging import get_logger
+from config.settings import LOG_PATH
 
 _LOGGER = get_logger(__name__)
 
 BASE_URL = "https://api.energy-charts.info/price"
-LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
+LOG_DIR = Path(LOG_PATH)
 OUTPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 
 # Retry configuration

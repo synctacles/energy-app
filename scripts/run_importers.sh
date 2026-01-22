@@ -4,24 +4,29 @@
 
 set -e
 
-INSTALL_PATH="${INSTALL_PATH:-/opt/energy-insights-nl}"
+ENV_FILE="${ENV_FILE:-/opt/.env}"
+
+# Source environment variables FIRST (required for paths)
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+else
+    echo "FATAL: $ENV_FILE not found. Run setup FASE 0 first." >&2
+    exit 1
+fi
+
+# Paths from ENV (fail if not set)
+: "${INSTALL_PATH:?INSTALL_PATH not set in $ENV_FILE}"
+: "${LOG_PATH:?LOG_PATH not set in $ENV_FILE}"
 VENV_PATH="${VENV_PATH:-${INSTALL_PATH}/venv}"
 APP_PATH="${APP_PATH:-${INSTALL_PATH}/app}"
-LOG_PATH="${LOG_PATH:-/var/log/energy-insights}"
-ENV_FILE="${ENV_FILE:-/opt/.env}"
 
 # Create log directory if needed
 mkdir -p "${LOG_PATH}"
 
 # Python path
 PYTHON="${VENV_PATH}/bin/python3"
-
-# Source environment variables
-if [ -f "$ENV_FILE" ]; then
-    set -a
-    source "$ENV_FILE"
-    set +a
-fi
 
 cd "$APP_PATH"
 

@@ -4,17 +4,21 @@
 
 set -e
 
-INSTALL_PATH="${INSTALL_PATH:-/opt/energy-insights-nl}"
-VENV_PATH="${VENV_PATH:-${INSTALL_PATH}/venv}"
-APP_PATH="${APP_PATH:-${INSTALL_PATH}/app}"
-LOG_PATH="${LOG_PATH:-/var/log/energy-insights}"
-
-# Source environment variables
+# Source environment variables FIRST (required for paths)
 if [ -f "/opt/.env" ]; then
     set -a
     source /opt/.env
     set +a
+else
+    echo "FATAL: /opt/.env not found. Run setup FASE 0 first." >&2
+    exit 1
 fi
+
+# Paths from ENV (fail if not set)
+: "${INSTALL_PATH:?INSTALL_PATH not set in /opt/.env}"
+: "${LOG_PATH:?LOG_PATH not set in /opt/.env}"
+VENV_PATH="${VENV_PATH:-${INSTALL_PATH}/venv}"
+APP_PATH="${APP_PATH:-${INSTALL_PATH}/app}"
 
 # Create log directory if needed
 mkdir -p "${LOG_PATH}"
