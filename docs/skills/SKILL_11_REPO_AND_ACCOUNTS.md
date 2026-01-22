@@ -17,15 +17,15 @@ Define the GitHub repository structure, service account conventions, and git wor
 
 | Repository | Purpose | Contains |
 |------------|---------|----------|
-| `synctacles/synctacles-api` | Backend API server | Python API, collectors, importers, normalizers, systemd units |
-| `synctacles/ha-energy-insights-nl` | Home Assistant integration | HA custom component only (HACS compatible) |
+| `synctacles/backend` | Backend API server | Python API, collectors, importers, normalizers, systemd units |
+| `synctacles/ha-integration` | Home Assistant integration | HA custom component only (HACS compatible) |
 
 ### Archived Repositories
 
 | Repository | Status | Reason |
 |------------|--------|--------|
-| `synctacles/synctacles-ha` | ARCHIVED | Replaced by `ha-energy-insights-nl` |
-| `synctacles/synctacles-repo` | ARCHIVED | Replaced by `synctacles-api` |
+| `synctacles/synctacles-ha` | ARCHIVED | Replaced by `ha-integration` |
+| `synctacles/synctacles-repo` | ARCHIVED | Replaced by `backend` |
 
 ### Repository Rules
 
@@ -296,7 +296,7 @@ Workflow:
 ### User Installation (Productie)
 
 Users install via HACS:
-1. Add custom repository: `synctacles/ha-energy-insights-nl`
+1. Add custom repository: `synctacles/ha-integration`
 2. Install integration
 3. Configure API URL + optional Enever API key
 

@@ -168,7 +168,7 @@ sudo useradd -m -s /bin/bash energy-insights-nl
 # 3. Clone repository
 sudo mkdir -p /opt/github
 cd /opt/github
-sudo git clone git@github.com:synctacles/synctacles-api.git
+sudo git clone git@github.com:synctacles/backend.git synctacles-api
 sudo chown -R energy-insights-nl:energy-insights-nl synctacles-api
 
 # 4. Restore .env from backup (copy from secure location)
