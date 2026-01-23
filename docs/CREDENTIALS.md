@@ -39,7 +39,13 @@ This document tracks all credentials, API keys, and access configurations for th
 ### Git Configuration
 - **Path**: `/opt/github/synctacles-api`
 - **Remote**: `origin` → `git@github.com:synctacles/backend.git` (SSH)
-- **Auto-update**: Every 15 minutes via cron
+- **Auto-update**: ❌ Disabled (manual deployment only)
+
+### Deployment (from DEV server)
+```bash
+~/bin/deploy-prod    # Deploy to PROD
+~/bin/prod-status    # Check PROD status
+```
 
 ### SSH Keys
 - **Location**: `/home/synctacles/.ssh/`
@@ -48,10 +54,9 @@ This document tracks all credentials, API keys, and access configurations for th
 - **Status**: ✅ Active (added 2026-01-23)
 - **Write access**: Yes (enabled in GitHub)
 
-### Cron Job
-- **File**: `/etc/cron.d/synctacles-autoupdate` (or similar)
-- **Schedule**: `*/15 * * * *`
+### Update Script (for manual deployment)
 - **Script**: `/opt/synctacles/auto-update.sh`
+- **Triggered by**: `~/bin/deploy-prod` from DEV server
 - **Log**: `/var/log/synctacles-update.log`
 
 ---

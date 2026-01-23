@@ -22,11 +22,11 @@ SYNCTACLES - Energy price API serving real-time and day-ahead electricity prices
 
 ### Quick Commands
 
-**Deploy to PROD:**
+**Deploy to PROD (from DEV):**
 ```bash
-git push origin main
-# Auto-update runs every 15 minutes, or manual:
-ssh cc-hub "ssh synct-prod 'sudo /opt/synctacles/auto-update.sh'"
+git push origin main      # Push code first
+~/bin/deploy-prod         # Then deploy to PROD
+~/bin/prod-status         # Verify deployment
 ```
 
 **Check PROD status:**
