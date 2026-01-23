@@ -1,10 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== SYNCTACLES Database Restore ==="
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
 
-BACKUP_DIR="/opt/energy-insights-nl/backups/db"
-DB_NAME="energy_insights_nl"
+# Defaults (fallback if no .env)
+DB_NAME="${DB_NAME:-synctacles}"
+DB_USER="${DB_USER:-synctacles}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/synctacles}"
+BRAND_NAME="${BRAND_NAME:-SYNCTACLES}"
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+API_PORT="${API_PORT:-8000}"
+
+echo "=== ${BRAND_NAME} Database Restore ==="
+
+BACKUP_DIR="${INSTALL_PATH}/backups/db"
 
 # List backups
 echo "Available backups:"
@@ -30,20 +42,20 @@ echo
 [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
 
 # Stop API
-systemctl stop energy-insights-nl-api
+systemctl stop "${BRAND_SLUG}-api"
 
 # Restore
 echo "Restoring..."
 sudo -u postgres dropdb --if-exists "$DB_NAME"
-sudo -u postgres createdb "$DB_NAME" -O energy_insights_nl
+sudo -u postgres createdb "$DB_NAME" -O "$DB_USER"
 gunzip -c "$BACKUP_FILE" | sudo -u postgres psql "$DB_NAME"
 
 # Start API
-systemctl start energy-insights-nl-api
+systemctl start "${BRAND_SLUG}-api"
 sleep 3
 
 # Verify
-if curl -sf http://localhost:8000/health > /dev/null; then
+if curl -sf "http://localhost:${API_PORT}/health" > /dev/null; then
     echo "✅ Restore successful"
 else
     echo "❌ Restore FAILED - check logs!"

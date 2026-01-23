@@ -1,14 +1,27 @@
 #!/bin/bash
+# Brand-free health check script - uses environment variables
 
-echo "=== SYNCTACLES Health Check ==="
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults (fallback if no .env)
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+DB_NAME="${DB_NAME:-synctacles}"
+DB_USER="${DB_USER:-synctacles}"
+API_PORT="${API_PORT:-8000}"
+
+echo "=== ${BRAND_NAME:-SYNCTACLES} Health Check ==="
 echo "Time: $(date)"
+echo "Brand: ${BRAND_SLUG}"
 echo ""
 
 ERRORS=0
 
 # Check API service
 echo "--- Services ---"
-if systemctl is-active --quiet energy-insights-nl-api; then
+if systemctl is-active --quiet "${BRAND_SLUG}-api"; then
     echo "✅ API service: running"
 else
     echo "❌ API service: NOT running"
@@ -16,7 +29,7 @@ else
 fi
 
 # Check timers
-TIMER_COUNT=$(systemctl list-timers energy-insights-nl-* --no-pager 2>/dev/null | grep -c energy-insights || echo 0)
+TIMER_COUNT=$(systemctl list-timers "${BRAND_SLUG}-*" --no-pager 2>/dev/null | grep -c "${BRAND_SLUG}" || echo 0)
 if [[ $TIMER_COUNT -ge 3 ]]; then
     echo "✅ Timers active: $TIMER_COUNT"
 else
@@ -41,8 +54,8 @@ fi
 # Check API endpoints
 echo ""
 echo "--- API Endpoints ---"
-for endpoint in health "api/v1/generation-mix" "api/v1/load" "api/v1/signals"; do
-    if curl -sf "http://localhost:8000/$endpoint" > /dev/null 2>&1; then
+for endpoint in health "api/v1/prices"; do
+    if curl -sf "http://localhost:${API_PORT}/$endpoint" > /dev/null 2>&1; then
         echo "✅ /$endpoint"
     else
         echo "❌ /$endpoint"
@@ -53,12 +66,12 @@ done
 # Check database
 echo ""
 echo "--- Database ---"
-if sudo -u postgres psql -d energy_insights_nl -c "SELECT 1" > /dev/null 2>&1; then
+if sudo -u postgres psql -d "${DB_NAME}" -c "SELECT 1" > /dev/null 2>&1; then
     echo "✅ Database connection OK"
 
     # Row counts
-    for table in norm_entso_e_a75 norm_entso_e_a65 norm_entso_e_a44; do
-        COUNT=$(sudo -u postgres psql -d energy_insights_nl -t -c "SELECT COUNT(*) FROM $table" 2>/dev/null | tr -d ' ')
+    for table in frank_prices norm_entso_e_a44 price_cache; do
+        COUNT=$(sudo -u postgres psql -d "${DB_NAME}" -t -c "SELECT COUNT(*) FROM $table" 2>/dev/null | tr -d ' ')
         echo "   $table: $COUNT rows"
     done
 else

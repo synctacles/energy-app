@@ -1,10 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== SYNCTACLES Database Backup ==="
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
 
-BACKUP_DIR="/opt/energy-insights-nl/backups/db"
-DB_NAME="energy_insights_nl"
+# Defaults (fallback if no .env)
+DB_NAME="${DB_NAME:-synctacles}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/synctacles}"
+BRAND_NAME="${BRAND_NAME:-SYNCTACLES}"
+
+echo "=== ${BRAND_NAME} Database Backup ==="
+
+BACKUP_DIR="${INSTALL_PATH}/backups/db"
 RETENTION_DAYS=30
 
 mkdir -p "$BACKUP_DIR"

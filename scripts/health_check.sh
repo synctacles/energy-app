@@ -15,7 +15,7 @@ else
 fi
 
 # Check Database
-if psql -U energy_insights_nl -d energy_insights_nl -c "SELECT 1" > /dev/null 2>&1; then
+if psql -U ${DB_USER:-synctacles} -d ${DB_NAME:-synctacles} -c "SELECT 1" > /dev/null 2>&1; then
     echo "[$(date)] DB OK" | tee -a "$LOG_FILE"
 else
     echo "[$(date)] DB FAILED" | tee -a "$LOG_FILE"

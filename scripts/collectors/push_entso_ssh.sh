@@ -6,11 +6,19 @@
 
 set -e
 
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+DB_NAME="${DB_NAME:-synctacles}"
+
 # Get today's date
 TODAY=$(date -u +"%Y-%m-%d")
 
 # Extract prices from local DB
-PRICES=$(psql -t -A -F'|' -d energy_insights_nl -c "
+PRICES=$(psql -t -A -F'|' -d "${DB_NAME}" -c "
 SELECT timestamp, price_eur_mwh
 FROM norm_entso_e_a44
 WHERE timestamp >= '${TODAY} 00:00:00+00'

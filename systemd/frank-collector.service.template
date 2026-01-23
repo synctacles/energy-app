@@ -3,11 +3,12 @@ Description={{BRAND_NAME}} Frank Price Collector
 After=network.target postgresql.service
 
 [Service]
+EnvironmentFile={{ENV_FILE}}
 Type=oneshot
 User={{SERVICE_USER}}
-WorkingDirectory={{INSTALL_PATH}}/app
+WorkingDirectory={{APP_PATH}}
 Environment="PYTHONDONTWRITEBYTECODE=1"
 Environment="DATABASE_URL={{DATABASE_URL}}"
-ExecStart={{INSTALL_PATH}}/venv/bin/python {{INSTALL_PATH}}/app/scripts/collectors/frank_collector.py --tomorrow
+ExecStart={{INSTALL_PATH}}/venv/bin/python {{APP_PATH}}/scripts/collectors/frank_collector.py --tomorrow
 StandardOutput=journal
 StandardError=journal

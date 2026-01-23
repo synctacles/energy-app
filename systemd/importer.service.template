@@ -3,10 +3,11 @@ Description={{BRAND_NAME}} Data Importer
 After=synctacles-collector.service
 
 [Service]
+EnvironmentFile={{ENV_FILE}}
 Type=oneshot
 User={{SERVICE_USER}}
-WorkingDirectory={{INSTALL_PATH}}/app
+WorkingDirectory={{APP_PATH}}
 Environment="PYTHONDONTWRITEBYTECODE=1"
-ExecStart={{INSTALL_PATH}}/app/scripts/run_importers.sh
+ExecStart={{APP_PATH}}/scripts/run_importers.sh
 StandardOutput=journal
 StandardError=journal

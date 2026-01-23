@@ -3,9 +3,10 @@ Description={{BRAND_NAME}} Health Check
 After=network.target
 
 [Service]
+EnvironmentFile={{ENV_FILE}}
 Type=oneshot
 User={{SERVICE_USER}}
 Environment="PYTHONDONTWRITEBYTECODE=1"
-ExecStart={{INSTALL_PATH}}/app/scripts/health_check.sh
+ExecStart={{APP_PATH}}/scripts/health_check.sh
 StandardOutput=journal
 StandardError=journal
