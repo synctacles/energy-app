@@ -7,14 +7,14 @@ Core endpoint for SYNCTACLES Energy Action functionality.
 Returns USE/WAIT/SKIP recommendations with quality metadata.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 import json
 import logging
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from synctacles_db.api.dependencies import get_db
 from synctacles_db.cache import api_cache
@@ -80,7 +80,7 @@ async def get_energy_action(
             }
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get price data with fallback chain
     prices_data = await get_prices_with_quality(db, country)
@@ -147,7 +147,7 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
     Returns:
         dict with keys: prices, source, quality, confidence, allow_go_action
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Query database for prices
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -219,7 +219,7 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
     }
 
 
-def get_current_price_from_list(prices: list, now: datetime) -> Optional[float]:
+def get_current_price_from_list(prices: list, now: datetime) -> float | None:
     """Get the price for the current hour."""
     current_hour = now.replace(minute=0, second=0, microsecond=0)
 
@@ -240,7 +240,7 @@ def get_current_price_from_list(prices: list, now: datetime) -> Optional[float]:
     return None
 
 
-def calculate_daily_average(prices: list) -> Optional[float]:
+def calculate_daily_average(prices: list) -> float | None:
     """Calculate average price from price list."""
     if not prices:
         return None
@@ -256,7 +256,7 @@ def calculate_daily_average(prices: list) -> Optional[float]:
     return sum(values) / len(values) if values else None
 
 
-def calculate_action(current_price: Optional[float], daily_avg: Optional[float], prices: list) -> str:
+def calculate_action(current_price: float | None, daily_avg: float | None, prices: list) -> str:
     """
     Calculate energy action recommendation.
 
@@ -279,7 +279,7 @@ def calculate_action(current_price: Optional[float], daily_avg: Optional[float],
         return EnergyAction.WAIT
 
 
-def find_cheapest_hour(prices: list, after: datetime) -> Optional[dict]:
+def find_cheapest_hour(prices: list, after: datetime) -> dict | None:
     """Find the cheapest hour from now until end of day."""
     if not prices:
         return None
@@ -308,7 +308,7 @@ def find_cheapest_hour(prices: list, after: datetime) -> Optional[dict]:
     return min(future_prices, key=lambda x: x["price_eur_kwh"])
 
 
-def find_most_expensive_hour(prices: list, after: datetime) -> Optional[dict]:
+def find_most_expensive_hour(prices: list, after: datetime) -> dict | None:
     """Find the most expensive hour from now until end of day."""
     if not prices:
         return None

@@ -4,11 +4,12 @@ Compare schemas between source and target databases.
 Identifies missing tables, schema differences, and compatibility issues.
 """
 
+import json
+import sys
+from datetime import datetime
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import sys
-import json
-from datetime import datetime
 
 
 def get_all_tables(conn):
@@ -79,6 +80,7 @@ def format_column_type(col):
 
 def main():
     import os
+
     from dotenv import load_dotenv
 
     load_dotenv('/opt/.env')
@@ -114,7 +116,7 @@ def main():
         source_conn = psycopg2.connect(**source_config)
         print(" ✓")
     except Exception as e:
-        print(f" ✗")
+        print(" ✗")
         print(f"Error: {e}")
         sys.exit(1)
 
@@ -123,7 +125,7 @@ def main():
         target_conn = psycopg2.connect(**target_config)
         print(" ✓")
     except Exception as e:
-        print(f" ✗")
+        print(" ✗")
         print(f"Error: {e}")
         source_conn.close()
         sys.exit(1)

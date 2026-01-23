@@ -2,12 +2,12 @@
 Unified data service - combines generation, load, balance into single snapshot.
 """
 
-from datetime import datetime, timezone
-from typing import Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from datetime import UTC, datetime
 
-from synctacles_db.models import NormEntsoeA75, NormEntsoeA65
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
+from synctacles_db.models import NormEntsoeA65, NormEntsoeA75
 
 
 def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
@@ -21,15 +21,15 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
     Returns:
         dict with all components, structured per strict contract rules
     """
-    aggregation_time = datetime.now(timezone.utc)
-    
+    aggregation_time = datetime.now(UTC)
+
     # === GENERATION ===
     gen_record = db.query(NormEntsoeA75)\
         .filter(NormEntsoeA75.country == country)\
         .filter(NormEntsoeA75.timestamp <= aggregation_time)\
         .order_by(desc(NormEntsoeA75.timestamp))\
         .first()
-    
+
     if gen_record:
         generation_total = sum([
             gen_record.b01_biomass_mw or 0,
@@ -42,7 +42,7 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
             gen_record.b19_wind_onshore_mw or 0,
             gen_record.b20_other_mw or 0
         ])
-        
+
         # STRICT renewables (exclude waste)
         renewable_strict = sum([
             gen_record.b01_biomass_mw or 0,
@@ -50,13 +50,13 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
             gen_record.b18_wind_offshore_mw or 0,
             gen_record.b19_wind_onshore_mw or 0
         ])
-        
+
         renewable_pct = (renewable_strict / generation_total * 100) if generation_total > 0 else 0
-        
+
         # OPTIONAL: incl waste
         renewable_incl_waste = renewable_strict + (gen_record.b17_waste_mw or 0)
         renewable_pct_incl_waste = (renewable_incl_waste / generation_total * 100) if generation_total > 0 else 0
-        
+
         gen_freshness = (aggregation_time - gen_record.timestamp).total_seconds()
         gen_status = calculate_component_status(gen_freshness)
         gen_data = {
@@ -81,7 +81,7 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
             "timestamp": None,
             "reason": "no_data"
         }
-    
+
     # === LOAD ===
     load_record = db.query(NormEntsoeA65)\
         .filter(NormEntsoeA65.country == country)\
@@ -89,7 +89,7 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
         .filter(NormEntsoeA65.actual_mw.isnot(None))\
         .order_by(desc(NormEntsoeA65.timestamp))\
         .first()
-    
+
     if load_record:
         load_freshness = (aggregation_time - load_record.timestamp).total_seconds()
         load_status = calculate_component_status(load_freshness)
@@ -113,7 +113,7 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
             "timestamp": None,
             "reason": "no_data"
         }
-    
+
     # === BALANCE (DEPRECATED - TenneT BYO-key model) ===
     # TenneT balance data is no longer collected server-side (ADR-001)
     # Users must configure their own TenneT API key in Home Assistant integration
@@ -127,11 +127,11 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
         "timestamp": None,
         "reason": "deprecated_tennet_byo_key"
     }
-    
+
     # === OVERALL STATUS ===
     component_statuses = [gen_status, load_status, balance_status]
     overall_status = determine_worst_status(component_statuses)
-    
+
     # === MISSING FIELDS ===
     missing_fields = []
     if not gen_data["available"]:
@@ -140,7 +140,7 @@ def get_unified_snapshot(db: Session, country: str = "NL") -> dict:
         missing_fields.extend(["load.actual_mw"])
     if not balance_data["available"]:
         missing_fields.extend(["balance.delta_mw"])
-    
+
     return {
         "timestamp": aggregation_time.isoformat(),
         "country": country,

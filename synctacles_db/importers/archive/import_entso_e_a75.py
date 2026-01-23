@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 ENTSO-E A75 Importer - Generation per PSR-type
 Reads XML files from logs/entso_e_raw/ -> writes to raw_entso_e_a75
@@ -7,21 +6,20 @@ Reads XML files from logs/entso_e_raw/ -> writes to raw_entso_e_a75
 import os
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
-from typing import Optional
 
 from lxml import etree
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import sessionmaker
 
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from synctacles_db.models import RawEntsoeA75
-from synctacles_db.core.logging import get_logger
 from config.settings import DATABASE_URL
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import RawEntsoeA75
 
 # Log directory configuration
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
@@ -58,7 +56,7 @@ def import_a75_file(filepath: Path, session) -> tuple[int, int]:
         elapsed = time.time() - start_time
         _LOGGER.error(f"A75 XML parse failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
         return 0, 1
-    
+
     # Extract PSR-type
     psr_elem = root.find('.//ns:MktPSRType/ns:psrType', NS)
     if psr_elem is None:
@@ -99,7 +97,7 @@ def import_a75_file(filepath: Path, session) -> tuple[int, int]:
         elapsed = time.time() - start_time
         _LOGGER.debug(f"A75: No data points found after {elapsed:.2f}s")
         return 0, 0
-    
+
     records = []
     for point in points:
         position = int(point.find('ns:position', NS).text)
@@ -107,7 +105,7 @@ def import_a75_file(filepath: Path, session) -> tuple[int, int]:
 
         # Calculate timestamp: start + (position - 1) * resolution
         timestamp = start_ts + timedelta(minutes=(position - 1) * resolution_minutes)
-        
+
         records.append({
             'timestamp': timestamp,
             'country': 'NL',
@@ -116,7 +114,7 @@ def import_a75_file(filepath: Path, session) -> tuple[int, int]:
             'source_file': filepath.name,
             'imported_at': datetime.now(UTC)
         })
-    
+
     # Upsert to database
     if records:
         stmt = insert(RawEntsoeA75).values(records)

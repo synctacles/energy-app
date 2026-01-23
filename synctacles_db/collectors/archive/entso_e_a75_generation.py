@@ -14,17 +14,16 @@ Author: SYNCTACLES Development
 Version: 2.0.0 (file-based, no direct DB)
 """
 
+import argparse
 import os
 import sys
-import argparse
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict
 
 import pandas as pd
-from entsoe import EntsoeRawClient
 from dotenv import load_dotenv
+from entsoe import EntsoeRawClient
 
 from synctacles_db.core.logging import get_logger
 
@@ -78,7 +77,7 @@ class EntsoEA75Collector:
         self.logger = _LOGGER
         self.results = {}
 
-    def fetch_generation_mix(self, psr_type: str, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24) -> Optional[str]:
+    def fetch_generation_mix(self, psr_type: str, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24) -> str | None:
         """Fetch generation data for specific PSR-type.
 
         Args:
@@ -90,7 +89,7 @@ class EntsoEA75Collector:
         try:
             # Determine time range
             if end is None:
-                end = pd.Timestamp(datetime.now(timezone.utc))
+                end = pd.Timestamp(datetime.now(UTC))
             if start is None:
                 start = end - timedelta(hours=hours_back)
 
@@ -117,7 +116,7 @@ class EntsoEA75Collector:
             self.logger.error(f"Failed to fetch {psr_type}: {str(e)}")
             return None
 
-    def fetch_all_psr_types(self, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24, rate_limit_seconds: int = 0) -> Dict[str, Optional[str]]:
+    def fetch_all_psr_types(self, start: pd.Timestamp = None, end: pd.Timestamp = None, hours_back: int = 24, rate_limit_seconds: int = 0) -> dict[str, str | None]:
         """Fetch generation data for ALL PSR-types.
 
         Args:
@@ -149,13 +148,13 @@ class EntsoEA75Collector:
         self.results = results
         return results
 
-    def save_to_files(self, output_dir: Optional[Path] = None) -> Dict[str, str]:
+    def save_to_files(self, output_dir: Path | None = None) -> dict[str, str]:
         """Save all fetched responses to XML files."""
         if not output_dir:
             output_dir = RAW_OUTPUT_DIR
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
         saved_files = {}
 
@@ -174,10 +173,10 @@ class EntsoEA75Collector:
 
         return saved_files
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get summary of fetched data."""
         summary = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'timestamp': datetime.now(UTC).isoformat(),
             'country': self.country_code,
             'document_type': 'A75',
             'psr_types_requested': len(PSR_TYPES),

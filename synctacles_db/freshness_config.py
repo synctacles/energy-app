@@ -10,7 +10,8 @@ Phase 3: TenneT thresholds removed (2026-01-11) - TenneT is BYO-key only
 """
 
 from enum import Enum
-from typing import Dict, Literal
+from typing import Literal
+
 
 class QualityStatus(str, Enum):
     """Quality status values for data freshness."""
@@ -24,7 +25,7 @@ class QualityStatus(str, Enum):
 
 # Freshness thresholds (in minutes) per data source
 # Phase 3: TenneT removed (BYO-key only, not server-side)
-FRESHNESS_THRESHOLDS: Dict[str, Dict[Literal["fresh", "stale"], int]] = {
+FRESHNESS_THRESHOLDS: dict[str, dict[Literal["fresh", "stale"], int]] = {
     "ENTSO-E": {
         "fresh": 90,        # < 90 min = FRESH (accounts for ~60min structural delay + 30min buffer)
         "stale": 180,       # 90-180 min = STALE (beyond acceptable, trigger fallback)

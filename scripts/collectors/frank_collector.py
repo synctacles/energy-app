@@ -21,11 +21,10 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Optional
+from datetime import UTC, datetime, timedelta
 
-import asyncpg
 import aiohttp
+import asyncpg
 
 # Setup logging
 logging.basicConfig(
@@ -42,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from config.settings import DATABASE_URL
 
 
-async def fetch_frank_prices(start_date: str, end_date: str) -> Optional[List[Dict]]:
+async def fetch_frank_prices(start_date: str, end_date: str) -> list[dict] | None:
     """
     Fetch electricity prices from Frank Energie GraphQL API.
 
@@ -124,7 +123,7 @@ async def fetch_frank_prices(start_date: str, end_date: str) -> Optional[List[Di
         return None
 
 
-async def store_prices(prices: List[Dict]) -> int:
+async def store_prices(prices: list[dict]) -> int:
     """
     Store prices in frank_prices table using UPSERT.
 
@@ -186,7 +185,7 @@ async def main(include_tomorrow: bool = False) -> int:
     Returns:
         Exit code (0=success, 1=no prices, 2=db error)
     """
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     # Fetch today's prices
     _LOGGER.info(f"Collecting Frank prices for {today}")

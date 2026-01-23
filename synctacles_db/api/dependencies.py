@@ -1,10 +1,11 @@
 """
 Shared dependencies: database sessions with lazy initialization
 """
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from typing import Generator
 import os
+from collections.abc import Generator
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 _engine = None
 _SessionLocal = None

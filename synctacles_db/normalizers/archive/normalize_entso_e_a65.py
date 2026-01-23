@@ -4,21 +4,21 @@ synctacles_db/normalizers/normalize_entso_e_a65.py
 Transform raw load data (actual + forecast) into merged normalized table.
 """
 
+import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from sqlalchemy import create_engine, func, case
+
+from sqlalchemy import case, create_engine, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from synctacles_db.models import RawEntsoeA65
-from synctacles_db.models import NormEntsoeA65
-from synctacles_db.core.logging import get_logger
-from synctacles_db.normalizers.base import validate_db_connection
 from config.settings import DATABASE_URL
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import NormEntsoeA65, RawEntsoeA65
+from synctacles_db.normalizers.base import validate_db_connection
 
 _LOGGER = get_logger(__name__)
 
@@ -30,10 +30,10 @@ def calculate_quality_status(latest_timestamp: datetime) -> str:
     """Calculate data quality based on age."""
     if latest_timestamp is None:
         return 'NO_DATA'
-    
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now(UTC)
     age_minutes = (now - latest_timestamp).total_seconds() / 60
-    
+
     if age_minutes < 15:
         return 'OK'
     elif age_minutes < 1440:
@@ -52,7 +52,7 @@ def normalize_a65_load():
     session = Session()
 
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         latest_raw = session.query(func.max(RawEntsoeA65.timestamp)).filter(
             RawEntsoeA65.timestamp <= now
         ).scalar()
@@ -60,7 +60,7 @@ def normalize_a65_load():
         quality_status = calculate_quality_status(latest_raw)
         _LOGGER.debug(f"Latest raw timestamp: {latest_raw}")
         _LOGGER.debug(f"Quality status: {quality_status}")
-        
+
         merge_query = session.query(
             RawEntsoeA65.timestamp,
             RawEntsoeA65.country,
@@ -72,7 +72,7 @@ def normalize_a65_load():
         ).order_by(
             RawEntsoeA65.timestamp
         )
-        
+
         records = []
         for row in merge_query:
             records.append({
@@ -82,7 +82,7 @@ def normalize_a65_load():
                 'forecast_mw': row.forecast_mw,
                 'quality_status': quality_status
             })
-        
+
         if not records:
             _LOGGER.warning("No A65 records to normalize")
             return

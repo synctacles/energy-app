@@ -8,19 +8,20 @@ Tests for:
 - Fallback chain (6-tier)
 - Reference data structure
 """
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
 
 # Import modules under test
 from synctacles_db.clients.easyenergy_client import EasyEnergyClient
 from synctacles_db.config.static_offsets import (
-    HOURLY_OFFSET,
     AVERAGE_OFFSET,
+    HOURLY_OFFSET,
     apply_static_offset,
     apply_static_offset_mwh,
-    get_market_stats,
     get_expected_range,
+    get_market_stats,
 )
 
 
@@ -160,7 +161,7 @@ class TestFallbackManager:
         """Test applying static offset to prices."""
         from synctacles_db.fallback.fallback_manager import FallbackManager
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         prices = [
             {
                 "timestamp": now.replace(hour=8).isoformat(),
@@ -186,8 +187,8 @@ class TestFallbackManager:
         from synctacles_db.fallback.fallback_manager import FallbackManager
 
         prices = [
-            {"timestamp": datetime.now(timezone.utc).isoformat(), "price_eur_mwh": 200.0},
-            {"timestamp": datetime.now(timezone.utc).isoformat(), "price_eur_mwh": 250.0}
+            {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 200.0},
+            {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 250.0}
         ]
 
         result = FallbackManager._add_reference_data(prices, "Test Source", 1)

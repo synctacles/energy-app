@@ -10,30 +10,31 @@ Usage:
   python backfill_data.py --source a44 --max-gap-days 30
 """
 
-import os
-import sys
-import logging
 import argparse
-import json
+import logging
+import os
 import subprocess
+import sys
 import time
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import create_engine, func
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 # Import database models
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'app'))
 
-from synctacles_db.models import (
-    RawEntsoeA75, RawEntsoeA65, RawEntsoeA44, RawTennetBalance,
-    BackfillLog
-)
-
 from dotenv import load_dotenv
+
+from synctacles_db.models import (
+    BackfillLog,
+    RawEntsoeA44,
+    RawEntsoeA65,
+    RawEntsoeA75,
+    RawTennetBalance,
+)
 
 # ========================================================
 #   CONFIGURATION
@@ -59,6 +60,7 @@ logger = logging.getLogger(__name__)
 # Import settings AFTER adjusting sys.path if needed
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config.settings import DATABASE_URL
+
 INSTALL_PATH = Path(os.getenv("INSTALL_PATH", f"/opt/{BRAND_SLUG}"))
 COLLECTORS_PATH = INSTALL_PATH / "app" / "synctacles_db" / "collectors"
 VENV_PATH = INSTALL_PATH / "venv"
@@ -72,7 +74,7 @@ VENV_PYTHON = VENV_PATH / "bin" / "python3"
 class Gap:
     """Represents a data gap"""
     source: str  # 'a75', 'a65', 'a44', 'tennet', 'energy_charts'
-    category: Optional[str]  # psr_type, platform, or None
+    category: str | None  # psr_type, platform, or None
     start: datetime
     end: datetime
 
@@ -88,7 +90,7 @@ class CollectionResult:
     stdout: str = ""
     stderr: str = ""
     duration: float = 0
-    fallback_source: Optional[str] = None
+    fallback_source: str | None = None
 
 
 # ========================================================
@@ -113,7 +115,7 @@ class GapDetector:
         self.session = session
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def detect_gaps(self, source: str, country: str = 'NL') -> List[Gap]:
+    def detect_gaps(self, source: str, country: str = 'NL') -> list[Gap]:
         """
         Detect gaps for specified source
 
@@ -132,7 +134,7 @@ class GapDetector:
             self.logger.warning(f"Unknown source: {source}")
             return []
 
-    def _detect_a75_gaps(self, country: str) -> List[Gap]:
+    def _detect_a75_gaps(self, country: str) -> list[Gap]:
         """Detect gaps in A75 data per PSR type"""
         gaps = []
         psr_types = ['B01', 'B04', 'B05', 'B14', 'B16', 'B17', 'B18', 'B19', 'B20']
@@ -147,11 +149,11 @@ class GapDetector:
 
                 if max_ts is None:
                     # No data at all - suggest backfill from 30 days ago
-                    max_ts = datetime.now(timezone.utc) - timedelta(days=30)
+                    max_ts = datetime.now(UTC) - timedelta(days=30)
                     self.logger.info(f"A75 {psr_type}: No data, suggesting backfill from {max_ts}")
 
                 # Calculate gap
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 gap_seconds = (now - max_ts).total_seconds()
 
                 if gap_seconds > 3600:  # Gap > 1 hour
@@ -168,7 +170,7 @@ class GapDetector:
 
         return gaps
 
-    def _detect_a65_gaps(self, country: str) -> List[Gap]:
+    def _detect_a65_gaps(self, country: str) -> list[Gap]:
         """Detect gaps in A65 data per type (actual/forecast)"""
         gaps = []
         types = ['actual', 'forecast']
@@ -181,9 +183,9 @@ class GapDetector:
                 ).scalar()
 
                 if max_ts is None:
-                    max_ts = datetime.now(timezone.utc) - timedelta(days=30)
+                    max_ts = datetime.now(UTC) - timedelta(days=30)
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 gap_seconds = (now - max_ts).total_seconds()
 
                 if gap_seconds > 3600:
@@ -200,7 +202,7 @@ class GapDetector:
 
         return gaps
 
-    def _detect_a44_gaps(self, country: str) -> List[Gap]:
+    def _detect_a44_gaps(self, country: str) -> list[Gap]:
         """Detect gaps in A44 prices data"""
         gaps = []
 
@@ -210,9 +212,9 @@ class GapDetector:
             ).scalar()
 
             if max_ts is None:
-                max_ts = datetime.now(timezone.utc) - timedelta(days=30)
+                max_ts = datetime.now(UTC) - timedelta(days=30)
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             gap_seconds = (now - max_ts).total_seconds()
 
             if gap_seconds > 3600:
@@ -229,7 +231,7 @@ class GapDetector:
 
         return gaps
 
-    def _detect_tennet_gaps(self) -> List[Gap]:
+    def _detect_tennet_gaps(self) -> list[Gap]:
         """Detect gaps in TenneT balance data"""
         gaps = []
         platforms = ['aFRR', 'IGCC', 'MARI', 'mFRRda', 'PICASSO']
@@ -245,7 +247,7 @@ class GapDetector:
                     self.logger.info(f"TenneT {platform}: No data available")
                     continue
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 gap_seconds = (now - max_ts).total_seconds()
 
                 if gap_seconds > 300:  # Gap > 5 minutes for real-time data
@@ -311,7 +313,7 @@ class CollectionTrigger:
         if result.status == 'SUCCESS':
             return result
 
-        self.logger.warning(f"A44 failed, attempting Energy-Charts fallback")
+        self.logger.warning("A44 failed, attempting Energy-Charts fallback")
         result = self._trigger_energy_charts(gap)
         if result.status == 'SUCCESS':
             result.fallback_source = 'energy_charts'
@@ -489,7 +491,7 @@ Examples:
                     continue
 
                 # Trigger collection
-                logger.info(f"Triggering collection...")
+                logger.info("Triggering collection...")
                 result = trigger.trigger_collection(gap)
                 logger.info(f"Result: {result.status}")
 

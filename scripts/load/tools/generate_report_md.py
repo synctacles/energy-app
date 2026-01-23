@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import json
-import math
 import argparse
+import json
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
+
 
 def load_json(p):
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 def metric(summary, key):
@@ -27,7 +27,7 @@ def main():
     if not files:
         raise SystemExit("No k6 result JSON files found.")
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     lines = []
     lines.append("# SYNCTACLES Load Test Report\n")
@@ -37,7 +37,7 @@ def main():
         "- Server: Hetzner CX33 (4 vCPU / 8 GB RAM)\n"
         "- Target: localhost API (no auth)\n"
         "- Endpoints: `/load`, `/generation-mix`, `/balance`\n"
-        "- Assumption: **{} API calls per user per day**\n".format(args.hits_per_user)
+        f"- Assumption: **{args.hits_per_user} API calls per user per day**\n"
     )
 
     lines.append("\n## Test Results\n")

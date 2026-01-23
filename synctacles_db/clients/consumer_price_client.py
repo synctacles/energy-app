@@ -23,11 +23,10 @@ warnings.warn(
     stacklevel=2
 )
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Dict, List, Tuple
-from cachetools import TTLCache
+from datetime import UTC, datetime
 
 import aiohttp
+from cachetools import TTLCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ class ConsumerPriceClient:
         if not _circuit_breaker["last_failure_time"]:
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_failure = _circuit_breaker["last_failure_time"]
         minutes_since = (now - last_failure).total_seconds() / 60
 
@@ -92,7 +91,7 @@ class ConsumerPriceClient:
     def _record_failure():
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
-        _circuit_breaker["last_failure_time"] = datetime.now(timezone.utc)
+        _circuit_breaker["last_failure_time"] = datetime.now(UTC)
         _LOGGER.warning(f"Circuit breaker failure count: {_circuit_breaker['failure_count']}")
 
     @staticmethod
@@ -103,7 +102,7 @@ class ConsumerPriceClient:
             _circuit_breaker["last_failure_time"] = None
 
     @staticmethod
-    async def get_consumer_prices() -> Optional[Dict]:
+    async def get_consumer_prices() -> dict | None:
         """
         Fetch consumer prices from Coefficient Engine proxy.
 
@@ -150,7 +149,7 @@ class ConsumerPriceClient:
             return None
 
     @staticmethod
-    async def get_frank_prices(date: str = "today") -> Optional[List[Dict]]:
+    async def get_frank_prices(date: str = "today") -> list[dict] | None:
         """
         Get Frank Energie prices specifically.
 
@@ -172,7 +171,7 @@ class ConsumerPriceClient:
         return prices.get("Frank Energie")
 
     @staticmethod
-    async def get_frank_price_for_hour(hour: int, date: str = "today") -> Optional[float]:
+    async def get_frank_price_for_hour(hour: int, date: str = "today") -> float | None:
         """
         Get Frank Energie price for specific hour.
 
@@ -195,11 +194,11 @@ class ConsumerPriceClient:
 
     @staticmethod
     async def get_price_model(
-        hour: Optional[int] = None,
-        day_type: Optional[str] = None,
-        month: Optional[int] = None,
+        hour: int | None = None,
+        day_type: str | None = None,
+        month: int | None = None,
         country: str = "NL"
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Get slope + intercept model from Coefficient Engine.
 
@@ -221,7 +220,7 @@ class ConsumerPriceClient:
                 "source": "lookup"
             }
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if hour is None:
             hour = now.hour
@@ -266,10 +265,10 @@ class ConsumerPriceClient:
     # Legacy method - keep for backward compatibility
     @staticmethod
     async def get_coefficient(
-        hour: Optional[int] = None,
-        day_type: Optional[str] = None,
-        month: Optional[int] = None
-    ) -> Optional[Dict]:
+        hour: int | None = None,
+        day_type: str | None = None,
+        month: int | None = None
+    ) -> dict | None:
         """
         Legacy method - wraps get_price_model for backward compatibility.
 
@@ -283,9 +282,9 @@ class ConsumerPriceClient:
 
     @staticmethod
     async def get_coefficient_value(
-        hour: Optional[int] = None,
-        day_type: Optional[str] = None
-    ) -> Optional[float]:
+        hour: int | None = None,
+        day_type: str | None = None
+    ) -> float | None:
         """
         Legacy method - get slope value only.
 
@@ -322,7 +321,7 @@ class ConsumerPriceClient:
         return raw_price
 
     @staticmethod
-    async def get_all_coefficients() -> Optional[Dict]:
+    async def get_all_coefficients() -> dict | None:
         """
         Get all coefficients from lookup table.
 
@@ -365,7 +364,7 @@ class ConsumerPriceClient:
             return None
 
     @staticmethod
-    async def health_check() -> Tuple[bool, str]:
+    async def health_check() -> tuple[bool, str]:
         """
         Check Coefficient Engine health.
 

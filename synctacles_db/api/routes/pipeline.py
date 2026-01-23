@@ -2,15 +2,22 @@
 Pipeline health endpoint for Grafana monitoring.
 KISS approach: JSON endpoint, no Prometheus complexity.
 """
+import subprocess
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
-from datetime import datetime, timezone
-import subprocess
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Gauge,
+    generate_latest,
+)
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from synctacles_db.api.dependencies import get_db
-from prometheus_client import Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
+
 from config.settings import BRAND_SLUG
+from synctacles_db.api.dependencies import get_db
 
 router = APIRouter(prefix="/v1/pipeline", tags=["pipeline"])
 
@@ -151,7 +158,7 @@ def pipeline_health(db: Session = Depends(get_db)):
 
     Returns timer status and data freshness for all sources.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     return {
         "timestamp": now,

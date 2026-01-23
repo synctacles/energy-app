@@ -3,23 +3,30 @@ Energy Data API
 FastAPI application entry point
 Environment-driven branding and configuration
 """
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from starlette.responses import Response
-import time
 
-from synctacles_db.api.middleware import http_logging_middleware, auth_middleware, rate_limit_middleware
-from synctacles_db.api.endpoints import balance, prices, auth, energy_action, windows
-from synctacles_db.api.endpoints.deprecated import router as deprecated_router, signals_router as deprecated_signals_router
+from config.settings import settings
+from synctacles_db.api.endpoints import auth, balance, energy_action, prices, windows
+from synctacles_db.api.endpoints.deprecated import router as deprecated_router
+from synctacles_db.api.endpoints.deprecated import (
+    signals_router as deprecated_signals_router,
+)
+from synctacles_db.api.middleware import (
+    auth_middleware,
+    http_logging_middleware,
+    rate_limit_middleware,
+)
 from synctacles_db.api.routes.pipeline import router as pipeline_router
 from synctacles_db.cache import api_cache
-from config.settings import settings
 
 # === LOGGING INITIALIZATION ===
-from synctacles_db.core.logging import setup_logging, get_logger
+from synctacles_db.core.logging import get_logger, setup_logging
 
 setup_logging()
 _LOGGER = get_logger(__name__)
@@ -96,7 +103,7 @@ async def health():
     return {
         "status": "ok",
         "version": "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "service": settings.api_title,
         "brand": settings.brand_name
     }

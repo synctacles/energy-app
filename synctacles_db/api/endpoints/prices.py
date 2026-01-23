@@ -10,25 +10,25 @@ Implements 4-tier fallback strategy:
 CRITICAL RULE: Energy-Charts prices MUST NEVER trigger GO actions!
 """
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
-from typing import List, Optional
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker
-from starlette.responses import Response
-import json
 import logging
 
 # Local imports AFTER external deps
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from fastapi import APIRouter, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import create_engine, desc
+from sqlalchemy.orm import sessionmaker
+from starlette.responses import Response
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from synctacles_db.models import NormEntsoeA44
+from config.settings import DATABASE_URL
 from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
-from config.settings import DATABASE_URL
+from synctacles_db.models import NormEntsoeA44
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,14 +49,14 @@ class ReferenceData(BaseModel):
     source: str
     tier: int
     expected_range: ExpectedRange
-    timestamp: Optional[str] = None
-    market: Optional[dict] = None
+    timestamp: str | None = None
+    market: dict | None = None
 
 class PriceRecord(BaseModel):
     timestamp: datetime
     price_eur_mwh: float
     # Pydantic v2: use Field with serialization_alias for underscore-prefixed fields
-    reference: Optional[ReferenceData] = Field(default=None, serialization_alias="_reference")
+    reference: ReferenceData | None = Field(default=None, serialization_alias="_reference")
 
 class MetaData(BaseModel):
     source: str
@@ -66,7 +66,7 @@ class MetaData(BaseModel):
     allow_go_action: bool  # Flag for GO action safety
 
 class PricesResponse(BaseModel):
-    data: List[PriceRecord]
+    data: list[PriceRecord]
     meta: MetaData
 
 @router.get("/prices", response_model=PricesResponse)
@@ -96,7 +96,7 @@ async def get_prices(
         )
 
     session = Session()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get today 00:00 + tomorrow 23:59 (48h day-ahead data)
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)

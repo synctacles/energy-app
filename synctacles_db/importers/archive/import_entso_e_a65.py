@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 ENTSO-E A65 Importer - Total Load (actual + forecast)
 Reads XML files from logs/entso_e_raw/ -> writes to raw_entso_e_a65
@@ -6,19 +5,19 @@ Reads XML files from logs/entso_e_raw/ -> writes to raw_entso_e_a65
 import os
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
 
 from lxml import etree
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from synctacles_db.models import RawEntsoeA65
-from synctacles_db.core.logging import get_logger
 from config.settings import DATABASE_URL
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import RawEntsoeA65
 
 # Log directory configuration
 LOG_DIR = Path(os.getenv("LOG_PATH", "/var/log/energy-insights"))
@@ -44,7 +43,7 @@ def import_a65_file(filepath: Path, session) -> tuple[int, int]:
     """
     _LOGGER.info(f"A65 XML importer starting: {filepath.name}")
     start_time = time.time()
-    
+
     try:
         _LOGGER.debug(f"Parsing XML file: {filepath}")
         tree = etree.parse(str(filepath))
@@ -53,7 +52,7 @@ def import_a65_file(filepath: Path, session) -> tuple[int, int]:
         elapsed = time.time() - start_time
         _LOGGER.error(f"A65 XML parse failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
         return 0, 1
-    
+
     # Detect type from filename (a65_NL_actual_* or a65_NL_forecast_*)
     if 'actual' in filepath.name.lower():
         load_type = 'actual'
@@ -66,7 +65,7 @@ def import_a65_file(filepath: Path, session) -> tuple[int, int]:
             load_type = 'actual'
         else:
             load_type = 'forecast'
-    
+
     # Extract TimeSeries -> Period
     period = root.find('.//ns:TimeSeries/ns:Period', NS)
     if period is None:
@@ -98,14 +97,14 @@ def import_a65_file(filepath: Path, session) -> tuple[int, int]:
         elapsed = time.time() - start_time
         _LOGGER.debug(f"A65: No data points found after {elapsed:.2f}s")
         return 0, 0
-    
+
     records = []
     for point in points:
         position = int(point.find('ns:position', NS).text)
         quantity = float(point.find('ns:quantity', NS).text)
 
         timestamp = start_ts + timedelta(minutes=(position - 1) * resolution_minutes)
-        
+
         records.append({
             'timestamp': timestamp,
             'country': 'NL',
@@ -114,7 +113,7 @@ def import_a65_file(filepath: Path, session) -> tuple[int, int]:
             'source_file': filepath.name,
             'imported_at': datetime.now(UTC)
         })
-    
+
     # Upsert
     if records:
         stmt = insert(RawEntsoeA65).values(records)

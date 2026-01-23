@@ -5,9 +5,10 @@ Revises: 003add_norm_uq
 Create Date: 2025-12-21
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
+
+from alembic import op
 
 revision = '20251220_user_auth'
 down_revision = '003add_norm_uq'
@@ -28,7 +29,7 @@ def upgrade():
         sa.Column('tier', sa.String(20), default='free', server_default='free'),
         sa.Column('rate_limit_daily', sa.Integer, default=1000, server_default='1000')
     )
-    
+
     # API usage tracking
     op.create_table(
         'api_usage',
@@ -38,7 +39,7 @@ def upgrade():
         sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('status_code', sa.Integer),
     )
-    
+
     # Indexes
     op.create_index('idx_users_email', 'users', ['email'])
     op.create_index('idx_users_api_key', 'users', ['api_key_hash'])

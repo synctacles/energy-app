@@ -18,7 +18,7 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Test imports
 print("=" * 60)
@@ -34,7 +34,7 @@ async def test_frank_collector():
     try:
         from scripts.collectors.frank_collector import fetch_frank_prices
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         prices = await fetch_frank_prices(today.isoformat(), today.isoformat())
 
         if prices and len(prices) > 0:
@@ -63,14 +63,14 @@ async def test_fallback_db_methods():
         if frank_prices:
             print(f"  PASS: Frank DB has {len(frank_prices)} prices, age {frank_age} min")
         else:
-            print(f"  INFO: Frank DB empty (expected if collectors haven't run yet)")
+            print("  INFO: Frank DB empty (expected if collectors haven't run yet)")
 
         # Test Enever-Frank DB read
         enever_prices, enever_age = await FallbackManager._get_enever_frank_from_db()
         if enever_prices:
             print(f"  PASS: Enever-Frank DB has {len(enever_prices)} prices, age {enever_age} min")
         else:
-            print(f"  INFO: Enever-Frank DB empty (expected if collectors haven't run yet)")
+            print("  INFO: Enever-Frank DB empty (expected if collectors haven't run yet)")
 
         # Test freshness check
         is_fresh = FallbackManager._check_data_freshness(60)  # 1 hour
@@ -110,7 +110,7 @@ async def test_full_fallback_chain():
             print(f"  GO Allowed: {allow_go}")
             return True
         else:
-            print(f"  WARN: No prices available (all tiers failed)")
+            print("  WARN: No prices available (all tiers failed)")
             print(f"  Source: {source}, Quality: {quality}")
             return False
 

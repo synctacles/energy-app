@@ -11,11 +11,10 @@ Features:
 - Returns consumer prices including all taxes and markups
 """
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Tuple
-from cachetools import TTLCache
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
+from cachetools import TTLCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ class FrankEnergieClient:
         if not _circuit_breaker["last_failure_time"]:
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_failure = _circuit_breaker["last_failure_time"]
         minutes_since = (now - last_failure).total_seconds() / 60
 
@@ -68,7 +67,7 @@ class FrankEnergieClient:
     def _record_failure():
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
-        _circuit_breaker["last_failure_time"] = datetime.now(timezone.utc)
+        _circuit_breaker["last_failure_time"] = datetime.now(UTC)
         _LOGGER.warning(f"Frank circuit breaker failure count: {_circuit_breaker['failure_count']}")
 
     @staticmethod
@@ -80,9 +79,9 @@ class FrankEnergieClient:
 
     @staticmethod
     async def get_prices(
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> Optional[List[Dict]]:
+        start_date: str | None = None,
+        end_date: str | None = None
+    ) -> list[dict] | None:
         """
         Fetch electricity prices from Frank Energie GraphQL API.
 
@@ -102,7 +101,7 @@ class FrankEnergieClient:
             Returns None on failure.
         """
         # Default dates
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         if start_date is None:
             start_date = today.isoformat()
         if end_date is None:
@@ -198,28 +197,28 @@ class FrankEnergieClient:
             return None
 
     @staticmethod
-    async def get_prices_today() -> Optional[List[Dict]]:
+    async def get_prices_today() -> list[dict] | None:
         """
         Get today's prices.
 
         Returns:
             List of price dicts for today (24 hours), or None
         """
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         return await FrankEnergieClient.get_prices(
             start_date=today.isoformat(),
             end_date=today.isoformat()
         )
 
     @staticmethod
-    async def get_prices_tomorrow() -> Optional[List[Dict]]:
+    async def get_prices_tomorrow() -> list[dict] | None:
         """
         Get tomorrow's prices (available after ~14:00 CET).
 
         Returns:
             List of price dicts for tomorrow (24 hours), or None
         """
-        tomorrow = (datetime.now(timezone.utc).date() + timedelta(days=1))
+        tomorrow = (datetime.now(UTC).date() + timedelta(days=1))
         day_after = tomorrow + timedelta(days=1)
         return await FrankEnergieClient.get_prices(
             start_date=tomorrow.isoformat(),
@@ -227,7 +226,7 @@ class FrankEnergieClient:
         )
 
     @staticmethod
-    async def get_price_for_hour(hour: int, date: str = "today") -> Optional[float]:
+    async def get_price_for_hour(hour: int, date: str = "today") -> float | None:
         """
         Get Frank price for specific hour.
 
@@ -254,7 +253,7 @@ class FrankEnergieClient:
         return None
 
     @staticmethod
-    async def health_check() -> Tuple[bool, str]:
+    async def health_check() -> tuple[bool, str]:
         """
         Check Frank API health.
 
@@ -263,7 +262,7 @@ class FrankEnergieClient:
         """
         try:
             # Try to fetch a single day
-            today = datetime.now(timezone.utc).date()
+            today = datetime.now(UTC).date()
             prices = await FrankEnergieClient.get_prices(
                 start_date=today.isoformat(),
                 end_date=today.isoformat()

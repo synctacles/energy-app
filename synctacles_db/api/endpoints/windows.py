@@ -8,12 +8,12 @@ Two "wow" features for SYNCTACLES:
 These features differentiate SYNCTACLES from Nordpool integration.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Tuple
-from fastapi import APIRouter, Query
-from fastapi.responses import Response
 import json
 import logging
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Query
+from fastapi.responses import Response
 
 from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
@@ -61,7 +61,7 @@ async def get_best_window(
             headers={"X-Cache": "HIT"}
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get prices (today + tomorrow if available)
     prices = await _get_all_prices(country)
@@ -124,10 +124,10 @@ async def get_best_window(
 
 
 def _find_best_windows(
-    prices: List[Dict],
+    prices: list[dict],
     duration: int,
     now: datetime
-) -> Tuple[Optional[Dict], Optional[Dict]]:
+) -> tuple[dict | None, dict | None]:
     """
     Find the two best consecutive windows using sliding window algorithm.
 
@@ -224,7 +224,7 @@ async def get_tomorrow_preview(
             headers={"X-Cache": "HIT"}
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tomorrow = (now + timedelta(days=1)).date()
     today = now.date()
 
@@ -313,7 +313,7 @@ async def get_tomorrow_preview(
 
     # Calculate best 3h window for tomorrow
     best_3h, _ = _find_best_windows(tomorrow_prices, 3,
-                                     datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=timezone.utc))
+                                     datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=UTC))
 
     # Compare to today
     comparison = None
@@ -366,7 +366,7 @@ async def get_tomorrow_preview(
     )
 
 
-def _determine_status(tomorrow_avg: float, today_prices: List[Dict]) -> str:
+def _determine_status(tomorrow_avg: float, today_prices: list[dict]) -> str:
     """
     Determine tomorrow's status: FAVORABLE / NORMAL / EXPENSIVE
 
@@ -403,7 +403,7 @@ def _determine_status(tomorrow_avg: float, today_prices: List[Dict]) -> str:
 # HELPER FUNCTIONS
 # =============================================================================
 
-async def _get_all_prices(country: str) -> List[Dict]:
+async def _get_all_prices(country: str) -> list[dict]:
     """
     Get all available prices (today + tomorrow).
 
@@ -415,16 +415,17 @@ async def _get_all_prices(country: str) -> List[Dict]:
     """
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
+
     from config.settings import DATABASE_URL
-    from synctacles_db.clients.frank_energie_client import FrankEnergieClient
     from synctacles_db.clients.easyenergy_client import EasyEnergyClient
+    from synctacles_db.clients.frank_energie_client import FrankEnergieClient
     from synctacles_db.config.static_offsets import apply_static_offset
 
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = now.date()
     tomorrow = (now + timedelta(days=1)).date()
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -595,7 +596,7 @@ def _parse_timestamp(ts_str: str) -> datetime:
     return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
 
 
-def _extract_price_kwh(price: Dict) -> Optional[float]:
+def _extract_price_kwh(price: dict) -> float | None:
     """Extract price in EUR/kWh from price dict."""
     # Try different field names
     if "price_eur_kwh" in price:
@@ -605,7 +606,7 @@ def _extract_price_kwh(price: Dict) -> Optional[float]:
     return None
 
 
-def _get_price_at_time(prices: List[Dict], target: datetime) -> Optional[float]:
+def _get_price_at_time(prices: list[dict], target: datetime) -> float | None:
     """Get price for a specific hour."""
     target_hour = target.replace(minute=0, second=0, microsecond=0)
 
@@ -652,7 +653,7 @@ async def get_dashboard(
             headers={"X-Cache": "HIT"}
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get all prices (shared data source)
     all_prices = await _get_all_prices(country)
@@ -737,7 +738,7 @@ async def get_dashboard(
             # Best 3h window for tomorrow
             best_3h, _ = _find_best_windows(
                 tomorrow_prices, 3,
-                datetime.combine(tomorrow_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+                datetime.combine(tomorrow_date, datetime.min.time()).replace(tzinfo=UTC)
             )
 
             tomorrow_data = {

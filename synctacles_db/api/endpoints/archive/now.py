@@ -7,8 +7,8 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from synctacles_db.api.dependencies import get_db
-from synctacles_db.unified_service import get_unified_snapshot
 from synctacles_db.cache import api_cache
+from synctacles_db.unified_service import get_unified_snapshot
 
 router = APIRouter()
 
@@ -33,10 +33,10 @@ def get_now(
         - overall_status: Worst status across all components
         - per-component: availability, freshness, timestamps
     """
-    
+
     # Cache key (country-specific)
     cache_key = f"now:{country}:latest"
-    
+
     # Check cache
     cached = api_cache.get(cache_key)
     if cached:
@@ -45,17 +45,17 @@ def get_now(
             media_type="application/json",
             headers={"X-Cache": "HIT"}
         )
-    
+
     # Fetch fresh data
     result = get_unified_snapshot(db, country=country)
-    
+
     # Serialize with Pydantic-style JSON (datetime handling)
     import json
     json_content = json.dumps(result, default=str)
-    
+
     # Cache for 5 minutes
     api_cache.set(cache_key, json_content, ttl=300)
-    
+
     return Response(
         content=json_content,
         media_type="application/json",

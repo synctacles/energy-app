@@ -2,17 +2,18 @@
 """Test that development environment is properly configured"""
 import sys
 
+
 def test_imports():
     """Test all critical imports"""
     print("Testing Python imports...")
-    
+
     packages = [
         ("entsoe", "entsoe-py"),
         ("pandas", "pandas"),
         ("fastapi", "fastapi"),
         ("sqlalchemy", "sqlalchemy"),
     ]
-    
+
     failed = False
     for module, name in packages:
         try:
@@ -21,7 +22,7 @@ def test_imports():
         except ImportError as e:
             print(f"❌ {name}: {e}")
             failed = True
-    
+
     return not failed
 
 def main():
@@ -29,11 +30,11 @@ def main():
     print("SYNCTACLES Development Environment Test")
     print("=" * 60)
     print()
-    
+
     if not test_imports():
         print("\n❌ Import test failed!")
         sys.exit(1)
-    
+
     print()
     print("=" * 60)
     print("✅ Development environment is ready!")

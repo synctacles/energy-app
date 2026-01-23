@@ -1,6 +1,6 @@
 """HTTP clients for external services."""
-from synctacles_db.clients.frank_energie_client import FrankEnergieClient
 from synctacles_db.clients.easyenergy_client import EasyEnergyClient
+from synctacles_db.clients.frank_energie_client import FrankEnergieClient
 
 # Legacy import for backward compatibility (deprecated)
 try:

@@ -2,14 +2,14 @@
 
 import hashlib
 import secrets
-from typing import Optional, Tuple
-from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from datetime import UTC, datetime, timedelta
 
-from synctacles_db.auth_models import User, APIUsage
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from config.settings import DEFAULT_TIER
 from synctacles_db.auth.tiers import get_rate_limit
+from synctacles_db.auth_models import APIUsage, User
 
 
 def hash_api_key(api_key: str) -> str:
@@ -22,7 +22,7 @@ def generate_api_key() -> str:
     return secrets.token_hex(32)
 
 
-def create_user(db: Session, email: str, tier: str = None) -> Tuple[User, str]:
+def create_user(db: Session, email: str, tier: str = None) -> tuple[User, str]:
     """
     Create new user with license key and API key
 
@@ -67,7 +67,7 @@ def create_user(db: Session, email: str, tier: str = None) -> Tuple[User, str]:
     return user, api_key_plain
 
 
-def validate_api_key(db: Session, api_key: str) -> Optional[User]:
+def validate_api_key(db: Session, api_key: str) -> User | None:
     """
     Validate API key and return user if valid
     
@@ -75,12 +75,12 @@ def validate_api_key(db: Session, api_key: str) -> Optional[User]:
         User object if valid, None otherwise
     """
     api_key_hash = hash_api_key(api_key)
-    
+
     user = db.query(User).filter(
         User.api_key_hash == api_key_hash,
         User.is_active == True
     ).first()
-    
+
     return user
 
 
@@ -91,13 +91,13 @@ def check_rate_limit(db: Session, user: User) -> bool:
     Returns:
         True if allowed, False if rate limited
     """
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
     usage_count = db.query(func.count(APIUsage.id)).filter(
         APIUsage.user_id == user.id,
         APIUsage.timestamp >= today_start
     ).scalar()
-    
+
     return usage_count < user.rate_limit_daily
 
 
@@ -108,20 +108,20 @@ def log_api_usage(db: Session, user: User, endpoint: str, status_code: int):
         endpoint=endpoint,
         status_code=status_code
     )
-    
+
     db.add(usage)
     db.commit()
 
 
 def get_user_stats(db: Session, user: User) -> dict:
     """Get user usage statistics"""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
     today_count = db.query(func.count(APIUsage.id)).filter(
         APIUsage.user_id == user.id,
         APIUsage.timestamp >= today_start
     ).scalar()
-    
+
     return {
         "user_id": str(user.id),
         "email": user.email,
@@ -141,10 +141,10 @@ def regenerate_api_key(db: Session, user: User) -> str:
     """
     new_api_key_plain = generate_api_key()
     new_api_key_hash = hash_api_key(new_api_key_plain)
-    
+
     user.api_key_hash = new_api_key_hash
     db.commit()
-    
+
     return new_api_key_plain
 
 
@@ -160,13 +160,13 @@ def reactivate_user(db: Session, user: User):
     db.commit()
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+def get_user_by_email(db: Session, email: str) -> User | None:
     """Find user by email"""
     email = email.lower().strip()
     return db.query(User).filter(User.email == email).first()
 
 
-def get_user_by_license_key(db: Session, license_key: str) -> Optional[User]:
+def get_user_by_license_key(db: Session, license_key: str) -> User | None:
     """Find user by license key"""
     try:
         import uuid
@@ -182,11 +182,11 @@ def cleanup_old_usage_logs(db: Session, days: int = 30):
     
     Call this daily via cron/systemd timer
     """
-    from datetime import datetime, timedelta, timezone
-    
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    
+    from datetime import datetime
+
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
     deleted = db.query(APIUsage).filter(APIUsage.timestamp < cutoff).delete()
     db.commit()
-    
+
     return deleted

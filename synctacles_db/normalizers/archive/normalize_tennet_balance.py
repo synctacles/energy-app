@@ -5,18 +5,18 @@ Aggregate TenneT balance data across 5 platforms.
 """
 
 import logging
-from datetime import datetime, timezone
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
 from sqlalchemy import create_engine, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from synctacles_db.models import RawTennetBalance
-from synctacles_db.models import NormTennetBalance
 from config.settings import DATABASE_URL
+from synctacles_db.models import NormTennetBalance, RawTennetBalance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,10 +30,10 @@ def calculate_quality_status(latest_timestamp: datetime) -> str:
     """Calculate data quality based on age."""
     if latest_timestamp is None:
         return 'NO_DATA'
-    
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now(UTC)
     age_minutes = (now - latest_timestamp).total_seconds() / 60
-    
+
     if age_minutes < 15:
         return 'OK'
     elif age_minutes < 1440:
@@ -47,16 +47,16 @@ def normalize_tennet_balance():
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
-    
+
     try:
         logger.info("Starting TenneT balance normalization...")
-        
+
         latest_raw = session.query(func.max(RawTennetBalance.timestamp)).scalar()
         quality_status = calculate_quality_status(latest_raw)
-        
+
         logger.info(f"Latest raw timestamp: {latest_raw}")
         logger.info(f"Quality status: {quality_status}")
-        
+
         # Aggregate query: sum delta across platforms
         agg_query = session.query(
             RawTennetBalance.timestamp,
@@ -67,7 +67,7 @@ def normalize_tennet_balance():
         ).order_by(
             RawTennetBalance.timestamp
         )
-        
+
         records = []
         for row in agg_query:
             records.append({
@@ -77,13 +77,13 @@ def normalize_tennet_balance():
                 'price_eur_mwh': row.price_eur_mwh,
                 'quality_status': quality_status
             })
-        
+
         if not records:
             logger.warning("No records to normalize")
             return
-        
+
         logger.info(f"Aggregated {len(records)} timestamp groups")
-        
+
         # Upsert
         stmt = insert(NormTennetBalance).values(records)
         stmt = stmt.on_conflict_do_update(
@@ -94,17 +94,17 @@ def normalize_tennet_balance():
                 'quality_status': stmt.excluded.get('quality_status')
             }
         )
-        
+
         session.execute(stmt)
         session.commit()
-        
+
         logger.info(f"✓ Normalized {len(records)} records to norm_tennet_balance")
-        
+
         # Sample output
         sample = session.query(NormTennetBalance).order_by(NormTennetBalance.timestamp.desc()).first()
         if sample:
             logger.info(f"Sample: {sample.timestamp} | Delta: {sample.delta_mw} MW | Price: {sample.price_eur_mwh} EUR/MWh")
-        
+
     except Exception as e:
         session.rollback()
         logger.error(f"Normalization failed: {e}", exc_info=True)

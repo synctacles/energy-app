@@ -1,9 +1,10 @@
 """
 Pydantic response models
 """
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+
+from pydantic import BaseModel, Field
+
 
 class MetaData(BaseModel):
     """Quality metadata for all responses"""
@@ -11,7 +12,7 @@ class MetaData(BaseModel):
     quality_status: str = Field(..., description="OK, STALE, NO_DATA")
     timestamp_utc: datetime = Field(..., description="Data timestamp")
     data_age_seconds: int = Field(..., description="Age in seconds")
-    next_update_utc: Optional[datetime] = Field(None, description="Expected next update")
+    next_update_utc: datetime | None = Field(None, description="Expected next update")
 
 class GenerationMixData(BaseModel):
     """Single generation mix record"""
@@ -32,27 +33,27 @@ class GenerationMixData(BaseModel):
 
 class GenerationMixResponse(BaseModel):
     """Generation mix endpoint response"""
-    data: List[GenerationMixData]
+    data: list[GenerationMixData]
     meta: MetaData
 
 class LoadData(BaseModel):
     """Single load record"""
     timestamp: datetime
     actual_mw: float
-    forecast_mw: Optional[float] = None
+    forecast_mw: float | None = None
 
 class LoadResponse(BaseModel):
     """Load endpoint response"""
-    data: List[LoadData]
+    data: list[LoadData]
     meta: MetaData
 
 class BalanceData(BaseModel):
     """Single balance record"""
     timestamp: datetime
     delta_mw: float
-    price_eur_mwh: Optional[float] = None
+    price_eur_mwh: float | None = None
 
 class BalanceResponse(BaseModel):
     """Balance endpoint response"""
-    data: List[BalanceData]
+    data: list[BalanceData]
     meta: MetaData

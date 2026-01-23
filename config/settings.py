@@ -20,7 +20,7 @@ def require_env(key: str, description: str = "") -> str:
         msg = f"FATAL: Required environment variable '{key}' is not set."
         if description:
             msg += f"\n  Description: {description}"
-        msg += f"\n  Ensure /opt/.env is sourced with 'set -a && source /opt/.env && set +a'"
+        msg += "\n  Ensure /opt/.env is sourced with 'set -a && source /opt/.env && set +a'"
         print(msg, file=sys.stderr)
         raise ConfigurationError(msg)
     return value

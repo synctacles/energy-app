@@ -3,13 +3,14 @@ Energy-Charts Day-Ahead Price Collector
 Fetches NL electricity prices from Fraunhofer ISE API
 """
 import json
-import requests
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from synctacles_db.core.logging import get_logger
+import requests
+
 from config.settings import LOG_PATH
+from synctacles_db.core.logging import get_logger
 
 _LOGGER = get_logger(__name__)
 
@@ -80,7 +81,7 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
     try:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         start = today.isoformat()
         end = (today + timedelta(days=days)).isoformat()
 
@@ -96,7 +97,7 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
         price_points = len(data.get('price', []))
 
         # Save raw response
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         output_file = OUTPUT_DIR / f"prices_{country}_{timestamp}.json"
 
         with open(output_file, "w") as f:

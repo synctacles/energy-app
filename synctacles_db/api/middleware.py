@@ -1,13 +1,13 @@
+import time
+from datetime import UTC, datetime, timedelta
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
-from datetime import datetime, timezone, timedelta
-import time
-import json
 
+from config.settings import AUTH_REQUIRED, RATE_LIMIT_ENABLED
 from synctacles_db import auth_service
 from synctacles_db.api.dependencies import get_db
 from synctacles_db.core.logging import get_logger
-from config.settings import AUTH_REQUIRED, RATE_LIMIT_ENABLED
 
 _LOGGER = get_logger(__name__)
 
@@ -190,7 +190,7 @@ async def rate_limit_middleware(request: Request, call_next):
         db = next(get_db())
 
         # Calculate remaining requests
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         from sqlalchemy import func
         usage_count = db.query(func.count(auth_service.APIUsage.id)).filter(
             auth_service.APIUsage.user_id == user.id,
@@ -247,7 +247,7 @@ async def rate_limit_middleware(request: Request, call_next):
         auth_service.log_api_usage(db, user, path, response.status_code)
 
         # Recalculate remaining after logging
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         from sqlalchemy import func
         usage_count = db.query(func.count(auth_service.APIUsage.id)).filter(
             auth_service.APIUsage.user_id == user.id,

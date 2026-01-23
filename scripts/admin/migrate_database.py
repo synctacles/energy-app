@@ -4,21 +4,20 @@ Bidirectional PostgreSQL Database Migration Script
 Migrate data between any two PostgreSQL databases with batching, verification, and logging.
 """
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import argparse
-import sys
 import json
 import logging
+import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Tuple
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 class DatabaseMigration:
     """Handle database migration operations"""
 
-    def __init__(self, source_config: Dict, target_config: Dict, dry_run: bool = False):
+    def __init__(self, source_config: dict, target_config: dict, dry_run: bool = False):
         self.source_config = source_config
         self.target_config = target_config
         self.dry_run = dry_run
@@ -74,7 +73,7 @@ class DatabaseMigration:
         if self.target_conn:
             self.target_conn.close()
 
-    def get_all_tables(self, conn) -> List[Tuple[str, str]]:
+    def get_all_tables(self, conn) -> list[tuple[str, str]]:
         """Get list of all user tables"""
         query = """
             SELECT schemaname, tablename
@@ -97,7 +96,7 @@ class DatabaseMigration:
             self.logger.warning(f"Failed to get row count for {schema}.{table}: {e}")
             return 0
 
-    def get_table_columns(self, conn, schema: str, table: str) -> List[str]:
+    def get_table_columns(self, conn, schema: str, table: str) -> list[str]:
         """Get ordered list of column names"""
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         query = """
@@ -109,7 +108,7 @@ class DatabaseMigration:
         cursor.execute(query, (schema, table))
         return [row['column_name'] for row in cursor.fetchall()]
 
-    def copy_table(self, schema: str, table: str, batch_size: int = 1000) -> Dict:
+    def copy_table(self, schema: str, table: str, batch_size: int = 1000) -> dict:
         """Copy table data in batches"""
         table_name = f"{schema}.{table}"
         self.logger.info(f"Migrating {table_name}...")

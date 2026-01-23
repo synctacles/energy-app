@@ -6,16 +6,15 @@ Provides PostgreSQL-backed price caching with automatic 24h cleanup.
 Used as Tier 4 fallback when all live sources are unavailable.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, List
-from decimal import Decimal
 import logging
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
-from sqlalchemy import create_engine, desc, delete
+from sqlalchemy import create_engine, delete, desc
 from sqlalchemy.orm import sessionmaker
 
-from synctacles_db.models import PriceCache
 from config.settings import DATABASE_URL
+from synctacles_db.models import PriceCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class PriceCacheService:
         source: str,
         quality: str,
         country: str = "NL",
-        timestamp: Optional[datetime] = None
+        timestamp: datetime | None = None
     ) -> bool:
         """
         Store a price in the cache.
@@ -52,7 +51,7 @@ class PriceCacheService:
         session = Session()
         try:
             cache_entry = PriceCache(
-                timestamp=timestamp or datetime.now(timezone.utc),
+                timestamp=timestamp or datetime.now(UTC),
                 country=country.upper(),
                 price_eur_kwh=Decimal(str(price)),
                 source=source,
@@ -72,7 +71,7 @@ class PriceCacheService:
             session.close()
 
     @staticmethod
-    def get_last_known(country: str = "NL") -> Optional[Dict]:
+    def get_last_known(country: str = "NL") -> dict | None:
         """
         Get most recent cached price.
 
@@ -106,7 +105,7 @@ class PriceCacheService:
             session.close()
 
     @staticmethod
-    def get_cached_prices(country: str = "NL", hours: int = 24) -> List[Dict]:
+    def get_cached_prices(country: str = "NL", hours: int = 24) -> list[dict]:
         """
         Get cached prices for the last N hours.
 
@@ -119,7 +118,7 @@ class PriceCacheService:
         """
         session = Session()
         try:
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+            cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
             rows = session.query(PriceCache)\
                 .filter(PriceCache.country == country.upper())\
@@ -157,7 +156,7 @@ class PriceCacheService:
         """
         session = Session()
         try:
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+            cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
             result = session.execute(
                 delete(PriceCache).where(PriceCache.timestamp < cutoff)
@@ -179,7 +178,7 @@ class PriceCacheService:
             session.close()
 
     @staticmethod
-    def get_cache_stats(country: str = "NL") -> Dict:
+    def get_cache_stats(country: str = "NL") -> dict:
         """
         Get cache statistics.
 

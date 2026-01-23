@@ -13,8 +13,7 @@ Features:
 - Returns wholesale prices in EUR/kWh and EUR/MWh
 """
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Tuple
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
 
@@ -51,7 +50,7 @@ class EasyEnergyClient:
         if not _circuit_breaker["last_failure_time"]:
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_failure = _circuit_breaker["last_failure_time"]
         minutes_since = (now - last_failure).total_seconds() / 60
 
@@ -69,7 +68,7 @@ class EasyEnergyClient:
     def _record_failure():
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
-        _circuit_breaker["last_failure_time"] = datetime.now(timezone.utc)
+        _circuit_breaker["last_failure_time"] = datetime.now(UTC)
         _LOGGER.warning(f"EasyEnergy circuit breaker failure count: {_circuit_breaker['failure_count']}")
 
     @staticmethod
@@ -81,9 +80,9 @@ class EasyEnergyClient:
 
     @staticmethod
     async def get_prices(
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> Optional[List[Dict]]:
+        start_date: str | None = None,
+        end_date: str | None = None
+    ) -> list[dict] | None:
         """
         Fetch electricity prices from EasyEnergy API.
 
@@ -100,7 +99,7 @@ class EasyEnergyClient:
             Returns None on failure.
         """
         # Default dates
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         if start_date is None:
             start_date = today.isoformat()
         if end_date is None:
@@ -184,14 +183,14 @@ class EasyEnergyClient:
             return None
 
     @staticmethod
-    async def get_prices_today() -> Optional[List[Dict]]:
+    async def get_prices_today() -> list[dict] | None:
         """
         Get today's prices.
 
         Returns:
             List of price dicts for today (24 hours), or None
         """
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         tomorrow = today + timedelta(days=1)
         return await EasyEnergyClient.get_prices(
             start_date=today.isoformat(),
@@ -199,14 +198,14 @@ class EasyEnergyClient:
         )
 
     @staticmethod
-    async def get_prices_tomorrow() -> Optional[List[Dict]]:
+    async def get_prices_tomorrow() -> list[dict] | None:
         """
         Get tomorrow's prices (available after ~15:00 CET).
 
         Returns:
             List of price dicts for tomorrow (24 hours), or None
         """
-        tomorrow = datetime.now(timezone.utc).date() + timedelta(days=1)
+        tomorrow = datetime.now(UTC).date() + timedelta(days=1)
         day_after = tomorrow + timedelta(days=1)
         return await EasyEnergyClient.get_prices(
             start_date=tomorrow.isoformat(),
@@ -214,7 +213,7 @@ class EasyEnergyClient:
         )
 
     @staticmethod
-    async def get_price_for_hour(hour: int, date: str = "today") -> Optional[float]:
+    async def get_price_for_hour(hour: int, date: str = "today") -> float | None:
         """
         Get EasyEnergy price for specific hour.
 
@@ -241,7 +240,7 @@ class EasyEnergyClient:
         return None
 
     @staticmethod
-    async def health_check() -> Tuple[bool, str]:
+    async def health_check() -> tuple[bool, str]:
         """
         Check EasyEnergy API health.
 
@@ -250,7 +249,7 @@ class EasyEnergyClient:
         """
         try:
             # Try to fetch a single day
-            today = datetime.now(timezone.utc).date()
+            today = datetime.now(UTC).date()
             tomorrow = today + timedelta(days=1)
             prices = await EasyEnergyClient.get_prices(
                 start_date=today.isoformat(),

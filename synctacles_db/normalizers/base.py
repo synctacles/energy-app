@@ -1,7 +1,9 @@
 """Base utilities for all normalizers."""
-from sqlalchemy import create_engine, text
-from config.settings import DATABASE_URL
 import logging
+
+from sqlalchemy import create_engine, text
+
+from config.settings import DATABASE_URL
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -15,7 +15,6 @@ Authenticatie: Geen (publiek toegankelijk)
 
 import argparse
 import csv
-import os
 import sys
 import time
 from datetime import datetime, timedelta

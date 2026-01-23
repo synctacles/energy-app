@@ -4,21 +4,21 @@ synctacles_db/normalizers/normalize_entso_e_a75.py
 Transform raw generation data into pivoted normalized table.
 """
 
+import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from sqlalchemy import create_engine, select, func, case
+
+from sqlalchemy import case, create_engine, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from synctacles_db.models import RawEntsoeA75
-from synctacles_db.models import NormEntsoeA75
-from synctacles_db.core.logging import get_logger
-from synctacles_db.normalizers.base import validate_db_connection
 from config.settings import DATABASE_URL
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import NormEntsoeA75, RawEntsoeA75
+from synctacles_db.normalizers.base import validate_db_connection
 
 _LOGGER = get_logger(__name__)
 
@@ -30,10 +30,10 @@ def calculate_quality_status(latest_timestamp: datetime) -> str:
     """Calculate data quality based on age."""
     if latest_timestamp is None:
         return 'NO_DATA'
-    
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now(UTC)
     age_minutes = (now - latest_timestamp).total_seconds() / 60
-    
+
     if age_minutes < 15:
         return 'OK'
     elif age_minutes < 1440:
@@ -57,7 +57,7 @@ def normalize_a75_generation():
 
         _LOGGER.debug(f"Latest raw timestamp: {latest_raw}")
         _LOGGER.debug(f"Quality status: {quality_status}")
-        
+
         pivot_query = session.query(
             RawEntsoeA75.timestamp,
             RawEntsoeA75.country,
@@ -77,7 +77,7 @@ def normalize_a75_generation():
         ).order_by(
             RawEntsoeA75.timestamp
         )
-        
+
         records = []
         for row in pivot_query:
             records.append({
@@ -95,13 +95,13 @@ def normalize_a75_generation():
                 'total_mw': row.total_mw,
                 'quality_status': quality_status
             })
-        
+
         if not records:
             _LOGGER.warning("No records to normalize")
             return
 
         _LOGGER.debug(f"Pivoted {len(records)} timestamp groups")
-        
+
         stmt = insert(NormEntsoeA75).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp', 'country'],
@@ -119,7 +119,7 @@ def normalize_a75_generation():
                 'quality_status': stmt.excluded.get('quality_status')
             }
         )
-        
+
         session.execute(stmt)
         session.commit()
 
@@ -129,7 +129,7 @@ def normalize_a75_generation():
         sample = session.query(NormEntsoeA75).order_by(NormEntsoeA75.timestamp.desc()).first()
         if sample:
             _LOGGER.debug(f"Sample: {sample.timestamp} | Total: {sample.total_mw} MW | Solar: {sample.b16_solar_mw} MW")
-        
+
     except Exception as e:
         session.rollback()
         elapsed = time.time() - start_time

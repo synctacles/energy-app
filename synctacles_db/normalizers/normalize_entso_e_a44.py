@@ -6,16 +6,16 @@ ENTSO-E A44 Normalizer: raw -> norm (with forward fill)
 import sys
 import time
 from pathlib import Path
-from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from synctacles_db.models import RawEntsoeA44, NormEntsoeA44
-from synctacles_db.core.logging import get_logger
-from synctacles_db.normalizers.base import validate_db_connection
+
 from config.settings import DATABASE_URL
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import NormEntsoeA44, RawEntsoeA44
+from synctacles_db.normalizers.base import validate_db_connection
 
 DB_URL = DATABASE_URL
 
@@ -34,7 +34,7 @@ def get_previous_value(session, timestamp, country):
         .filter(NormEntsoeA44.country == country)\
         .order_by(NormEntsoeA44.timestamp.desc())\
         .first()
-    
+
     if prev:
         return prev.price_eur_mwh
     return None

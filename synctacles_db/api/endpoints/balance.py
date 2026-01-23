@@ -7,6 +7,7 @@ TenneT API license restrictions. Access is now available only via BYO-key
 """
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
+
 from config.settings import GITHUB_ACCOUNT, HA_REPO_NAME
 
 router = APIRouter()

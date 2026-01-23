@@ -13,19 +13,19 @@ Key features:
 - Known capacity modeling for pragmatic NULL filling
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Literal
-from cachetools import TTLCache
 import logging
 import math
-
-from synctacles_db.fallback.energy_charts_client import EnergyChartsClient
-from synctacles_db.freshness_config import FRESHNESS_THRESHOLDS, QualityStatus, get_quality_status
-from synctacles_db.services.price_cache import price_cache_service
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 # Database access for Tier 1/2
 import asyncpg
+from cachetools import TTLCache
+
 from config.settings import DATABASE_URL
+from synctacles_db.fallback.energy_charts_client import EnergyChartsClient
+from synctacles_db.freshness_config import FRESHNESS_THRESHOLDS
+from synctacles_db.services.price_cache import price_cache_service
 
 # Max data age for GO action authorization (6 hours)
 MAX_DATA_AGE_HOURS = 6
@@ -60,7 +60,7 @@ class FallbackManager:
         "load": FRESHNESS_THRESHOLDS["ENTSO-E"],            # Use ENTSO-E thresholds
         "prices": FRESHNESS_THRESHOLDS["ENTSO-E"],          # Use ENTSO-E thresholds
     }
-    
+
     @staticmethod
     def _check_circuit_breaker() -> bool:
         """
@@ -70,29 +70,29 @@ class FallbackManager:
         """
         if not _ec_circuit_breaker["last_404_time"]:
             return False  # Never failed, proceed
-        
+
         # Calculate time since last 404
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_404 = _ec_circuit_breaker["last_404_time"]
         minutes_since = (now - last_404).total_seconds() / 60
-        
+
         if minutes_since < _ec_circuit_breaker["cooldown_minutes"]:
             _LOGGER.info(f"EC circuit breaker OPEN ({int(minutes_since)} min since 404, cooling down)")
             return True  # Still cooling down
-        
+
         # Cooldown expired, reset and allow retry
-        _LOGGER.info(f"EC circuit breaker CLOSED (cooldown expired, retrying)")
+        _LOGGER.info("EC circuit breaker CLOSED (cooldown expired, retrying)")
         _ec_circuit_breaker["last_404_time"] = None
         _ec_circuit_breaker["is_open"] = False
         return False
-    
+
     @staticmethod
     def _open_circuit_breaker():
         """Open circuit breaker after EC 404 error."""
-        _ec_circuit_breaker["last_404_time"] = datetime.now(timezone.utc)
+        _ec_circuit_breaker["last_404_time"] = datetime.now(UTC)
         _ec_circuit_breaker["is_open"] = True
         _LOGGER.warning("EC circuit breaker OPENED (404 error, cooldown for 2h)")
-    
+
     @staticmethod
     def _estimate_solar_nl(timestamp: str) -> float:
         """
@@ -103,11 +103,11 @@ class FallbackManager:
         try:
             dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             hour_utc = dt.hour
-            
+
             # Night time (no solar)
             if hour_utc < 6 or hour_utc > 20:
                 return 0.0
-            
+
             # Daytime: sine curve peaking at 13:00
             # Peak capacity ~2000 MW for NL in summer, ~500 in winter
             month = dt.month
@@ -117,18 +117,18 @@ class FallbackManager:
                 peak_capacity = 500.0
             else:  # Spring/Fall
                 peak_capacity = 1200.0
-            
+
             # Sine curve from 6:00 to 20:00, peak at 13:00
             hours_from_sunrise = hour_utc - 6
             solar_mw = peak_capacity * math.sin((hours_from_sunrise / 14.0) * math.pi)
-            
+
             return max(0.0, solar_mw)
         except Exception as err:
             _LOGGER.error(f"Solar estimate error: {err}")
             return 0.0
-    
+
     @staticmethod
-    def _fill_with_known_capacity(data: Dict) -> Tuple[Dict, Dict[str, str]]:
+    def _fill_with_known_capacity(data: dict) -> tuple[dict, dict[str, str]]:
         """
         Fill NULL fields with known capacity estimates.
         
@@ -140,16 +140,16 @@ class FallbackManager:
         """
         filled = data.copy()
         field_sources = {}
-        
-        timestamp = data.get("timestamp", datetime.now(timezone.utc).isoformat())
-        
+
+        timestamp = data.get("timestamp", datetime.now(UTC).isoformat())
+
         # Track what we fill
         psr_fields = [
             'biomass_mw', 'gas_mw', 'coal_mw', 'nuclear_mw',
             'solar_mw', 'waste_mw', 'wind_offshore_mw',
             'wind_onshore_mw', 'other_mw'
         ]
-        
+
         for field in psr_fields:
             if filled.get(field) is not None:
                 field_sources[field] = "ENTSO-E"
@@ -178,16 +178,16 @@ class FallbackManager:
                         field_sources[field] = "Missing"
                 else:
                     field_sources[field] = "Missing"
-        
+
         return filled, field_sources
-    
+
     @staticmethod
     async def get_component_with_fallback(
         component: Literal["generation_mix", "load"],
-        db_result: Optional[Dict],
+        db_result: dict | None,
         db_age_minutes: int,
         country: str = "nl"
-    ) -> Tuple[Optional[Dict], str, str]:
+    ) -> tuple[dict | None, str, str]:
         """
         Get component data with hybrid fallback logic.
         
@@ -206,45 +206,45 @@ class FallbackManager:
             - source: "ENTSO-E" | "Energy-Charts" | "Hybrid" | "Cache"
             - quality: "FRESH" | "STALE" | "PARTIAL" | "FALLBACK" | "CACHED" | "UNAVAILABLE"
         """
-        
+
         thresholds = FallbackManager.THRESHOLDS.get(component, {"fresh": 15, "stale": 60})
         fresh_threshold = thresholds["fresh"]
         stale_threshold = thresholds["stale"]
-        
+
         # === GENERATION MIX: HYBRID MERGE STRATEGY ===
         if component == "generation_mix":
             return await FallbackManager._handle_generation_mix_with_hybrid(
                 db_result, db_age_minutes, country, fresh_threshold, stale_threshold
             )
-        
+
         # === LOAD: STANDARD FALLBACK ===
         elif component == "load":
             return await FallbackManager._handle_standard_fallback(
                 component, db_result, db_age_minutes, country, fresh_threshold, stale_threshold
             )
-        
+
         # Unknown component
         return (None, "None", "UNAVAILABLE")
-    
+
     @staticmethod
     async def _handle_generation_mix_with_hybrid(
-        db_result: Optional[Dict],
+        db_result: dict | None,
         db_age_minutes: int,
         country: str,
         fresh_threshold: int,
         stale_threshold: int
-    ) -> Tuple[Optional[Dict], str, str]:
+    ) -> tuple[dict | None, str, str]:
         """
         Handle generation_mix with hybrid merge.
         
         Uses circuit breaker pattern: skips EC for 2h after 404.
         Falls back to Known Capacity modeling when EC unavailable.
         """
-        
+
         # Check circuit breaker before attempting EC fetch
         ec_data = None
         skip_ec = FallbackManager._check_circuit_breaker()
-        
+
         if not skip_ec:
             # Circuit closed - try Energy-Charts
             try:
@@ -255,18 +255,18 @@ class FallbackManager:
             except Exception as err:
                 error_msg = str(err)
                 _LOGGER.error(f"Energy-Charts fetch failed: {error_msg}")
-                
+
                 # Check if 404 error - open circuit breaker
                 if "404" in error_msg or "HTTP 404" in error_msg:
                     FallbackManager._open_circuit_breaker()
         else:
             _LOGGER.info("EC circuit breaker open - using Known Capacity instead")
-        
+
         # Tier 1: Database data exists (may have NULLs)
         if db_result:
             # Check for NULL values
             null_fields = FallbackManager._find_null_fields(db_result)
-            
+
             # If NULLs exist - try EC first, then Known Capacity
             if null_fields:
                 if ec_data:
@@ -274,51 +274,51 @@ class FallbackManager:
                     merged_data, field_sources, ec_timestamp = FallbackManager._hybrid_merge_generation(
                         db_result, ec_data
                     )
-                    
+
                     filled_count = sum(1 for src in field_sources.values() if src == "Energy-Charts")
-                    
+
                     _LOGGER.info(f"Hybrid merge (EC): filled {filled_count} NULL fields from Energy-Charts")
-                    
+
                     # Add metadata
                     merged_data["_field_sources"] = field_sources
                     merged_data["_ec_timestamp"] = ec_timestamp
-                    
+
                     quality = "PARTIAL"
                     source = f"Hybrid (ENTSO-E + {filled_count} from Energy-Charts)"
-                    
+
                     # Cache hybrid result
                     cache_key = f"generation_{country}"
                     _fallback_cache[cache_key] = merged_data
-                    
+
                     return (merged_data, source, quality)
-                
+
                 else:
                     # Tier 1b: KNOWN CAPACITY FALLBACK (EC unavailable)
                     filled_data, field_sources = FallbackManager._fill_with_known_capacity(db_result)
-                    
-                    filled_count = sum(1 for src in field_sources.values() 
+
+                    filled_count = sum(1 for src in field_sources.values()
                                      if src in ["Known Capacity", "Estimated", "Estimated (from offshore)"])
-                    
+
                     _LOGGER.info(f"Known Capacity fill: {filled_count} fields estimated")
-                    
+
                     # Add metadata
                     filled_data["_field_sources"] = field_sources
-                    
+
                     quality = "PARTIAL"
                     source = f"Hybrid (ENTSO-E + {filled_count} from Known Capacity)"
-                    
+
                     # Cache
                     cache_key = f"generation_{country}"
                     _fallback_cache[cache_key] = filled_data
-                    
+
                     return (filled_data, source, quality)
-            
+
             # No NULLs - Use ENTSO-E as-is
             else:
                 # Add field sources (all ENTSO-E)
                 field_sources = FallbackManager._all_entso_sources(db_result)
                 db_result["_field_sources"] = field_sources
-                
+
                 if db_age_minutes < fresh_threshold:
                     return (db_result, "ENTSO-E", "FRESH")
                 elif db_age_minutes < stale_threshold:
@@ -326,58 +326,58 @@ class FallbackManager:
                 else:
                     # Too stale, try full Energy-Charts fallback below
                     pass
-        
+
         # Tier 2: Database missing or too stale ? Full Energy-Charts fallback
         if ec_data:
             _LOGGER.info(f"Using full Energy-Charts fallback (DB age: {db_age_minutes} min)")
-            
+
             # Add field sources (all Energy-Charts)
             field_sources = FallbackManager._all_energy_charts_sources(ec_data)
             ec_data["_field_sources"] = field_sources
-            
+
             # Cache
             cache_key = f"generation_{country}"
             _fallback_cache[cache_key] = ec_data
-            
+
             return (ec_data, "Energy-Charts", "FALLBACK")
-        
+
         # Tier 3: Check cache
         cache_key = f"generation_{country}"
         if cache_key in _fallback_cache:
             cached_data = _fallback_cache[cache_key]
-            _LOGGER.warning(f"Using cached fallback data")
+            _LOGGER.warning("Using cached fallback data")
             return (cached_data, "Cache", "CACHED")
-        
+
         # Tier 4: All failed ? Return stale DB if available
         if db_result:
             _LOGGER.warning(f"All fallback failed, returning stale ENTSO-E ({db_age_minutes} min)")
             field_sources = FallbackManager._all_entso_sources(db_result)
             db_result["_field_sources"] = field_sources
             return (db_result, "ENTSO-E", "STALE")
-        
+
         # Complete failure
         _LOGGER.error("All data sources failed")
         return (None, "None", "UNAVAILABLE")
-    
+
     @staticmethod
     async def _handle_standard_fallback(
         component: str,
-        db_result: Optional[Dict],
+        db_result: dict | None,
         db_age_minutes: int,
         country: str,
         fresh_threshold: int,
         stale_threshold: int
-    ) -> Tuple[Optional[Dict], str, str]:
+    ) -> tuple[dict | None, str, str]:
         """Standard fallback for components without hybrid merge."""
-        
+
         # Tier 1: Fresh database data
         if db_result and db_age_minutes < fresh_threshold:
             return (db_result, "ENTSO-E", "FRESH")
-        
+
         # Tier 1.5: Acceptable database data
         if db_result and db_age_minutes < stale_threshold:
             return (db_result, "ENTSO-E", "STALE")
-        
+
         # Tier 2: Database too stale ? Try Energy-Charts (for load)
         if component == "load":
             try:
@@ -387,53 +387,53 @@ class FallbackManager:
                 if ec_data_list and len(ec_data_list) > 0:
                     ec_gen = ec_data_list[0]
                     load_data = {"load_mw": ec_gen.get("total_mw", 0)}
-                    
+
                     _LOGGER.info(f"Energy-Charts load fallback: {load_data['load_mw']:.1f} MW")
-                    
+
                     # Cache
                     cache_key = f"load_{country}"
                     _fallback_cache[cache_key] = load_data
-                    
+
                     return (load_data, "Energy-Charts", "FALLBACK")
             except Exception as err:
                 _LOGGER.error(f"Energy-Charts load fallback failed: {err}")
-        
+
         # Tier 3: Check cache
         cache_key = f"{component}_{country}"
         if cache_key in _fallback_cache:
             cached_data = _fallback_cache[cache_key]
             _LOGGER.warning(f"Using cached {component} data")
             return (cached_data, "Cache", "CACHED")
-        
+
         # Tier 4: Return stale DB if available
         if db_result:
             _LOGGER.warning(f"Returning stale {component} data ({db_age_minutes} min)")
             return (db_result, "ENTSO-E", "STALE")
-        
+
         # Complete failure
         return (None, "None", "UNAVAILABLE")
-    
+
     @staticmethod
-    def _find_null_fields(data: Dict) -> List[str]:
+    def _find_null_fields(data: dict) -> list[str]:
         """Find fields with NULL/None values in generation data."""
         psr_fields = [
             'biomass_mw', 'gas_mw', 'coal_mw', 'nuclear_mw',
             'solar_mw', 'waste_mw', 'wind_offshore_mw',
             'wind_onshore_mw', 'other_mw'
         ]
-        
+
         null_fields = []
         for field in psr_fields:
             if data.get(field) is None:
                 null_fields.append(field)
-        
+
         return null_fields
-    
+
     @staticmethod
     def _hybrid_merge_generation(
-        entso_data: Dict,
-        ec_data: Dict
-    ) -> Tuple[Dict, Dict[str, str], Optional[str]]:
+        entso_data: dict,
+        ec_data: dict
+    ) -> tuple[dict, dict[str, str], str | None]:
         """
         Merge ENTSO-E and Energy-Charts generation data.
         
@@ -453,17 +453,17 @@ class FallbackManager:
         merged = entso_data.copy()
         field_sources = {}
         ec_timestamp = ec_data.get('timestamp')  # Track EC timestamp for transparency
-        
+
         psr_fields = [
             'biomass_mw', 'gas_mw', 'coal_mw', 'nuclear_mw',
             'solar_mw', 'waste_mw', 'wind_offshore_mw',
             'wind_onshore_mw', 'other_mw'
         ]
-        
+
         for field in psr_fields:
             entso_value = merged.get(field)
             ec_value = ec_data.get(field)
-            
+
             if entso_value is None and ec_value is not None:
                 # Fill NULL with Energy-Charts
                 merged[field] = ec_value
@@ -474,46 +474,46 @@ class FallbackManager:
             else:
                 # Both NULL
                 field_sources[field] = "Missing"
-        
+
         # Total and timestamp always from ENTSO-E if available
         if merged.get('total_mw') is not None:
             field_sources['total_mw'] = "ENTSO-E"
         elif ec_data.get('total_mw') is not None:
             merged['total_mw'] = ec_data['total_mw']
             field_sources['total_mw'] = "Energy-Charts"
-        
+
         return merged, field_sources, ec_timestamp
-    
+
     @staticmethod
-    def _all_entso_sources(data: Dict) -> Dict[str, str]:
+    def _all_entso_sources(data: dict) -> dict[str, str]:
         """Create field_sources dict with all fields marked as ENTSO-E."""
         psr_fields = [
             'biomass_mw', 'gas_mw', 'coal_mw', 'nuclear_mw',
             'solar_mw', 'waste_mw', 'wind_offshore_mw',
             'wind_onshore_mw', 'other_mw', 'total_mw'
         ]
-        
+
         return {field: "ENTSO-E" for field in psr_fields if field in data}
-    
+
     @staticmethod
-    def _all_energy_charts_sources(data: Dict) -> Dict[str, str]:
+    def _all_energy_charts_sources(data: dict) -> dict[str, str]:
         """Create field_sources dict with all fields marked as Energy-Charts."""
         psr_fields = [
             'biomass_mw', 'gas_mw', 'coal_mw', 'nuclear_mw',
             'solar_mw', 'waste_mw', 'wind_offshore_mw',
             'wind_onshore_mw', 'other_mw', 'total_mw'
         ]
-        
+
         return {field: "Energy-Charts" for field in psr_fields if field in data}
-    
+
     # === LEGACY WRAPPER FOR BACKWARD COMPATIBILITY ===
-    
+
     @staticmethod
     async def get_generation_with_fallback(
-        db_result: Optional[Dict],
+        db_result: dict | None,
         db_age_minutes: int,
         country: str = "nl"
-    ) -> Tuple[Optional[Dict], str, str]:
+    ) -> tuple[dict | None, str, str]:
         """Legacy wrapper for get_component_with_fallback."""
         return await FallbackManager.get_component_with_fallback(
             component="generation_mix",
@@ -521,9 +521,9 @@ class FallbackManager:
             db_age_minutes=db_age_minutes,
             country=country
         )
-    
+
     @staticmethod
-    def calculate_renewable_percentage(data: Dict) -> Optional[float]:
+    def calculate_renewable_percentage(data: dict) -> float | None:
         """Calculate renewable percentage from generation mix data."""
         try:
             renewable_mw = (
@@ -547,10 +547,10 @@ class FallbackManager:
 
     @staticmethod
     async def get_prices_with_fallback(
-        db_results: Optional[List[Dict]],
+        db_results: list[dict] | None,
         db_age_minutes: int,
         country: str = "nl"
-    ) -> Tuple[Optional[List[Dict]], str, str, bool]:
+    ) -> tuple[list[dict] | None, str, str, bool]:
         """
         Get electricity prices with 6-tier KISS fallback strategy.
 
@@ -576,9 +576,8 @@ class FallbackManager:
             - quality: "FRESH" | "STALE" | "FALLBACK" | "CACHED" | "UNAVAILABLE"
             - allow_go_action: bool
         """
-        from synctacles_db.clients.frank_energie_client import FrankEnergieClient
         from synctacles_db.clients.easyenergy_client import EasyEnergyClient
-        from synctacles_db.config.static_offsets import apply_static_offset_mwh
+        from synctacles_db.clients.frank_energie_client import FrankEnergieClient
 
         thresholds = FallbackManager.THRESHOLDS.get("prices", {"fresh": 15, "stale": 60})
         fresh_threshold = thresholds["fresh"]
@@ -729,13 +728,13 @@ class FallbackManager:
     @staticmethod
     def _hour_to_timestamp(hour: int) -> str:
         """Convert hour (0-23) to ISO timestamp for today."""
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        from datetime import datetime
+        now = datetime.now(UTC)
         ts = now.replace(hour=hour, minute=0, second=0, microsecond=0)
         return ts.isoformat()
 
     @staticmethod
-    def _apply_static_offset(prices: List[Dict]) -> List[Dict]:
+    def _apply_static_offset(prices: list[dict]) -> list[dict]:
         """
         Convert wholesale prices to consumer estimates using hybrid model.
 
@@ -775,10 +774,10 @@ class FallbackManager:
 
     @staticmethod
     def _add_reference_data(
-        prices: List[Dict],
+        prices: list[dict],
         source: str,
         tier: int
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Add reference data to price records for HA anomaly detection.
 
@@ -792,7 +791,10 @@ class FallbackManager:
         Returns:
             Prices list with _reference metadata added to first record
         """
-        from synctacles_db.config.static_offsets import get_market_stats, get_expected_range
+        from synctacles_db.config.static_offsets import (
+            get_expected_range,
+            get_market_stats,
+        )
 
         if not prices:
             return prices
@@ -807,7 +809,7 @@ class FallbackManager:
             market_stats = get_market_stats(price_values) if price_values else None
 
             # Get current hour for expected range
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             current_hour = now.hour
 
             # Calculate expected range
@@ -839,16 +841,16 @@ class FallbackManager:
 
     # Legacy method for backward compatibility
     @staticmethod
-    def _apply_coefficient(prices: List[Dict], coefficient: float) -> List[Dict]:
+    def _apply_coefficient(prices: list[dict], coefficient: float) -> list[dict]:
         """Legacy: Apply simple coefficient (deprecated, use _apply_static_offset)."""
         # For backward compatibility, just return the prices with static offset
         return FallbackManager._apply_static_offset(prices)
 
     @staticmethod
-    def _cache_prices_to_db(prices: List[Dict], source: str, quality: str, country: str):
+    def _cache_prices_to_db(prices: list[dict], source: str, quality: str, country: str):
         """Store prices in PostgreSQL cache for 24h persistence."""
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             for price_record in prices[:24]:  # Only cache first 24 hours
                 timestamp_str = price_record.get("timestamp")
@@ -879,7 +881,7 @@ class FallbackManager:
     # =========================================================================
 
     @staticmethod
-    async def _get_frank_from_db() -> Tuple[Optional[List[Dict]], int]:
+    async def _get_frank_from_db() -> tuple[list[dict] | None, int]:
         """
         Get today's Frank prices from local database (frank_prices table).
 
@@ -892,8 +894,8 @@ class FallbackManager:
             conn = await asyncpg.connect(DATABASE_URL)
 
             # Get today's prices
-            today = datetime.now(timezone.utc).date()
-            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc)
+            today = datetime.now(UTC).date()
+            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=UTC)
             end_ts = start_ts + timedelta(days=1)
 
             rows = await conn.fetch("""
@@ -910,7 +912,7 @@ class FallbackManager:
 
             # Calculate data age from newest created_at
             newest_created = max(row['created_at'] for row in rows)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             data_age_minutes = int((now - newest_created).total_seconds() / 60)
 
             # Convert to standard format
@@ -930,7 +932,7 @@ class FallbackManager:
             return (None, 9999)
 
     @staticmethod
-    async def _get_frank_tomorrow_from_db() -> Tuple[Optional[List[Dict]], int]:
+    async def _get_frank_tomorrow_from_db() -> tuple[list[dict] | None, int]:
         """
         Get tomorrow's Frank prices from local database (frank_prices table).
 
@@ -943,8 +945,8 @@ class FallbackManager:
             conn = await asyncpg.connect(DATABASE_URL)
 
             # Get tomorrow's prices
-            today = datetime.now(timezone.utc).date()
-            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc) + timedelta(days=1)
+            today = datetime.now(UTC).date()
+            start_ts = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=UTC) + timedelta(days=1)
             end_ts = start_ts + timedelta(days=1)
 
             rows = await conn.fetch("""
@@ -961,7 +963,7 @@ class FallbackManager:
 
             # Calculate data age from newest created_at
             newest_created = max(row['created_at'] for row in rows)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             data_age_minutes = int((now - newest_created).total_seconds() / 60)
 
             # Convert to standard format

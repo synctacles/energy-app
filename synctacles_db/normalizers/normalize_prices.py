@@ -1,12 +1,13 @@
 """Normalize raw_prices to norm_prices with quality checks."""
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from config.settings import DATABASE_URL
 from synctacles_db.core.logging import get_logger
 from synctacles_db.normalizers.base import validate_db_connection
-from config.settings import DATABASE_URL
 
 _LOGGER = get_logger(__name__)
 
@@ -22,8 +23,8 @@ def normalize_prices(country: str = "NL"):
     start_time = time.time()
 
     session = Session()
-    now = datetime.now(timezone.utc)
-    
+    now = datetime.now(UTC)
+
     try:
         # Get latest raw data
         raw_records = session.execute(text("""

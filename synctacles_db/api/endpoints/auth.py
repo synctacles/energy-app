@@ -1,13 +1,13 @@
 """Authentication Endpoints"""
 
-from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, EmailStr
-from typing import Optional
-from sqlalchemy.orm import Session
 import os
 
-from synctacles_db.api.dependencies import get_db
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
+
 from synctacles_db import auth_service
+from synctacles_db.api.dependencies import get_db
 
 router = APIRouter()
 
@@ -57,7 +57,7 @@ async def signup(
     """
     try:
         user, api_key_plain = auth_service.create_user(db, request.email)
-        
+
         return SignupResponse(
             user_id=str(user.id),
             email=user.email,
@@ -65,7 +65,7 @@ async def signup(
             api_key=api_key_plain,
             message="Account created successfully. Save your API key - it won't be shown again!"
         )
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -76,11 +76,11 @@ async def get_stats(
     db: Session = Depends(get_db)
 ):
     """Get current user statistics and rate limit info"""
-    
+
     user = auth_service.validate_api_key(db, x_api_key)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    
+
     stats = auth_service.get_user_stats(db, user)
     return UserStatsResponse(**stats)
 
@@ -98,9 +98,9 @@ async def regenerate_api_key(
     user = auth_service.validate_api_key(db, x_api_key)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    
+
     new_api_key = auth_service.regenerate_api_key(db, user)
-    
+
     return RegenerateKeyResponse(
         user_id=str(user.id),
         email=user.email,
@@ -118,9 +118,9 @@ async def deactivate_account(
     user = auth_service.validate_api_key(db, x_api_key)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    
+
     auth_service.deactivate_user(db, user)
-    
+
     return {"message": "Account deactivated successfully"}
 
 
@@ -136,9 +136,9 @@ async def list_users(
     """
     if admin_key != os.getenv("ADMIN_API_KEY", "change-me-in-production"):
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     users = db.query(auth_service.User).all()
-    
+
     user_list = [
         {
             "user_id": str(u.id),
@@ -150,5 +150,5 @@ async def list_users(
         }
         for u in users
     ]
-    
+
     return UserListResponse(total=len(users), users=user_list)

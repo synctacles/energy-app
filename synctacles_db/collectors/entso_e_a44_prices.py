@@ -6,13 +6,13 @@ ENTSO-E A44 Day-Ahead Prices Collector
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from entsoe import EntsoePandasClient
-import pandas as pd
 
-from synctacles_db.core.logging import get_logger
+import pandas as pd
+from entsoe import EntsoePandasClient
+
 from config.settings import LOG_PATH
+from synctacles_db.core.logging import get_logger
 
 SCRIPT_DIR = Path(__file__).parent
 LOG_DIR = Path(LOG_PATH)

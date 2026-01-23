@@ -1,7 +1,5 @@
 # Active endpoints
-from . import balance
-from . import prices
-from . import energy_action
+from . import balance, energy_action, prices
 
 # Deprecated endpoints (410 Gone) - Phase 2/3: Soft Delete (2026-01-11)
 # Modules moved to archive/ directory:

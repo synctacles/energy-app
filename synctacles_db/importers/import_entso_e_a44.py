@@ -3,20 +3,21 @@
 ENTSO-E A44 Importer: CSV -> raw_entso_e_a44
 """
 
+import csv
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
-import csv
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from synctacles_db.models import RawEntsoeA44
-from synctacles_db.core.logging import get_logger
+
 from config.settings import DATABASE_URL, LOG_PATH
+from synctacles_db.core.logging import get_logger
+from synctacles_db.models import RawEntsoeA44
 
 LOG_DIR = Path(LOG_PATH) / 'collectors' / 'entso_e_raw'
 
@@ -36,7 +37,7 @@ def import_csv_file(filepath):
 
     try:
         _LOGGER.debug(f"Parsing CSV file: {filepath}")
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             reader = csv.DictReader(f)
 
             for row in reader:

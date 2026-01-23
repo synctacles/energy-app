@@ -8,9 +8,9 @@ Tests:
 3. Anomaly detection triggers fallback when price is out of range
 """
 import asyncio
-import sys
 import os
-from datetime import datetime, timezone
+import sys
+from datetime import UTC, datetime
 
 # Add project paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -25,8 +25,12 @@ async def test_backend_reference_data():
     """Test that backend returns _reference data."""
     print("\n[1] Testing Backend _reference data generation...")
 
+    from synctacles_db.config.static_offsets import (
+        HOURLY_OFFSET,
+        get_expected_range,
+        get_market_stats,
+    )
     from synctacles_db.fallback.fallback_manager import FallbackManager
-    from synctacles_db.config.static_offsets import HOURLY_OFFSET, get_expected_range, get_market_stats
 
     # Test static offsets
     print(f"    Static offsets loaded: {len(HOURLY_OFFSET)} hours")
@@ -39,15 +43,15 @@ async def test_backend_reference_data():
     assert stats is not None, "Market stats should not be None"
 
     # Test expected range
-    current_hour = datetime.now(timezone.utc).hour
+    current_hour = datetime.now(UTC).hour
     expected = get_expected_range(0.05, current_hour)  # €0.05/kWh wholesale
     print(f"    Expected range (hour {current_hour}): low={expected['low']:.4f}, high={expected['high']:.4f}")
     assert "low" in expected and "high" in expected, "Expected range should have low/high"
 
     # Test _add_reference_data
     test_prices_mwh = [
-        {"timestamp": datetime.now(timezone.utc).isoformat(), "price_eur_mwh": 250.0},
-        {"timestamp": datetime.now(timezone.utc).isoformat(), "price_eur_mwh": 280.0},
+        {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 250.0},
+        {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 280.0},
     ]
     result = FallbackManager._add_reference_data(test_prices_mwh, "Test Source", 1)
 
@@ -69,15 +73,14 @@ async def test_ha_validation_logic(reference):
     print("\n[2] Testing HA Component validation logic...")
 
     # Import HA component functions
+    from custom_components.ha_energy_insights_nl.const import (
+        ANOMALY_MAX_PRICE,
+        ANOMALY_MIN_PRICE,
+        ANOMALY_TOLERANCE_ABSOLUTE,
+        ANOMALY_TOLERANCE_PERCENT,
+    )
     from custom_components.ha_energy_insights_nl.sensor import (
         validate_price_against_reference,
-        extract_reference_from_server,
-    )
-    from custom_components.ha_energy_insights_nl.const import (
-        ANOMALY_TOLERANCE_PERCENT,
-        ANOMALY_TOLERANCE_ABSOLUTE,
-        ANOMALY_MIN_PRICE,
-        ANOMALY_MAX_PRICE,
     )
 
     print(f"    Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh")
@@ -144,7 +147,9 @@ async def test_extract_reference():
     """Test extracting reference from server response."""
     print("\n[3] Testing extract_reference_from_server...")
 
-    from custom_components.ha_energy_insights_nl.sensor import extract_reference_from_server
+    from custom_components.ha_energy_insights_nl.sensor import (
+        extract_reference_from_server,
+    )
 
     # Simulate server response with _reference
     server_data = {

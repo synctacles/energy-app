@@ -15,7 +15,6 @@ Note: The old HOURLY_OFFSET values are kept for backwards compatibility
 but should not be used for new code.
 """
 
-from typing import Dict, List, Optional
 
 # =============================================================================
 # HYBRID MODEL (RECOMMENDED) - Based on Frank API data analysis
@@ -79,7 +78,7 @@ def apply_hybrid_conversion_mwh(wholesale_price_eur_mwh: float) -> float:
 # EUR/kWh offset per hour (0-23) - DEPRECATED
 # These bake BTW into a fixed offset, causing ~15% error at price extremes
 # Use apply_hybrid_conversion() instead
-HOURLY_OFFSET: Dict[int, float] = {
+HOURLY_OFFSET: dict[int, float] = {
     0: 0.1934,   # Night low
     1: 0.1903,
     2: 0.1879,
@@ -142,7 +141,7 @@ def apply_static_offset_mwh(wholesale_price_eur_mwh: float, hour: int = 0) -> fl
     return apply_hybrid_conversion_mwh(wholesale_price_eur_mwh)
 
 
-def get_market_stats(wholesale_prices: List[float]) -> Optional[Dict]:
+def get_market_stats(wholesale_prices: list[float]) -> dict | None:
     """
     Calculate market statistics for reference data.
 
@@ -173,7 +172,7 @@ def get_expected_range(
     market_average_eur_kwh: float,
     hour: int,
     tolerance_percent: float = 15.0
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Calculate expected consumer price range for anomaly detection.
 

@@ -3,14 +3,15 @@
 ENTSO-E Zero-Value Audit (met nachttijd filtering)
 Detecteert abnormale 0-waarden, exclusief verwachte nullen (Solar 's nachts)
 """
-import sys
 import os
+import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine
-from datetime import datetime
+
 import pandas as pd
+from sqlalchemy import create_engine
 
 # Use environment variable for database URL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/synctacles")
@@ -48,16 +49,16 @@ print(f"Totaal records: {len(df_a75)}")
 
 for col in PSR_COLUMNS:
     zeros = df_a75[df_a75[col] == 0.0].copy()
-    
+
     # Pas filter toe indien gedefinieerd
     if col in FILTERS:
         zeros = zeros[FILTERS[col](zeros)]
-    
+
     if len(zeros) > 0:
         psr_name = col.split('_')[1].title()
         print(f"\n{psr_name} (abnormaal):")
         print(f"  Nullen: {len(zeros)} / {len(df_a75)} ({len(zeros)/len(df_a75)*100:.1f}%)")
-        print(f"  Laatste 5:")
+        print("  Laatste 5:")
         for _, row in zeros.head(5).iterrows():
             hour = row['timestamp'].hour
             print(f"    {row['timestamp']} (uur {hour:02d}) | {row[col]} MW")
@@ -82,7 +83,7 @@ for col in ['actual_mw', 'forecast_mw']:
     print(f"  Nullen: {len(zeros)} ({len(zeros)/len(df_a65)*100:.1f}%)")
     print(f"  NULL: {len(nulls)} ({len(nulls)/len(df_a65)*100:.1f}%)")
     if len(zeros) > 0:
-        print(f"  Laatste 5:")
+        print("  Laatste 5:")
         for _, row in zeros.head(5).iterrows():
             print(f"    {row['timestamp']} | {row[col]} MW")
 

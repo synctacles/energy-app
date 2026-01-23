@@ -2,17 +2,17 @@
 SYNCTACLES Binary Signals API with Energy-Charts Fallback (ASYNC)
 """
 
-from datetime import datetime, timezone
-from typing import Dict, Any, Tuple, Optional
-from fastapi import APIRouter, Depends, HTTPException, Header
-from fastapi.responses import Response
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 import json
+from datetime import UTC, datetime
 
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import Response
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from synctacles_db import auth_service
 from synctacles_db.api.dependencies import get_db
 from synctacles_db.cache import api_cache
-from synctacles_db import auth_service
 from synctacles_db.fallback.fallback_manager import FallbackManager
 
 router = APIRouter(prefix="/v1", tags=["signals"])
@@ -85,7 +85,7 @@ async def get_signals(
         is_green = renewable_pct > RENEWABLE_THRESHOLD if renewable_pct is not None else False
         charge_now = (is_cheap and renewable_pct and renewable_pct > 40)
         grid_stable = abs(balance_delta) < BALANCE_THRESHOLD if balance_delta is not None else True
-        
+
         if next_3h_prices and current_price:
             cheap_hour_coming = min(next_3h_prices) < (current_price * 0.9)
         else:
@@ -104,7 +104,7 @@ async def get_signals(
             "cheap_hour_coming": cheap_hour_coming
         },
         "metadata": {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": str(user_id),
             "email": current_user["email"],
             "tier": current_user["tier"],
@@ -134,7 +134,7 @@ async def get_signals(
     )
 
 
-async def get_renewable_with_fallback(db: Session) -> Tuple[Optional[float], int, str, str]:
+async def get_renewable_with_fallback(db: Session) -> tuple[float | None, int, str, str]:
     """
     Get renewable % with Energy-Charts fallback (ASYNC)
     Returns: (percentage, age_minutes, quality, source)
@@ -159,10 +159,10 @@ async def get_renewable_with_fallback(db: Session) -> Tuple[Optional[float], int
         ORDER BY timestamp DESC
         LIMIT 1
     """)).fetchone()
-    
+
     db_data = None
     db_age = 999
-    
+
     if result and result[0] is not None:
         db_data = {
             "renewable_pct": float(result[0]),
@@ -174,30 +174,30 @@ async def get_renewable_with_fallback(db: Session) -> Tuple[Optional[float], int
             "timestamp": result[7].isoformat() if result[7] else None,
         }
         db_age = int(result[1])
-    
+
     # Use ASYNC fallback manager
     data, source, quality = await FallbackManager.get_generation_with_fallback(
         db_result=db_data,
         db_age_minutes=db_age,
         country="nl"
     )
-    
+
     if not data:
         return None, 999, "UNAVAILABLE", "None"
-    
+
     # Calculate or extract renewable percentage
     if "renewable_pct" in data:
         pct = data["renewable_pct"]
     else:
         pct = FallbackManager.calculate_renewable_percentage(data)
-    
+
     # Calculate age from timestamp if available
     if "timestamp" in data and isinstance(data["timestamp"], str):
         ts = datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-        age = int((datetime.now(timezone.utc) - ts).total_seconds() / 60)
+        age = int((datetime.now(UTC) - ts).total_seconds() / 60)
     else:
         age = db_age
-    
+
     return pct, age, quality, source
 
 

@@ -8,6 +8,7 @@ See: PVA_ENERGY_ACTION_FOCUS.md - Phase 2: Soft Delete
 """
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
+
 from config.settings import GITHUB_ACCOUNT
 
 router = APIRouter(prefix="", tags=["deprecated"])

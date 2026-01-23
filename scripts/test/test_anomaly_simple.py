@@ -3,7 +3,6 @@
 Simple test for anomaly detection logic - no external dependencies.
 """
 import sys
-import os
 
 print("=" * 60)
 print("KISS Migration - Anomaly Detection Simple Test")
@@ -56,7 +55,7 @@ def test_validation():
         }
     }
 
-    print(f"\nReference data:")
+    print("\nReference data:")
     print(f"  expected_range: low={reference['expected_range']['low']}, high={reference['expected_range']['high']}")
     print(f"  Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh")
 

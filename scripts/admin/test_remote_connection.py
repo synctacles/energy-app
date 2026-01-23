@@ -4,9 +4,9 @@ Test remote PostgreSQL database connection.
 Auto-detects which database name and user credentials work.
 """
 
-import psycopg2
 import sys
-from tabulate import tabulate
+
+import psycopg2
 
 # Try all possible database/user combinations
 possible_configs = [
@@ -49,7 +49,7 @@ for config in possible_configs:
         cursor.execute("SELECT version();")
         version = cursor.fetchone()[0].split(',')[0]
 
-        print(f"✓ SUCCESS")
+        print("✓ SUCCESS")
         print(f"  ├─ Database: {db_name}")
         print(f"  ├─ User: {user}")
         print(f"  ├─ Size: {size}")

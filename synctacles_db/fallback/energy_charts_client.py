@@ -4,9 +4,9 @@ Provides generation mix data from Fraunhofer ISE when ENTSO-E is unavailable.
 API: https://api.energy-charts.info/
 """
 
-from datetime import datetime, timezone
-from typing import List, Dict, Optional
 import logging
+from datetime import UTC, datetime
+
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
@@ -14,9 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 
 class EnergyChartsClient:
     """Client for Energy-Charts API (Fraunhofer ISE)."""
-    
+
     BASE_URL = "https://api.energy-charts.info"
-    
+
     # Map Energy-Charts types to SYNCTACLES schema
     TYPE_MAPPING = {
         "Solar": "solar_mw",
@@ -31,12 +31,12 @@ class EnergyChartsClient:
         "Hydro pumped storage": "pumped_storage_mw",
         "Others": "other_mw",
     }
-    
+
     @staticmethod
     async def fetch_generation_mix(
         country: str = "nl",
         limit: int = 1
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Fetch latest generation mix data from Energy-Charts.
         
@@ -52,31 +52,31 @@ class EnergyChartsClient:
             params = {
                 "country": country,
             }
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, timeout=10) as response:
                     if response.status != 200:
                         _LOGGER.error(f"Energy-Charts API error: HTTP {response.status}")
                         return []
-                    
+
                     data = await response.json()
-                    
+
                     # Parse nested structure
                     # Response format: {unix_seconds: [...], production_types: [{name, data: [...]}]}
                     return EnergyChartsClient._parse_response(data, limit)
-        
+
         except aiohttp.ClientError as err:
             _LOGGER.error(f"Energy-Charts connection error: {err}")
             return []
         except Exception as err:
             _LOGGER.error(f"Energy-Charts unexpected error: {err}")
             return []
-    
+
     @staticmethod
     async def fetch_prices(
         country: str = "nl",
         hours: int = 24
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Fetch electricity prices from Energy-Charts.
 
@@ -112,7 +112,7 @@ class EnergyChartsClient:
             return []
 
     @staticmethod
-    def _parse_price_response(data: Dict, hours: int) -> List[Dict]:
+    def _parse_price_response(data: dict, hours: int) -> list[dict]:
         """Parse Energy-Charts price response to SYNCTACLES format."""
         try:
             unix_seconds = data.get("unix_seconds", [])
@@ -132,7 +132,7 @@ class EnergyChartsClient:
             # Process all price records
             for unix_ts, price in zip(unix_seconds, prices):
                 try:
-                    timestamp = datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+                    timestamp = datetime.fromtimestamp(unix_ts, tz=UTC).isoformat()
                     record = {
                         "timestamp": timestamp,
                         "price_eur_mwh": float(price),
@@ -151,7 +151,7 @@ class EnergyChartsClient:
             return []
 
     @staticmethod
-    def _parse_response(data: Dict, limit: int) -> List[Dict]:
+    def _parse_response(data: dict, limit: int) -> list[dict]:
         """Parse Energy-Charts response to SYNCTACLES format."""
         try:
             timestamps = data.get("unix_seconds", [])
@@ -168,7 +168,7 @@ class EnergyChartsClient:
 
             for idx, ts in enumerate(latest_timestamps):
                 record = {
-                    "timestamp": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
+                    "timestamp": datetime.fromtimestamp(ts, tz=UTC).isoformat(),
                     "source": "Energy-Charts",
                 }
 
@@ -212,16 +212,16 @@ class EnergyChartsClient:
 
 
 # Synchronous wrapper for use in non-async contexts
-def fetch_generation_mix_sync(country: str = "nl", limit: int = 1) -> List[Dict]:
+def fetch_generation_mix_sync(country: str = "nl", limit: int = 1) -> list[dict]:
     """Synchronous wrapper for Energy-Charts fetch."""
     import asyncio
-    
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     return loop.run_until_complete(
         EnergyChartsClient.fetch_generation_mix(country, limit)
     )

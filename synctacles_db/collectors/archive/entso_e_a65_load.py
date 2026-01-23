@@ -15,14 +15,12 @@ Version: 1.0.0
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional, Dict
-import json
 
 import pandas as pd
-from entsoe import EntsoeRawClient
 from dotenv import load_dotenv
+from entsoe import EntsoeRawClient
 
 from synctacles_db.core.logging import get_logger
 
@@ -68,12 +66,12 @@ class EntsoeLoadParser:
         self.country_code = country_code
         self.logger = _LOGGER
         self.results = {}
-    
+
     def fetch_load(
         self,
         hours_back: int = 24,
         load_type: str = 'total'
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Fetch load data (consumption)
         
@@ -88,36 +86,36 @@ class EntsoeLoadParser:
             # Calculate time range
             end = pd.Timestamp.now(tz='UTC')
             start = end - pd.Timedelta(hours=hours_back)
-            
+
             self.logger.info(
                 f"Fetching Load data ({load_type}) "
                 f"from {start.strftime('%Y-%m-%d %H:%M')} to {end.strftime('%Y-%m-%d %H:%M')}"
             )
-            
+
             # Query ENTSO-E API for Load
             xml_response = self.client.query_load(
                 country_code=self.country_code,
                 start=start,
                 end=end
             )
-            
+
             if xml_response:
                 self.logger.info(
                     f"✓ Received {len(xml_response)} bytes from ENTSO-E (A65)"
                 )
                 return xml_response
             else:
-                self.logger.warning(f"Empty response for Load data")
+                self.logger.warning("Empty response for Load data")
                 return None
-                
+
         except Exception as e:
             self.logger.error(f"Failed to fetch Load data: {str(e)}")
             return None
-    
+
     def fetch_load_forecast(
         self,
         hours_ahead: int = 24
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Fetch load FORECAST data (Day-ahead)
         
@@ -130,35 +128,35 @@ class EntsoeLoadParser:
         try:
             start = pd.Timestamp.now(tz='UTC')
             end = start + pd.Timedelta(hours=hours_ahead)
-            
+
             self.logger.info(
                 f"Fetching Load FORECAST "
                 f"from {start.strftime('%Y-%m-%d %H:%M')} to {end.strftime('%Y-%m-%d %H:%M')}"
             )
-            
+
             xml_response = self.client.query_load_forecast(
                 country_code=self.country_code,
                 start=start,
                 end=end
             )
-            
+
             if xml_response:
                 self.logger.info(
                     f"✓ Received {len(xml_response)} bytes forecast from ENTSO-E"
                 )
                 return xml_response
             else:
-                self.logger.warning(f"Empty forecast response")
+                self.logger.warning("Empty forecast response")
                 return None
-                
+
         except Exception as e:
             self.logger.error(f"Failed to fetch Load forecast: {str(e)}")
             return None
-    
+
     def save_to_file(
         self,
-        output_dir: Optional[Path] = None
-    ) -> Dict[str, str]:
+        output_dir: Path | None = None
+    ) -> dict[str, str]:
         """
         Save all fetched responses to files (for inspection)
         
@@ -167,30 +165,30 @@ class EntsoeLoadParser:
         """
         if not output_dir:
             output_dir = LOG_DIR / "collectors" / "entso_e_raw"
-        
+
         output_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+
         saved_files = {}
-        
+
         for data_type, xml_data in self.results.items():
             if xml_data:
                 filename = f"entso_e_a65_load_{data_type}_{timestamp}.xml"
                 filepath = output_dir / filename
-                
+
                 try:
                     with open(filepath, 'w') as f:
                         f.write(xml_data)
-                    
+
                     saved_files[data_type] = str(filepath)
                     self.logger.debug(f"Saved {data_type} to {filepath}")
-                    
+
                 except Exception as e:
                     self.logger.error(f"Failed to save {data_type}: {str(e)}")
-        
+
         return saved_files
-    
-    def get_summary(self) -> Dict:
+
+    def get_summary(self) -> dict:
         """
         Get summary of fetched data
         
@@ -198,7 +196,7 @@ class EntsoeLoadParser:
             Summary statistics
         """
         summary = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'timestamp': datetime.now(UTC).isoformat(),
             'document_type': DOCUMENT_TYPE,
             'country': self.country_code,
             'data_types_requested': len(self.results),
@@ -206,13 +204,13 @@ class EntsoeLoadParser:
             'data_types_failed': sum(1 for v in self.results.values() if not v),
             'details': {}
         }
-        
+
         for data_type, xml in self.results.items():
             summary['details'][data_type] = {
                 'status': 'success' if xml else 'failed',
                 'size_bytes': len(xml) if xml else 0
             }
-        
+
         return summary
 
 # ========================================================
@@ -234,7 +232,7 @@ def main():
         parser.results['actual'] = load_data
 
         # Fetch Load forecast (next 24 hours)
-        _LOGGER.info(f"Fetching Load (A65) forecast data...")
+        _LOGGER.info("Fetching Load (A65) forecast data...")
         forecast_data = parser.fetch_load_forecast(hours_ahead=24)
         parser.results['forecast'] = forecast_data
 

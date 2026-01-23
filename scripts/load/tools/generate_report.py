@@ -3,18 +3,25 @@
 
 import argparse
 import json
-import os
 import math
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
 from glob import glob
 
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-from reportlab.lib import colors
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
 
 def load_json(path: str) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 def pick_metric(summary: dict, key: str, default=None):
@@ -80,7 +87,7 @@ def main():
     doc = SimpleDocTemplate(args.out, pagesize=A4, title="SYNCTACLES Load Test Report")
     story = []
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     story.append(Paragraph("SYNCTACLES Load Test Report", styles["Title"]))
     story.append(Paragraph(f"Generated: {now}", styles["Normal"]))
     story.append(Spacer(1, 12))

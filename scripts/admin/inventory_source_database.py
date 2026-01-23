@@ -3,11 +3,12 @@
 Inventory source database: List all tables with row counts and sizes.
 """
 
+import json
+import sys
+from datetime import datetime
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import sys
-import json
-from datetime import datetime
 
 
 def get_all_tables(conn):

@@ -1,13 +1,14 @@
 """Import Energy-Charts price JSON to raw_prices table."""
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from synctacles_db.core.logging import get_logger
 from config.settings import DATABASE_URL, LOG_PATH
+from synctacles_db.core.logging import get_logger
 
 _LOGGER = get_logger(__name__)
 LOG_DIR = Path(LOG_PATH)
@@ -38,7 +39,7 @@ def import_prices(file_path: Path, country: str = "NL"):
         imported = 0
 
         for ts_unix, price in zip(unix_seconds, prices):
-            timestamp = datetime.fromtimestamp(ts_unix, tz=timezone.utc)
+            timestamp = datetime.fromtimestamp(ts_unix, tz=UTC)
 
             # Upsert
             session.execute("""
