@@ -129,6 +129,7 @@ jobs:
           DB_USER: test
           INSTALL_PATH: /tmp/test
           LOG_PATH: /tmp/test/logs
+          LOG_LEVEL: "off"
           BRAND_NAME: Test
           BRAND_SLUG: test
           GITHUB_ACCOUNT: test
