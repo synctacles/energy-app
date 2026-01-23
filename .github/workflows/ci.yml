@@ -121,6 +121,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: "✅ Validate imports"
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          ENVIRONMENT: test
         run: |
           python -c "from synctacles_db.api.main import app; print('✅ API imports OK')"
           python -c "from synctacles_db.collectors import entsoe_a44; print('✅ Collectors import OK')"
