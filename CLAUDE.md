@@ -1,11 +1,20 @@
 # CLAUDE.md - Project Context for Claude Code
 
+## MANDATORY: Read SKILLs First
+
+**Before ANY action, read these SKILLs:**
+| SKILL | File | Purpose |
+|-------|------|---------|
+| **SKILL 00** | `docs/skills/SKILL_00_AI_OPERATING_PROTOCOL.md` | Operating protocol (VERPLICHT) |
+| **SKILL 01** | `docs/skills/SKILL_01_HARD_RULES.md` | Non-negotiable rules |
+| **SKILL 02** | `docs/skills/SKILL_02_ARCHITECTURE.md` | System architecture |
+| **SKILL 11** | `docs/skills/SKILL_11_REPO_AND_ACCOUNTS.md` | Git workflow, accounts |
+
+**For infrastructure work:**
+- `docs/CREDENTIALS.md` - Server access, SSH keys, deployment commands
+
 ## Project Overview
 SYNCTACLES - Energy price API serving real-time and day-ahead electricity prices for the Netherlands.
-
-## Critical Files to Read
-- `docs/CREDENTIALS.md` - All credentials, SSH keys, server access (READ THIS FOR INFRA WORK)
-- `docs/ARCHITECTURE.md` - System architecture and design decisions
 
 ## Infrastructure
 

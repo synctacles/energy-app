@@ -9,6 +9,8 @@ Version: 1.3 (2026-01-22)
 
 Define the GitHub repository structure, service account conventions, and git workflow rules. This ensures consistent deployments across all environments and prevents permission issues.
 
+**See also:** `docs/CREDENTIALS.md` for detailed server access, SSH keys, and deployment commands.
+
 ---
 
 ## REPOSITORY STRUCTURE
