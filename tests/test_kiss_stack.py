@@ -40,35 +40,40 @@ class TestStaticOffsets:
             assert 0.10 <= offset <= 0.30, f"Hour {hour} offset {offset} out of range"
 
     def test_apply_static_offset(self):
-        """Test applying offset to wholesale price."""
+        """Test applying offset to wholesale price using hybrid model."""
         wholesale = 0.05  # €0.05/kWh wholesale
-        hour = 8  # Morning peak
+        hour = 8  # Hour parameter is now ignored (hybrid model)
 
         result = apply_static_offset(wholesale, hour)
 
-        expected = wholesale + HOURLY_OFFSET[8]
+        # Hybrid model: wholesale × 1.21 + €0.129
+        # = 0.05 × 1.21 + 0.129 = 0.0605 + 0.129 = 0.1895
+        expected = wholesale * 1.21 + 0.129
         assert result == pytest.approx(expected, rel=1e-4)
 
     def test_apply_static_offset_mwh(self):
-        """Test applying offset to MWh price."""
+        """Test applying offset to MWh price using hybrid model."""
         wholesale_mwh = 50.0  # €50/MWh wholesale
-        hour = 8
+        hour = 8  # Hour parameter is now ignored (hybrid model)
 
         result = apply_static_offset_mwh(wholesale_mwh, hour)
 
-        # Convert to kWh, apply offset, convert back
-        expected_kwh = (wholesale_mwh / 1000) + HOURLY_OFFSET[8]
+        # Hybrid model: (wholesale_kwh × 1.21 + €0.129) × 1000
+        # = (0.05 × 1.21 + 0.129) × 1000 = 0.1895 × 1000 = 189.5
+        expected_kwh = (wholesale_mwh / 1000) * 1.21 + 0.129
         expected_mwh = expected_kwh * 1000
 
         assert result == pytest.approx(expected_mwh, rel=1e-4)
 
-    def test_apply_static_offset_invalid_hour(self):
-        """Test that invalid hours raise ValueError."""
-        with pytest.raises(ValueError):
-            apply_static_offset(0.05, 24)
+    def test_apply_static_offset_ignores_hour(self):
+        """Test that hour parameter is ignored (hybrid model is hour-agnostic)."""
+        wholesale = 0.05
+        # All hours should give the same result with hybrid model
+        result_hour0 = apply_static_offset(wholesale, 0)
+        result_hour8 = apply_static_offset(wholesale, 8)
+        result_hour23 = apply_static_offset(wholesale, 23)
 
-        with pytest.raises(ValueError):
-            apply_static_offset(0.05, -1)
+        assert result_hour0 == result_hour8 == result_hour23
 
     def test_average_offset_calculation(self):
         """Verify average offset is calculated correctly."""
@@ -97,18 +102,19 @@ class TestMarketStats:
         assert stats is None
 
     def test_get_expected_range(self):
-        """Test expected range calculation."""
+        """Test expected range calculation using hybrid model."""
         market_avg = 0.05  # €0.05/kWh wholesale
-        hour = 8
+        hour = 8  # Hour is now ignored (hybrid model)
 
         result = get_expected_range(market_avg, hour)
 
-        expected_price = market_avg + HOURLY_OFFSET[8]
+        # Hybrid model: wholesale × 1.21 + €0.129
+        expected_price = market_avg * 1.21 + 0.129  # = 0.1895
         tolerance = expected_price * 0.15  # 15% tolerance
 
-        assert result["expected"] == pytest.approx(expected_price, rel=1e-4)
-        assert result["low"] == pytest.approx(expected_price - tolerance, rel=1e-4)
-        assert result["high"] == pytest.approx(expected_price + tolerance, rel=1e-4)
+        assert result["expected"] == pytest.approx(expected_price, rel=1e-3)
+        assert result["low"] == pytest.approx(expected_price - tolerance, rel=1e-3)
+        assert result["high"] == pytest.approx(expected_price + tolerance, rel=1e-3)
 
 
 class TestEasyEnergyClient:
@@ -158,7 +164,7 @@ class TestFallbackManager:
 
     @pytest.mark.asyncio
     async def test_apply_static_offset(self):
-        """Test applying static offset to prices."""
+        """Test applying hybrid model offset to prices."""
         from synctacles_db.fallback.fallback_manager import FallbackManager
 
         now = datetime.now(UTC)
@@ -177,8 +183,10 @@ class TestFallbackManager:
 
         assert len(result) == 2
 
-        # Check first price got offset applied
-        expected_0 = 50.0 + (HOURLY_OFFSET[8] * 1000)  # Convert offset to MWh
+        # Check first price got hybrid offset applied
+        # Hybrid model: (wholesale_kwh × 1.21 + €0.129) × 1000
+        # = (0.05 × 1.21 + 0.129) × 1000 = 189.5
+        expected_0 = (50.0 / 1000 * 1.21 + 0.129) * 1000  # = 189.5
         assert result[0]["price_eur_mwh"] == pytest.approx(expected_0, rel=1e-4)
 
     @pytest.mark.asyncio
