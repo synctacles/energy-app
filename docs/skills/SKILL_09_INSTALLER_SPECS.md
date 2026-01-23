@@ -74,7 +74,7 @@ Brand Name:        Display name (e.g., "SYNCTACLES")
 Brand Slug:        Technical identifier (e.g., "synctacles")
 Brand Domain:      Production domain (e.g., "synctacles.com")
 GitHub Account:    Repository owner (e.g., "synctacles")
-Repository Name:   Repo name (e.g., "ha-energy-insights-nl")
+Repository Name:   Repo name (e.g., "ha-integration")
 ```
 
 **Derived Values (Automatic):**

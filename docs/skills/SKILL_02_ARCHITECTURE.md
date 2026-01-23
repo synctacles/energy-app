@@ -213,7 +213,7 @@ synctacles_db/
 
 ## HOME ASSISTANT COMPONENT STRUCTURE
 
-**Repository:** `ha-energy-insights-nl`
+**Repository:** `ha-integration`
 **Version:** 2.2.3 (as of 2026-01-19)
 
 ```

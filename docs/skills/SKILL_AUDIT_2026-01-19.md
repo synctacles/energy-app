@@ -321,7 +321,7 @@ De volgende bestanden zijn gegenereerd uit broncode:
 | Repository | Bestanden |
 |------------|-----------|
 | synctacles-api | windows.py, prices.py, fallback_manager.py, frank_energie_client.py, easyenergy_client.py, main.py |
-| ha-energy-insights-nl | __init__.py, sensor.py, config_flow.py, enever_client.py, const.py, manifest.json |
+| ha-integration | __init__.py, sensor.py, config_flow.py, enever_client.py, const.py, manifest.json |
 
 ---
 

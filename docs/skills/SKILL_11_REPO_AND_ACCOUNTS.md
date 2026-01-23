@@ -32,7 +32,7 @@ Define the GitHub repository structure, service account conventions, and git wor
 ### Repository Rules
 
 1. **synctacles-api** = ALL backend code (brand-free)
-2. **ha-energy-insights-nl** = ONLY HA component code
+2. **ha-integration** = ONLY HA component code
 3. Backend repo NEVER contains HA component in production
 4. HA repo NEVER contains backend code
 
@@ -43,12 +43,12 @@ Define the GitHub repository structure, service account conventions, and git wor
 | Repo | Server path | Doel |
 |------|-------------|------|
 | synctacles-api | `/opt/github/synctacles-api` | Backend API development |
-| ha-energy-insights-nl | `/opt/github/ha-energy-insights-nl` | HA component development |
+| ha-integration | `/opt/github/ha-integration` | HA component development |
 
 **Beide owned by service account:**
 ```bash
 sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api
-sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-energy-insights-nl
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-integration
 ```
 
 ---
@@ -263,13 +263,13 @@ sudo journalctl -u synctacles-api -n 20
 
 ## HA COMPONENT DEPLOYMENT
 
-### Repository: ha-energy-insights-nl
+### Repository: ha-integration
 
-**Server path:** `/opt/github/ha-energy-insights-nl`
+**Server path:** `/opt/github/ha-integration`
 
 Contents:
 ```
-ha-energy-insights-nl/
+ha-integration/
 ├── custom_components/
 │   └── ha_energy_insights_nl/
 │       ├── __init__.py
@@ -288,7 +288,7 @@ ha-energy-insights-nl/
 **CC heeft GEEN directe toegang tot HA OS.**
 
 Workflow:
-1. **CC** edits files in `/opt/github/ha-energy-insights-nl/`
+1. **CC** edits files in `/opt/github/ha-integration/`
 2. **CC** commit + push naar GitHub
 3. **Leo** upload handmatig naar HA (via Samba/SFTP/File Editor)
 4. **Leo** restart HA integration of core
@@ -367,7 +367,7 @@ sudo -u synctacles-dev git -C /opt/github/synctacles-api add .
 sudo -u synctacles-dev git -C /opt/github/synctacles-api commit -m "message"
 sudo -u synctacles-dev git -C /opt/github/synctacles-api push origin main
 
-sudo -u synctacles-dev git -C /opt/github/ha-energy-insights-nl push origin main
+sudo -u synctacles-dev git -C /opt/github/ha-integration push origin main
 
 # FOUT - root heeft GEEN SSH key, GEEN GitHub toegang
 git push
@@ -401,15 +401,15 @@ CC moet zelf bepalen welke user context nodig is per operatie:
 sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api/
 ```
 
-**Na ELKE file edit in `/opt/github/ha-energy-insights-nl/`:**
+**Na ELKE file edit in `/opt/github/ha-integration/`:**
 ```bash
-sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-energy-insights-nl/
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-integration/
 ```
 
 **Voor ALLE git operaties:**
 ```bash
 sudo -u synctacles-dev git -C /opt/github/synctacles-api <command>
-sudo -u synctacles-dev git -C /opt/github/ha-energy-insights-nl <command>
+sudo -u synctacles-dev git -C /opt/github/ha-integration <command>
 ```
 
 **NOOIT:**
@@ -664,7 +664,7 @@ SERVICE_USER="synctacles-dev"
 # Git operations (ALWAYS use service user)
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api pull
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api status
-sudo -u $SERVICE_USER git -C /opt/github/ha-energy-insights-nl pull
+sudo -u $SERVICE_USER git -C /opt/github/ha-integration pull
 
 # Service management
 sudo systemctl status synctacles-api
@@ -673,7 +673,7 @@ sudo journalctl -u synctacles-api -f
 
 # Fix ownership after edits
 sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/github/synctacles-api/
-sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/github/ha-energy-insights-nl/
+sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/github/ha-integration/
 
 # Full backend deploy
 sudo rsync -av --delete --exclude='.git' --exclude='__pycache__' --exclude='.env' --exclude='venv' \
