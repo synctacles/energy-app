@@ -14,7 +14,13 @@ Provides consumer prices and coefficient data for 6-tier fallback chain.
 
 Brand-free implementation - no external brand names in code.
 """
+import asyncio
+import json
+import logging
 import warnings
+from datetime import UTC, datetime
+
+import aiohttp
 
 warnings.warn(
     "ConsumerPriceClient is deprecated. Use FrankEnergieClient, EasyEnergyClient, "
@@ -22,10 +28,6 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2
 )
-import logging
-from datetime import UTC, datetime
-
-import aiohttp
 from cachetools import TTLCache
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,8 +145,20 @@ class ConsumerPriceClient:
                         ConsumerPriceClient._record_failure()
                         return None
 
-        except Exception as e:
-            _LOGGER.error(f"Consumer prices fetch failed: {e}")
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"Consumer prices network error: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Consumer prices fetch timeout")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            _LOGGER.error(f"Consumer prices invalid response: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"Consumer prices data error: {e}")
             ConsumerPriceClient._record_failure()
             return None
 
@@ -257,8 +271,20 @@ class ConsumerPriceClient:
                         ConsumerPriceClient._record_failure()
                         return None
 
-        except Exception as e:
-            _LOGGER.error(f"Price model fetch failed: {e}")
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"Price model network error: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Price model fetch timeout")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            _LOGGER.error(f"Price model invalid response: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"Price model data error: {e}")
             ConsumerPriceClient._record_failure()
             return None
 
@@ -358,8 +384,20 @@ class ConsumerPriceClient:
                         ConsumerPriceClient._record_failure()
                         return None
 
-        except Exception as e:
-            _LOGGER.error(f"All coefficients fetch failed: {e}")
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"All coefficients network error: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("All coefficients fetch timeout")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            _LOGGER.error(f"All coefficients invalid response: {e}")
+            ConsumerPriceClient._record_failure()
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"All coefficients data error: {e}")
             ConsumerPriceClient._record_failure()
             return None
 
@@ -381,5 +419,7 @@ class ConsumerPriceClient:
                     else:
                         return (False, f"HTTP {resp.status}")
 
-        except Exception as e:
-            return (False, str(e))
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            return (False, f"Network error: {e}")
+        except (ValueError, KeyError, TypeError) as e:
+            return (False, f"Data error: {e}")

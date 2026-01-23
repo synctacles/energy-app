@@ -10,6 +10,8 @@ Features:
 - TTL caching for performance
 - Returns consumer prices including all taxes and markups
 """
+import asyncio
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -191,8 +193,20 @@ class FrankEnergieClient:
                     _LOGGER.info(f"Frank Direct: fetched {len(prices)} prices")
                     return prices
 
-        except Exception as e:
-            _LOGGER.error(f"Frank API fetch failed: {e}")
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"Frank API network error: {e}")
+            FrankEnergieClient._record_failure()
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Frank API timeout")
+            FrankEnergieClient._record_failure()
+            return None
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            _LOGGER.error(f"Frank API invalid response: {e}")
+            FrankEnergieClient._record_failure()
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"Frank API data error: {e}")
             FrankEnergieClient._record_failure()
             return None
 
@@ -273,5 +287,7 @@ class FrankEnergieClient:
             else:
                 return (False, "No prices returned")
 
-        except Exception as e:
-            return (False, str(e))
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            return (False, f"Network error: {e}")
+        except (ValueError, KeyError, TypeError) as e:
+            return (False, f"Data error: {e}")

@@ -13,10 +13,14 @@ Key features:
 - Known capacity modeling for pragmatic NULL filling
 """
 
+import asyncio
+import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Literal
+
+import aiohttp
 
 # Database access for Tier 1/2
 import asyncpg
@@ -123,8 +127,8 @@ class FallbackManager:
             solar_mw = peak_capacity * math.sin((hours_from_sunrise / 14.0) * math.pi)
 
             return max(0.0, solar_mw)
-        except Exception as err:
-            _LOGGER.error(f"Solar estimate error: {err}")
+        except (ValueError, TypeError, ZeroDivisionError) as err:
+            _LOGGER.error(f"Solar estimate calculation error: {err}")
             return 0.0
 
     @staticmethod
@@ -252,13 +256,14 @@ class FallbackManager:
                 if ec_data_list and len(ec_data_list) > 0:
                     ec_data = ec_data_list[0]
                     _LOGGER.info("Energy-Charts fetch successful")
-            except Exception as err:
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
                 error_msg = str(err)
-                _LOGGER.error(f"Energy-Charts fetch failed: {error_msg}")
-
+                _LOGGER.error(f"Energy-Charts fetch network error: {error_msg}")
                 # Check if 404 error - open circuit breaker
                 if "404" in error_msg or "HTTP 404" in error_msg:
                     FallbackManager._open_circuit_breaker()
+            except (KeyError, ValueError, TypeError) as err:
+                _LOGGER.error(f"Energy-Charts fetch data error: {err}")
         else:
             _LOGGER.info("EC circuit breaker open - using Known Capacity instead")
 
@@ -395,8 +400,10 @@ class FallbackManager:
                     _fallback_cache[cache_key] = load_data
 
                     return (load_data, "Energy-Charts", "FALLBACK")
-            except Exception as err:
-                _LOGGER.error(f"Energy-Charts load fallback failed: {err}")
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                _LOGGER.error(f"Energy-Charts load fallback network error: {err}")
+            except (KeyError, ValueError, TypeError) as err:
+                _LOGGER.error(f"Energy-Charts load fallback data error: {err}")
 
         # Tier 3: Check cache
         cache_key = f"{component}_{country}"
@@ -541,7 +548,7 @@ class FallbackManager:
 
             return (renewable_mw / total_mw * 100.0)
 
-        except Exception as err:
+        except (ValueError, TypeError, ZeroDivisionError) as err:
             _LOGGER.error(f"Error calculating renewable percentage: {err}")
             return None
 

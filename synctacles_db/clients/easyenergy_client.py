@@ -12,6 +12,8 @@ Features:
 - Uses central api_cache for consistency
 - Returns wholesale prices in EUR/kWh and EUR/MWh
 """
+import asyncio
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -177,8 +179,20 @@ class EasyEnergyClient:
                     _LOGGER.info(f"EasyEnergy Direct: fetched {len(prices)} prices")
                     return prices
 
-        except Exception as e:
-            _LOGGER.error(f"EasyEnergy API fetch failed: {e}")
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"EasyEnergy API network error: {e}")
+            EasyEnergyClient._record_failure()
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("EasyEnergy API timeout")
+            EasyEnergyClient._record_failure()
+            return None
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            _LOGGER.error(f"EasyEnergy API invalid response: {e}")
+            EasyEnergyClient._record_failure()
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"EasyEnergy API data error: {e}")
             EasyEnergyClient._record_failure()
             return None
 
@@ -261,5 +275,7 @@ class EasyEnergyClient:
             else:
                 return (False, "No prices returned")
 
-        except Exception as e:
-            return (False, str(e))
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            return (False, f"Network error: {e}")
+        except (ValueError, KeyError, TypeError) as e:
+            return (False, f"Data error: {e}")

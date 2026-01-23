@@ -4,6 +4,8 @@ Provides generation mix data from Fraunhofer ISE when ENTSO-E is unavailable.
 API: https://api.energy-charts.info/
 """
 
+import asyncio
+import json
 import logging
 from datetime import UTC, datetime
 
@@ -68,8 +70,14 @@ class EnergyChartsClient:
         except aiohttp.ClientError as err:
             _LOGGER.error(f"Energy-Charts connection error: {err}")
             return []
-        except Exception as err:
-            _LOGGER.error(f"Energy-Charts unexpected error: {err}")
+        except asyncio.TimeoutError:
+            _LOGGER.error("Energy-Charts connection timeout")
+            return []
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as err:
+            _LOGGER.error(f"Energy-Charts invalid response: {err}")
+            return []
+        except (KeyError, ValueError, TypeError) as err:
+            _LOGGER.error(f"Energy-Charts data error: {err}")
             return []
 
     @staticmethod
@@ -107,8 +115,14 @@ class EnergyChartsClient:
         except aiohttp.ClientError as err:
             _LOGGER.error(f"Energy-Charts price connection error: {err}")
             return []
-        except Exception as err:
-            _LOGGER.error(f"Energy-Charts price unexpected error: {err}")
+        except asyncio.TimeoutError:
+            _LOGGER.error("Energy-Charts price connection timeout")
+            return []
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as err:
+            _LOGGER.error(f"Energy-Charts price invalid response: {err}")
+            return []
+        except (KeyError, ValueError, TypeError) as err:
+            _LOGGER.error(f"Energy-Charts price data error: {err}")
             return []
 
     @staticmethod
@@ -146,7 +160,7 @@ class EnergyChartsClient:
             _LOGGER.info(f"Energy-Charts price fetched: {len(results)} records")
             return results
 
-        except Exception as err:
+        except (KeyError, ValueError, TypeError, IndexError) as err:
             _LOGGER.error(f"Energy-Charts price parse error: {err}")
             return []
 
@@ -206,7 +220,7 @@ class EnergyChartsClient:
 
             return results
 
-        except Exception as err:
+        except (KeyError, ValueError, TypeError, IndexError) as err:
             _LOGGER.error(f"Energy-Charts parse error: {err}")
             return []
 
