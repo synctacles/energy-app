@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Delete raw XML/JSON files older than 24 hours
-
+# Brand-free log cleanup script
 set -euo pipefail
 
-LOGS_DIR="/opt/synctacles/logs"
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+LOGS_DIR="${LOG_PATH:-${INSTALL_PATH}/logs}"
 
 echo "[$(date)] Cleaning up old log files..."
 
