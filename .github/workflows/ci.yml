@@ -137,7 +137,7 @@ jobs:
           ENVIRONMENT: test
         run: |
           python -c "from synctacles_db.api.main import app; print('✅ API imports OK')"
-          python -c "from synctacles_db.collectors import entsoe_a44; print('✅ Collectors import OK')"
+          python -c "from synctacles_db.collectors import entso_e_a44_prices; print('✅ Collectors import OK')"
 
       - name: "📋 Summary"
         run: |
