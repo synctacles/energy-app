@@ -65,8 +65,8 @@ pg_dump -U energy_insights_nl energy_insights_nl | gzip > /opt/backups/db/syncta
 
 ```bash
 # Backup all custom services
-sudo cp /etc/systemd/system/energy-insights-nl-*.service /opt/backups/systemd/
-sudo cp /etc/systemd/system/energy-insights-nl-*.timer /opt/backups/systemd/
+sudo cp /etc/systemd/system/synctacles-*.service /opt/backups/systemd/
+sudo cp /etc/systemd/system/synctacles-*.timer /opt/backups/systemd/
 ```
 
 ---
@@ -95,8 +95,8 @@ cp /opt/github/synctacles-api/.env ${BACKUP_DIR}/env/synctacles.env.${DATE}
 pg_dump -U energy_insights_nl energy_insights_nl | gzip > ${BACKUP_DIR}/db/synctacles_${DATE}.sql.gz
 
 # 3. Backup systemd services
-cp /etc/systemd/system/energy-insights-nl-*.service ${BACKUP_DIR}/systemd/ 2>/dev/null || true
-cp /etc/systemd/system/energy-insights-nl-*.timer ${BACKUP_DIR}/systemd/ 2>/dev/null || true
+cp /etc/systemd/system/synctacles-*.service ${BACKUP_DIR}/systemd/ 2>/dev/null || true
+cp /etc/systemd/system/synctacles-*.timer ${BACKUP_DIR}/systemd/ 2>/dev/null || true
 
 # 4. Set permissions
 chmod 600 ${BACKUP_DIR}/env/*
@@ -132,14 +132,14 @@ cp /opt/backups/env/synctacles.env.YYYYMMDD /opt/github/synctacles-api/.env
 chmod 600 /opt/github/synctacles-api/.env
 
 # 3. Restart services
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Scenario 2: Database Corruption
 
 ```bash
 # 1. Stop services
-sudo systemctl stop energy-insights-nl-api
+sudo systemctl stop synctacles-api
 
 # 2. Drop and recreate database
 sudo -u postgres psql -c "DROP DATABASE energy_insights_nl;"
@@ -149,7 +149,7 @@ sudo -u postgres psql -c "CREATE DATABASE energy_insights_nl OWNER energy_insigh
 gunzip -c /opt/backups/db/synctacles_YYYYMMDD.sql.gz | psql -U energy_insights_nl energy_insights_nl
 
 # 4. Restart services
-sudo systemctl start energy-insights-nl-api
+sudo systemctl start synctacles-api
 
 # 5. Verify
 curl -s http://localhost:8000/health | jq .
@@ -164,21 +164,21 @@ curl -s http://localhost:8000/health | jq .
 sudo apt update && sudo apt install -y postgresql python3.12 python3.12-venv nginx
 
 # 2. Create user
-sudo useradd -m -s /bin/bash energy-insights-nl
+sudo useradd -m -s /bin/bash synctacles-dev
 
 # 3. Clone repository
 sudo mkdir -p /opt/github
 cd /opt/github
 sudo git clone git@github.com:synctacles/backend.git synctacles-api
-sudo chown -R energy-insights-nl:energy-insights-nl synctacles-api
+sudo chown -R synctacles-dev:synctacles-dev synctacles-api
 
 # 4. Restore .env from backup (copy from secure location)
 cp /path/to/backup/synctacles.env /opt/github/synctacles-api/.env
 
 # 5. Setup virtual environment
 cd /opt/github/synctacles-api
-python3.12 -m venv /opt/energy-insights-nl/venv
-source /opt/energy-insights-nl/venv/bin/activate
+python3.12 -m venv /opt/synctacles-dev/venv
+source /opt/synctacles-dev/venv/bin/activate
 pip install -r requirements.txt
 
 # 6. Setup database
@@ -192,8 +192,8 @@ gunzip -c /path/to/backup/synctacles_YYYYMMDD.sql.gz | psql -U energy_insights_n
 sudo cp /path/to/backup/systemd/*.service /etc/systemd/system/
 sudo cp /path/to/backup/systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable energy-insights-nl-api
-sudo systemctl start energy-insights-nl-api
+sudo systemctl enable synctacles-api
+sudo systemctl start synctacles-api
 
 # 9. Verify
 curl -s http://localhost:8000/health | jq .
@@ -206,12 +206,12 @@ curl -s http://localhost:8000/health | jq .
 cd /opt/github/synctacles-api
 git log --oneline -10  # Find target commit
 git checkout <commit-hash>
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 
 # Return to latest
 git checkout main
 git pull origin main
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ---

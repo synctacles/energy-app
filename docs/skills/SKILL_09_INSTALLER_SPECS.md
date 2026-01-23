@@ -453,8 +453,8 @@ After cleanup, only `${BRAND_SLUG}-*` services should exist:
 systemctl list-units --type=service --all | grep -E "synctacles|${BRAND_SLUG}"
 
 # Expected output (example):
-#   energy-insights-nl-api.service       loaded active running
-#   energy-insights-nl-collector.service loaded inactive dead
+#   synctacles-api.service       loaded active running
+#   synctacles-collector.service loaded inactive dead
 #   energy-insights-nl-importer.service  loaded inactive dead
 #   ...
 

@@ -343,7 +343,7 @@ Is dit toegestaan of off-limits?"
 
 ```bash
 # CORRECT - SSH key bestaat voor energy-insights-nl user
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api <command>
+sudo -u synctacles-dev git -C /opt/github/synctacles-api <command>
 
 # FOUT - NOOIT DOEN
 git <command>
@@ -709,13 +709,13 @@ CC heeft WEL:
 
 | Operatie | User | Command Prefix |
 |----------|------|----------------|
-| Git (status, pull, commit, push) | service user | `sudo -u energy-insights-nl` |
+| Git (status, pull, commit, push) | service user | `sudo -u synctacles-dev` |
 | File edits in repo | root | Direct na edit: `sudo chown -R energy-insights-nl:...` |
 | systemctl (restart, status) | root | `sudo` |
 | apt install | root | `sudo` |
 | /etc/ configuratie | root | `sudo` |
-| alembic migrations | service user | `sudo -u energy-insights-nl` |
-| Python/pip in venv | service user | `sudo -u energy-insights-nl` |
+| alembic migrations | service user | `sudo -u synctacles-dev` |
+| Python/pip in venv | service user | `sudo -u synctacles-dev` |
 
 **âš ï¸ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
 

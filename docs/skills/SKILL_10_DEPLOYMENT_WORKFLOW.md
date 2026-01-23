@@ -9,7 +9,7 @@ Version: 2.0 (2026-01-12)
 
 Simple, reliable deployment:
 ```bash
-git pull && sudo systemctl restart energy-insights-nl-api
+git pull && sudo systemctl restart synctacles-api
 ```
 
 No symlinks. No sync scripts. Git repo = Production directory.
@@ -38,7 +38,7 @@ No symlinks. No sync scripts. Git repo = Production directory.
 - File permissions: `600` (owner read/write only)
 
 ### Virtual Environment
-- Location: `/opt/energy-insights-nl/venv/`
+- Location: `/opt/synctacles-dev/venv/`
 - Shared across git repo (not inside repo)
 - Managed separately from deployments
 
@@ -48,13 +48,13 @@ No symlinks. No sync scripts. Git repo = Production directory.
 
 ### API Service
 ```ini
-# /etc/systemd/system/energy-insights-nl-api.service
+# /etc/systemd/system/synctacles-api.service
 [Service]
 EnvironmentFile=/opt/github/synctacles-api/.env
 WorkingDirectory=/opt/github/synctacles-api
 Environment="PYTHONPATH=/opt/github/synctacles-api"
 
-ExecStart=/opt/energy-insights-nl/venv/bin/gunicorn \
+ExecStart=/opt/synctacles-dev/venv/bin/gunicorn \
     synctacles_db.api.main:app \
     --workers 8 \
     --worker-class uvicorn.workers.UvicornWorker \
@@ -75,28 +75,28 @@ All services use consistent paths:
 ```bash
 cd /opt/github/synctacles-api
 git pull origin main
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### With Migrations
 ```bash
 cd /opt/github/synctacles-api
 git pull origin main
-source /opt/energy-insights-nl/venv/bin/activate
+source /opt/synctacles-dev/venv/bin/activate
 alembic upgrade head
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Validation
 ```bash
 # Check service status
-sudo systemctl status energy-insights-nl-api
+sudo systemctl status synctacles-api
 
 # Test health endpoint
 curl -s http://localhost:8000/health | jq .
 
 # Check logs for errors
-journalctl -u energy-insights-nl-api -n 50 --no-pager
+journalctl -u synctacles-api -n 50 --no-pager
 ```
 
 ---
@@ -107,14 +107,14 @@ journalctl -u energy-insights-nl-api -n 50 --no-pager
 ```bash
 cd /opt/github/synctacles-api
 git checkout HEAD~1
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Rollback to Specific Tag
 ```bash
 cd /opt/github/synctacles-api
 git checkout v1.0.0
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Return to Latest
@@ -122,7 +122,7 @@ sudo systemctl restart energy-insights-nl-api
 cd /opt/github/synctacles-api
 git checkout main
 git pull origin main
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ---
@@ -141,7 +141,7 @@ cp /opt/.env /opt/github/synctacles-api/.env
 ### NO separate app directory
 ```bash
 # WRONG - requires sync
-/opt/energy-insights-nl/app/     ← Separate from git
+/opt/synctacles-dev/app/     ← Separate from git
 
 # CORRECT - git IS app
 /opt/github/synctacles-api/      ← Git repo = app directory
@@ -178,8 +178,8 @@ API_HOST=0.0.0.0
 API_PORT=8000
 
 # Paths
-INSTALL_PATH=/opt/energy-insights-nl
-LOG_PATH=/var/log/energy-insights-nl
+INSTALL_PATH=/opt/synctacles-dev
+LOG_PATH=/var/log/synctacles-dev
 ```
 
 ### .gitignore Protection
@@ -198,7 +198,7 @@ LOG_PATH=/var/log/energy-insights-nl
 ```bash
 # Deploy synctacles-api
 cd /opt/github/synctacles-api
-git pull && sudo systemctl restart energy-insights-nl-api
+git pull && sudo systemctl restart synctacles-api
 ```
 
 ### Coefficient Server (91.99.150.36)
@@ -220,7 +220,7 @@ git pull && sudo systemctl restart coefficient-engine
 ### API Not Starting
 ```bash
 # 1. Check logs
-journalctl -u energy-insights-nl-api -n 100 --no-pager
+journalctl -u synctacles-api -n 100 --no-pager
 
 # 2. Check .env exists and has correct permissions
 ls -la /opt/github/synctacles-api/.env
@@ -228,7 +228,7 @@ ls -la /opt/github/synctacles-api/.env
 
 # 3. Test import manually
 cd /opt/github/synctacles-api
-source /opt/energy-insights-nl/venv/bin/activate
+source /opt/synctacles-dev/venv/bin/activate
 python -c "from synctacles_db.api.main import app; print('OK')"
 ```
 
@@ -264,7 +264,7 @@ git push origin v1.0.1
 
 # Deploy specific version
 git checkout v1.0.1
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Health Endpoint Version

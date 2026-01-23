@@ -1,7 +1,7 @@
 # SKILL 11 â€” REPO STRUCTURE & SERVICE ACCOUNTS
 
 Repository Organisation and Account Management
-Version: 1.3 (2026-01-22)
+Version: 1.4 (2026-01-23)
 
 ---
 
@@ -47,8 +47,8 @@ Define the GitHub repository structure, service account conventions, and git wor
 
 **Beide owned by service account:**
 ```bash
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/ha-energy-insights-nl
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-energy-insights-nl
 ```
 
 ---
@@ -66,7 +66,7 @@ Different users per environment for safety - prevents accidental PROD edits.
 
 **Current Status:**
 - PROD: `synctacles` ✅ Active
-- DEV: `energy-insights-nl` (legacy, migrate to `synctacles-dev` later)
+- DEV: `synctacles-dev` ✅ Active (migrated 2026-01-23)
 
 ### PROD Configuration
 
@@ -77,14 +77,14 @@ Different users per environment for safety - prevents accidental PROD edits.
 | Install path | `/opt/synctacles` |
 | Repo path | `/opt/github/synctacles-api` |
 
-### DEV Configuration (Current - Legacy)
+### DEV Configuration
 
 | Setting | Value |
 |---------|-------|
-| Service account | `energy-insights-nl` |
-| Service group | `energy-insights-nl` |
-| Install path | `/opt/energy-insights-nl` |
-| Repo paths | `/opt/github/synctacles-api` + `/opt/github/ha-energy-insights-nl` |
+| Service account | `synctacles-dev` |
+| Service group | `synctacles-dev` |
+| Install path | `/opt/synctacles-dev` |
+| Repo path | `/opt/github/synctacles-api` |
 
 ### Why Different Users Per Environment?
 
@@ -105,13 +105,14 @@ sudo git pull
 sudo git status
 root@server: git clone ...
 
-# ALWAYS DO THIS
-sudo -u energy-insights-nl git pull
-sudo -u energy-insights-nl git status
-sudo -u energy-insights-nl git clone ...
+# ALWAYS DO THIS (use correct user per environment)
+# DEV:
+sudo -u synctacles-dev git pull
+sudo -u synctacles-dev git status
 
-# Future (after migration):
+# PROD:
 sudo -u synctacles git pull
+sudo -u synctacles git status
 ```
 
 ### Why No Root?
@@ -124,14 +125,14 @@ sudo -u synctacles git pull
 ### Common Git Operations
 
 ```bash
-# Current account: energy-insights-nl
-SERVICE_USER="energy-insights-nl"
+# DEV server: synctacles-dev
+SERVICE_USER="synctacles-dev"
+
+# PROD server: synctacles
+# SERVICE_USER="synctacles"
 
 # Pull latest code (backend)
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api pull
-
-# Pull latest code (HA component)
-sudo -u $SERVICE_USER git -C /opt/github/ha-energy-insights-nl pull
 
 # Check status
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api status
@@ -149,22 +150,22 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api log --oneline -5
 | `gh` | Issues, PRs, releases, repo management | Personal Access Token (PAT) |
 
 **gh CLI is geconfigureerd voor service user:**
-- Auth storage: `/home/energy-insights-nl/.config/gh/hosts.yml`
+- Auth storage: `/home/synctacles-dev/.config/gh/hosts.yml`
 - Permissions: `600` (alleen user kan lezen)
 
 **Gebruik:**
 ```bash
 # Issues
-sudo -u energy-insights-nl gh issue list
-sudo -u energy-insights-nl gh issue close 21
-sudo -u energy-insights-nl gh issue create --title "Bug" --body "Description"
+sudo -u synctacles-dev gh issue list
+sudo -u synctacles-dev gh issue close 21
+sudo -u synctacles-dev gh issue create --title "Bug" --body "Description"
 
 # Pull Requests
-sudo -u energy-insights-nl gh pr list
-sudo -u energy-insights-nl gh pr create --title "Feature" --body "Description"
+sudo -u synctacles-dev gh pr list
+sudo -u synctacles-dev gh pr create --title "Feature" --body "Description"
 
 # Releases
-sudo -u energy-insights-nl gh release list
+sudo -u synctacles-dev gh release list
 ```
 
 **Bij "not authenticated" of "authentication required" errors:**
@@ -172,11 +173,11 @@ sudo -u energy-insights-nl gh release list
 1. Vraag Leo om PAT (Personal Access Token)
 2. Configureer met:
    ```bash
-   sudo -u energy-insights-nl gh auth login --with-token <<< "ghp_xxxx"
+   sudo -u synctacles-dev gh auth login --with-token <<< "ghp_xxxx"
    ```
 3. Verificatie:
    ```bash
-   sudo -u energy-insights-nl gh auth status
+   sudo -u synctacles-dev gh auth status
    ```
 
 **⚠️ NOOIT:**
@@ -188,30 +189,27 @@ sudo -u energy-insights-nl gh release list
 
 ## DIRECTORY STRUCTURE
 
-### Current Server Layout
+### Current Server Layout (DEV)
 
 ```
 /opt/
 ├── .env                              # Master config (brand settings)
 ├── github/
-│   ├── synctacles-api/               # Backend repo (owned by energy-insights-nl)
-│   │   ├── synctacles_db/            # Backend Python code
-│   │   ├── config/                   # Configuration files
-│   │   ├── alembic/                  # Database migrations
-│   │   ├── systemd/                  # Service templates
-│   │   ├── scripts/                  # Setup/deployment scripts
-│   │   └── docs/                     # Documentation
-│   └── ha-energy-insights-nl/        # HA repo (owned by energy-insights-nl)
-│       └── custom_components/
-│           └── ha_energy_insights_nl/
-└── energy-insights-nl/               # Runtime deployment
+│   └── synctacles-api/               # Backend repo (owned by synctacles-dev)
+│       ├── synctacles_db/            # Backend Python code
+│       ├── config/                   # Configuration files
+│       ├── alembic/                  # Database migrations
+│       ├── systemd/                  # Service templates
+│       ├── scripts/                  # Setup/deployment scripts
+│       └── docs/                     # Documentation
+└── synctacles-dev/                   # Runtime deployment
     ├── app/                          # Deployed code (copy from repo)
     │   ├── synctacles_db/            # Synced from repo
     │   └── config/                   # Synced from repo
     ├── venv/                         # Python virtual environment
-    └── logs -> /var/log/energy-insights-nl/
+    └── logs -> /var/log/synctacles-dev/
 
-/var/log/energy-insights-nl/          # Log files
+/var/log/synctacles-dev/              # Log files
 /etc/systemd/system/                  # Generated service units
 ```
 
@@ -222,9 +220,9 @@ sudo -u energy-insights-nl gh release list
 ### KRITIEK: Sync BEIDE directories
 
 ```bash
-SERVICE_USER="energy-insights-nl"
+SERVICE_USER="synctacles-dev"
 REPO_PATH="/opt/github/synctacles-api"
-APP_PATH="/opt/energy-insights-nl/app"
+APP_PATH="/opt/synctacles-dev/app"
 
 # 1. Sync synctacles_db/
 sudo rsync -av --delete \
@@ -242,7 +240,7 @@ sudo rsync -av \
 sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_PATH/
 
 # 4. Restart
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 
 # 5. Validate
 curl http://localhost:8000/health
@@ -252,13 +250,13 @@ curl http://localhost:8000/health
 
 ```bash
 # Check service status
-sudo systemctl status energy-insights-nl-api
+sudo systemctl status synctacles-api
 
 # Check API health
 curl http://localhost:8000/health
 
 # Check logs
-sudo journalctl -u energy-insights-nl-api -n 20
+sudo journalctl -u synctacles-api -n 20
 ```
 
 ---
@@ -363,13 +361,13 @@ CC heeft WEL:
 **ELKE git operatie MOET met service user:**
 
 ```bash
-# CORRECT - SSH key bestaat voor energy-insights-nl user
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api status
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api add .
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api commit -m "message"
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api push origin main
+# CORRECT - SSH key bestaat voor synctacles-dev user
+sudo -u synctacles-dev git -C /opt/github/synctacles-api status
+sudo -u synctacles-dev git -C /opt/github/synctacles-api add .
+sudo -u synctacles-dev git -C /opt/github/synctacles-api commit -m "message"
+sudo -u synctacles-dev git -C /opt/github/synctacles-api push origin main
 
-sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl push origin main
+sudo -u synctacles-dev git -C /opt/github/ha-energy-insights-nl push origin main
 
 # FOUT - root heeft GEEN SSH key, GEEN GitHub toegang
 git push
@@ -377,7 +375,7 @@ sudo git push
 cd /opt/github/synctacles-api && git push
 ```
 
-**SSH key bestaat ALLEEN voor `energy-insights-nl` user.**
+**SSH key bestaat ALLEEN voor `synctacles-dev` user (DEV) / `synctacles` user (PROD).**
 **Root heeft GEEN GitHub toegang.**
 
 Als CC error ziet `Permission denied (publickey)` â†’ verkeerde user context gebruikt.
@@ -388,30 +386,30 @@ CC moet zelf bepalen welke user context nodig is per operatie:
 
 | Operatie | User | Command Prefix |
 |----------|------|----------------|
-| Git (status, pull, commit, push) | service user | `sudo -u energy-insights-nl` |
-| File edits in repo | root (dan fix) | `sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/...` |
+| Git (status, pull, commit, push) | service user | `sudo -u synctacles-dev` |
+| File edits in repo | root (dan fix) | `sudo chown -R synctacles-dev:synctacles-dev /opt/github/...` |
 | systemctl (restart, status) | root | `sudo` |
 | apt install | root | `sudo` |
 | /etc/ configuratie | root | `sudo` |
-| alembic migrations | service user | `sudo -u energy-insights-nl` |
-| Python/pip in venv | service user | `sudo -u energy-insights-nl` |
+| alembic migrations | service user | `sudo -u synctacles-dev` |
+| Python/pip in venv | service user | `sudo -u synctacles-dev` |
 
 ### Required Workflow
 
 **Na ELKE file edit in `/opt/github/synctacles-api/`:**
 ```bash
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api/
 ```
 
 **Na ELKE file edit in `/opt/github/ha-energy-insights-nl/`:**
 ```bash
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/ha-energy-insights-nl/
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/ha-energy-insights-nl/
 ```
 
 **Voor ALLE git operaties:**
 ```bash
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api <command>
-sudo -u energy-insights-nl git -C /opt/github/ha-energy-insights-nl <command>
+sudo -u synctacles-dev git -C /opt/github/synctacles-api <command>
+sudo -u synctacles-dev git -C /opt/github/ha-energy-insights-nl <command>
 ```
 
 **NOOIT:**
@@ -426,28 +424,28 @@ git commit
 
 ```bash
 # 1. Pull latest (service user)
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api pull
+sudo -u synctacles-dev git -C /opt/github/synctacles-api pull
 
 # 2. Edit files (root is OK)
 nano /opt/github/synctacles-api/synctacles_db/api/main.py
 
 # 3. Fix ownership (VERPLICHT na edits)
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api/
 
 # 4. Git commit (service user)
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api add .
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api commit -m "fix: update"
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api push
+sudo -u synctacles-dev git -C /opt/github/synctacles-api add .
+sudo -u synctacles-dev git -C /opt/github/synctacles-api commit -m "fix: update"
+sudo -u synctacles-dev git -C /opt/github/synctacles-api push
 
 # 5. Sync to running app
 sudo rsync -av --delete \
     --exclude='.git' --exclude='__pycache__' --exclude='.env' --exclude='venv' \
-    /opt/github/synctacles-api/synctacles_db/ /opt/energy-insights-nl/app/synctacles_db/
-sudo rsync -av /opt/github/synctacles-api/config/ /opt/energy-insights-nl/app/config/
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/energy-insights-nl/app/
+    /opt/github/synctacles-api/synctacles_db/ /opt/synctacles-dev/app/synctacles_db/
+sudo rsync -av /opt/github/synctacles-api/config/ /opt/synctacles-dev/app/config/
+sudo chown -R synctacles-dev:synctacles-dev /opt/synctacles-dev/app/
 
 # 6. Restart service (root)
-sudo systemctl restart energy-insights-nl-api
+sudo systemctl restart synctacles-api
 ```
 
 ### Foutmelding Herkenning
@@ -459,7 +457,7 @@ fatal: detected dubious ownership in repository
 
 **Fix:**
 ```bash
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api/
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api/
 ```
 
 **NIET doen:** `git config --global --add safe.directory` (maskeert probleem)
@@ -548,9 +546,9 @@ ls -la /opt/github/synctacles-api/.git/hooks/pre-commit
 ### Deployment Steps (Complete)
 
 ```bash
-SERVICE_USER="energy-insights-nl"
+SERVICE_USER="synctacles-dev"
 REPO_PATH="/opt/github/synctacles-api"
-APP_PATH="/opt/energy-insights-nl/app"
+APP_PATH="/opt/synctacles-dev/app"
 
 # Step 1: Pull latest from main
 sudo -u $SERVICE_USER git -C $REPO_PATH pull origin main
@@ -581,16 +579,16 @@ sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_PATH/
 test -f $APP_PATH/config/settings.py && echo "âœ“ settings.py found" || echo "âœ— settings.py MISSING"
 
 # Step 8: Restart services
-sudo systemctl restart energy-insights-nl-api
-sudo systemctl restart energy-insights-nl-collector.service
-sudo systemctl restart energy-insights-nl-normalizer.service
+sudo systemctl restart synctacles-api
+sudo systemctl restart synctacles-collector.service
+sudo systemctl restart synctacles-normalizer.service
 
 # Step 9: Validate startup
 sleep 2
 curl http://localhost:8000/health
 
 # Step 10: Check logs for startup errors
-sudo journalctl -u energy-insights-nl-api -n 10
+sudo journalctl -u synctacles-api -n 10
 ```
 
 ### Deployment Checklist
@@ -601,7 +599,7 @@ Before marking deployment as complete:
 âœ“ Git pull succeeded (no uncommitted changes blocking)
 âœ“ Pre-commit hook didn't block (no hardcoded credentials)
 âœ“ rsync completed successfully
-âœ“ File ownership is energy-insights-nl:energy-insights-nl
+âœ“ File ownership is synctacles-dev:synctacles-dev
 âœ“ config/settings.py is in runtime directory
 âœ“ Services restarted without errors
 âœ“ curl /health returns 200 OK
@@ -624,8 +622,8 @@ fatal: unable to access '...': Permission denied
 Running git as wrong user (probably root)
 
 # Fix
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/synctacles-api
-sudo -u energy-insights-nl git -C /opt/github/synctacles-api pull
+sudo chown -R synctacles-dev:synctacles-dev /opt/github/synctacles-api
+sudo -u synctacles-dev git -C /opt/github/synctacles-api pull
 ```
 
 ### Service Can't Read Files
@@ -638,7 +636,7 @@ FileNotFoundError or PermissionError in logs
 Files created by root or wrong user
 
 # Fix
-sudo chown -R energy-insights-nl:energy-insights-nl /opt/energy-insights-nl/app
+sudo chown -R synctacles-dev:synctacles-dev /opt/synctacles-dev/app
 ```
 
 ### API Crashes After Deploy
@@ -651,8 +649,8 @@ curl: Failed to connect to localhost port 8000
 Likely missing config/settings.py sync
 
 # Fix
-sudo rsync -av /opt/github/synctacles-api/config/ /opt/energy-insights-nl/app/config/
-sudo systemctl restart energy-insights-nl-api
+sudo rsync -av /opt/github/synctacles-api/config/ /opt/synctacles-dev/app/config/
+sudo systemctl restart synctacles-api
 ```
 
 ---
@@ -661,7 +659,7 @@ sudo systemctl restart energy-insights-nl-api
 
 ```bash
 # Current service account
-SERVICE_USER="energy-insights-nl"
+SERVICE_USER="synctacles-dev"
 
 # Git operations (ALWAYS use service user)
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api pull
@@ -669,9 +667,9 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api status
 sudo -u $SERVICE_USER git -C /opt/github/ha-energy-insights-nl pull
 
 # Service management
-sudo systemctl status energy-insights-nl-api
-sudo systemctl restart energy-insights-nl-api
-sudo journalctl -u energy-insights-nl-api -f
+sudo systemctl status synctacles-api
+sudo systemctl restart synctacles-api
+sudo journalctl -u synctacles-api -f
 
 # Fix ownership after edits
 sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/github/synctacles-api/
@@ -679,10 +677,10 @@ sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/github/ha-energy-insights-nl/
 
 # Full backend deploy
 sudo rsync -av --delete --exclude='.git' --exclude='__pycache__' --exclude='.env' --exclude='venv' \
-    /opt/github/synctacles-api/synctacles_db/ /opt/energy-insights-nl/app/synctacles_db/
-sudo rsync -av /opt/github/synctacles-api/config/ /opt/energy-insights-nl/app/config/
-sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/energy-insights-nl/app/
-sudo systemctl restart energy-insights-nl-api
+    /opt/github/synctacles-api/synctacles_db/ /opt/synctacles-dev/app/synctacles_db/
+sudo rsync -av /opt/github/synctacles-api/config/ /opt/synctacles-dev/app/config/
+sudo chown -R $SERVICE_USER:$SERVICE_USER /opt/synctacles-dev/app/
+sudo systemctl restart synctacles-api
 ```
 
 ---
@@ -696,5 +694,5 @@ sudo systemctl restart energy-insights-nl-api
 
 ---
 
-**Last Updated:** 2026-01-04
+**Last Updated:** 2026-01-23
 **Status:** Active
