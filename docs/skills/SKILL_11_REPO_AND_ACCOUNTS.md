@@ -95,6 +95,43 @@ Different users per environment for safety - prevents accidental PROD edits.
 
 ---
 
+## SYSTEMD SERVICE NAMING CONVENTIONS
+
+### Service Naming Pattern
+
+| Environment | Pattern | Example |
+|-------------|---------|---------|
+| PROD | `synctacles-*` | `synctacles-api`, `synctacles-collector` |
+| DEV | `synctacles-dev-*` | `synctacles-dev-frank-collector` |
+
+### Active Services (2026-01-23)
+
+**PROD Services:**
+| Service | Type | Purpose |
+|---------|------|---------|
+| `synctacles-api` | service | Main FastAPI (8 Gunicorn workers) |
+| `synctacles-collector` | timer | ENTSO-E A44 data collection |
+| `synctacles-importer` | timer | Raw data import |
+| `synctacles-normalizer` | timer | Data normalization |
+| `synctacles-health` | timer | Health monitoring |
+| `synctacles-frank-collector` | timer | Frank Energie prices |
+
+**DEV Services:**
+| Service | Type | Purpose |
+|---------|------|---------|
+| `synctacles-api` | service | Main FastAPI |
+| `synctacles-dev-frank-collector` | timer | Frank Energie prices |
+
+### Deprecated/Removed Services
+
+These services have been removed and should NOT be recreated:
+- `enin-*` - Old naming convention (energy-insights-nl)
+- `synctacles-backfill-*` - One-time data backfill (completed)
+- `synctacles-tennet.*` - TenneT integration (discontinued)
+- `synctacles-a65-*`, `synctacles-a75-*` - ENTSO-E A65/A75 (discontinued by ENTSO-E)
+
+---
+
 ## GIT WORKFLOW RULES
 
 ### CRITICAL: No Root Git Operations
@@ -177,6 +214,29 @@ sudo -u synctacles-dev git -C /opt/github/synctacles-api push origin main
 # FOUT - pushen zonder lokale validatie
 git push  # ❌ Kan CI failures veroorzaken
 ```
+
+### CI Pipeline Environment Variables
+
+The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) requires these environment variables for the build validation step:
+
+```bash
+# Required for "Validate imports" step in CI
+DATABASE_URL=postgresql://test:test@localhost:5432/test
+DB_HOST=localhost
+DB_PORT="5432"
+DB_NAME=test
+DB_USER=test
+INSTALL_PATH=/tmp/test
+LOG_PATH=/tmp/test/logs
+LOG_LEVEL="off"
+BRAND_NAME=Test
+BRAND_SLUG=test
+GITHUB_ACCOUNT=test
+REPO_NAME=test
+ENVIRONMENT=test
+```
+
+These are already configured in `ci.yml` and do not need to be set as GitHub secrets.
 
 ### GitHub CLI (gh) - Issues, PRs, Releases
 

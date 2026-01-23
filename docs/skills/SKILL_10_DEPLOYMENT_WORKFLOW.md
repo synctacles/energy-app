@@ -1,7 +1,7 @@
 # SKILL 10 — DEPLOYMENT WORKFLOW
 
 Deployment Strategy for SYNCTACLES
-Version: 2.0 (2026-01-12)
+Version: 2.1 (2026-01-23)
 
 ---
 
@@ -71,7 +71,27 @@ All services use consistent paths:
 
 ## DEPLOYMENT WORKFLOW
 
-### Standard Deploy
+### DEV to PROD Deployment (Recommended)
+
+From the DEV server, use the deploy script:
+```bash
+# 1. Push code to GitHub first
+sudo -u synctacles-dev git -C /opt/github/synctacles-api push origin main
+
+# 2. Deploy to PROD via jump host
+~/bin/deploy-prod
+
+# 3. Verify PROD status
+~/bin/prod-status
+```
+
+The `deploy-prod` script:
+- Connects via SSH through cc-hub jump host
+- Pulls latest code on PROD
+- Restarts synctacles-api service
+- Shows deployment status
+
+### Standard Deploy (Direct on Server)
 ```bash
 cd /opt/github/synctacles-api
 git pull origin main
@@ -97,6 +117,23 @@ curl -s http://localhost:8000/health | jq .
 
 # Check logs for errors
 journalctl -u synctacles-api -n 50 --no-pager
+```
+
+### DEV/PROD Synchronization Verification
+
+Verify both environments run identical software:
+```bash
+# Compare git commits
+echo "DEV:" && git -C /opt/github/synctacles-api log --oneline -1
+echo "PROD:" && ssh cc-hub "ssh synct-prod 'cd /opt/github/synctacles-api && git log --oneline -1'"
+
+# Compare Python versions
+echo "DEV:" && python3 --version
+echo "PROD:" && ssh cc-hub "ssh synct-prod 'python3 --version'"
+
+# Compare alembic migration versions
+echo "DEV:" && psql -U energy_insights_nl -d energy_insights_nl -c "SELECT version_num FROM alembic_version"
+echo "PROD:" && ssh cc-hub "ssh synct-prod 'psql -U synctacles -d synctacles -c \"SELECT version_num FROM alembic_version\"'"
 ```
 
 ---
