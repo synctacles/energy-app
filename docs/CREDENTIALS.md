@@ -38,15 +38,15 @@ This document tracks all credentials, API keys, and access configurations for th
 
 ### Git Configuration
 - **Path**: `/opt/github/synctacles-api`
-- **Remote**: `origin` → HTTPS with PAT (synctacles-bot)
+- **Remote**: `origin` → `git@github.com:synctacles/backend.git` (SSH)
 - **Auto-update**: Every 15 minutes via cron
 
-### SSH Keys (UNUSED - using HTTPS instead)
+### SSH Keys
 - **Location**: `/home/synctacles/.ssh/`
 - **Key file**: `id_github` / `id_github.pub`
 - **Key name**: `synctacles-prod-deploy`
-- **Status**: NOT added to GitHub (permission issue during setup)
-- **Note**: We use HTTPS+PAT instead, which works fine
+- **Status**: ✅ Active (added 2026-01-23)
+- **Write access**: Yes (enabled in GitHub)
 
 ### Cron Job
 - **File**: `/etc/cron.d/synctacles-autoupdate` (or similar)
@@ -120,9 +120,9 @@ sudo -u synctacles git -C /opt/github/synctacles-api pull origin main
 
 ---
 
-## TODO / Known Issues
+## Resolved Issues
 
-1. **SSH deploy key**: `id_github` key on PROD is not added to GitHub. Works fine with HTTPS+PAT, but SSH would be cleaner. To fix:
-   - Add key to https://github.com/synctacles/backend/settings/keys
-   - Public key: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPM3nypqn12vdQWp68JX91Dnhs6WtHqrmiFfeyLV2TUX synctacles-prod-deploy`
-   - Then change remote to SSH: `git remote set-url origin git@github.com:synctacles/backend.git`
+1. **SSH deploy key**: ✅ Fixed 2026-01-23
+   - Org policy enabled deploy keys
+   - Key added to GitHub
+   - PROD switched from HTTPS to SSH
