@@ -1,7 +1,7 @@
 # SKILL 11 â€” REPO STRUCTURE & SERVICE ACCOUNTS
 
 Repository Organisation and Account Management
-Version: 1.4 (2026-01-23)
+Version: 1.5 (2026-01-23)
 
 ---
 
@@ -139,6 +139,43 @@ sudo -u $SERVICE_USER git -C /opt/github/synctacles-api status
 
 # View log
 sudo -u $SERVICE_USER git -C /opt/github/synctacles-api log --oneline -5
+```
+
+### Pre-Push CI Validatie (VERPLICHT)
+
+**ALTIJD uitvoeren vóór `git push`:**
+
+```bash
+cd /opt/github/synctacles-api
+
+# 1. Lint + autofix
+ruff check . --fix
+
+# 2. Format
+ruff format .
+
+# 3. Tests (indien aanwezig)
+pytest tests/ -v
+
+# 4. Alleen pushen als ALLE checks slagen
+sudo -u synctacles-dev git -C /opt/github/synctacles-api push origin main
+```
+
+**Waarom?**
+- Voorkomt CI pipeline failures op GitHub
+- Snellere feedback (lokaal vs wachten op GitHub Actions)
+- Minder foutmeldingen via email
+
+**Als checks falen:**
+1. Fix de issues lokaal
+2. Commit de fixes
+3. Herhaal de checks
+4. Push pas als alles groen is
+
+**NIET doen:**
+```bash
+# FOUT - pushen zonder lokale validatie
+git push  # ❌ Kan CI failures veroorzaken
 ```
 
 ### GitHub CLI (gh) - Issues, PRs, Releases
