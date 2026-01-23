@@ -1,7 +1,7 @@
 # SKILL 3 — CODING STANDARDS
 
 Code Quality, Style, and Best Practices
-Version: 1.0 (2025-12-30)
+Version: 2.0 (2026-01-23)
 
 ---
 
@@ -116,12 +116,13 @@ def import_generation_data(xml_file):
 
 ### Style Guide
 
-Follow PEP 8 with these clarifications:
+Follow PEP 8 with these clarifications, enforced by **Ruff** (see CI/CD section):
 
-- **Line length:** 100 characters (not 79, realistic for modern screens)
+- **Line length:** 88 characters (ruff default, same as black)
 - **Indentation:** 4 spaces (not tabs)
-- **Imports:** Alphabetical within groups (stdlib, third-party, local)
+- **Imports:** Alphabetical within groups, enforced by `ruff check --select I` (isort)
 - **Naming:** snake_case for functions/variables, PascalCase for classes
+- **Quotes:** Double quotes (enforced by `ruff format`)
 
 ### Imports Organization
 
@@ -412,7 +413,7 @@ def validate_db_connection():
     except Exception as e:
         _LOGGER.critical(f"✗ Database connectie FAILED: {e}")
         _LOGGER.critical("  Check DATABASE_URL in /opt/.env")
-        _LOGGER.critical("  Verwacht user: energy_insights_nl")
+        _LOGGER.critical("  Verwacht user: synctacles")
         raise SystemExit(1)
 ```
 
@@ -778,7 +779,8 @@ Before submitting PR:
 
 ```
 Readability & Style:
-□ PEP 8 compliant (use black/flake8)
+□ Ruff lint passes (CI blocks on failure)
+□ Ruff format passes (CI blocks on failure)
 □ Functions have docstrings
 □ Comments explain WHY, not WHAT
 □ Naming is clear (no abbreviations)
@@ -823,47 +825,79 @@ Documentation:
 
 ## TOOLS & AUTOMATION
 
-### Code Formatting
+### Ruff (Linting & Formatting)
+
+**Ruff replaces black, flake8, isort, and pyupgrade** in a single fast tool.
 
 ```bash
-# Auto-format with black
-pip install black
-black synctacles_db/
+# Check for lint errors
+ruff check .
 
-# Check style with flake8
-pip install flake8
-flake8 synctacles_db/
+# Auto-fix lint errors
+ruff check . --fix
 
-# Sort imports with isort
-pip install isort
-isort synctacles_db/
+# Check formatting
+ruff format --check .
+
+# Auto-format code
+ruff format .
 ```
+
+**Configuration:** See `ruff.toml` in project root.
+
+**Rule sets enabled:**
+- `E`, `W` - pycodestyle (errors, warnings)
+- `F` - pyflakes (undefined names, unused imports)
+- `I` - isort (import sorting)
+- `B` - flake8-bugbear (common bugs)
+- `C4` - flake8-comprehensions
+- `UP` - pyupgrade (Python 3.12+ syntax)
+
+### CI/CD Pipeline
+
+**GitHub Actions enforces code quality on every push/PR:**
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  lint:
+    - ruff check . --output-format=github  # BLOCKING
+    - ruff format --check .                 # BLOCKING
+
+  test:
+    needs: lint  # Only runs if lint passes
+    - pytest tests/ -v --cov=synctacles_db
+
+  build:
+    needs: [lint, test]  # Only runs if both pass
+    - python -c "from synctacles_db.api.main import app"
+```
+
+**PRs cannot merge if lint or tests fail.**
 
 ### Testing
 
 ```bash
 # Run all tests with coverage
-pytest --cov=synctacles_db tests/
+pytest tests/ -v --cov=synctacles_db
+
+# Run specific test file
+pytest tests/test_api.py -v
 
 # Run specific test
-pytest tests/unit/test_config.py::test_config_fails_without_brand_name
+pytest tests/test_api.py::TestHealthEndpoint::test_health_returns_ok
+
+# Skip integration tests (require DB)
+pytest tests/ -v -m "not integration"
 ```
 
 ### Pre-commit Hooks
 
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/psf/black
-    rev: 23.1.0
-    hooks:
-      - id: black
+Custom hooks in `.git/hooks/pre-commit`:
+- Blocks commits containing hardcoded credentials
+- Validates DATABASE_URL patterns
 
-  - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4
-    hooks:
-      - id: flake8
-```
+**Note:** Ruff is enforced in CI, not pre-commit (faster iteration locally).
 
 ---
 

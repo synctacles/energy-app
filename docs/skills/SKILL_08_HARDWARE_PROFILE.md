@@ -1,7 +1,7 @@
 # SKILL 8 — HARDWARE PROFILE
 
 System Requirements and Deployment Infrastructure
-Version: 1.0 (2025-12-30)
+Version: 1.1 (2026-01-23)
 
 ---
 
@@ -211,10 +211,10 @@ alembic==1.12.0            # Database migrations
 ### Development Dependencies
 
 ```
-pytest==7.4.0              # Testing
-black==23.11.0             # Code formatting
-flake8==6.1.0              # Linting
-isort==5.12.0              # Import sorting
+pytest==8.3.0              # Testing
+pytest-cov==4.1.0          # Coverage
+pytest-asyncio==0.25.0     # Async test support
+ruff==0.4.0                # Linting + formatting (replaces black/flake8/isort)
 mypy==1.7.0                # Type checking
 ```
 
@@ -575,29 +575,29 @@ PermitRootLogin no
 
 #### /opt/.env (Primary Configuration)
 
-**⚠️ KRITIEK: NIET VERWIJDEREN** — Alle services zijn hiervan afhankelijk.
+**KRITIEK: NIET VERWIJDEREN** — Alle services zijn hiervan afhankelijk.
 
 **Gebruikt door:**
 | Service | Methode |
 |---------|---------|
-| `energy-insights-nl-api.service` | `EnvironmentFile=/opt/.env` |
-| `energy-insights-nl-collector.service` | Script sourced `/opt/.env` |
-| `energy-insights-nl-importer.service` | Script sourced `/opt/.env` |
-| `energy-insights-nl-normalizer.service` | Script sourced `/opt/.env` |
+| `synctacles-api.service` | `EnvironmentFile=/opt/.env` |
+| `synctacles-collector.service` | Script sourced `/opt/.env` |
+| `synctacles-importer.service` | Script sourced `/opt/.env` |
+| `synctacles-normalizer.service` | Script sourced `/opt/.env` |
 
 **Bevat:**
 ```bash
-DATABASE_URL=postgresql://energy_insights_nl@localhost:5432/energy_insights_nl
-DB_USER=energy_insights_nl  # Let op: underscores, niet streepjes!
-INSTALL_PATH=/opt/energy-insights-nl
-LOG_PATH=/var/log/energy-insights-nl
+DATABASE_URL=postgresql://synctacles@localhost:5432/synctacles
+DB_USER=synctacles
+INSTALL_PATH=/opt/synctacles
+LOG_PATH=/var/log/synctacles
 ENTSOE_API_KEY=...
 SECRET_KEY=...
 ```
 
-**Backup locatie:** `/opt/energy-insights-nl/backups/.env.backup-YYYYMMDD`
+**Backup locatie:** `/opt/synctacles/backups/.env.backup-YYYYMMDD`
 
-#### /opt/energy-insights-nl/.env (Secondary)
+#### /opt/synctacles/.env (Secondary)
 
 Identieke kopie van `/opt/.env`. Sommige scripts verwijzen naar deze locatie.
 
@@ -605,13 +605,13 @@ Identieke kopie van `/opt/.env`. Sommige scripts verwijzen naar deze locatie.
 
 ```bash
 # Check welke services EnvironmentFile gebruiken
-grep -r "EnvironmentFile" /etc/systemd/system/energy-insights-nl-*.service
+grep -r "EnvironmentFile" /etc/systemd/system/synctacles-*.service
 
 # Verifieer .env leesbaar is voor service user
-sudo -u energy-insights-nl cat /opt/.env | head -5
+sudo -u synctacles cat /opt/.env | head -5
 
 # Test database connectie
-sudo -u energy-insights-nl bash -c 'source /opt/.env && psql $DATABASE_URL -c "SELECT 1"'
+sudo -u synctacles bash -c 'source /opt/.env && psql $DATABASE_URL -c "SELECT 1"'
 ```
 
 ---
