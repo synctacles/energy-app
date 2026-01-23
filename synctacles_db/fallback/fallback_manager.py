@@ -19,8 +19,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import aiohttp
-
-# Database access for Tier 1/2
 import asyncpg
 from cachetools import TTLCache
 
@@ -668,7 +666,7 @@ class FallbackManager:
                     frank_prices, "Frank DB", 1
                 )
                 return (result, "Frank DB", quality, allow_go)
-        except Exception as err:
+        except (asyncpg.PostgresError, OSError, KeyError, ValueError, TypeError) as err:
             _LOGGER.debug(f"Tier 1 (Frank DB) failed: {err}")
 
         # =================================================================
@@ -697,7 +695,13 @@ class FallbackManager:
                     consumer_prices, "Frank Direct", 2
                 )
                 return (result, "Frank Direct", "FRESH", True)
-        except Exception as err:
+        except (
+            aiohttp.ClientError,
+            TimeoutError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as err:
             _LOGGER.debug(f"Tier 2 (Frank Direct API) failed: {err}")
 
         # =================================================================
@@ -725,7 +729,13 @@ class FallbackManager:
                     consumer_prices, "EasyEnergy+Offset", 3
                 )
                 return (result, "EasyEnergy+Hybrid", "FRESH", True)
-        except Exception as err:
+        except (
+            aiohttp.ClientError,
+            TimeoutError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as err:
             _LOGGER.debug(f"Tier 3 (EasyEnergy Direct API) failed: {err}")
 
         # =================================================================
@@ -748,7 +758,7 @@ class FallbackManager:
                     calculated_prices, "ENTSO-E+Offset", 4
                 )
                 return (result, "ENTSO-E+Hybrid", "FRESH", True)
-            except Exception as err:
+            except (KeyError, ValueError, TypeError) as err:
                 _LOGGER.debug(f"Tier 4 hybrid conversion failed: {err}")
                 # Fallback to raw ENTSO-E
                 _LOGGER.info(f"Tier 4b: ENTSO-E Fresh (raw, {db_age_minutes} min)")
@@ -770,7 +780,7 @@ class FallbackManager:
                             ec_prices
                         )
                         source = "Energy-Charts+Offset"
-                    except Exception:
+                    except (KeyError, ValueError, TypeError):
                         calculated_prices = ec_prices
                         source = "Energy-Charts"
 
@@ -789,7 +799,13 @@ class FallbackManager:
                     )
                     # CRITICAL: allow_go_action=False for Energy-Charts!
                     return (result, source, "FALLBACK", False)
-            except Exception as err:
+            except (
+                aiohttp.ClientError,
+                TimeoutError,
+                KeyError,
+                ValueError,
+                TypeError,
+            ) as err:
                 _LOGGER.error(f"Tier 5 (Energy-Charts) failed: {err}")
                 if "404" in str(err):
                     FallbackManager._open_circuit_breaker()
@@ -866,7 +882,7 @@ class FallbackManager:
                     wholesale_mwh = float(new_p["price_eur_mwh"])
                     consumer_mwh = apply_static_offset_mwh(wholesale_mwh, hour)
                     new_p["price_eur_mwh"] = consumer_mwh
-                except Exception as err:
+                except (ValueError, TypeError, AttributeError) as err:
                     _LOGGER.debug(f"Could not apply offset to {ts_str}: {err}")
                     # Keep original price if offset fails
             adjusted.append(new_p)
@@ -933,7 +949,7 @@ class FallbackManager:
                     "timestamp": now.isoformat(),
                 }
 
-        except Exception as err:
+        except (KeyError, ValueError, TypeError, AttributeError) as err:
             _LOGGER.debug(f"Could not add reference data: {err}")
             # Return prices without reference data (graceful degradation)
 
@@ -977,7 +993,7 @@ class FallbackManager:
                         country=country.upper(),
                         timestamp=ts,
                     )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             _LOGGER.error(f"Failed to cache prices to DB: {e}")
 
     # =========================================================================
@@ -1036,8 +1052,11 @@ class FallbackManager:
             _LOGGER.debug(f"Frank DB: {len(prices)} prices, age {data_age_minutes} min")
             return (prices, data_age_minutes)
 
-        except Exception as e:
-            _LOGGER.error(f"Frank DB read failed: {e}")
+        except asyncpg.PostgresError as e:
+            _LOGGER.error(f"Frank DB connection failed: {e}")
+            return (None, 9999)
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"Frank DB data parse failed: {e}")
             return (None, 9999)
 
     @staticmethod
@@ -1096,8 +1115,11 @@ class FallbackManager:
             )
             return (prices, data_age_minutes)
 
-        except Exception as e:
-            _LOGGER.error(f"Frank DB tomorrow read failed: {e}")
+        except asyncpg.PostgresError as e:
+            _LOGGER.error(f"Frank DB tomorrow connection failed: {e}")
+            return (None, 9999)
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.error(f"Frank DB tomorrow data parse failed: {e}")
             return (None, 9999)
 
     # NOTE: _get_enever_frank_from_db() removed in KISS Migration v2.0.0

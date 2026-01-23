@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import DATABASE_URL, LOG_PATH
@@ -72,10 +73,24 @@ def import_prices(file_path: Path, country: str = "NL"):
 
         return imported
 
-    except Exception as err:
+    except FileNotFoundError as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"Energy-Charts file not found after {elapsed:.2f}s: {err}")
+        raise
+    except json.JSONDecodeError as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"Energy-Charts JSON parse error after {elapsed:.2f}s: {err}")
+        raise
+    except SQLAlchemyError as err:
         elapsed = time.time() - start_time
         _LOGGER.error(
-            f"Energy-Charts importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+            f"Energy-Charts database error after {elapsed:.2f}s: {type(err).__name__}: {err}"
+        )
+        raise
+    except (ValueError, KeyError, TypeError) as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(
+            f"Energy-Charts data error after {elapsed:.2f}s: {type(err).__name__}: {err}"
         )
         raise
 
@@ -105,7 +120,14 @@ def import_all():
             try:
                 imported = import_prices(file_path)
                 total_imported += imported
-            except Exception as e:
+            except (
+                FileNotFoundError,
+                json.JSONDecodeError,
+                SQLAlchemyError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as e:
                 _LOGGER.debug(
                     f"Failed to import {file_path.name}: {type(e).__name__}: {e}"
                 )
@@ -121,7 +143,7 @@ def import_all():
             f"Energy-Charts importer batch completed: {total_imported} total records in {elapsed:.2f}s"
         )
 
-    except Exception as err:
+    except (OSError, SQLAlchemyError) as err:
         elapsed = time.time() - start_time
         _LOGGER.error(
             f"Energy-Charts batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"

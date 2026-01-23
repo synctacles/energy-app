@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import DATABASE_URL
@@ -120,11 +121,11 @@ def normalize_prices():
             f"A44 normalizer completed: {normalized} OK, {forward_filled} forward-filled in {elapsed:.2f}s"
         )
 
-    except Exception as e:
+    except SQLAlchemyError as e:
         session.rollback()
         elapsed = time.time() - start_time
         _LOGGER.error(
-            f"A44 normalizer failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+            f"A44 normalizer database error after {elapsed:.2f}s: {type(e).__name__}: {e}"
         )
         raise
     finally:

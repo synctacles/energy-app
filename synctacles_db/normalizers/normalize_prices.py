@@ -4,6 +4,7 @@ import time
 from datetime import UTC, datetime
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import DATABASE_URL
@@ -88,11 +89,11 @@ def normalize_prices(country: str = "NL"):
             f"Price normalizer completed: {normalized} records normalized in {elapsed:.2f}s"
         )
 
-    except Exception as err:
+    except SQLAlchemyError as err:
         session.rollback()
         elapsed = time.time() - start_time
         _LOGGER.error(
-            f"Price normalizer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+            f"Price normalizer database error after {elapsed:.2f}s: {type(err).__name__}: {err}"
         )
         raise
     finally:

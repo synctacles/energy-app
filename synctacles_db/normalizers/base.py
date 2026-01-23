@@ -3,6 +3,7 @@
 import logging
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from config.settings import DATABASE_URL
 
@@ -26,7 +27,7 @@ def validate_db_connection():
             conn.execute(text("SELECT 1"))
         _LOGGER.info("✓ Database connectie gevalideerd")
         return engine
-    except Exception as e:
+    except SQLAlchemyError as e:
         _LOGGER.critical(f"✗ Database connectie FAILED: {e}")
         _LOGGER.critical("  Check DATABASE_URL in /opt/.env")
         _LOGGER.critical("  Verify DB_USER and DB_NAME match your .env configuration")

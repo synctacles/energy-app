@@ -114,11 +114,19 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
 
         return data
 
-    except Exception as err:
+    except requests.exceptions.RequestException as err:
         elapsed = time.time() - start_time
         _LOGGER.error(
-            f"Energy-Charts collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+            f"Energy-Charts network error after {elapsed:.2f}s: {type(err).__name__}: {err}"
         )
+        raise
+    except json.JSONDecodeError as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"Energy-Charts JSON parse error after {elapsed:.2f}s: {err}")
+        raise
+    except OSError as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"Energy-Charts file error after {elapsed:.2f}s: {err}")
         raise
 
 

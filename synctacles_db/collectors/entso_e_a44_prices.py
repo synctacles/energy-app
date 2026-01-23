@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
+import requests
 from entsoe import EntsoePandasClient
 
 from config.settings import LOG_PATH
@@ -38,8 +39,11 @@ def fetch_day_ahead_prices(start_date, end_date):
         )
         _LOGGER.debug(f"Response: {len(prices)} price records received")
         return prices
-    except Exception as e:
-        _LOGGER.error(f"ENTSO-E A44 API error: {type(e).__name__}: {e}")
+    except requests.exceptions.RequestException as e:
+        _LOGGER.error(f"ENTSO-E A44 network error: {type(e).__name__}: {e}")
+        return None
+    except (KeyError, ValueError, TypeError) as e:
+        _LOGGER.error(f"ENTSO-E A44 data parsing error: {type(e).__name__}: {e}")
         return None
 
 
@@ -96,11 +100,13 @@ def main():
         elapsed = time.time() - start_time
         _LOGGER.info(f"ENTSO-E A44 Price Collector completed in {elapsed:.2f}s")
 
-    except Exception as err:
+    except requests.exceptions.RequestException as err:
         elapsed = time.time() - start_time
-        _LOGGER.error(
-            f"A44 collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
-        )
+        _LOGGER.error(f"A44 collector network error after {elapsed:.2f}s: {err}")
+        raise
+    except OSError as err:
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A44 collector file error after {elapsed:.2f}s: {err}")
         raise
 
 

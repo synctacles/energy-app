@@ -35,7 +35,7 @@ class APICache:
             else:
                 self._cache[key] = value
             logger.debug(f"Cache SET: {key} (TTL: {ttl or self._default_ttl}s)")
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.error(f"Cache SET failed: {e}")
 
     def invalidate_pattern(self, pattern: str) -> int:

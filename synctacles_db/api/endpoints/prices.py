@@ -17,9 +17,11 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import aiohttp
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.responses import Response
 
@@ -147,7 +149,14 @@ async def get_prices(country: str = Query("nl"), hours: int = Query(48, ge=1, le
         ) = await FallbackManager.get_prices_with_fallback(
             db_results=db_data, db_age_minutes=db_age_minutes, country=country.lower()
         )
-    except Exception as err:
+    except (
+        SQLAlchemyError,
+        aiohttp.ClientError,
+        TimeoutError,
+        KeyError,
+        ValueError,
+        TypeError,
+    ) as err:
         _LOGGER.error(f"FallbackManager error: {err}")
         # Fallback to database if available
         if records:

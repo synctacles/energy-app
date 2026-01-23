@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import create_engine, delete, desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import DATABASE_URL
@@ -62,9 +63,13 @@ class PriceCacheService:
             _LOGGER.debug(f"Price cached: {price:.4f} EUR/kWh from {source}")
             return True
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             session.rollback()
-            _LOGGER.error(f"Failed to cache price: {e}")
+            _LOGGER.error(f"Database error caching price: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            session.rollback()
+            _LOGGER.error(f"Data conversion error caching price: {e}")
             return False
 
         finally:
@@ -99,8 +104,11 @@ class PriceCacheService:
                 }
             return None
 
-        except Exception as e:
-            _LOGGER.error(f"Failed to get cached price: {e}")
+        except SQLAlchemyError as e:
+            _LOGGER.error(f"Database error getting cached price: {e}")
+            return None
+        except (AttributeError, ValueError) as e:
+            _LOGGER.error(f"Data error getting cached price: {e}")
             return None
 
         finally:
@@ -140,8 +148,11 @@ class PriceCacheService:
                 for row in rows
             ]
 
-        except Exception as e:
-            _LOGGER.error(f"Failed to get cached prices: {e}")
+        except SQLAlchemyError as e:
+            _LOGGER.error(f"Database error getting cached prices: {e}")
+            return []
+        except (AttributeError, ValueError) as e:
+            _LOGGER.error(f"Data error getting cached prices: {e}")
             return []
 
         finally:
@@ -173,9 +184,9 @@ class PriceCacheService:
 
             return deleted_count
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             session.rollback()
-            _LOGGER.error(f"Failed to cleanup cache: {e}")
+            _LOGGER.error(f"Database error cleaning cache: {e}")
             return 0
 
         finally:
@@ -231,8 +242,11 @@ class PriceCacheService:
                 "sources": {src: cnt for src, cnt in sources},
             }
 
-        except Exception as e:
-            _LOGGER.error(f"Failed to get cache stats: {e}")
+        except SQLAlchemyError as e:
+            _LOGGER.error(f"Database error getting cache stats: {e}")
+            return {"count": 0, "oldest": None, "newest": None, "sources": {}}
+        except (AttributeError, ValueError) as e:
+            _LOGGER.error(f"Data error getting cache stats: {e}")
             return {"count": 0, "oldest": None, "newest": None, "sources": {}}
 
         finally:

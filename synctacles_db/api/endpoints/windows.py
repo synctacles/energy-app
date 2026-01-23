@@ -12,8 +12,10 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 
+import aiohttp
 from fastapi import APIRouter, Query
 from fastapi.responses import Response
+from sqlalchemy.exc import SQLAlchemyError
 
 from synctacles_db.cache import api_cache
 from synctacles_db.fallback.fallback_manager import FallbackManager
@@ -514,7 +516,7 @@ async def _get_all_prices(country: str) -> list[dict]:
                     }
                 )
             tomorrow_source = "Frank DB"
-    except Exception as e:
+    except (SQLAlchemyError, KeyError, ValueError, TypeError) as e:
         _LOGGER.debug(f"Frank DB tomorrow failed: {e}")
 
     # Tier 2: Frank Direct API tomorrow (live fallback)
@@ -536,7 +538,13 @@ async def _get_all_prices(country: str) -> list[dict]:
                         }
                     )
                 tomorrow_source = "Frank Direct"
-        except Exception as e:
+        except (
+            aiohttp.ClientError,
+            TimeoutError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as e:
             _LOGGER.debug(f"Frank Direct tomorrow failed: {e}")
 
     # Tier 3: EasyEnergy API tomorrow + Hybrid conversion (~97% accurate)
@@ -565,7 +573,13 @@ async def _get_all_prices(country: str) -> list[dict]:
                         }
                     )
                 tomorrow_source = "EasyEnergy+Hybrid"
-        except Exception as e:
+        except (
+            aiohttp.ClientError,
+            TimeoutError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as e:
             _LOGGER.warning(f"EasyEnergy tomorrow failed, falling back to ENTSO-E: {e}")
 
     # Merge strategy:

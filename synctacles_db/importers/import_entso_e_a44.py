@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import DATABASE_URL, LOG_PATH
@@ -78,11 +79,28 @@ def import_csv_file(filepath):
             f"A44 CSV importer completed: {imported} inserted, {skipped} skipped in {elapsed:.2f}s"
         )
 
-    except Exception as e:
+    except FileNotFoundError as e:
+        session.rollback()
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A44 CSV file not found after {elapsed:.2f}s: {e}")
+        raise
+    except csv.Error as e:
+        session.rollback()
+        elapsed = time.time() - start_time
+        _LOGGER.error(f"A44 CSV parse error after {elapsed:.2f}s: {e}")
+        raise
+    except SQLAlchemyError as e:
         session.rollback()
         elapsed = time.time() - start_time
         _LOGGER.error(
-            f"A44 CSV import failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+            f"A44 CSV database error after {elapsed:.2f}s: {type(e).__name__}: {e}"
+        )
+        raise
+    except (ValueError, KeyError, TypeError) as e:
+        session.rollback()
+        elapsed = time.time() - start_time
+        _LOGGER.error(
+            f"A44 CSV data error after {elapsed:.2f}s: {type(e).__name__}: {e}"
         )
         raise
     finally:
@@ -114,7 +132,14 @@ def main():
                 imported, skipped = import_csv_file(csv_file)
                 total_imported += imported
                 total_skipped += skipped
-            except Exception as e:
+            except (
+                FileNotFoundError,
+                csv.Error,
+                SQLAlchemyError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as e:
                 _LOGGER.debug(f"Failed to import {csv_file.name}: {type(e).__name__}")
                 failed_files.append(csv_file.name)
 
@@ -128,7 +153,7 @@ def main():
             f"A44 CSV importer batch completed: {total_imported} imported, {total_skipped} skipped in {elapsed:.2f}s"
         )
 
-    except Exception as err:
+    except (OSError, SQLAlchemyError) as err:
         elapsed = time.time() - start_time
         _LOGGER.error(
             f"A44 batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
