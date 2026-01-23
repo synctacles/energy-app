@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from config.settings import AUTH_REQUIRED, RATE_LIMIT_ENABLED
 from synctacles_db import auth_service
@@ -146,8 +147,14 @@ async def auth_middleware(request: Request, call_next):
         request.state.user = user
         _LOGGER.debug(f"Auth success: user {user.id} for {path}")
         db.close()
-    except Exception as e:
-        _LOGGER.error(f"Auth error: {type(e).__name__}: {e} for {path}")
+    except SQLAlchemyError as e:
+        _LOGGER.error(f"Auth database error: {type(e).__name__}: {e} for {path}")
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": "Authentication failed"}
+        )
+    except (KeyError, ValueError, AttributeError) as e:
+        _LOGGER.error(f"Auth validation error: {type(e).__name__}: {e} for {path}")
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Authentication failed"}
@@ -232,10 +239,12 @@ async def rate_limit_middleware(request: Request, call_next):
             }
         )
         db.close()
-    except Exception as e:
+    except SQLAlchemyError as e:
         # On error, continue (don't break the API)
-        _LOGGER.error(f"Rate limit check error: {type(e).__name__}: {e}")
-        pass
+        _LOGGER.error(f"Rate limit check database error: {type(e).__name__}: {e}")
+    except (AttributeError, KeyError, ValueError) as e:
+        # On error, continue (don't break the API)
+        _LOGGER.error(f"Rate limit check data error: {type(e).__name__}: {e}")
 
     # Get response
     start_time = time.time()
@@ -272,9 +281,11 @@ async def rate_limit_middleware(request: Request, call_next):
         )
 
         db.close()
-    except Exception as e:
+    except SQLAlchemyError as e:
         # On error, still return response (don't break the API)
-        _LOGGER.error(f"Rate limit logging error: {type(e).__name__}: {e}")
-        pass
+        _LOGGER.error(f"Rate limit logging database error: {type(e).__name__}: {e}")
+    except (AttributeError, KeyError, ValueError) as e:
+        # On error, still return response (don't break the API)
+        _LOGGER.error(f"Rate limit logging data error: {type(e).__name__}: {e}")
 
     return response
