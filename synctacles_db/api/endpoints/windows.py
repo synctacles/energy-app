@@ -27,6 +27,7 @@ router = APIRouter(prefix="/v1", tags=["windows"])
 # BEST WINDOW FINDER
 # =============================================================================
 
+
 @router.get("/best-window")
 async def get_best_window(
     duration: int = Query(3, ge=1, le=8, description="Window duration in hours (1-8)"),
@@ -56,9 +57,7 @@ async def get_best_window(
     cached = api_cache.get(cache_key)
     if cached:
         return Response(
-            content=cached,
-            media_type="application/json",
-            headers={"X-Cache": "HIT"}
+            content=cached, media_type="application/json", headers={"X-Cache": "HIT"}
         )
 
     now = datetime.now(UTC)
@@ -75,14 +74,11 @@ async def get_best_window(
                 "source": "none",
                 "quality": "UNAVAILABLE",
                 "hours_analyzed": 0,
-                "error": f"Insufficient price data (need {duration}h, have {len(prices) if prices else 0}h)"
+                "error": f"Insufficient price data (need {duration}h, have {len(prices) if prices else 0}h)",
             },
-            "timestamp": now.isoformat()
+            "timestamp": now.isoformat(),
         }
-        return Response(
-            content=json.dumps(result),
-            media_type="application/json"
-        )
+        return Response(content=json.dumps(result), media_type="application/json")
 
     # Find best windows
     best, runner_up = _find_best_windows(prices, duration, now)
@@ -97,7 +93,9 @@ async def get_best_window(
         comparison = {
             "current_price_eur_kwh": round(current_price, 4),
             "savings_vs_now_eur_kwh": round(savings, 4),
-            "savings_percent": round((savings / current_price) * 100, 1) if current_price > 0 else 0
+            "savings_percent": round((savings / current_price) * 100, 1)
+            if current_price > 0
+            else 0,
         }
 
     result = {
@@ -106,27 +104,25 @@ async def get_best_window(
         "comparison": comparison,
         "meta": {
             "source": prices[0].get("_source", "unknown") if prices else "none",
-            "quality": prices[0].get("_quality", "unknown") if prices else "UNAVAILABLE",
+            "quality": prices[0].get("_quality", "unknown")
+            if prices
+            else "UNAVAILABLE",
             "hours_analyzed": len(prices),
-            "duration_requested": duration
+            "duration_requested": duration,
         },
-        "timestamp": now.isoformat()
+        "timestamp": now.isoformat(),
     }
 
     json_content = json.dumps(result, default=str)
     api_cache.set(cache_key, json_content, ttl=300)  # 5 min cache
 
     return Response(
-        content=json_content,
-        media_type="application/json",
-        headers={"X-Cache": "MISS"}
+        content=json_content, media_type="application/json", headers={"X-Cache": "MISS"}
     )
 
 
 def _find_best_windows(
-    prices: list[dict],
-    duration: int,
-    now: datetime
+    prices: list[dict], duration: int, now: datetime
 ) -> tuple[dict | None, dict | None]:
     """
     Find the two best consecutive windows using sliding window algorithm.
@@ -153,7 +149,7 @@ def _find_best_windows(
     # Sliding window
     windows = []
     for i in range(len(future_prices) - duration + 1):
-        window_prices = future_prices[i:i + duration]
+        window_prices = future_prices[i : i + duration]
 
         # Calculate average
         values = [_extract_price_kwh(p) for p in window_prices]
@@ -165,16 +161,18 @@ def _find_best_windows(
         start_ts = _parse_timestamp(window_prices[0]["timestamp"])
         end_ts = _parse_timestamp(window_prices[-1]["timestamp"]) + timedelta(hours=1)
 
-        windows.append({
-            "start": start_ts.isoformat(),
-            "end": end_ts.isoformat(),
-            "start_hour": start_ts.strftime("%H:%M"),
-            "end_hour": end_ts.strftime("%H:%M"),
-            "duration_hours": duration,
-            "average_price_eur_kwh": round(avg_price, 4),
-            "total_cost_estimate_eur": round(avg_price * duration, 4),
-            "_avg_for_sort": avg_price
-        })
+        windows.append(
+            {
+                "start": start_ts.isoformat(),
+                "end": end_ts.isoformat(),
+                "start_hour": start_ts.strftime("%H:%M"),
+                "end_hour": end_ts.strftime("%H:%M"),
+                "duration_hours": duration,
+                "average_price_eur_kwh": round(avg_price, 4),
+                "total_cost_estimate_eur": round(avg_price * duration, 4),
+                "_avg_for_sort": avg_price,
+            }
+        )
 
     if not windows:
         return None, None
@@ -195,6 +193,7 @@ def _find_best_windows(
 # =============================================================================
 # TOMORROW PREVIEW
 # =============================================================================
+
 
 @router.get("/tomorrow")
 async def get_tomorrow_preview(
@@ -219,9 +218,7 @@ async def get_tomorrow_preview(
     cached = api_cache.get(cache_key)
     if cached:
         return Response(
-            content=cached,
-            media_type="application/json",
-            headers={"X-Cache": "HIT"}
+            content=cached, media_type="application/json", headers={"X-Cache": "HIT"}
         )
 
     now = datetime.now(UTC)
@@ -241,14 +238,11 @@ async def get_tomorrow_preview(
             "meta": {
                 "source": "none",
                 "quality": "UNAVAILABLE",
-                "message": "No price data available"
+                "message": "No price data available",
             },
-            "timestamp": now.isoformat()
+            "timestamp": now.isoformat(),
         }
-        return Response(
-            content=json.dumps(result),
-            media_type="application/json"
-        )
+        return Response(content=json.dumps(result), media_type="application/json")
 
     # Split into today and tomorrow
     today_prices = []
@@ -270,19 +264,21 @@ async def get_tomorrow_preview(
             "best_window_3h": None,
             "comparison_vs_today": None,
             "meta": {
-                "source": all_prices[0].get("_source", "unknown") if all_prices else "none",
+                "source": all_prices[0].get("_source", "unknown")
+                if all_prices
+                else "none",
                 "quality": "PENDING",
                 "message": "Tomorrow's prices not yet available (usually after 13:00 CET)",
-                "hours_available": len(tomorrow_prices)
+                "hours_available": len(tomorrow_prices),
             },
-            "timestamp": now.isoformat()
+            "timestamp": now.isoformat(),
         }
         json_content = json.dumps(result)
         api_cache.set(cache_key, json_content, ttl=300)
         return Response(
             content=json_content,
             media_type="application/json",
-            headers={"X-Cache": "MISS"}
+            headers={"X-Cache": "MISS"},
         )
 
     # Calculate tomorrow summary
@@ -295,7 +291,7 @@ async def get_tomorrow_preview(
             "available": False,
             "summary": None,
             "meta": {"error": "Could not parse tomorrow prices"},
-            "timestamp": now.isoformat()
+            "timestamp": now.isoformat(),
         }
         return Response(content=json.dumps(result), media_type="application/json")
 
@@ -304,7 +300,9 @@ async def get_tomorrow_preview(
     tomorrow_max = max(tomorrow_values)
 
     # Find cheapest and most expensive hours
-    sorted_tomorrow = sorted(tomorrow_prices, key=lambda x: _extract_price_kwh(x) or 999)
+    sorted_tomorrow = sorted(
+        tomorrow_prices, key=lambda x: _extract_price_kwh(x) or 999
+    )
     cheapest = sorted_tomorrow[0]
     most_expensive = sorted_tomorrow[-1]
 
@@ -312,8 +310,11 @@ async def get_tomorrow_preview(
     expensive_ts = _parse_timestamp(most_expensive["timestamp"])
 
     # Calculate best 3h window for tomorrow
-    best_3h, _ = _find_best_windows(tomorrow_prices, 3,
-                                     datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=UTC))
+    best_3h, _ = _find_best_windows(
+        tomorrow_prices,
+        3,
+        datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=UTC),
+    )
 
     # Compare to today
     comparison = None
@@ -328,7 +329,7 @@ async def get_tomorrow_preview(
                 "today_average_eur_kwh": round(today_avg, 4),
                 "tomorrow_average_eur_kwh": round(tomorrow_avg, 4),
                 "difference_eur_kwh": round(diff, 4),
-                "difference_percent": round(diff_percent, 1)
+                "difference_percent": round(diff_percent, 1),
             }
 
     # Determine status
@@ -344,25 +345,25 @@ async def get_tomorrow_preview(
             "most_expensive_hour": expensive_ts.strftime("%H:%M"),
             "most_expensive_price_eur_kwh": round(tomorrow_max, 4),
             "average_price_eur_kwh": round(tomorrow_avg, 4),
-            "price_spread_eur_kwh": round(tomorrow_max - tomorrow_min, 4)
+            "price_spread_eur_kwh": round(tomorrow_max - tomorrow_min, 4),
         },
         "best_window_3h": best_3h,
         "comparison_vs_today": comparison,
         "meta": {
             "source": all_prices[0].get("_source", "unknown") if all_prices else "none",
-            "quality": all_prices[0].get("_quality", "FRESH") if all_prices else "UNAVAILABLE",
-            "hours_available": len(tomorrow_prices)
+            "quality": all_prices[0].get("_quality", "FRESH")
+            if all_prices
+            else "UNAVAILABLE",
+            "hours_available": len(tomorrow_prices),
         },
-        "timestamp": now.isoformat()
+        "timestamp": now.isoformat(),
     }
 
     json_content = json.dumps(result, default=str)
     api_cache.set(cache_key, json_content, ttl=300)
 
     return Response(
-        content=json_content,
-        media_type="application/json",
-        headers={"X-Cache": "MISS"}
+        content=json_content, media_type="application/json", headers={"X-Cache": "MISS"}
     )
 
 
@@ -403,6 +404,7 @@ def _determine_status(tomorrow_avg: float, today_prices: list[dict]) -> str:
 # HELPER FUNCTIONS
 # =============================================================================
 
+
 async def _get_all_prices(country: str) -> list[dict]:
     """
     Get all available prices (today + tomorrow).
@@ -433,18 +435,21 @@ async def _get_all_prices(country: str) -> list[dict]:
 
     # Get ENTSO-E data directly (has both today AND tomorrow) - as fallback
     try:
-        result = session.execute(text("""
+        result = session.execute(
+            text("""
             SELECT timestamp, price_eur_mwh
             FROM norm_entso_e_a44
             WHERE country = :country
               AND timestamp >= :start
               AND timestamp < :end
             ORDER BY timestamp ASC
-        """), {
-            "country": country.upper(),
-            "start": start_of_today,
-            "end": end_of_tomorrow
-        }).fetchall()
+        """),
+            {
+                "country": country.upper(),
+                "start": start_of_today,
+                "end": end_of_tomorrow,
+            },
+        ).fetchall()
     finally:
         session.close()
 
@@ -459,13 +464,20 @@ async def _get_all_prices(country: str) -> list[dict]:
     db_age_minutes = 999
     if entsoe_prices:
         from datetime import datetime as dt
-        latest = max(dt.fromisoformat(p["timestamp"].replace("Z", "+00:00")) for p in entsoe_prices)
+
+        latest = max(
+            dt.fromisoformat(p["timestamp"].replace("Z", "+00:00"))
+            for p in entsoe_prices
+        )
         db_age_minutes = int((now - latest).total_seconds() / 60)
 
-    fallback_prices, source, quality, _ = await FallbackManager.get_prices_with_fallback(
-        db_results=entsoe_prices,
-        db_age_minutes=db_age_minutes,
-        country=country.lower()
+    (
+        fallback_prices,
+        source,
+        quality,
+        _,
+    ) = await FallbackManager.get_prices_with_fallback(
+        db_results=entsoe_prices, db_age_minutes=db_age_minutes, country=country.lower()
     )
 
     # Split ENTSO-E data into today/tomorrow (fallback only)
@@ -482,17 +494,25 @@ async def _get_all_prices(country: str) -> list[dict]:
 
     # Tier 1: Frank DB tomorrow (pre-collected, 100% accurate)
     try:
-        frank_db_tomorrow, frank_db_age = await FallbackManager._get_frank_tomorrow_from_db()
+        (
+            frank_db_tomorrow,
+            frank_db_age,
+        ) = await FallbackManager._get_frank_tomorrow_from_db()
         if frank_db_tomorrow and len(frank_db_tomorrow) > 0:
-            _LOGGER.info(f"Frank DB: got {len(frank_db_tomorrow)} tomorrow prices (consumer, age {frank_db_age} min)")
+            _LOGGER.info(
+                f"Frank DB: got {len(frank_db_tomorrow)} tomorrow prices (consumer, age {frank_db_age} min)"
+            )
             for p in frank_db_tomorrow:
-                frank_tomorrow.append({
-                    "timestamp": p["timestamp"],
-                    "price_eur_kwh": p["price_eur_mwh"] / 1000,  # Convert MWh to kWh
-                    "_source": "Frank DB",
-                    "_quality": "FRESH" if frank_db_age < 360 else "STALE",
-                    "_price_type": "consumer"  # Includes taxes + markup
-                })
+                frank_tomorrow.append(
+                    {
+                        "timestamp": p["timestamp"],
+                        "price_eur_kwh": p["price_eur_mwh"]
+                        / 1000,  # Convert MWh to kWh
+                        "_source": "Frank DB",
+                        "_quality": "FRESH" if frank_db_age < 360 else "STALE",
+                        "_price_type": "consumer",  # Includes taxes + markup
+                    }
+                )
             tomorrow_source = "Frank DB"
     except Exception as e:
         _LOGGER.debug(f"Frank DB tomorrow failed: {e}")
@@ -502,15 +522,19 @@ async def _get_all_prices(country: str) -> list[dict]:
         try:
             frank_data = await FrankEnergieClient.get_prices_tomorrow()
             if frank_data and len(frank_data) > 0:
-                _LOGGER.info(f"Frank Direct: got {len(frank_data)} tomorrow prices (consumer)")
+                _LOGGER.info(
+                    f"Frank Direct: got {len(frank_data)} tomorrow prices (consumer)"
+                )
                 for p in frank_data:
-                    frank_tomorrow.append({
-                        "timestamp": p["timestamp"],
-                        "price_eur_kwh": p["price_eur_kwh"],
-                        "_source": "Frank Direct",
-                        "_quality": "FRESH",
-                        "_price_type": "consumer"  # Includes taxes + markup
-                    })
+                    frank_tomorrow.append(
+                        {
+                            "timestamp": p["timestamp"],
+                            "price_eur_kwh": p["price_eur_kwh"],
+                            "_source": "Frank Direct",
+                            "_quality": "FRESH",
+                            "_price_type": "consumer",  # Includes taxes + markup
+                        }
+                    )
                 tomorrow_source = "Frank Direct"
         except Exception as e:
             _LOGGER.debug(f"Frank Direct tomorrow failed: {e}")
@@ -521,19 +545,25 @@ async def _get_all_prices(country: str) -> list[dict]:
         try:
             easy_data = await EasyEnergyClient.get_prices_tomorrow()
             if easy_data and len(easy_data) > 0:
-                _LOGGER.info(f"EasyEnergy: got {len(easy_data)} tomorrow prices, applying hybrid conversion")
+                _LOGGER.info(
+                    f"EasyEnergy: got {len(easy_data)} tomorrow prices, applying hybrid conversion"
+                )
                 for p in easy_data:
                     ts_str = p["timestamp"]
                     # Convert wholesale to consumer estimate (hybrid model)
                     wholesale_kwh = p["price_eur_mwh"] / 1000
-                    consumer_kwh = apply_static_offset(wholesale_kwh)  # Now uses hybrid formula
-                    frank_tomorrow.append({
-                        "timestamp": ts_str,
-                        "price_eur_kwh": consumer_kwh,
-                        "_source": "EasyEnergy+Hybrid",
-                        "_quality": "FRESH",
-                        "_price_type": "consumer_estimate"  # Wholesale × 1.21 + €0.129
-                    })
+                    consumer_kwh = apply_static_offset(
+                        wholesale_kwh
+                    )  # Now uses hybrid formula
+                    frank_tomorrow.append(
+                        {
+                            "timestamp": ts_str,
+                            "price_eur_kwh": consumer_kwh,
+                            "_source": "EasyEnergy+Hybrid",
+                            "_quality": "FRESH",
+                            "_price_type": "consumer_estimate",  # Wholesale × 1.21 + €0.129
+                        }
+                    )
                 tomorrow_source = "EasyEnergy+Hybrid"
         except Exception as e:
             _LOGGER.warning(f"EasyEnergy tomorrow failed, falling back to ENTSO-E: {e}")
@@ -564,11 +594,15 @@ async def _get_all_prices(country: str) -> list[dict]:
         if not has_tomorrow:
             if frank_tomorrow:
                 # Prefer Frank consumer prices for tomorrow
-                _LOGGER.info(f"Adding {len(frank_tomorrow)} Frank consumer prices for tomorrow")
+                _LOGGER.info(
+                    f"Adding {len(frank_tomorrow)} Frank consumer prices for tomorrow"
+                )
                 all_prices.extend(frank_tomorrow)
             elif entsoe_tomorrow:
                 # Fallback to ENTSO-E wholesale
-                _LOGGER.info(f"Adding {len(entsoe_tomorrow)} ENTSO-E wholesale prices for tomorrow")
+                _LOGGER.info(
+                    f"Adding {len(entsoe_tomorrow)} ENTSO-E wholesale prices for tomorrow"
+                )
                 for p in entsoe_tomorrow:
                     p["_source"] = "ENTSO-E"
                     p["_quality"] = "FRESH"
@@ -585,7 +619,9 @@ async def _get_all_prices(country: str) -> list[dict]:
     # Sort by timestamp
     all_prices.sort(key=lambda x: x.get("timestamp", ""))
 
-    _LOGGER.debug(f"_get_all_prices: {len(all_prices)} total ({source} today + {tomorrow_source} tomorrow)")
+    _LOGGER.debug(
+        f"_get_all_prices: {len(all_prices)} total ({source} today + {tomorrow_source} tomorrow)"
+    )
     return all_prices
 
 
@@ -622,10 +658,13 @@ def _get_price_at_time(prices: list[dict], target: datetime) -> float | None:
 # DASHBOARD (BUNDLED ENDPOINT)
 # =============================================================================
 
+
 @router.get("/dashboard")
 async def get_dashboard(
     country: str = Query("NL", description="Country code"),
-    window_duration: int = Query(3, ge=1, le=8, description="Best window duration in hours"),
+    window_duration: int = Query(
+        3, ge=1, le=8, description="Best window duration in hours"
+    ),
 ):
     """
     Bundled endpoint returning all energy insights in a single call.
@@ -648,9 +687,7 @@ async def get_dashboard(
     cached = api_cache.get(cache_key)
     if cached:
         return Response(
-            content=cached,
-            media_type="application/json",
-            headers={"X-Cache": "HIT"}
+            content=cached, media_type="application/json", headers={"X-Cache": "HIT"}
         )
 
     now = datetime.now(UTC)
@@ -668,7 +705,9 @@ async def get_dashboard(
 
     if all_prices:
         current_price = _get_price_at_time(all_prices, now)
-        today_prices = [p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == today]
+        today_prices = [
+            p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == today
+        ]
 
     # Today's stats (for cheapest/expensive hour sensors)
     today_cheapest_hour = None
@@ -683,17 +722,27 @@ async def get_dashboard(
             today_average = sum(values) / len(values)
 
             # Find cheapest and most expensive hours
-            sorted_today = sorted(today_prices, key=lambda x: _extract_price_kwh(x) or 999)
+            sorted_today = sorted(
+                today_prices, key=lambda x: _extract_price_kwh(x) or 999
+            )
             if sorted_today:
                 cheapest = sorted_today[0]
                 expensive = sorted_today[-1]
-                today_cheapest_hour = _parse_timestamp(cheapest["timestamp"]).strftime("%H:%M")
+                today_cheapest_hour = _parse_timestamp(cheapest["timestamp"]).strftime(
+                    "%H:%M"
+                )
                 today_cheapest_price = _extract_price_kwh(cheapest)
-                today_expensive_hour = _parse_timestamp(expensive["timestamp"]).strftime("%H:%M")
+                today_expensive_hour = _parse_timestamp(
+                    expensive["timestamp"]
+                ).strftime("%H:%M")
                 today_expensive_price = _extract_price_kwh(expensive)
 
             if current_price:
-                deviation = ((current_price - today_average) / today_average) * 100 if today_average > 0 else 0
+                deviation = (
+                    ((current_price - today_average) / today_average) * 100
+                    if today_average > 0
+                    else 0
+                )
 
                 if deviation <= -15:
                     energy_action = "GO"
@@ -717,10 +766,15 @@ async def get_dashboard(
     tomorrow_status = "PENDING"
     tomorrow_date = (now + timedelta(days=1)).date()
 
-    tomorrow_prices = [
-        p for p in all_prices
-        if _parse_timestamp(p["timestamp"]).date() == tomorrow_date
-    ] if all_prices else []
+    tomorrow_prices = (
+        [
+            p
+            for p in all_prices
+            if _parse_timestamp(p["timestamp"]).date() == tomorrow_date
+        ]
+        if all_prices
+        else []
+    )
 
     if len(tomorrow_prices) >= 12:
         tomorrow_values = [_extract_price_kwh(p) for p in tomorrow_prices]
@@ -728,25 +782,40 @@ async def get_dashboard(
 
         if tomorrow_values:
             tomorrow_avg = sum(tomorrow_values) / len(tomorrow_values)
-            tomorrow_status = _determine_status(tomorrow_avg,
-                [p for p in all_prices if _parse_timestamp(p["timestamp"]).date() == now.date()])
+            tomorrow_status = _determine_status(
+                tomorrow_avg,
+                [
+                    p
+                    for p in all_prices
+                    if _parse_timestamp(p["timestamp"]).date() == now.date()
+                ],
+            )
 
-            sorted_tomorrow = sorted(tomorrow_prices, key=lambda x: _extract_price_kwh(x) or 999)
+            sorted_tomorrow = sorted(
+                tomorrow_prices, key=lambda x: _extract_price_kwh(x) or 999
+            )
             cheapest = sorted_tomorrow[0]
             expensive = sorted_tomorrow[-1]
 
             # Best 3h window for tomorrow
             best_3h, _ = _find_best_windows(
-                tomorrow_prices, 3,
-                datetime.combine(tomorrow_date, datetime.min.time()).replace(tzinfo=UTC)
+                tomorrow_prices,
+                3,
+                datetime.combine(tomorrow_date, datetime.min.time()).replace(
+                    tzinfo=UTC
+                ),
             )
 
             tomorrow_data = {
                 "date": tomorrow_date.isoformat(),
                 "status": tomorrow_status,
-                "cheapest_hour": _parse_timestamp(cheapest["timestamp"]).strftime("%H:%M"),
+                "cheapest_hour": _parse_timestamp(cheapest["timestamp"]).strftime(
+                    "%H:%M"
+                ),
                 "cheapest_price_eur_kwh": round(min(tomorrow_values), 4),
-                "most_expensive_hour": _parse_timestamp(expensive["timestamp"]).strftime("%H:%M"),
+                "most_expensive_hour": _parse_timestamp(
+                    expensive["timestamp"]
+                ).strftime("%H:%M"),
                 "most_expensive_price_eur_kwh": round(max(tomorrow_values), 4),
                 "average_price_eur_kwh": round(tomorrow_avg, 4),
                 "best_window_3h": best_3h,
@@ -760,21 +829,29 @@ async def get_dashboard(
             "action": energy_action,
             "action_reason": action_reason,
             "cheapest_hour": today_cheapest_hour,
-            "cheapest_price_eur_kwh": round(today_cheapest_price, 4) if today_cheapest_price else None,
+            "cheapest_price_eur_kwh": round(today_cheapest_price, 4)
+            if today_cheapest_price
+            else None,
             "most_expensive_hour": today_expensive_hour,
-            "most_expensive_price_eur_kwh": round(today_expensive_price, 4) if today_expensive_price else None,
+            "most_expensive_price_eur_kwh": round(today_expensive_price, 4)
+            if today_expensive_price
+            else None,
             "average_price_eur_kwh": round(today_average, 4) if today_average else None,
             "hours_available": len(today_prices) if today_prices else 0,
         },
         "best_window": best_window,
         "runner_up": runner_up,
-        "tomorrow": tomorrow_data if tomorrow_data else {
+        "tomorrow": tomorrow_data
+        if tomorrow_data
+        else {
             "status": "PENDING",
             "message": "Tomorrow's prices not yet available (usually after 13:00 CET)",
         },
         "meta": {
             "source": all_prices[0].get("_source", "unknown") if all_prices else "none",
-            "quality": all_prices[0].get("_quality", "unknown") if all_prices else "UNAVAILABLE",
+            "quality": all_prices[0].get("_quality", "unknown")
+            if all_prices
+            else "UNAVAILABLE",
             "country": country.upper(),
             "window_duration": window_duration,
             "hours_analyzed": len(all_prices) if all_prices else 0,
@@ -786,7 +863,5 @@ async def get_dashboard(
     api_cache.set(cache_key, json_content, ttl=120)  # 2 min cache
 
     return Response(
-        content=json_content,
-        media_type="application/json",
-        headers={"X-Cache": "MISS"}
+        content=json_content, media_type="application/json", headers={"X-Cache": "MISS"}
     )

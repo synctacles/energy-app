@@ -5,9 +5,9 @@ Defines rate limits per subscription tier and tier-specific features.
 """
 
 TIER_LIMITS = {
-    "beta": 10_000,      # Beta users - high limit for testing
-    "free": 1_000,       # Free tier - basic limit
-    "paid": 100_000,     # Paid tier - high limit
+    "beta": 10_000,  # Beta users - high limit for testing
+    "free": 1_000,  # Free tier - basic limit
+    "paid": 100_000,  # Paid tier - high limit
     "unlimited": 100_000,  # Unlimited tier - enterprise
 }
 

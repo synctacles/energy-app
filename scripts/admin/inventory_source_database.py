@@ -42,33 +42,26 @@ def get_table_stats(conn, schema, table):
         size = cursor.fetchone()[0]
 
         # Size in bytes
-        cursor.execute(
-            f"SELECT pg_total_relation_size('{schema}.{table}') as bytes;"
-        )
+        cursor.execute(f"SELECT pg_total_relation_size('{schema}.{table}') as bytes;")
         size_bytes = cursor.fetchone()[0]
 
         return {
-            'row_count': row_count,
-            'size': size,
-            'size_bytes': size_bytes,
+            "row_count": row_count,
+            "size": size,
+            "size_bytes": size_bytes,
         }
     except Exception as e:
-        return {
-            'row_count': 0,
-            'size': 'ERROR',
-            'size_bytes': 0,
-            'error': str(e)
-        }
+        return {"row_count": 0, "size": "ERROR", "size_bytes": 0, "error": str(e)}
 
 
 def main():
     # Connection config - modify these based on test_remote_connection.py results
     config = {
-        'host': 'localhost',
-        'port': 5433,
-        'database': 'synctacles',  # Change if needed
-        'user': 'synctacles',  # Change if needed
-        'connect_timeout': 10
+        "host": "localhost",
+        "port": 5433,
+        "database": "synctacles",  # Change if needed
+        "user": "synctacles",  # Change if needed
+        "connect_timeout": 10,
     }
 
     print("=" * 100)
@@ -77,11 +70,16 @@ def main():
     print()
 
     try:
-        print(f"Connecting to {config['user']}@{config['host']}/{config['database']}...", flush=True)
+        print(
+            f"Connecting to {config['user']}@{config['host']}/{config['database']}...",
+            flush=True,
+        )
         conn = psycopg2.connect(**config)
 
         cursor = conn.cursor()
-        cursor.execute(f"SELECT pg_size_pretty(pg_database_size('{config['database']}'));")
+        cursor.execute(
+            f"SELECT pg_size_pretty(pg_database_size('{config['database']}'));"
+        )
         db_size = cursor.fetchone()[0]
         print(f"✓ Connected (database size: {db_size})")
         print()
@@ -110,29 +108,33 @@ def main():
     total_size_bytes = 0
 
     for table_info in tables:
-        schema = table_info['schemaname']
-        table = table_info['tablename']
+        schema = table_info["schemaname"]
+        table = table_info["tablename"]
 
         stats = get_table_stats(conn, schema, table)
-        row_count = stats['row_count']
-        size = stats['size']
-        size_bytes = stats['size_bytes']
+        row_count = stats["row_count"]
+        size = stats["size"]
+        size_bytes = stats["size_bytes"]
 
         total_rows += row_count
         total_size_bytes += size_bytes
 
         print(f"{schema:<15} {table:<40} {row_count:>15,} {size:>15}")
 
-        inventory.append({
-            'schema': schema,
-            'table': table,
-            'row_count': row_count,
-            'size': size,
-            'size_bytes': size_bytes,
-        })
+        inventory.append(
+            {
+                "schema": schema,
+                "table": table,
+                "row_count": row_count,
+                "size": size,
+                "size_bytes": size_bytes,
+            }
+        )
 
     print("-" * 100)
-    print(f"{'TOTAL':<15} {'':<40} {total_rows:>15,} {total_size_bytes / (1024**3):>14.2f} GB")
+    print(
+        f"{'TOTAL':<15} {'':<40} {total_rows:>15,} {total_size_bytes / (1024**3):>14.2f} GB"
+    )
     print()
 
     # Summary
@@ -146,18 +148,23 @@ def main():
 
     # Save inventory to JSON
     inventory_file = f"inventory_{config['database']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(inventory_file, 'w') as f:
-        json.dump({
-            'timestamp': datetime.now().isoformat(),
-            'source': f"{config['user']}@{config['host']}/{config['database']}",
-            'tables': inventory,
-            'summary': {
-                'total_tables': len(tables),
-                'total_rows': total_rows,
-                'total_size_bytes': total_size_bytes,
-                'total_size_gb': total_size_bytes / (1024**3),
-            }
-        }, f, indent=2, default=str)
+    with open(inventory_file, "w") as f:
+        json.dump(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "source": f"{config['user']}@{config['host']}/{config['database']}",
+                "tables": inventory,
+                "summary": {
+                    "total_tables": len(tables),
+                    "total_rows": total_rows,
+                    "total_size_bytes": total_size_bytes,
+                    "total_size_gb": total_size_bytes / (1024**3),
+                },
+            },
+            f,
+            indent=2,
+            default=str,
+        )
 
     print(f"Inventory saved to: {inventory_file}")
     print()
@@ -165,5 +172,5 @@ def main():
     conn.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,4 +1,5 @@
 """Base utilities for all normalizers."""
+
 import logging
 
 from sqlalchemy import create_engine, text

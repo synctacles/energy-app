@@ -10,6 +10,7 @@ MOCK_RENEWABLE_PCT = 55.3
 MOCK_BALANCE_DELTA = -320  # MW
 MOCK_NEXT_3H = [0.11, 0.10, 0.14]
 
+
 def test_signals():
     """Test signal logic with mock data"""
 
@@ -48,6 +49,7 @@ def test_signals():
     assert cheap_hour_coming == True, "Expected dip (0.10 < 0.108)"
 
     print("✅ All signals calculated correctly")
+
 
 if __name__ == "__main__":
     test_signals()

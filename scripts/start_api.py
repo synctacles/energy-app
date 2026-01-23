@@ -12,13 +12,10 @@ Via wrapper (from root):
 For production deployments, consider using:
     gunicorn synctacles_db.api.main:app --workers 4 --bind 0.0.0.0:8000
 """
+
 import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run(
-        "synctacles_db.api.main:app",
-        host="0.0.0.0",
-        port=8000,
-        workers=4,
-        reload=False
+        "synctacles_db.api.main:app", host="0.0.0.0", port=8000, workers=4, reload=False
     )

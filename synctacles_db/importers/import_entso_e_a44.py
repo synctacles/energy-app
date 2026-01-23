@@ -19,12 +19,13 @@ from config.settings import DATABASE_URL, LOG_PATH
 from synctacles_db.core.logging import get_logger
 from synctacles_db.models import RawEntsoeA44
 
-LOG_DIR = Path(LOG_PATH) / 'collectors' / 'entso_e_raw'
+LOG_DIR = Path(LOG_PATH) / "collectors" / "entso_e_raw"
 
 _LOGGER = get_logger(__name__)
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
+
 
 def import_csv_file(filepath):
     """Import single CSV file to raw table"""
@@ -41,21 +42,25 @@ def import_csv_file(filepath):
             reader = csv.DictReader(f)
 
             for row in reader:
-                timestamp = datetime.fromisoformat(row['timestamp'])
-                price = float(row['price_eur_mwh'])
+                timestamp = datetime.fromisoformat(row["timestamp"])
+                price = float(row["price_eur_mwh"])
 
                 # Check if exists
-                exists = session.query(RawEntsoeA44).filter(
-                    RawEntsoeA44.timestamp == timestamp,
-                    RawEntsoeA44.country == 'NL'
-                ).first()
+                exists = (
+                    session.query(RawEntsoeA44)
+                    .filter(
+                        RawEntsoeA44.timestamp == timestamp,
+                        RawEntsoeA44.country == "NL",
+                    )
+                    .first()
+                )
 
                 if not exists:
                     record = RawEntsoeA44(
                         timestamp=timestamp,
-                        country='NL',
+                        country="NL",
                         price_eur_mwh=price,
-                        xml_file=filepath.name
+                        xml_file=filepath.name,
                     )
                     session.add(record)
                     imported += 1
@@ -69,17 +74,22 @@ def import_csv_file(filepath):
         if skipped > 0:
             _LOGGER.debug(f"Skipped {skipped} duplicate records")
 
-        _LOGGER.info(f"A44 CSV importer completed: {imported} inserted, {skipped} skipped in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"A44 CSV importer completed: {imported} inserted, {skipped} skipped in {elapsed:.2f}s"
+        )
 
     except Exception as e:
         session.rollback()
         elapsed = time.time() - start_time
-        _LOGGER.error(f"A44 CSV import failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+        _LOGGER.error(
+            f"A44 CSV import failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+        )
         raise
     finally:
         session.close()
 
     return imported, skipped
+
 
 def main():
     _LOGGER.info("A44 CSV importer batch starting")
@@ -87,7 +97,7 @@ def main():
 
     try:
         # Find all CSV files
-        csv_files = sorted(LOG_DIR.glob('a44_NL_prices_*.csv'))
+        csv_files = sorted(LOG_DIR.glob("a44_NL_prices_*.csv"))
 
         if not csv_files:
             _LOGGER.warning("No A44 CSV files found to import")
@@ -114,12 +124,17 @@ def main():
             _LOGGER.warning(f"Failed to import {len(failed_files)} files")
             _LOGGER.debug(f"Failed files: {failed_files}")
 
-        _LOGGER.info(f"A44 CSV importer batch completed: {total_imported} imported, {total_skipped} skipped in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"A44 CSV importer batch completed: {total_imported} imported, {total_skipped} skipped in {elapsed:.2f}s"
+        )
 
     except Exception as err:
         elapsed = time.time() - start_time
-        _LOGGER.error(f"A44 batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        _LOGGER.error(
+            f"A44 batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+        )
         raise
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

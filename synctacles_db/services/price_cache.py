@@ -33,7 +33,7 @@ class PriceCacheService:
         source: str,
         quality: str,
         country: str = "NL",
-        timestamp: datetime | None = None
+        timestamp: datetime | None = None,
     ) -> bool:
         """
         Store a price in the cache.
@@ -83,10 +83,12 @@ class PriceCacheService:
         """
         session = Session()
         try:
-            row = session.query(PriceCache)\
-                .filter(PriceCache.country == country.upper())\
-                .order_by(desc(PriceCache.timestamp))\
+            row = (
+                session.query(PriceCache)
+                .filter(PriceCache.country == country.upper())
+                .order_by(desc(PriceCache.timestamp))
                 .first()
+            )
 
             if row:
                 return {
@@ -120,11 +122,13 @@ class PriceCacheService:
         try:
             cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
-            rows = session.query(PriceCache)\
-                .filter(PriceCache.country == country.upper())\
-                .filter(PriceCache.timestamp >= cutoff)\
-                .order_by(desc(PriceCache.timestamp))\
+            rows = (
+                session.query(PriceCache)
+                .filter(PriceCache.country == country.upper())
+                .filter(PriceCache.timestamp >= cutoff)
+                .order_by(desc(PriceCache.timestamp))
                 .all()
+            )
 
             return [
                 {
@@ -193,26 +197,32 @@ class PriceCacheService:
             from sqlalchemy import func
 
             # Count entries
-            count = session.query(func.count(PriceCache.id))\
-                .filter(PriceCache.country == country.upper())\
+            count = (
+                session.query(func.count(PriceCache.id))
+                .filter(PriceCache.country == country.upper())
                 .scalar()
+            )
 
             # Get oldest and newest
-            oldest = session.query(func.min(PriceCache.timestamp))\
-                .filter(PriceCache.country == country.upper())\
+            oldest = (
+                session.query(func.min(PriceCache.timestamp))
+                .filter(PriceCache.country == country.upper())
                 .scalar()
+            )
 
-            newest = session.query(func.max(PriceCache.timestamp))\
-                .filter(PriceCache.country == country.upper())\
+            newest = (
+                session.query(func.max(PriceCache.timestamp))
+                .filter(PriceCache.country == country.upper())
                 .scalar()
+            )
 
             # Count by source
-            sources = session.query(
-                PriceCache.source,
-                func.count(PriceCache.id)
-            ).filter(PriceCache.country == country.upper())\
-                .group_by(PriceCache.source)\
+            sources = (
+                session.query(PriceCache.source, func.count(PriceCache.id))
+                .filter(PriceCache.country == country.upper())
+                .group_by(PriceCache.source)
                 .all()
+            )
 
             return {
                 "count": count or 0,

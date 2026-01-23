@@ -6,7 +6,6 @@ Focuses on model structure, defaults, and relationships.
 """
 
 
-
 class TestModelImports:
     """Test that all models can be imported."""
 
@@ -164,5 +163,3 @@ class TestModelPrimaryKeys:
         for model in models:
             pk_columns = [c for c in model.__table__.columns if c.primary_key]
             assert len(pk_columns) > 0, f"{model.__name__} has no primary key"
-
-

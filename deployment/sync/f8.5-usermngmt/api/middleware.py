@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def auth_middleware(request: Request, call_next):
     """
     Validate API key and enforce rate limits
-    
+
     Exemptions:
     - /health
     - /metrics
@@ -30,7 +30,7 @@ async def auth_middleware(request: Request, call_next):
         "/docs",
         "/openapi.json",
         "/auth/signup",
-        "/auth/admin/"
+        "/auth/admin/",
     ]
     if any(request.url.path.startswith(path) for path in exempt_paths):
         return await call_next(request)
@@ -43,8 +43,8 @@ async def auth_middleware(request: Request, call_next):
             status_code=401,
             content={
                 "detail": "Missing X-API-Key header",
-                "hint": "Sign up at /auth/signup to get your API key"
-            }
+                "hint": "Sign up at /auth/signup to get your API key",
+            },
         )
 
     # Validate API key
@@ -53,10 +53,7 @@ async def auth_middleware(request: Request, call_next):
         user = auth_service.validate_api_key(db, api_key)
 
         if not user:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid API key"}
-            )
+            return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
 
         # Check rate limit
         if not auth_service.check_rate_limit(db, user):
@@ -67,8 +64,8 @@ async def auth_middleware(request: Request, call_next):
                     "detail": "Rate limit exceeded",
                     "limit": user.rate_limit_daily,
                     "used": stats["usage_today"],
-                    "reset_at": "00:00 UTC"
-                }
+                    "reset_at": "00:00 UTC",
+                },
             )
 
         # Log usage (fire-and-forget)

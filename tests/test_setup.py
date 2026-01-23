@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test that development environment is properly configured"""
+
 import sys
 
 
@@ -25,6 +26,7 @@ def test_imports():
 
     return not failed
 
+
 def main():
     print("=" * 60)
     print("SYNCTACLES Development Environment Test")
@@ -39,6 +41,7 @@ def main():
     print("=" * 60)
     print("✅ Development environment is ready!")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()

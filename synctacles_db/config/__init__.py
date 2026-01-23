@@ -1,4 +1,5 @@
 """Configuration modules for Synctacles."""
+
 from synctacles_db.config.static_offsets import (
     AVERAGE_OFFSET,
     # Hybrid model (recommended)

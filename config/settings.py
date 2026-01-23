@@ -4,12 +4,14 @@ Synctacles Configuration - Fail-Fast Design
 All configuration MUST come from environment variables.
 No fallback defaults - missing config = immediate failure.
 """
+
 import os
 import sys
 
 
 class ConfigurationError(Exception):
     """Raised when required configuration is missing."""
+
     pass
 
 
@@ -65,7 +67,9 @@ API_HOST = optional_env("API_HOST", "0.0.0.0")
 
 # Brand (for multi-tenant) - REQUIRED for systemd service naming
 BRAND_NAME = require_env("BRAND_NAME", "Display name for the brand")
-BRAND_SLUG = require_env("BRAND_SLUG", "URL-safe slug used for systemd services (e.g., 'energy-insights-nl')")
+BRAND_SLUG = require_env(
+    "BRAND_SLUG", "URL-safe slug used for systemd services (e.g., 'energy-insights-nl')"
+)
 
 # GitHub (for documentation links) - REQUIRED for API responses
 GITHUB_ACCOUNT = require_env("GITHUB_ACCOUNT", "GitHub account name (e.g., 'DATADIO')")
@@ -77,15 +81,21 @@ LOG_LEVEL = optional_env("LOG_LEVEL", "INFO")
 # CORS Configuration - Restrict origins in production
 # Format: "https://homeassistant.local,https://example.com" (comma-separated)
 # Development default: allows all origins
-CORS_ORIGINS = optional_env("CORS_ORIGINS", "").split(",") if optional_env("CORS_ORIGINS", "") else ["*"]
+CORS_ORIGINS = (
+    optional_env("CORS_ORIGINS", "").split(",")
+    if optional_env("CORS_ORIGINS", "")
+    else ["*"]
+)
 # Strip whitespace from each origin
 CORS_ORIGINS = [origin.strip() for origin in CORS_ORIGINS if origin.strip()]
+
 
 # =============================================================================
 # Settings object for backward compatibility
 # =============================================================================
 class Settings:
     """Settings wrapper for backward compatibility with API code."""
+
     def __init__(self):
         self.database_url = DATABASE_URL
         self.db_host = DB_HOST
@@ -107,8 +117,11 @@ class Settings:
         self.default_tier = DEFAULT_TIER
         self.cors_origins = CORS_ORIGINS
 
+
 settings = Settings()
 
 # Fix: add missing API attributes
 Settings.api_title = property(lambda self: f"{self.brand_name} API")
-Settings.api_description = property(lambda self: f"Energy data API for {self.brand_name}")
+Settings.api_description = property(
+    lambda self: f"Energy data API for {self.brand_name}"
+)

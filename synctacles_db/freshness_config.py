@@ -15,11 +15,12 @@ from typing import Literal
 
 class QualityStatus(str, Enum):
     """Quality status values for data freshness."""
-    FRESH = "FRESH"           # Data within fresh threshold
-    STALE = "STALE"           # Data within stale threshold but older than fresh
-    PARTIAL = "PARTIAL"       # Hybrid merge (mixed sources)
-    FALLBACK = "FALLBACK"     # Using fallback source (Energy-Charts)
-    CACHED = "CACHED"         # Using cached data
+
+    FRESH = "FRESH"  # Data within fresh threshold
+    STALE = "STALE"  # Data within stale threshold but older than fresh
+    PARTIAL = "PARTIAL"  # Hybrid merge (mixed sources)
+    FALLBACK = "FALLBACK"  # Using fallback source (Energy-Charts)
+    CACHED = "CACHED"  # Using cached data
     UNAVAILABLE = "UNAVAILABLE"  # No data available
 
 
@@ -27,17 +28,17 @@ class QualityStatus(str, Enum):
 # Phase 3: TenneT removed (BYO-key only, not server-side)
 FRESHNESS_THRESHOLDS: dict[str, dict[Literal["fresh", "stale"], int]] = {
     "ENTSO-E": {
-        "fresh": 90,        # < 90 min = FRESH (accounts for ~60min structural delay + 30min buffer)
-        "stale": 180,       # 90-180 min = STALE (beyond acceptable, trigger fallback)
+        "fresh": 90,  # < 90 min = FRESH (accounts for ~60min structural delay + 30min buffer)
+        "stale": 180,  # 90-180 min = STALE (beyond acceptable, trigger fallback)
         # > 180 min triggers fallback to Energy-Charts
     },
     "Energy-Charts": {
-        "fresh": 240,       # < 240 min (4h) = FRESH (EC is typically 3+ hours behind)
-        "stale": 480,       # 240-480 min (4-8h) = STALE
+        "fresh": 240,  # < 240 min (4h) = FRESH (EC is typically 3+ hours behind)
+        "stale": 480,  # 240-480 min (4-8h) = STALE
     },
     "Cache": {
-        "fresh": 120,       # < 120 min (2h) = FRESH
-        "stale": 360,       # 120-360 min (2-6h) = STALE
+        "fresh": 120,  # < 120 min (2h) = FRESH
+        "stale": 360,  # 120-360 min (2-6h) = STALE
     },
 }
 
@@ -55,7 +56,7 @@ def get_quality_status(source: str, age_minutes: float) -> QualityStatus:
     """
     thresholds = FRESHNESS_THRESHOLDS.get(
         source,
-        FRESHNESS_THRESHOLDS["ENTSO-E"]  # Default to ENTSO-E thresholds
+        FRESHNESS_THRESHOLDS["ENTSO-E"],  # Default to ENTSO-E thresholds
     )
 
     if age_minutes < thresholds["fresh"]:
@@ -79,9 +80,6 @@ def should_trigger_fallback(source: str, age_minutes: float) -> bool:
     Returns:
         True if fallback should be triggered
     """
-    thresholds = FRESHNESS_THRESHOLDS.get(
-        source,
-        FRESHNESS_THRESHOLDS["ENTSO-E"]
-    )
+    thresholds = FRESHNESS_THRESHOLDS.get(source, FRESHNESS_THRESHOLDS["ENTSO-E"])
 
     return age_minutes >= thresholds["stale"]

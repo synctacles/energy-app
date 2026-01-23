@@ -27,17 +27,21 @@ validate_db_connection()
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 
+
 def get_previous_value(session, timestamp, country):
     """Get most recent price before given timestamp"""
-    prev = session.query(NormEntsoeA44)\
-        .filter(NormEntsoeA44.timestamp < timestamp)\
-        .filter(NormEntsoeA44.country == country)\
-        .order_by(NormEntsoeA44.timestamp.desc())\
+    prev = (
+        session.query(NormEntsoeA44)
+        .filter(NormEntsoeA44.timestamp < timestamp)
+        .filter(NormEntsoeA44.country == country)
+        .order_by(NormEntsoeA44.timestamp.desc())
         .first()
+    )
 
     if prev:
         return prev.price_eur_mwh
     return None
+
 
 def normalize_prices():
     """Normalize raw prices to norm table with forward fill"""
@@ -50,19 +54,25 @@ def normalize_prices():
 
     try:
         # Get all raw records not yet normalized
-        raw_records = session.query(RawEntsoeA44)\
-            .filter(RawEntsoeA44.country == 'NL')\
-            .order_by(RawEntsoeA44.timestamp)\
+        raw_records = (
+            session.query(RawEntsoeA44)
+            .filter(RawEntsoeA44.country == "NL")
+            .order_by(RawEntsoeA44.timestamp)
             .all()
+        )
 
         _LOGGER.debug(f"Found {len(raw_records)} raw A44 records")
 
         for raw in raw_records:
             # Check if already exists
-            exists = session.query(NormEntsoeA44).filter(
-                NormEntsoeA44.timestamp == raw.timestamp,
-                NormEntsoeA44.country == raw.country
-            ).first()
+            exists = (
+                session.query(NormEntsoeA44)
+                .filter(
+                    NormEntsoeA44.timestamp == raw.timestamp,
+                    NormEntsoeA44.country == raw.country,
+                )
+                .first()
+            )
 
             if exists:
                 continue
@@ -74,9 +84,9 @@ def normalize_prices():
                     timestamp=raw.timestamp,
                     country=raw.country,
                     price_eur_mwh=raw.price_eur_mwh,
-                    data_source='ENTSO-E',
-                    data_quality='OK',
-                    needs_backfill=False
+                    data_source="ENTSO-E",
+                    data_quality="OK",
+                    needs_backfill=False,
                 )
                 normalized += 1
             else:
@@ -89,14 +99,16 @@ def normalize_prices():
                         timestamp=raw.timestamp,
                         country=raw.country,
                         price_eur_mwh=prev_price,
-                        data_source='ENTSO-E',
-                        data_quality='FORWARD_FILL',
-                        needs_backfill=True
+                        data_source="ENTSO-E",
+                        data_quality="FORWARD_FILL",
+                        needs_backfill=True,
                     )
                     forward_filled += 1
                 else:
                     # No previous value - skip
-                    _LOGGER.warning(f"No previous value for {raw.timestamp}, cannot forward fill")
+                    _LOGGER.warning(
+                        f"No previous value for {raw.timestamp}, cannot forward fill"
+                    )
                     continue
 
             session.add(norm)
@@ -104,20 +116,26 @@ def normalize_prices():
         session.commit()
 
         elapsed = time.time() - start_time
-        _LOGGER.info(f"A44 normalizer completed: {normalized} OK, {forward_filled} forward-filled in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"A44 normalizer completed: {normalized} OK, {forward_filled} forward-filled in {elapsed:.2f}s"
+        )
 
     except Exception as e:
         session.rollback()
         elapsed = time.time() - start_time
-        _LOGGER.error(f"A44 normalizer failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+        _LOGGER.error(
+            f"A44 normalizer failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+        )
         raise
     finally:
         session.close()
+
 
 def main():
     _LOGGER.info("A44 Normalizer batch starting")
     normalize_prices()
     _LOGGER.info("A44 Normalizer batch complete")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

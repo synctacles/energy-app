@@ -1,4 +1,5 @@
 """Import Energy-Charts price JSON to raw_prices table."""
+
 import json
 import time
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ INPUT_DIR = LOG_DIR / "collectors" / "energy_charts_raw"
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
+
 def import_prices(file_path: Path, country: str = "NL"):
     """Import prices from JSON file to database."""
     _LOGGER.info(f"Energy-Charts importer starting: {file_path.name}")
@@ -31,7 +33,9 @@ def import_prices(file_path: Path, country: str = "NL"):
         prices = data.get("price", [])
 
         if len(unix_seconds) != len(prices):
-            raise ValueError(f"Mismatch: {len(unix_seconds)} unix_seconds vs {len(prices)} prices")
+            raise ValueError(
+                f"Mismatch: {len(unix_seconds)} unix_seconds vs {len(prices)} prices"
+            )
 
         _LOGGER.debug(f"Found {len(unix_seconds)} price records to import")
 
@@ -42,31 +46,39 @@ def import_prices(file_path: Path, country: str = "NL"):
             timestamp = datetime.fromtimestamp(ts_unix, tz=UTC)
 
             # Upsert
-            session.execute("""
+            session.execute(
+                """
                 INSERT INTO raw_prices (timestamp, country, price_eur_mwh, source, source_file)
                 VALUES (:ts, :country, :price, 'energy-charts', :file)
                 ON CONFLICT (timestamp, country, source) DO UPDATE
                 SET price_eur_mwh = EXCLUDED.price_eur_mwh
-            """, {
-                "ts": timestamp,
-                "country": country,
-                "price": price,
-                "file": str(file_path)
-            })
+            """,
+                {
+                    "ts": timestamp,
+                    "country": country,
+                    "price": price,
+                    "file": str(file_path),
+                },
+            )
             imported += 1
 
         session.commit()
         session.close()
 
         elapsed = time.time() - start_time
-        _LOGGER.info(f"Energy-Charts importer completed: {imported} records imported in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"Energy-Charts importer completed: {imported} records imported in {elapsed:.2f}s"
+        )
 
         return imported
 
     except Exception as err:
         elapsed = time.time() - start_time
-        _LOGGER.error(f"Energy-Charts importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        _LOGGER.error(
+            f"Energy-Charts importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+        )
         raise
+
 
 def import_all():
     """Import all unprocessed JSON files."""
@@ -94,7 +106,9 @@ def import_all():
                 imported = import_prices(file_path)
                 total_imported += imported
             except Exception as e:
-                _LOGGER.debug(f"Failed to import {file_path.name}: {type(e).__name__}: {e}")
+                _LOGGER.debug(
+                    f"Failed to import {file_path.name}: {type(e).__name__}: {e}"
+                )
                 failed_files.append(file_path.name)
 
         elapsed = time.time() - start_time
@@ -103,12 +117,17 @@ def import_all():
             _LOGGER.warning(f"Failed to import {len(failed_files)} files")
             _LOGGER.debug(f"Failed files: {failed_files}")
 
-        _LOGGER.info(f"Energy-Charts importer batch completed: {total_imported} total records in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"Energy-Charts importer batch completed: {total_imported} total records in {elapsed:.2f}s"
+        )
 
     except Exception as err:
         elapsed = time.time() - start_time
-        _LOGGER.error(f"Energy-Charts batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        _LOGGER.error(
+            f"Energy-Charts batch importer failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+        )
         raise
+
 
 if __name__ == "__main__":
     import_all()

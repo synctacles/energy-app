@@ -14,7 +14,7 @@ Provides consumer prices and coefficient data for 6-tier fallback chain.
 
 Brand-free implementation - no external brand names in code.
 """
-import asyncio
+
 import json
 import logging
 import warnings
@@ -26,7 +26,7 @@ warnings.warn(
     "ConsumerPriceClient is deprecated. Use FrankEnergieClient, EasyEnergyClient, "
     "or static_offsets instead. Coefficient server will be decommissioned.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 from cachetools import TTLCache
 
@@ -80,7 +80,9 @@ class ConsumerPriceClient:
         minutes_since = (now - last_failure).total_seconds() / 60
 
         if minutes_since < _circuit_breaker["cooldown_minutes"]:
-            _LOGGER.debug(f"Circuit breaker OPEN ({int(minutes_since)} min since failure)")
+            _LOGGER.debug(
+                f"Circuit breaker OPEN ({int(minutes_since)} min since failure)"
+            )
             return True
 
         # Reset after cooldown
@@ -94,7 +96,9 @@ class ConsumerPriceClient:
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
         _circuit_breaker["last_failure_time"] = datetime.now(UTC)
-        _LOGGER.warning(f"Circuit breaker failure count: {_circuit_breaker['failure_count']}")
+        _LOGGER.warning(
+            f"Circuit breaker failure count: {_circuit_breaker['failure_count']}"
+        )
 
     @staticmethod
     def _record_success():
@@ -133,12 +137,16 @@ class ConsumerPriceClient:
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(f"{COEFFICIENT_SERVER}/internal/consumer/prices") as resp:
+                async with session.get(
+                    f"{COEFFICIENT_SERVER}/internal/consumer/prices"
+                ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         _consumer_cache[cache_key] = data
                         ConsumerPriceClient._record_success()
-                        _LOGGER.info(f"Consumer prices fetched: {len(data.get('prices_today', {}))} providers")
+                        _LOGGER.info(
+                            f"Consumer prices fetched: {len(data.get('prices_today', {}))} providers"
+                        )
                         return data
                     else:
                         _LOGGER.warning(f"Consumer prices returned HTTP {resp.status}")
@@ -149,7 +157,7 @@ class ConsumerPriceClient:
             _LOGGER.error(f"Consumer prices network error: {e}")
             ConsumerPriceClient._record_failure()
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Consumer prices fetch timeout")
             ConsumerPriceClient._record_failure()
             return None
@@ -211,7 +219,7 @@ class ConsumerPriceClient:
         hour: int | None = None,
         day_type: str | None = None,
         month: int | None = None,
-        country: str = "NL"
+        country: str = "NL",
     ) -> dict | None:
         """
         Get slope + intercept model from Coefficient Engine.
@@ -255,16 +263,25 @@ class ConsumerPriceClient:
             return None
 
         try:
-            params = {"country": country, "month": month, "day_type": day_type, "hour": hour}
+            params = {
+                "country": country,
+                "month": month,
+                "day_type": day_type,
+                "hour": hour,
+            }
             timeout = aiohttp.ClientTimeout(total=5)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(f"{COEFFICIENT_SERVER}/coefficient", params=params) as resp:
+                async with session.get(
+                    f"{COEFFICIENT_SERVER}/coefficient", params=params
+                ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         _coefficient_cache[cache_key] = data
                         ConsumerPriceClient._record_success()
-                        _LOGGER.debug(f"Price model fetched: slope={data.get('slope')}, intercept={data.get('intercept')}")
+                        _LOGGER.debug(
+                            f"Price model fetched: slope={data.get('slope')}, intercept={data.get('intercept')}"
+                        )
                         return data
                     else:
                         _LOGGER.warning(f"Price model returned HTTP {resp.status}")
@@ -275,7 +292,7 @@ class ConsumerPriceClient:
             _LOGGER.error(f"Price model network error: {e}")
             ConsumerPriceClient._record_failure()
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Price model fetch timeout")
             ConsumerPriceClient._record_failure()
             return None
@@ -291,16 +308,16 @@ class ConsumerPriceClient:
     # Legacy method - keep for backward compatibility
     @staticmethod
     async def get_coefficient(
-        hour: int | None = None,
-        day_type: str | None = None,
-        month: int | None = None
+        hour: int | None = None, day_type: str | None = None, month: int | None = None
     ) -> dict | None:
         """
         Legacy method - wraps get_price_model for backward compatibility.
 
         Returns dict with slope, intercept, and legacy 'coefficient' field.
         """
-        result = await ConsumerPriceClient.get_price_model(hour=hour, day_type=day_type, month=month)
+        result = await ConsumerPriceClient.get_price_model(
+            hour=hour, day_type=day_type, month=month
+        )
         if result:
             # Add legacy 'coefficient' field for backward compatibility
             result["coefficient"] = result.get("slope", 1.0)
@@ -308,8 +325,7 @@ class ConsumerPriceClient:
 
     @staticmethod
     async def get_coefficient_value(
-        hour: int | None = None,
-        day_type: str | None = None
+        hour: int | None = None, day_type: str | None = None
     ) -> float | None:
         """
         Legacy method - get slope value only.
@@ -325,7 +341,7 @@ class ConsumerPriceClient:
         wholesale_eur_kwh: float,
         slope: float,
         intercept: float,
-        apply_bias_correction: bool = True
+        apply_bias_correction: bool = True,
     ) -> float:
         """
         Calculate consumer price from wholesale using linear model.
@@ -378,7 +394,9 @@ class ConsumerPriceClient:
                         data = await resp.json()
                         _coefficient_cache[cache_key] = data
                         ConsumerPriceClient._record_success()
-                        _LOGGER.info(f"All coefficients fetched: {data.get('count')} entries")
+                        _LOGGER.info(
+                            f"All coefficients fetched: {data.get('count')} entries"
+                        )
                         return data
                     else:
                         ConsumerPriceClient._record_failure()
@@ -388,7 +406,7 @@ class ConsumerPriceClient:
             _LOGGER.error(f"All coefficients network error: {e}")
             ConsumerPriceClient._record_failure()
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("All coefficients fetch timeout")
             ConsumerPriceClient._record_failure()
             return None
@@ -415,11 +433,14 @@ class ConsumerPriceClient:
                 async with session.get(f"{COEFFICIENT_SERVER}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        return (True, f"OK - {data.get('service')} v{data.get('version', '?')}")
+                        return (
+                            True,
+                            f"OK - {data.get('service')} v{data.get('version', '?')}",
+                        )
                     else:
                         return (False, f"HTTP {resp.status}")
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return (False, f"Network error: {e}")
         except (ValueError, KeyError, TypeError) as e:
             return (False, f"Data error: {e}")

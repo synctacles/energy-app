@@ -70,10 +70,10 @@ def get_primary_key(conn, schema, table):
 
 def format_column_type(col):
     """Format column type string"""
-    dtype = col['data_type']
-    if col['character_maximum_length']:
+    dtype = col["data_type"]
+    if col["character_maximum_length"]:
         dtype += f"({col['character_maximum_length']})"
-    elif col['numeric_precision']:
+    elif col["numeric_precision"]:
         dtype += f"({col['numeric_precision']},{col['numeric_scale']})"
     return dtype
 
@@ -83,26 +83,26 @@ def main():
 
     from dotenv import load_dotenv
 
-    load_dotenv('/opt/.env')
+    load_dotenv("/opt/.env")
 
-    db_name = os.getenv('DB_NAME', 'synctacles')
-    db_user = os.getenv('DB_USER', 'synctacles')
+    db_name = os.getenv("DB_NAME", "synctacles")
+    db_user = os.getenv("DB_USER", "synctacles")
 
     # Source database config
     source_config = {
-        'host': 'localhost',
-        'port': 5433,
-        'database': db_name,
-        'user': db_user,
-        'connect_timeout': 10
+        "host": "localhost",
+        "port": 5433,
+        "database": db_name,
+        "user": db_user,
+        "connect_timeout": 10,
     }
 
     # Target database config
     target_config = {
-        'host': 'localhost',
-        'port': 5432,
-        'database': db_name,
-        'user': db_user,
+        "host": "localhost",
+        "port": 5432,
+        "database": db_name,
+        "user": db_user,
     }
 
     print("=" * 100)
@@ -112,7 +112,11 @@ def main():
 
     # Connect to databases
     try:
-        print(f"Connecting to source: {source_config['user']}@{source_config['host']}/{source_config['database']}...", end='', flush=True)
+        print(
+            f"Connecting to source: {source_config['user']}@{source_config['host']}/{source_config['database']}...",
+            end="",
+            flush=True,
+        )
         source_conn = psycopg2.connect(**source_config)
         print(" ✓")
     except Exception as e:
@@ -121,7 +125,11 @@ def main():
         sys.exit(1)
 
     try:
-        print(f"Connecting to target: {target_config['user']}@{target_config['host']}/{target_config['database']}...", end='', flush=True)
+        print(
+            f"Connecting to target: {target_config['user']}@{target_config['host']}/{target_config['database']}...",
+            end="",
+            flush=True,
+        )
         target_conn = psycopg2.connect(**target_config)
         print(" ✓")
     except Exception as e:
@@ -146,19 +154,19 @@ def main():
     common_tables = source_tables & target_tables
 
     comparison = {
-        'timestamp': datetime.now().isoformat(),
-        'source': f"{source_config['user']}@{source_config['host']}/{source_config['database']}",
-        'target': f"{target_config['user']}@{target_config['host']}/{target_config['database']}",
-        'summary': {
-            'source_tables': len(source_tables),
-            'target_tables': len(target_tables),
-            'common_tables': len(common_tables),
-            'missing_in_target': len(missing_in_target),
-            'extra_in_target': len(extra_in_target),
+        "timestamp": datetime.now().isoformat(),
+        "source": f"{source_config['user']}@{source_config['host']}/{source_config['database']}",
+        "target": f"{target_config['user']}@{target_config['host']}/{target_config['database']}",
+        "summary": {
+            "source_tables": len(source_tables),
+            "target_tables": len(target_tables),
+            "common_tables": len(common_tables),
+            "missing_in_target": len(missing_in_target),
+            "extra_in_target": len(extra_in_target),
         },
-        'missing_in_target': list(missing_in_target),
-        'extra_in_target': list(extra_in_target),
-        'schema_mismatches': []
+        "missing_in_target": list(missing_in_target),
+        "extra_in_target": list(extra_in_target),
+        "schema_mismatches": [],
     }
 
     # Check for missing tables
@@ -184,7 +192,7 @@ def main():
         all_match = True
 
         for table_name in sorted(common_tables):
-            schema, table = table_name.split('.')
+            schema, table = table_name.split(".")
 
             source_schema = get_table_schema(source_conn, schema, table)
             target_schema = get_table_schema(target_conn, schema, table)
@@ -194,41 +202,49 @@ def main():
                 print(f"⚠️  {table_name}: Column count mismatch")
                 print(f"  Source: {len(source_schema)} columns")
                 print(f"  Target: {len(target_schema)} columns")
-                comparison['schema_mismatches'].append({
-                    'table': table_name,
-                    'issue': 'column_count_mismatch',
-                    'source_columns': len(source_schema),
-                    'target_columns': len(target_schema),
-                })
+                comparison["schema_mismatches"].append(
+                    {
+                        "table": table_name,
+                        "issue": "column_count_mismatch",
+                        "source_columns": len(source_schema),
+                        "target_columns": len(target_schema),
+                    }
+                )
                 print()
                 continue
 
             # Check each column
             columns_ok = True
             for i, (src_col, tgt_col) in enumerate(zip(source_schema, target_schema)):
-                if src_col['column_name'] != tgt_col['column_name']:
+                if src_col["column_name"] != tgt_col["column_name"]:
                     columns_ok = False
                     print(f"⚠️  {table_name}: Column name mismatch at position {i}")
                     print(f"  Source: {src_col['column_name']}")
                     print(f"  Target: {tgt_col['column_name']}")
-                    comparison['schema_mismatches'].append({
-                        'table': table_name,
-                        'issue': 'column_name_mismatch',
-                        'position': i,
-                    })
+                    comparison["schema_mismatches"].append(
+                        {
+                            "table": table_name,
+                            "issue": "column_name_mismatch",
+                            "position": i,
+                        }
+                    )
 
-                if src_col['data_type'] != tgt_col['data_type']:
+                if src_col["data_type"] != tgt_col["data_type"]:
                     columns_ok = False
-                    print(f"⚠️  {table_name}: Column type mismatch for '{src_col['column_name']}'")
+                    print(
+                        f"⚠️  {table_name}: Column type mismatch for '{src_col['column_name']}'"
+                    )
                     print(f"  Source: {format_column_type(src_col)}")
                     print(f"  Target: {format_column_type(tgt_col)}")
-                    comparison['schema_mismatches'].append({
-                        'table': table_name,
-                        'column': src_col['column_name'],
-                        'issue': 'type_mismatch',
-                        'source_type': format_column_type(src_col),
-                        'target_type': format_column_type(tgt_col),
-                    })
+                    comparison["schema_mismatches"].append(
+                        {
+                            "table": table_name,
+                            "column": src_col["column_name"],
+                            "issue": "type_mismatch",
+                            "source_type": format_column_type(src_col),
+                            "target_type": format_column_type(tgt_col),
+                        }
+                    )
 
             if columns_ok:
                 print(f"✓ {table_name}: Schema matches")
@@ -245,14 +261,16 @@ def main():
     print(f"Schema mismatches: {len(comparison['schema_mismatches'])}")
     print()
 
-    if comparison['schema_mismatches']:
+    if comparison["schema_mismatches"]:
         print("⚠️  WARNING: Schema mismatches found. Migration may require adjustments.")
     else:
         print("✓ All schemas compatible for migration!")
 
     # Save comparison to JSON
-    comparison_file = f"schema_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(comparison_file, 'w') as f:
+    comparison_file = (
+        f"schema_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
+    with open(comparison_file, "w") as f:
         json.dump(comparison, f, indent=2, default=str)
 
     print()
@@ -263,5 +281,5 @@ def main():
     target_conn.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

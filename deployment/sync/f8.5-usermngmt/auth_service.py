@@ -23,7 +23,7 @@ def generate_api_key() -> str:
 def create_user(db: Session, email: str) -> tuple[User, str]:
     """
     Create new user with license key and API key
-    
+
     Returns:
         (User object, plain API key)
     """
@@ -39,10 +39,7 @@ def create_user(db: Session, email: str) -> tuple[User, str]:
     api_key_hash = hash_api_key(api_key_plain)
 
     # Create user
-    user = User(
-        email=email,
-        api_key_hash=api_key_hash
-    )
+    user = User(email=email, api_key_hash=api_key_hash)
 
     db.add(user)
     db.commit()
@@ -54,16 +51,17 @@ def create_user(db: Session, email: str) -> tuple[User, str]:
 def validate_api_key(db: Session, api_key: str) -> User | None:
     """
     Validate API key and return user if valid
-    
+
     Returns:
         User object if valid, None otherwise
     """
     api_key_hash = hash_api_key(api_key)
 
-    user = db.query(User).filter(
-        User.api_key_hash == api_key_hash,
-        User.is_active == True
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.api_key_hash == api_key_hash, User.is_active == True)
+        .first()
+    )
 
     return user
 
@@ -71,27 +69,24 @@ def validate_api_key(db: Session, api_key: str) -> User | None:
 def check_rate_limit(db: Session, user: User) -> bool:
     """
     Check if user is within daily rate limit
-    
+
     Returns:
         True if allowed, False if rate limited
     """
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    usage_count = db.query(func.count(APIUsage.id)).filter(
-        APIUsage.user_id == user.id,
-        APIUsage.timestamp >= today_start
-    ).scalar()
+    usage_count = (
+        db.query(func.count(APIUsage.id))
+        .filter(APIUsage.user_id == user.id, APIUsage.timestamp >= today_start)
+        .scalar()
+    )
 
     return usage_count < user.rate_limit_daily
 
 
 def log_api_usage(db: Session, user: User, endpoint: str, status_code: int):
     """Log API request for rate limiting & analytics"""
-    usage = APIUsage(
-        user_id=user.id,
-        endpoint=endpoint,
-        status_code=status_code
-    )
+    usage = APIUsage(user_id=user.id, endpoint=endpoint, status_code=status_code)
 
     db.add(usage)
     db.commit()
@@ -101,10 +96,11 @@ def get_user_stats(db: Session, user: User) -> dict:
     """Get user usage statistics"""
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    today_count = db.query(func.count(APIUsage.id)).filter(
-        APIUsage.user_id == user.id,
-        APIUsage.timestamp >= today_start
-    ).scalar()
+    today_count = (
+        db.query(func.count(APIUsage.id))
+        .filter(APIUsage.user_id == user.id, APIUsage.timestamp >= today_start)
+        .scalar()
+    )
 
     return {
         "user_id": str(user.id),
@@ -112,14 +108,14 @@ def get_user_stats(db: Session, user: User) -> dict:
         "tier": user.tier,
         "rate_limit_daily": user.rate_limit_daily,
         "usage_today": today_count,
-        "remaining_today": user.rate_limit_daily - today_count
+        "remaining_today": user.rate_limit_daily - today_count,
     }
 
 
 def regenerate_api_key(db: Session, user: User) -> str:
     """
     Generate new API key for existing user
-    
+
     Returns:
         New plain API key
     """
@@ -154,6 +150,7 @@ def get_user_by_license_key(db: Session, license_key: str) -> User | None:
     """Find user by license key"""
     try:
         import uuid
+
         license_uuid = uuid.UUID(license_key)
         return db.query(User).filter(User.license_key == license_uuid).first()
     except ValueError:
@@ -163,7 +160,7 @@ def get_user_by_license_key(db: Session, license_key: str) -> User | None:
 def cleanup_old_usage_logs(db: Session, days: int = 30):
     """
     Delete API usage logs older than N days
-    
+
     Call this daily via cron/systemd timer
     """
     from datetime import datetime

@@ -17,6 +17,7 @@ Exit codes:
     1: No prices collected
     2: Database error
 """
+
 import asyncio
 import logging
 import os
@@ -28,8 +29,7 @@ import asyncpg
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +37,9 @@ _LOGGER = logging.getLogger(__name__)
 FRANK_API_URL = "https://graphql.frankenergie.nl"
 
 # Add project root to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 from config.settings import DATABASE_URL
 
 
@@ -71,7 +73,7 @@ async def fetch_frank_prices(start_date: str, end_date: str) -> list[dict] | Non
             async with session.post(
                 FRANK_API_URL,
                 json={"query": query},
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             ) as resp:
                 if resp.status != 200:
                     _LOGGER.error(f"Frank API returned HTTP {resp.status}")
@@ -104,16 +106,20 @@ async def fetch_frank_prices(start_date: str, end_date: str) -> list[dict] | Non
                     sourcing_markup = float(p.get("sourcingMarkupPrice", 0) or 0)
                     energy_tax = float(p.get("energyTaxPrice", 0) or 0)
 
-                    total_price = market_price + market_price_tax + sourcing_markup + energy_tax
+                    total_price = (
+                        market_price + market_price_tax + sourcing_markup + energy_tax
+                    )
 
-                    prices.append({
-                        "timestamp": ts_str,
-                        "price_eur_kwh": total_price,
-                        "market_price": market_price,
-                        "market_price_tax": market_price_tax,
-                        "sourcing_markup": sourcing_markup,
-                        "energy_tax": energy_tax,
-                    })
+                    prices.append(
+                        {
+                            "timestamp": ts_str,
+                            "price_eur_kwh": total_price,
+                            "market_price": market_price,
+                            "market_price_tax": market_price_tax,
+                            "sourcing_markup": sourcing_markup,
+                            "energy_tax": energy_tax,
+                        }
+                    )
 
                 _LOGGER.info(f"Fetched {len(prices)} prices from Frank API")
                 return prices
@@ -162,7 +168,7 @@ async def store_prices(prices: list[dict]) -> int:
                 p["market_price"],
                 p["market_price_tax"],
                 p["sourcing_markup"],
-                p["energy_tax"]
+                p["energy_tax"],
             )
             count += 1
 
@@ -199,7 +205,9 @@ async def main(include_tomorrow: bool = False) -> int:
     if include_tomorrow:
         tomorrow = today + timedelta(days=1)
         _LOGGER.info(f"Also collecting Frank prices for {tomorrow}")
-        tomorrow_prices = await fetch_frank_prices(tomorrow.isoformat(), tomorrow.isoformat())
+        tomorrow_prices = await fetch_frank_prices(
+            tomorrow.isoformat(), tomorrow.isoformat()
+        )
         if tomorrow_prices:
             prices.extend(tomorrow_prices)
         else:

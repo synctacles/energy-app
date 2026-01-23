@@ -5,6 +5,7 @@ Grid balance data is no longer available via the SYNCTACLES API due to
 TenneT API license restrictions. Access is now available only via BYO-key
 (Bring Your Own) in the Home Assistant component.
 """
+
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
@@ -14,6 +15,7 @@ router = APIRouter()
 
 # Build documentation URL from ENV (brand-free)
 _DOC_URL = f"https://github.com/{GITHUB_ACCOUNT}/{HA_REPO_NAME}#tennet-byo-key-setup"
+
 
 @router.get("/balance")
 async def get_balance():
@@ -33,7 +35,7 @@ async def get_balance():
             "migration": {
                 "setup_guide": _DOC_URL,
                 "get_api_key": "https://www.tennet.org/",
-                "alternative": "Use Home Assistant integration with your personal TenneT API key"
-            }
-        }
+                "alternative": "Use Home Assistant integration with your personal TenneT API key",
+            },
+        },
     )

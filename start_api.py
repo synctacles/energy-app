@@ -13,6 +13,7 @@ The actual implementation can also be run directly:
 
 For more information, see docs/README.md or the FastAPI documentation.
 """
+
 import sys
 from pathlib import Path
 
@@ -26,9 +27,5 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "synctacles_db.api.main:app",
-        host="0.0.0.0",
-        port=8000,
-        workers=4,
-        reload=False
+        "synctacles_db.api.main:app", host="0.0.0.0", port=8000, workers=4, reload=False
     )

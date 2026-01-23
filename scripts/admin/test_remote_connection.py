@@ -10,7 +10,7 @@ import psycopg2
 
 # Try all possible database/user combinations
 possible_configs = [
-    {'host': 'localhost', 'port': 5433, 'database': 'synctacles', 'user': 'synctacles'},
+    {"host": "localhost", "port": 5433, "database": "synctacles", "user": "synctacles"},
 ]
 
 print("=" * 80)
@@ -22,7 +22,7 @@ successful_config = None
 
 for config in possible_configs:
     config_str = f"{config['user']}@{config['host']}/{config['database']}"
-    print(f"Testing: {config_str:<50} ", end='', flush=True)
+    print(f"Testing: {config_str:<50} ", end="", flush=True)
 
     try:
         conn = psycopg2.connect(**config, connect_timeout=5)
@@ -47,7 +47,7 @@ for config in possible_configs:
 
         # Get version
         cursor.execute("SELECT version();")
-        version = cursor.fetchone()[0].split(',')[0]
+        version = cursor.fetchone()[0].split(",")[0]
 
         print("✓ SUCCESS")
         print(f"  ├─ Database: {db_name}")
@@ -61,10 +61,10 @@ for config in possible_configs:
         conn.close()
 
     except psycopg2.OperationalError as e:
-        error_msg = str(e).split('\n')[0][:40]
+        error_msg = str(e).split("\n")[0][:40]
         print(f"✗ Failed: {error_msg}")
     except Exception as e:
-        error_msg = str(e).split('\n')[0][:40]
+        error_msg = str(e).split("\n")[0][:40]
         print(f"✗ Error: {error_msg}")
 
 print()

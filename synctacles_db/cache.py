@@ -1,10 +1,12 @@
 """API Response Cache Manager"""
+
 import logging
 from typing import Any
 
 from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
+
 
 class APICache:
     def __init__(self, maxsize: int = 100, default_ttl: int = 300):
@@ -57,8 +59,9 @@ class APICache:
             "maxsize": self._cache.maxsize,
             "hits": self._hits,
             "misses": self._misses,
-            "hit_rate_pct": round(hit_rate, 2)
+            "hit_rate_pct": round(hit_rate, 2),
         }
+
 
 # Singleton
 api_cache = APICache(maxsize=100, default_ttl=300)

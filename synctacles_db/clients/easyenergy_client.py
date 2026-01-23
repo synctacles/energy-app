@@ -12,7 +12,7 @@ Features:
 - Uses central api_cache for consistency
 - Returns wholesale prices in EUR/kWh and EUR/MWh
 """
-import asyncio
+
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -57,7 +57,9 @@ class EasyEnergyClient:
         minutes_since = (now - last_failure).total_seconds() / 60
 
         if minutes_since < _circuit_breaker["cooldown_minutes"]:
-            _LOGGER.debug(f"EasyEnergy circuit breaker OPEN ({int(minutes_since)} min since failure)")
+            _LOGGER.debug(
+                f"EasyEnergy circuit breaker OPEN ({int(minutes_since)} min since failure)"
+            )
             return True
 
         # Reset after cooldown
@@ -71,7 +73,9 @@ class EasyEnergyClient:
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
         _circuit_breaker["last_failure_time"] = datetime.now(UTC)
-        _LOGGER.warning(f"EasyEnergy circuit breaker failure count: {_circuit_breaker['failure_count']}")
+        _LOGGER.warning(
+            f"EasyEnergy circuit breaker failure count: {_circuit_breaker['failure_count']}"
+        )
 
     @staticmethod
     def _record_success():
@@ -82,8 +86,7 @@ class EasyEnergyClient:
 
     @staticmethod
     async def get_prices(
-        start_date: str | None = None,
-        end_date: str | None = None
+        start_date: str | None = None, end_date: str | None = None
     ) -> list[dict] | None:
         """
         Fetch electricity prices from EasyEnergy API.
@@ -127,7 +130,7 @@ class EasyEnergyClient:
                 url = f"{EASYENERGY_API_URL}/getapxtariffs"
                 params = {
                     "startTimestamp": f"{start_date}T00:00:00.000Z",
-                    "endTimestamp": f"{end_date}T00:00:00.000Z"
+                    "endTimestamp": f"{end_date}T00:00:00.000Z",
                 }
 
                 async with session.get(
@@ -135,8 +138,8 @@ class EasyEnergyClient:
                     params=params,
                     headers={
                         "Accept": "application/json",
-                        "User-Agent": "Synctacles/1.0"
-                    }
+                        "User-Agent": "Synctacles/1.0",
+                    },
                 ) as resp:
                     if resp.status != 200:
                         _LOGGER.warning(f"EasyEnergy API returned HTTP {resp.status}")
@@ -167,11 +170,13 @@ class EasyEnergyClient:
                             elif ts_str.endswith("Z"):
                                 ts_str = ts_str[:-1] + "+00:00"
 
-                        prices.append({
-                            "timestamp": ts_str,
-                            "price_eur_kwh": price_eur_kwh,
-                            "price_eur_mwh": price_eur_mwh,
-                        })
+                        prices.append(
+                            {
+                                "timestamp": ts_str,
+                                "price_eur_kwh": price_eur_kwh,
+                                "price_eur_mwh": price_eur_mwh,
+                            }
+                        )
 
                     # Cache result (using central api_cache, 5 min TTL)
                     api_cache.set(cache_key, prices, ttl=300)
@@ -183,7 +188,7 @@ class EasyEnergyClient:
             _LOGGER.error(f"EasyEnergy API network error: {e}")
             EasyEnergyClient._record_failure()
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("EasyEnergy API timeout")
             EasyEnergyClient._record_failure()
             return None
@@ -207,8 +212,7 @@ class EasyEnergyClient:
         today = datetime.now(UTC).date()
         tomorrow = today + timedelta(days=1)
         return await EasyEnergyClient.get_prices(
-            start_date=today.isoformat(),
-            end_date=tomorrow.isoformat()
+            start_date=today.isoformat(), end_date=tomorrow.isoformat()
         )
 
     @staticmethod
@@ -222,8 +226,7 @@ class EasyEnergyClient:
         tomorrow = datetime.now(UTC).date() + timedelta(days=1)
         day_after = tomorrow + timedelta(days=1)
         return await EasyEnergyClient.get_prices(
-            start_date=tomorrow.isoformat(),
-            end_date=day_after.isoformat()
+            start_date=tomorrow.isoformat(), end_date=day_after.isoformat()
         )
 
     @staticmethod
@@ -266,8 +269,7 @@ class EasyEnergyClient:
             today = datetime.now(UTC).date()
             tomorrow = today + timedelta(days=1)
             prices = await EasyEnergyClient.get_prices(
-                start_date=today.isoformat(),
-                end_date=tomorrow.isoformat()
+                start_date=today.isoformat(), end_date=tomorrow.isoformat()
             )
 
             if prices and len(prices) > 0:
@@ -275,7 +277,7 @@ class EasyEnergyClient:
             else:
                 return (False, "No prices returned")
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return (False, f"Network error: {e}")
         except (ValueError, KeyError, TypeError) as e:
             return (False, f"Data error: {e}")

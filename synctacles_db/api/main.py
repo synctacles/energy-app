@@ -3,6 +3,7 @@ Energy Data API
 FastAPI application entry point
 Environment-driven branding and configuration
 """
+
 import time
 from datetime import UTC, datetime
 
@@ -39,23 +40,20 @@ app = FastAPI(
     description=settings.api_description,
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 
 # Auth middleware (validates X-API-Key header)
 # Prometheus metrics
 http_requests_total = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status']
+    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
 )
 
 http_request_duration_seconds = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration',
-    ['method', 'endpoint']
+    "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint"]
 )
+
 
 @app.middleware("http")
 async def metrics_middleware(request, call_next):
@@ -64,17 +62,15 @@ async def metrics_middleware(request, call_next):
     duration = time.time() - start_time
 
     http_requests_total.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code
+        method=request.method, endpoint=request.url.path, status=response.status_code
     ).inc()
 
     http_request_duration_seconds.labels(
-        method=request.method,
-        endpoint=request.url.path
+        method=request.method, endpoint=request.url.path
     ).observe(duration)
 
     return response
+
 
 # CORS Configuration (environment-driven for multi-deployment support)
 # Development: CORS_ORIGINS defaults to ["*"]
@@ -96,6 +92,8 @@ app.add_middleware(
 app.middleware("http")(http_logging_middleware)
 app.middleware("http")(auth_middleware)
 app.middleware("http")(rate_limit_middleware)
+
+
 # Health check
 @app.get("/health")
 async def health():
@@ -105,14 +103,16 @@ async def health():
         "version": "1.0.0",
         "timestamp": datetime.now(UTC).isoformat(),
         "service": settings.api_title,
-        "brand": settings.brand_name
+        "brand": settings.brand_name,
     }
+
 
 # Prometheus metrics endpoint
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 # Cache management endpoints
 @app.get("/cache/stats")
@@ -125,6 +125,7 @@ async def cache_stats():
     """
     return api_cache.stats()
 
+
 @app.post("/cache/clear")
 async def cache_clear():
     """
@@ -134,6 +135,7 @@ async def cache_clear():
     """
     api_cache.clear()
     return {"message": "Cache cleared", "status": "success"}
+
 
 @app.post("/cache/invalidate/{pattern}")
 async def cache_invalidate(pattern: str):
@@ -147,11 +149,8 @@ async def cache_invalidate(pattern: str):
     Note: In production, this should be admin-only.
     """
     count = api_cache.invalidate_pattern(pattern)
-    return {
-        "invalidated": count,
-        "pattern": pattern,
-        "status": "success"
-    }
+    return {"invalidated": count, "pattern": pattern, "status": "success"}
+
 
 # V1 endpoints - Active
 app.include_router(balance.router, prefix="/api/v1", tags=["balance"])

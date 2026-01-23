@@ -10,7 +10,7 @@ Features:
 - TTL caching for performance
 - Returns consumer prices including all taxes and markups
 """
-import asyncio
+
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -56,7 +56,9 @@ class FrankEnergieClient:
         minutes_since = (now - last_failure).total_seconds() / 60
 
         if minutes_since < _circuit_breaker["cooldown_minutes"]:
-            _LOGGER.debug(f"Frank circuit breaker OPEN ({int(minutes_since)} min since failure)")
+            _LOGGER.debug(
+                f"Frank circuit breaker OPEN ({int(minutes_since)} min since failure)"
+            )
             return True
 
         # Reset after cooldown
@@ -70,7 +72,9 @@ class FrankEnergieClient:
         """Record a failure for circuit breaker."""
         _circuit_breaker["failure_count"] += 1
         _circuit_breaker["last_failure_time"] = datetime.now(UTC)
-        _LOGGER.warning(f"Frank circuit breaker failure count: {_circuit_breaker['failure_count']}")
+        _LOGGER.warning(
+            f"Frank circuit breaker failure count: {_circuit_breaker['failure_count']}"
+        )
 
     @staticmethod
     def _record_success():
@@ -81,8 +85,7 @@ class FrankEnergieClient:
 
     @staticmethod
     async def get_prices(
-        start_date: str | None = None,
-        end_date: str | None = None
+        start_date: str | None = None, end_date: str | None = None
     ) -> list[dict] | None:
         """
         Fetch electricity prices from Frank Energie GraphQL API.
@@ -140,7 +143,7 @@ class FrankEnergieClient:
                 async with session.post(
                     FRANK_API_URL,
                     json={"query": query},
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 ) as resp:
                     if resp.status != 200:
                         _LOGGER.warning(f"Frank API returned HTTP {resp.status}")
@@ -172,20 +175,22 @@ class FrankEnergieClient:
 
                         # Calculate total consumer price (all components)
                         total_price = (
-                            float(p.get("marketPrice", 0) or 0) +
-                            float(p.get("marketPriceTax", 0) or 0) +
-                            float(p.get("sourcingMarkupPrice", 0) or 0) +
-                            float(p.get("energyTaxPrice", 0) or 0)
+                            float(p.get("marketPrice", 0) or 0)
+                            + float(p.get("marketPriceTax", 0) or 0)
+                            + float(p.get("sourcingMarkupPrice", 0) or 0)
+                            + float(p.get("energyTaxPrice", 0) or 0)
                         )
 
-                        prices.append({
-                            "timestamp": ts_str,
-                            "price_eur_kwh": total_price,
-                            "market_price": p.get("marketPrice"),
-                            "market_price_tax": p.get("marketPriceTax"),
-                            "sourcing_markup": p.get("sourcingMarkupPrice"),
-                            "energy_tax": p.get("energyTaxPrice"),
-                        })
+                        prices.append(
+                            {
+                                "timestamp": ts_str,
+                                "price_eur_kwh": total_price,
+                                "market_price": p.get("marketPrice"),
+                                "market_price_tax": p.get("marketPriceTax"),
+                                "sourcing_markup": p.get("sourcingMarkupPrice"),
+                                "energy_tax": p.get("energyTaxPrice"),
+                            }
+                        )
 
                     # Cache result
                     _frank_cache[cache_key] = prices
@@ -197,7 +202,7 @@ class FrankEnergieClient:
             _LOGGER.error(f"Frank API network error: {e}")
             FrankEnergieClient._record_failure()
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Frank API timeout")
             FrankEnergieClient._record_failure()
             return None
@@ -220,8 +225,7 @@ class FrankEnergieClient:
         """
         today = datetime.now(UTC).date()
         return await FrankEnergieClient.get_prices(
-            start_date=today.isoformat(),
-            end_date=today.isoformat()
+            start_date=today.isoformat(), end_date=today.isoformat()
         )
 
     @staticmethod
@@ -232,11 +236,10 @@ class FrankEnergieClient:
         Returns:
             List of price dicts for tomorrow (24 hours), or None
         """
-        tomorrow = (datetime.now(UTC).date() + timedelta(days=1))
+        tomorrow = datetime.now(UTC).date() + timedelta(days=1)
         day_after = tomorrow + timedelta(days=1)
         return await FrankEnergieClient.get_prices(
-            start_date=tomorrow.isoformat(),
-            end_date=day_after.isoformat()
+            start_date=tomorrow.isoformat(), end_date=day_after.isoformat()
         )
 
     @staticmethod
@@ -278,8 +281,7 @@ class FrankEnergieClient:
             # Try to fetch a single day
             today = datetime.now(UTC).date()
             prices = await FrankEnergieClient.get_prices(
-                start_date=today.isoformat(),
-                end_date=today.isoformat()
+                start_date=today.isoformat(), end_date=today.isoformat()
             )
 
             if prices and len(prices) > 0:
@@ -287,7 +289,7 @@ class FrankEnergieClient:
             else:
                 return (False, "No prices returned")
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return (False, f"Network error: {e}")
         except (ValueError, KeyError, TypeError) as e:
             return (False, f"Data error: {e}")

@@ -38,25 +38,33 @@ DB_URL = DATABASE_URL
 engine = create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 
+
 class ExpectedRange(BaseModel):
     """Expected price range for anomaly detection."""
+
     low: float
     high: float
     expected: float
 
+
 class ReferenceData(BaseModel):
     """Reference data for HA anomaly detection (KISS Migration)."""
+
     source: str
     tier: int
     expected_range: ExpectedRange
     timestamp: str | None = None
     market: dict | None = None
 
+
 class PriceRecord(BaseModel):
     timestamp: datetime
     price_eur_mwh: float
     # Pydantic v2: use Field with serialization_alias for underscore-prefixed fields
-    reference: ReferenceData | None = Field(default=None, serialization_alias="_reference")
+    reference: ReferenceData | None = Field(
+        default=None, serialization_alias="_reference"
+    )
+
 
 class MetaData(BaseModel):
     source: str
@@ -65,15 +73,14 @@ class MetaData(BaseModel):
     count: int
     allow_go_action: bool  # Flag for GO action safety
 
+
 class PricesResponse(BaseModel):
     data: list[PriceRecord]
     meta: MetaData
 
+
 @router.get("/prices", response_model=PricesResponse)
-async def get_prices(
-    country: str = Query("nl"),
-    hours: int = Query(48, ge=1, le=168)
-):
+async def get_prices(country: str = Query("nl"), hours: int = Query(48, ge=1, le=168)):
     """
     Day-ahead electricity prices with 4-tier fallback.
 
@@ -92,7 +99,7 @@ async def get_prices(
             headers={
                 "X-Cache": "HIT",
                 "X-Data-Source": "Cache",
-            }
+            },
         )
 
     session = Session()
@@ -104,12 +111,14 @@ async def get_prices(
 
     # Query ENTSO-E database
     try:
-        records = session.query(NormEntsoeA44)\
-            .filter(NormEntsoeA44.country == country.upper())\
-            .filter(NormEntsoeA44.timestamp >= start_of_today)\
-            .filter(NormEntsoeA44.timestamp < end_of_tomorrow)\
-            .order_by(desc(NormEntsoeA44.timestamp))\
+        records = (
+            session.query(NormEntsoeA44)
+            .filter(NormEntsoeA44.country == country.upper())
+            .filter(NormEntsoeA44.timestamp >= start_of_today)
+            .filter(NormEntsoeA44.timestamp < end_of_tomorrow)
+            .order_by(desc(NormEntsoeA44.timestamp))
             .all()
+        )
     finally:
         session.close()
 
@@ -121,15 +130,22 @@ async def get_prices(
 
     # Use FallbackManager for 4-tier fallback with GO action control
     try:
-        db_data = [
-            {"timestamp": r.timestamp.isoformat(), "price_eur_mwh": r.price_eur_mwh}
-            for r in records
-        ] if records else None
+        db_data = (
+            [
+                {"timestamp": r.timestamp.isoformat(), "price_eur_mwh": r.price_eur_mwh}
+                for r in records
+            ]
+            if records
+            else None
+        )
 
-        data, source, quality, allow_go_action = await FallbackManager.get_prices_with_fallback(
-            db_results=db_data,
-            db_age_minutes=db_age_minutes,
-            country=country.lower()
+        (
+            data,
+            source,
+            quality,
+            allow_go_action,
+        ) = await FallbackManager.get_prices_with_fallback(
+            db_results=db_data, db_age_minutes=db_age_minutes, country=country.lower()
         )
     except Exception as err:
         _LOGGER.error(f"FallbackManager error: {err}")
@@ -153,8 +169,10 @@ async def get_prices(
         price_records = []
         for i, d in enumerate(data):
             record_kwargs = {
-                "timestamp": datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")),
-                "price_eur_mwh": float(d["price_eur_mwh"])
+                "timestamp": datetime.fromisoformat(
+                    d["timestamp"].replace("Z", "+00:00")
+                ),
+                "price_eur_mwh": float(d["price_eur_mwh"]),
             }
             # Include reference only on first record (KISS Migration anomaly detection)
             if i == 0 and "_reference" in d:
@@ -165,10 +183,10 @@ async def get_prices(
                     expected_range=ExpectedRange(
                         low=ref["expected_range"]["low"],
                         high=ref["expected_range"]["high"],
-                        expected=ref["expected_range"].get("expected", 0)
+                        expected=ref["expected_range"].get("expected", 0),
                     ),
                     timestamp=ref.get("timestamp"),
-                    market=ref.get("market")
+                    market=ref.get("market"),
                 )
             price_records.append(PriceRecord(**record_kwargs))
 
@@ -177,10 +195,12 @@ async def get_prices(
             meta=MetaData(
                 source=source,
                 quality_status=quality,
-                data_age_seconds=db_age_minutes * 60 if db_age_minutes < 999 else 999999,
+                data_age_seconds=db_age_minutes * 60
+                if db_age_minutes < 999
+                else 999999,
                 count=len(price_records),
-                allow_go_action=allow_go_action  # Safety flag
-            )
+                allow_go_action=allow_go_action,  # Safety flag
+            ),
         )
     else:
         result = PricesResponse(
@@ -190,8 +210,8 @@ async def get_prices(
                 quality_status=quality,
                 data_age_seconds=999999,
                 count=0,
-                allow_go_action=False  # Never automate when NO_DATA
-            )
+                allow_go_action=False,  # Never automate when NO_DATA
+            ),
         )
 
     # Serialize and cache (by_alias=True for '_reference', exclude_none to omit null fields)
@@ -208,5 +228,5 @@ async def get_prices(
             "X-Data-Source": source,
             "X-Data-Quality": quality,
             "X-Allow-GO": "true" if allow_go_action else "false",
-        }
+        },
     )

@@ -2,6 +2,7 @@
 """
 Simple test for anomaly detection logic - no external dependencies.
 """
+
 import sys
 
 print("=" * 60)
@@ -18,9 +19,15 @@ ANOMALY_MAX_PRICE = 1.00
 def validate_price_against_reference(enever_price_kwh: float, reference: dict) -> tuple:
     """Validation logic (copy from HA component)."""
     if enever_price_kwh < ANOMALY_MIN_PRICE:
-        return (False, f"Price {enever_price_kwh:.4f} below minimum {ANOMALY_MIN_PRICE}")
+        return (
+            False,
+            f"Price {enever_price_kwh:.4f} below minimum {ANOMALY_MIN_PRICE}",
+        )
     if enever_price_kwh > ANOMALY_MAX_PRICE:
-        return (False, f"Price {enever_price_kwh:.4f} above maximum {ANOMALY_MAX_PRICE}")
+        return (
+            False,
+            f"Price {enever_price_kwh:.4f} above maximum {ANOMALY_MAX_PRICE}",
+        )
 
     if not reference or "expected_range" not in reference:
         return (True, "No reference data - accepting BYO price")
@@ -37,9 +44,15 @@ def validate_price_against_reference(enever_price_kwh: float, reference: dict) -
     tolerance_high = high + tolerance
 
     if tolerance_low <= enever_price_kwh <= tolerance_high:
-        return (True, f"Price {enever_price_kwh:.4f} within range [{tolerance_low:.4f}, {tolerance_high:.4f}]")
+        return (
+            True,
+            f"Price {enever_price_kwh:.4f} within range [{tolerance_low:.4f}, {tolerance_high:.4f}]",
+        )
     else:
-        return (False, f"Price {enever_price_kwh:.4f} outside range [{tolerance_low:.4f}, {tolerance_high:.4f}]")
+        return (
+            False,
+            f"Price {enever_price_kwh:.4f} outside range [{tolerance_low:.4f}, {tolerance_high:.4f}]",
+        )
 
 
 def test_validation():
@@ -48,20 +61,22 @@ def test_validation():
     reference = {
         "source": "Frank DB",
         "tier": 1,
-        "expected_range": {
-            "low": 0.20,
-            "high": 0.30,
-            "expected": 0.25
-        }
+        "expected_range": {"low": 0.20, "high": 0.30, "expected": 0.25},
     }
 
     print("\nReference data:")
-    print(f"  expected_range: low={reference['expected_range']['low']}, high={reference['expected_range']['high']}")
-    print(f"  Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh")
+    print(
+        f"  expected_range: low={reference['expected_range']['low']}, high={reference['expected_range']['high']}"
+    )
+    print(
+        f"  Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh"
+    )
 
     # Calculate actual tolerance
     expected = reference["expected_range"]["expected"]
-    tolerance = max(expected * (ANOMALY_TOLERANCE_PERCENT / 100), ANOMALY_TOLERANCE_ABSOLUTE)
+    tolerance = max(
+        expected * (ANOMALY_TOLERANCE_PERCENT / 100), ANOMALY_TOLERANCE_ABSOLUTE
+    )
     tolerance_low = reference["expected_range"]["low"] - tolerance
     tolerance_high = reference["expected_range"]["high"] + tolerance
     print(f"  Effective range: [{tolerance_low:.4f}, {tolerance_high:.4f}]")
@@ -114,8 +129,8 @@ def test_extract_reference():
                 "_reference": {
                     "source": "Frank DB",
                     "tier": 1,
-                    "expected_range": {"low": 0.20, "high": 0.30, "expected": 0.25}
-                }
+                    "expected_range": {"low": 0.20, "high": 0.30, "expected": 0.25},
+                },
             }
         ]
     }

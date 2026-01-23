@@ -2,6 +2,7 @@
 Energy-Charts Day-Ahead Price Collector
 Fetches NL electricity prices from Fraunhofer ISE API
 """
+
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -33,7 +34,7 @@ def _make_request_with_retry(url: str, params: dict) -> requests.Response:
 
             if response.status_code == 429:
                 retry_delay = RETRY_DELAYS[min(attempt, len(RETRY_DELAYS) - 1)]
-                retry_after = response.headers.get('Retry-After')
+                retry_after = response.headers.get("Retry-After")
                 if retry_after:
                     try:
                         retry_delay = int(retry_after)
@@ -69,7 +70,8 @@ def _make_request_with_retry(url: str, params: dict) -> requests.Response:
 
     # If we exhausted retries due to rate limiting
     raise requests.exceptions.HTTPError(
-        f"Rate limited after {MAX_RETRIES} attempts", response=last_error.response if last_error else None
+        f"Rate limited after {MAX_RETRIES} attempts",
+        response=last_error.response if last_error else None,
     )
 
 
@@ -91,10 +93,12 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
 
         response = _make_request_with_retry(BASE_URL, params)
 
-        _LOGGER.debug(f"Response status: {response.status_code}, size: {len(response.content)} bytes")
+        _LOGGER.debug(
+            f"Response status: {response.status_code}, size: {len(response.content)} bytes"
+        )
 
         data = response.json()
-        price_points = len(data.get('price', []))
+        price_points = len(data.get("price", []))
 
         # Save raw response
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -104,14 +108,19 @@ def fetch_prices(country: str = "NL", days: int = 2) -> dict:
             json.dump(data, f, indent=2)
 
         elapsed = time.time() - start_time
-        _LOGGER.info(f"Energy-Charts collector completed: {price_points} records in {elapsed:.2f}s")
+        _LOGGER.info(
+            f"Energy-Charts collector completed: {price_points} records in {elapsed:.2f}s"
+        )
 
         return data
 
     except Exception as err:
         elapsed = time.time() - start_time
-        _LOGGER.error(f"Energy-Charts collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}")
+        _LOGGER.error(
+            f"Energy-Charts collector failed after {elapsed:.2f}s: {type(err).__name__}: {err}"
+        )
         raise
+
 
 if __name__ == "__main__":
     fetch_prices()

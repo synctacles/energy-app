@@ -13,6 +13,7 @@ Usage:
     _LOGGER = get_logger(__name__)
     _LOGGER.info("Message")
 """
+
 import logging
 import os
 from logging.handlers import RotatingFileHandler
@@ -79,10 +80,12 @@ def setup_logging(
         backupCount=BACKUP_COUNT,
         encoding="utf-8",
     )
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    ))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
 
     # Configure root logger for synctacles_db namespace
     root_logger = logging.getLogger("synctacles_db")

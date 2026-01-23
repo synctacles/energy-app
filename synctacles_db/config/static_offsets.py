@@ -25,7 +25,7 @@ BTW_RATE: float = 0.21
 
 # Fixed markup components (EUR/kWh) - From Frank API Jan 2026
 SOURCING_MARKUP: float = 0.018150  # Frank's sourcing/profit margin
-ENERGY_TAX: float = 0.110850       # Energiebelasting 2026
+ENERGY_TAX: float = 0.110850  # Energiebelasting 2026
 
 # Total fixed markup (does NOT scale with wholesale price)
 FIXED_MARKUP: float = SOURCING_MARKUP + ENERGY_TAX  # = €0.129/kWh
@@ -79,15 +79,15 @@ def apply_hybrid_conversion_mwh(wholesale_price_eur_mwh: float) -> float:
 # These bake BTW into a fixed offset, causing ~15% error at price extremes
 # Use apply_hybrid_conversion() instead
 HOURLY_OFFSET: dict[int, float] = {
-    0: 0.1934,   # Night low
+    0: 0.1934,  # Night low
     1: 0.1903,
     2: 0.1879,
     3: 0.1819,
     4: 0.1705,
-    5: 0.1667,   # Lowest offset (early morning)
+    5: 0.1667,  # Lowest offset (early morning)
     6: 0.1789,
-    7: 0.1989,   # Morning rise
-    8: 0.2132,   # Morning peak
+    7: 0.1989,  # Morning rise
+    8: 0.2132,  # Morning peak
     9: 0.2099,
     10: 0.2030,
     11: 0.1968,
@@ -161,17 +161,15 @@ def get_market_stats(wholesale_prices: list[float]) -> dict | None:
         return None
 
     return {
-        'average': sum(wholesale_prices) / len(wholesale_prices),
-        'spread': max(wholesale_prices) - min(wholesale_prices),
-        'min': min(wholesale_prices),
-        'max': max(wholesale_prices)
+        "average": sum(wholesale_prices) / len(wholesale_prices),
+        "spread": max(wholesale_prices) - min(wholesale_prices),
+        "min": min(wholesale_prices),
+        "max": max(wholesale_prices),
     }
 
 
 def get_expected_range(
-    market_average_eur_kwh: float,
-    hour: int,
-    tolerance_percent: float = 15.0
+    market_average_eur_kwh: float, hour: int, tolerance_percent: float = 15.0
 ) -> dict[str, float]:
     """
     Calculate expected consumer price range for anomaly detection.
@@ -192,7 +190,7 @@ def get_expected_range(
     tolerance = expected * (tolerance_percent / 100.0)
 
     return {
-        'expected': round(expected, 4),
-        'low': round(expected - tolerance, 4),
-        'high': round(expected + tolerance, 4)
+        "expected": round(expected, 4),
+        "low": round(expected - tolerance, 4),
+        "high": round(expected + tolerance, 4),
     }

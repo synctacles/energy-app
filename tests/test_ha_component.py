@@ -1,6 +1,7 @@
 """
 Test HA component data parsing without full HA installation
 """
+
 import asyncio
 
 import aiohttp
@@ -54,16 +55,17 @@ async def test_coordinator():
 
         return data
 
+
 if __name__ == "__main__":
-    print("="*60)
+    print("=" * 60)
     print("TESTING SYNCTACLES HA COMPONENT DATA FETCH")
-    print("="*60)
+    print("=" * 60)
 
     result = asyncio.run(test_coordinator())
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST RESULT:")
-    print("="*60)
+    print("=" * 60)
 
     for key in ["generation", "load", "balance"]:
         status = "✓ OK" if result.get(key) else "✗ FAIL"

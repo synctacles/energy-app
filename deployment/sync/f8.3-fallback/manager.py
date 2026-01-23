@@ -17,12 +17,11 @@ _generation_cache = TTLCache(maxsize=100, ttl=300)
 
 
 async def get_generation_fallback(
-    primary_data: list[dict] | None,
-    country: str = "nl"
+    primary_data: list[dict] | None, country: str = "nl"
 ) -> tuple[list[dict] | None, QualityStatus]:
     """
     Returns (data, quality_status)
-    
+
     Fallback chain:
     1. primary_data (if not None) → OK
     2. Energy-Charts → FALLBACK

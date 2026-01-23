@@ -6,6 +6,7 @@ Grid data endpoints (generation, load, signals) have been discontinued.
 
 See: PVA_ENERGY_ACTION_FOCUS.md - Phase 2: Soft Delete
 """
+
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
@@ -23,8 +24,8 @@ DISCONTINUED_MESSAGE = {
     "migration": {
         "energy_action": "/api/v1/energy-action",
         "prices": "/api/v1/prices/today",
-        "rationale": "Energy Action provides the actionable insights you need without the complexity of raw grid data."
-    }
+        "rationale": "Energy Action provides the actionable insights you need without the complexity of raw grid data.",
+    },
 }
 
 
@@ -41,8 +42,8 @@ async def deprecated_generation_mix():
         content={
             **DISCONTINUED_MESSAGE,
             "endpoint": "/api/v1/generation-mix",
-            "replacement": "/api/v1/energy-action"
-        }
+            "replacement": "/api/v1/energy-action",
+        },
     )
 
 
@@ -59,8 +60,8 @@ async def deprecated_load():
         content={
             **DISCONTINUED_MESSAGE,
             "endpoint": "/api/v1/load",
-            "replacement": "/api/v1/energy-action"
-        }
+            "replacement": "/api/v1/energy-action",
+        },
     )
 
 
@@ -82,8 +83,8 @@ async def deprecated_signals():
             **DISCONTINUED_MESSAGE,
             "endpoint": "/api/v1/signals",
             "replacement": "/api/v1/energy-action",
-            "note": "Energy Action provides is_cheap, cheapest_hour, and allow_automation signals."
-        }
+            "note": "Energy Action provides is_cheap, cheapest_hour, and allow_automation signals.",
+        },
     )
 
 
@@ -102,6 +103,6 @@ async def deprecated_now():
             **DISCONTINUED_MESSAGE,
             "endpoint": "/api/v1/now",
             "replacement": "/api/v1/energy-action",
-            "note": "The /now endpoint combined generation/load/balance which are no longer collected."
-        }
+            "note": "The /now endpoint combined generation/load/balance which are no longer collected.",
+        },
     )

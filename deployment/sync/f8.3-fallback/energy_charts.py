@@ -8,14 +8,13 @@ import httpx
 logger = logging.getLogger(__name__)
 BASE_URL = "https://api.energy-charts.info"
 
+
 async def fetch_generation_mix(country: str = "nl") -> list[dict] | None:
     """Fetch and normalize Energy-Charts generation data"""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BASE_URL}/public_power",
-                params={"country": country},
-                timeout=10.0
+                f"{BASE_URL}/public_power", params={"country": country}, timeout=10.0
             )
 
             if response.status_code != 200:
@@ -68,9 +67,17 @@ def _normalize_generation(raw: dict) -> list[dict]:
         total = 0.0
 
         # All SYNCTACLES fields
-        for field in ["solar_mw", "wind_offshore_mw", "wind_onshore_mw",
-                      "gas_mw", "coal_mw", "nuclear_mw", "biomass_mw",
-                      "waste_mw", "other_mw"]:
+        for field in [
+            "solar_mw",
+            "wind_offshore_mw",
+            "wind_onshore_mw",
+            "gas_mw",
+            "coal_mw",
+            "nuclear_mw",
+            "biomass_mw",
+            "waste_mw",
+            "other_mw",
+        ]:
             values = type_data.get(field, [])
             value = values[i] if i < len(values) else 0.0
             # Only positive values (generation, not consumption/import)

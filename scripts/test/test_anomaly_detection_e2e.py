@@ -7,13 +7,16 @@ Tests:
 2. HA component validation logic works correctly
 3. Anomaly detection triggers fallback when price is out of range
 """
+
 import asyncio
 import os
 import sys
 from datetime import UTC, datetime
 
 # Add project paths
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 sys.path.insert(0, "/opt/github/ha-energy-insights-nl")
 
 print("=" * 60)
@@ -39,14 +42,20 @@ async def test_backend_reference_data():
     # Test market stats
     test_prices = [0.20, 0.25, 0.30, 0.15, 0.22]
     stats = get_market_stats(test_prices)
-    print(f"    Market stats: avg={stats['average']:.4f}, min={stats['min']:.4f}, max={stats['max']:.4f}")
+    print(
+        f"    Market stats: avg={stats['average']:.4f}, min={stats['min']:.4f}, max={stats['max']:.4f}"
+    )
     assert stats is not None, "Market stats should not be None"
 
     # Test expected range
     current_hour = datetime.now(UTC).hour
     expected = get_expected_range(0.05, current_hour)  # €0.05/kWh wholesale
-    print(f"    Expected range (hour {current_hour}): low={expected['low']:.4f}, high={expected['high']:.4f}")
-    assert "low" in expected and "high" in expected, "Expected range should have low/high"
+    print(
+        f"    Expected range (hour {current_hour}): low={expected['low']:.4f}, high={expected['high']:.4f}"
+    )
+    assert "low" in expected and "high" in expected, (
+        "Expected range should have low/high"
+    )
 
     # Test _add_reference_data
     test_prices_mwh = [
@@ -83,7 +92,9 @@ async def test_ha_validation_logic(reference):
         validate_price_against_reference,
     )
 
-    print(f"    Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh")
+    print(
+        f"    Tolerance: {ANOMALY_TOLERANCE_PERCENT}% + €{ANOMALY_TOLERANCE_ABSOLUTE}/kWh"
+    )
     print(f"    Bounds: €{ANOMALY_MIN_PRICE} - €{ANOMALY_MAX_PRICE}/kWh")
 
     expected_range = reference["expected_range"]
@@ -99,7 +110,9 @@ async def test_ha_validation_logic(reference):
 
     # Test 2: Price slightly above range (within tolerance) should pass
     print("\n    Test 2: Price slightly above range (within tolerance)...")
-    tolerance = max(expected_price * (ANOMALY_TOLERANCE_PERCENT / 100), ANOMALY_TOLERANCE_ABSOLUTE)
+    tolerance = max(
+        expected_price * (ANOMALY_TOLERANCE_PERCENT / 100), ANOMALY_TOLERANCE_ABSOLUTE
+    )
     price_above = expected_range["high"] + tolerance - 0.001
     is_valid, reason = validate_price_against_reference(price_above, reference)
     print(f"    Price: €{price_above:.4f}/kWh -> Valid: {is_valid}")
@@ -160,17 +173,10 @@ async def test_extract_reference():
                 "_reference": {
                     "source": "Frank DB",
                     "tier": 1,
-                    "expected_range": {
-                        "low": 0.18,
-                        "high": 0.32,
-                        "expected": 0.25
-                    }
-                }
+                    "expected_range": {"low": 0.18, "high": 0.32, "expected": 0.25},
+                },
             },
-            {
-                "timestamp": "2026-01-17T15:00:00+00:00",
-                "price_eur_mwh": 260.0
-            }
+            {"timestamp": "2026-01-17T15:00:00+00:00", "price_eur_mwh": 260.0},
         ]
     }
 
@@ -187,7 +193,9 @@ async def test_extract_reference():
     print("    ✓ Empty response handling OK")
 
     # Test response without _reference
-    server_data_no_ref = {"data": [{"timestamp": "2026-01-17T14:00:00+00:00", "price_eur_mwh": 250.0}]}
+    server_data_no_ref = {
+        "data": [{"timestamp": "2026-01-17T14:00:00+00:00", "price_eur_mwh": 250.0}]
+    }
     reference = extract_reference_from_server(server_data_no_ref)
     assert reference is None, "Should return None when no _reference"
     print("    ✓ Missing _reference handling OK")
@@ -216,6 +224,7 @@ async def main():
     except Exception as e:
         print(f"\n✗ ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         return 2
 

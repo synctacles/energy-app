@@ -46,13 +46,10 @@ class UserListResponse(BaseModel):
 
 
 @router.post("/signup", response_model=SignupResponse)
-async def signup(
-    request: SignupRequest,
-    db: Session = Depends(get_db)
-):
+async def signup(request: SignupRequest, db: Session = Depends(get_db)):
     """
     Create new user account
-    
+
     Returns license key and API key (save both!)
     """
     try:
@@ -63,7 +60,7 @@ async def signup(
             email=user.email,
             license_key=str(user.license_key),
             api_key=api_key_plain,
-            message="Account created successfully. Save your API key - it won't be shown again!"
+            message="Account created successfully. Save your API key - it won't be shown again!",
         )
 
     except ValueError as e:
@@ -72,8 +69,7 @@ async def signup(
 
 @router.get("/stats", response_model=UserStatsResponse)
 async def get_stats(
-    x_api_key: str = Header(..., alias="X-API-Key"),
-    db: Session = Depends(get_db)
+    x_api_key: str = Header(..., alias="X-API-Key"), db: Session = Depends(get_db)
 ):
     """Get current user statistics and rate limit info"""
 
@@ -87,12 +83,11 @@ async def get_stats(
 
 @router.post("/regenerate-key", response_model=RegenerateKeyResponse)
 async def regenerate_api_key(
-    x_api_key: str = Header(..., alias="X-API-Key"),
-    db: Session = Depends(get_db)
+    x_api_key: str = Header(..., alias="X-API-Key"), db: Session = Depends(get_db)
 ):
     """
     Regenerate API key for current user
-    
+
     Old key will be invalidated immediately
     """
     user = auth_service.validate_api_key(db, x_api_key)
@@ -105,14 +100,13 @@ async def regenerate_api_key(
         user_id=str(user.id),
         email=user.email,
         new_api_key=new_api_key,
-        message="API key regenerated. Update your applications immediately!"
+        message="API key regenerated. Update your applications immediately!",
     )
 
 
 @router.post("/deactivate")
 async def deactivate_account(
-    x_api_key: str = Header(..., alias="X-API-Key"),
-    db: Session = Depends(get_db)
+    x_api_key: str = Header(..., alias="X-API-Key"), db: Session = Depends(get_db)
 ):
     """Deactivate current user account (can be reactivated)"""
     user = auth_service.validate_api_key(db, x_api_key)
@@ -126,12 +120,11 @@ async def deactivate_account(
 
 @router.get("/admin/users", response_model=UserListResponse)
 async def list_users(
-    admin_key: str = Header(..., alias="X-Admin-Key"),
-    db: Session = Depends(get_db)
+    admin_key: str = Header(..., alias="X-Admin-Key"), db: Session = Depends(get_db)
 ):
     """
     List all users (admin only)
-    
+
     Requires X-Admin-Key header
     """
     if admin_key != os.getenv("ADMIN_API_KEY", "change-me-in-production"):
@@ -146,7 +139,7 @@ async def list_users(
             "tier": u.tier,
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat(),
-            "rate_limit": u.rate_limit_daily
+            "rate_limit": u.rate_limit_daily,
         }
         for u in users
     ]

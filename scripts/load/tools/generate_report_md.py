@@ -9,8 +9,10 @@ def load_json(p):
     with open(p, encoding="utf-8") as f:
         return json.load(f)
 
+
 def metric(summary, key):
     return summary.get("metrics", {}).get(key, {})
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -61,7 +63,7 @@ def main():
         users = int(rps / hits_per_sec_user) if rps > 0 else 0
 
         lines.append(
-            f"| {name} | {rps:.2f} | {p95:.1f} | {p99:.1f} | {er*100:.2f}% | {users:,} |"
+            f"| {name} | {rps:.2f} | {p95:.1f} | {p99:.1f} | {er * 100:.2f}% | {users:,} |"
         )
 
     lines.append(
@@ -74,6 +76,7 @@ def main():
 
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"Report written to {out}")
+
 
 if __name__ == "__main__":
     main()

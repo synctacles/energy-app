@@ -35,17 +35,14 @@ class EnergyChartsClient:
     }
 
     @staticmethod
-    async def fetch_generation_mix(
-        country: str = "nl",
-        limit: int = 1
-    ) -> list[dict]:
+    async def fetch_generation_mix(country: str = "nl", limit: int = 1) -> list[dict]:
         """
         Fetch latest generation mix data from Energy-Charts.
-        
+
         Args:
             country: Country code (nl, de, fr, be)
             limit: Number of latest records to return
-            
+
         Returns:
             List of generation mix records with SYNCTACLES schema
         """
@@ -58,7 +55,9 @@ class EnergyChartsClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, timeout=10) as response:
                     if response.status != 200:
-                        _LOGGER.error(f"Energy-Charts API error: HTTP {response.status}")
+                        _LOGGER.error(
+                            f"Energy-Charts API error: HTTP {response.status}"
+                        )
                         return []
 
                     data = await response.json()
@@ -70,7 +69,7 @@ class EnergyChartsClient:
         except aiohttp.ClientError as err:
             _LOGGER.error(f"Energy-Charts connection error: {err}")
             return []
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Energy-Charts connection timeout")
             return []
         except (json.JSONDecodeError, aiohttp.ContentTypeError) as err:
@@ -81,10 +80,7 @@ class EnergyChartsClient:
             return []
 
     @staticmethod
-    async def fetch_prices(
-        country: str = "nl",
-        hours: int = 24
-    ) -> list[dict]:
+    async def fetch_prices(country: str = "nl", hours: int = 24) -> list[dict]:
         """
         Fetch electricity prices from Energy-Charts.
 
@@ -104,7 +100,9 @@ class EnergyChartsClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, timeout=10) as response:
                     if response.status != 200:
-                        _LOGGER.error(f"Energy-Charts price API error: HTTP {response.status}")
+                        _LOGGER.error(
+                            f"Energy-Charts price API error: HTTP {response.status}"
+                        )
                         return []
 
                     data = await response.json()
@@ -115,7 +113,7 @@ class EnergyChartsClient:
         except aiohttp.ClientError as err:
             _LOGGER.error(f"Energy-Charts price connection error: {err}")
             return []
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Energy-Charts price connection timeout")
             return []
         except (json.JSONDecodeError, aiohttp.ContentTypeError) as err:
@@ -138,7 +136,9 @@ class EnergyChartsClient:
 
             # Critical validation: arrays must be same length
             if len(unix_seconds) != len(prices):
-                _LOGGER.error(f"Energy-Charts price array mismatch: {len(unix_seconds)} timestamps vs {len(prices)} prices")
+                _LOGGER.error(
+                    f"Energy-Charts price array mismatch: {len(unix_seconds)} timestamps vs {len(prices)} prices"
+                )
                 return []
 
             results = []
@@ -176,7 +176,9 @@ class EnergyChartsClient:
                 return []
 
             # Get latest N timestamps
-            latest_timestamps = timestamps[-limit:] if len(timestamps) >= limit else timestamps
+            latest_timestamps = (
+                timestamps[-limit:] if len(timestamps) >= limit else timestamps
+            )
 
             results = []
 
@@ -228,7 +230,6 @@ class EnergyChartsClient:
 # Synchronous wrapper for use in non-async contexts
 def fetch_generation_mix_sync(country: str = "nl", limit: int = 1) -> list[dict]:
     """Synchronous wrapper for Energy-Charts fetch."""
-    import asyncio
 
     try:
         loop = asyncio.get_event_loop()

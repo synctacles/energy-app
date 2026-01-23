@@ -27,23 +27,25 @@ router = APIRouter(prefix="/v1", tags=["energy-action"])
 
 class PriceQuality:
     """Quality levels for price data."""
-    LIVE = "live"           # 100% accurate (Frank DB/Direct)
+
+    LIVE = "live"  # 100% accurate (Frank DB/Direct)
     ESTIMATED = "estimated"  # 85-89% accurate (ENTSO-E/EasyEnergy + static offset)
-    CACHED = "cached"        # Stale but functional
+    CACHED = "cached"  # Stale but functional
     UNAVAILABLE = "unavailable"
 
 
 class EnergyAction:
     """Energy action recommendations."""
-    USE = "USE"     # Good time to use energy
-    WAIT = "WAIT"   # Wait for better pricing
-    SKIP = "SKIP"   # Avoid energy use now
+
+    USE = "USE"  # Good time to use energy
+    WAIT = "WAIT"  # Wait for better pricing
+    SKIP = "SKIP"  # Avoid energy use now
 
 
 @router.get("/energy-action")
 async def get_energy_action(
     country: str = Query("NL", description="Country code (NL, BE, DE)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get Energy Action recommendation with quality metadata.
@@ -77,7 +79,7 @@ async def get_energy_action(
             headers={
                 "X-Cache": "HIT",
                 "X-Data-Source": "cache",
-            }
+            },
         )
 
     now = datetime.now(UTC)
@@ -95,7 +97,7 @@ async def get_energy_action(
             "cheapest_hour": None,
             "most_expensive_hour": None,
             "timestamp": now.isoformat(),
-            "message": "No price data available"
+            "message": "No price data available",
         }
     else:
         # Find current price
@@ -136,7 +138,7 @@ async def get_energy_action(
             "X-Data-Source": result.get("source", "none"),
             "X-Data-Quality": result.get("quality", "unavailable"),
             "X-Confidence": str(result.get("confidence", 0)),
-        }
+        },
     )
 
 
@@ -153,7 +155,8 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_tomorrow = start_of_today + timedelta(days=2)
 
-    result = db.execute(text("""
+    result = db.execute(
+        text("""
         SELECT
             timestamp,
             price_eur_mwh / 1000.0 as price_eur_kwh,
@@ -164,11 +167,9 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
           AND timestamp >= :start
           AND timestamp < :end
         ORDER BY timestamp DESC
-    """), {
-        "country": country.upper(),
-        "start": start_of_today,
-        "end": end_of_tomorrow
-    }).fetchall()
+    """),
+        {"country": country.upper(), "start": start_of_today, "end": end_of_tomorrow},
+    ).fetchall()
 
     # Calculate database age
     db_age_minutes = 999
@@ -178,7 +179,8 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
         db_results = [
             {
                 "timestamp": row[0].isoformat(),
-                "price_eur_mwh": float(row[1]) * 1000  # Convert back for FallbackManager
+                "price_eur_mwh": float(row[1])
+                * 1000,  # Convert back for FallbackManager
             }
             for row in result
         ]
@@ -187,9 +189,7 @@ async def get_prices_with_quality(db: Session, country: str) -> dict:
 
     # Use FallbackManager for 5-tier fallback
     prices, source, quality, allow_go = await FallbackManager.get_prices_with_fallback(
-        db_results=db_results,
-        db_age_minutes=db_age_minutes,
-        country=country.lower()
+        db_results=db_results, db_age_minutes=db_age_minutes, country=country.lower()
     )
 
     # Map quality to confidence
@@ -256,7 +256,9 @@ def calculate_daily_average(prices: list) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def calculate_action(current_price: float | None, daily_avg: float | None, prices: list) -> str:
+def calculate_action(
+    current_price: float | None, daily_avg: float | None, prices: list
+) -> str:
     """
     Calculate energy action recommendation.
 
@@ -268,7 +270,7 @@ def calculate_action(current_price: float | None, daily_avg: float | None, price
         return EnergyAction.WAIT
 
     # Calculate thresholds
-    low_threshold = daily_avg * 0.85   # 15% below average
+    low_threshold = daily_avg * 0.85  # 15% below average
     high_threshold = daily_avg * 1.15  # 15% above average
 
     if current_price <= low_threshold:
@@ -296,11 +298,13 @@ def find_cheapest_hour(prices: list, after: datetime) -> dict | None:
             price_val = price.get("price_eur_mwh") or price.get("price_eur_kwh", 0)
             if price_val > 1:
                 price_val = float(price_val) / 1000.0
-            future_prices.append({
-                "timestamp": ts.isoformat(),
-                "hour": ts.hour,
-                "price_eur_kwh": float(price_val)
-            })
+            future_prices.append(
+                {
+                    "timestamp": ts.isoformat(),
+                    "hour": ts.hour,
+                    "price_eur_kwh": float(price_val),
+                }
+            )
 
     if not future_prices:
         return None
@@ -325,11 +329,13 @@ def find_most_expensive_hour(prices: list, after: datetime) -> dict | None:
             price_val = price.get("price_eur_mwh") or price.get("price_eur_kwh", 0)
             if price_val > 1:
                 price_val = float(price_val) / 1000.0
-            future_prices.append({
-                "timestamp": ts.isoformat(),
-                "hour": ts.hour,
-                "price_eur_kwh": float(price_val)
-            })
+            future_prices.append(
+                {
+                    "timestamp": ts.isoformat(),
+                    "hour": ts.hour,
+                    "price_eur_kwh": float(price_val),
+                }
+            )
 
     if not future_prices:
         return None

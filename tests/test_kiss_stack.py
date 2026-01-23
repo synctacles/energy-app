@@ -8,6 +8,7 @@ Tests for:
 - Fallback chain (6-tier)
 - Reference data structure
 """
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
@@ -126,12 +127,9 @@ class TestEasyEnergyClient:
         mock_prices = [
             {
                 "Timestamp": "2026-01-17T00:00:00Z",
-                "TariffReturn": 50.0  # €50/MWh
+                "TariffReturn": 50.0,  # €50/MWh
             },
-            {
-                "Timestamp": "2026-01-17T01:00:00Z",
-                "TariffReturn": 55.0
-            }
+            {"Timestamp": "2026-01-17T01:00:00Z", "TariffReturn": 55.0},
         ]
 
         with patch("aiohttp.ClientSession") as mock_session:
@@ -152,6 +150,7 @@ class TestEasyEnergyClient:
         """Test circuit breaker starts closed."""
         # Reset circuit breaker
         from synctacles_db.clients.easyenergy_client import _circuit_breaker
+
         _circuit_breaker["failure_count"] = 0
         _circuit_breaker["last_failure_time"] = None
 
@@ -169,14 +168,8 @@ class TestFallbackManager:
 
         now = datetime.now(UTC)
         prices = [
-            {
-                "timestamp": now.replace(hour=8).isoformat(),
-                "price_eur_mwh": 50.0
-            },
-            {
-                "timestamp": now.replace(hour=9).isoformat(),
-                "price_eur_mwh": 55.0
-            }
+            {"timestamp": now.replace(hour=8).isoformat(), "price_eur_mwh": 50.0},
+            {"timestamp": now.replace(hour=9).isoformat(), "price_eur_mwh": 55.0},
         ]
 
         result = FallbackManager._apply_static_offset(prices)
@@ -196,7 +189,7 @@ class TestFallbackManager:
 
         prices = [
             {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 200.0},
-            {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 250.0}
+            {"timestamp": datetime.now(UTC).isoformat(), "price_eur_mwh": 250.0},
         ]
 
         result = FallbackManager._add_reference_data(prices, "Test Source", 1)
@@ -239,10 +232,13 @@ class TestIntegration:
         from synctacles_db.fallback.fallback_manager import FallbackManager
 
         # Test with no DB results to force API fallback
-        result, source, quality, allow_go = await FallbackManager.get_prices_with_fallback(
-            db_results=None,
-            db_age_minutes=9999,
-            country="nl"
+        (
+            result,
+            source,
+            quality,
+            allow_go,
+        ) = await FallbackManager.get_prices_with_fallback(
+            db_results=None, db_age_minutes=9999, country="nl"
         )
 
         assert result is not None

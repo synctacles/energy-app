@@ -69,7 +69,19 @@ def mock_db_session():
 def sample_price_data():
     """Provide sample price data for tests."""
     return [
-        {"timestamp": "2026-01-23T12:00:00Z", "price_eur_mwh": 50.0, "price_eur_kwh": 0.05},
-        {"timestamp": "2026-01-23T13:00:00Z", "price_eur_mwh": 55.0, "price_eur_kwh": 0.055},
-        {"timestamp": "2026-01-23T14:00:00Z", "price_eur_mwh": 48.0, "price_eur_kwh": 0.048},
+        {
+            "timestamp": "2026-01-23T12:00:00Z",
+            "price_eur_mwh": 50.0,
+            "price_eur_kwh": 0.05,
+        },
+        {
+            "timestamp": "2026-01-23T13:00:00Z",
+            "price_eur_mwh": 55.0,
+            "price_eur_kwh": 0.055,
+        },
+        {
+            "timestamp": "2026-01-23T14:00:00Z",
+            "price_eur_mwh": 48.0,
+            "price_eur_kwh": 0.048,
+        },
     ]
