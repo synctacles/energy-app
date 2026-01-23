@@ -123,6 +123,16 @@ jobs:
       - name: "✅ Validate imports"
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: test
+          DB_USER: test
+          INSTALL_PATH: /tmp/test
+          LOG_PATH: /tmp/test/logs
+          BRAND_NAME: Test
+          BRAND_SLUG: test
+          GITHUB_ACCOUNT: test
+          REPO_NAME: test
           ENVIRONMENT: test
         run: |
           python -c "from synctacles_db.api.main import app; print('✅ API imports OK')"
