@@ -19,6 +19,10 @@ exclude = [
     "dist",
     "alembic/versions",
     "docs",
+    # Archive/deprecated code (not actively maintained)
+    "**/archive/**",
+    # Incomplete test snippets
+    "tests/unit/integration_snippet.py",
 ]
 
 [lint]
@@ -38,6 +42,16 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # function call in default argument (FastAPI Depends)
     "B904",   # raise from (too noisy)
+    # Whitespace issues (cosmetic, not blocking)
+    "W291",   # trailing-whitespace
+    "W293",   # blank-line-with-whitespace
+    # Style preferences (not critical)
+    "E712",   # true-false-comparison (assert x == True is fine in tests)
+    "E402",   # module-import-not-at-top-of-file (needed for env setup)
+    "UP031",  # printf-string-formatting (style preference)
+    "C416",   # unnecessary-comprehension (minor)
+    "B905",   # zip-without-explicit-strict (Python 3.10+ style)
+    "F841",   # unused-variable (often intentional for clarity)
 ]
 
 # Allow autofix for all rules
@@ -46,6 +60,10 @@ unfixable = []
 
 [lint.isort]
 known-first-party = ["synctacles_db"]
+
+[lint.per-file-ignores]
+# Allow unused imports in __init__.py (re-exports)
+"__init__.py" = ["F401"]
 
 [format]
 # Use double quotes

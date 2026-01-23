@@ -5,10 +5,9 @@ Tests the FastAPI endpoints without requiring a database connection.
 Uses TestClient for synchronous testing.
 """
 
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
 
 
 class TestHealthEndpoint:

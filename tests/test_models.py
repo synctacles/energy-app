@@ -5,7 +5,6 @@ Tests the SQLAlchemy models without requiring a database connection.
 Focuses on model structure, defaults, and relationships.
 """
 
-import pytest
 
 
 class TestModelImports:
@@ -153,11 +152,11 @@ class TestModelPrimaryKeys:
     def test_all_models_have_primary_keys(self):
         """All models should have primary keys."""
         from synctacles_db.models import (
-            RawEntsoeA44,
-            NormEntsoeA44,
-            FrankPrices,
-            PriceCache,
             FetchLog,
+            FrankPrices,
+            NormEntsoeA44,
+            PriceCache,
+            RawEntsoeA44,
         )
 
         models = [RawEntsoeA44, NormEntsoeA44, FrankPrices, PriceCache, FetchLog]

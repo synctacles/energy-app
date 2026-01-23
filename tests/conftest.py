@@ -24,8 +24,9 @@ os.environ.setdefault("REPO_NAME", "ha-integration")
 os.environ.setdefault("ENTSOE_API_KEY", "test-key-not-real")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture(scope="session", autouse=True)

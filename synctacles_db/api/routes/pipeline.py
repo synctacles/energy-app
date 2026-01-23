@@ -99,7 +99,7 @@ def get_timer_status(timer_name: str) -> dict:
                     current_mono_usec = int(uptime_sec * 1_000_000)
                     age_min = (current_mono_usec - mono_usec) / 60_000_000
                     last_trigger_ago_min = round(age_min, 1)
-            except:
+            except Exception:
                 pass
 
     return {

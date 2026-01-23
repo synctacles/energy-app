@@ -35,12 +35,11 @@ jobs:
       - name: "🔍 Run Ruff linter"
         run: |
           echo "## Linting Results" >> $GITHUB_STEP_SUMMARY
-          ruff check . --output-format=github || true
-          ruff check . --statistics >> $GITHUB_STEP_SUMMARY || true
+          ruff check . --output-format=github
+          ruff check . --statistics >> $GITHUB_STEP_SUMMARY
 
       - name: "📝 Check formatting"
-        run: |
-          ruff format --check . || echo "⚠️ Formatting issues found (not blocking)"
+        run: ruff format --check .
 
   # ============================================
   # JOB 2: Unit Tests
