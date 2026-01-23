@@ -53,31 +53,42 @@ sudo chown -R energy-insights-nl:energy-insights-nl /opt/github/ha-energy-insigh
 
 ## SERVICE ACCOUNTS
 
-### Current Configuration
+### Server User Convention (2026-01-23)
 
-| Setting | Value |
-|---------|-------|
-| Service account | `energy-insights-nl` |
-| Service group | `energy-insights-nl` |
-| Git owner | `energy-insights-nl` |
-| Install path | `/opt/energy-insights-nl` |
-| Repo paths | `/opt/github/synctacles-api` + `/opt/github/ha-energy-insights-nl` |
+Different users per environment for safety - prevents accidental PROD edits.
 
-### Future Configuration (Post-Migration)
+| Server | User | Hostname | SSH Alias (HUB) |
+|--------|------|----------|-----------------|
+| PROD | `synctacles` | SYNCTACLES | `synct-prod` |
+| DEV | `synctacles-dev` | synctacles-dev | `synct-dev` |
+
+**Current Status:**
+- PROD: `synctacles` ✅ Active
+- DEV: `energy-insights-nl` (legacy, migrate to `synctacles-dev` later)
+
+### PROD Configuration
 
 | Setting | Value |
 |---------|-------|
 | Service account | `synctacles` |
 | Service group | `synctacles` |
-| Git owner | `synctacles` |
 | Install path | `/opt/synctacles` |
 | Repo path | `/opt/github/synctacles-api` |
 
-### Why Single Generic Account?
+### DEV Configuration (Current - Legacy)
 
-- **Simplicity:** 1 account for all brands
-- **Brand = .env only:** Same code, different config
-- **No code changes:** Switch brand via environment variables
+| Setting | Value |
+|---------|-------|
+| Service account | `energy-insights-nl` |
+| Service group | `energy-insights-nl` |
+| Install path | `/opt/energy-insights-nl` |
+| Repo paths | `/opt/github/synctacles-api` + `/opt/github/ha-energy-insights-nl` |
+
+### Why Different Users Per Environment?
+
+- **Safety:** Cannot accidentally edit PROD thinking you're on DEV
+- **Prompt clarity:** `synctacles@SYNCTACLES:~$` vs `synctacles-dev@server:~$`
+- **Brand = .env only:** Same code, different config per environment
 - **Audit trail:** Clear ownership of all operations
 
 ---

@@ -27,14 +27,15 @@ echo "--- Step 1: TCP Kernel Tuning ---"
 # 2. Gunicorn Service (if exists, update it)
 echo ""
 echo "--- Step 2: Gunicorn Service ---"
-if [[ -f "$REPO_DIR/systemd/energy-insights-nl-api.service.template" ]]; then
+if [[ -f "$REPO_DIR/systemd/api.service.template" ]]; then
     sed -e "s|{{BRAND_NAME}}|$BRAND_NAME|g" \
         -e "s|{{SERVICE_USER}}|$SERVICE_USER|g" \
         -e "s|{{SERVICE_GROUP}}|$SERVICE_GROUP|g" \
         -e "s|{{APP_PATH}}|$APP_PATH|g" \
         -e "s|{{INSTALL_PATH}}|$INSTALL_PATH|g" \
         -e "s|{{API_PORT}}|${API_PORT:-8000}|g" \
-        "$REPO_DIR/systemd/energy-insights-nl-api.service.template" \
+        -e "s|{{ENV_FILE}}|/opt/.env|g" \
+        "$REPO_DIR/systemd/api.service.template" \
         > "/etc/systemd/system/${BRAND_SLUG}-api.service"
 
     systemctl daemon-reload
@@ -47,11 +48,11 @@ fi
 echo ""
 echo "--- Step 3: Nginx Configuration ---"
 if command -v nginx &> /dev/null; then
-    if [[ -f "$REPO_DIR/config/nginx/energy-insights-nl.conf.template" ]]; then
+    if [[ -f "$REPO_DIR/config/nginx/api.conf.template" ]]; then
         sed -e "s|{{BRAND_NAME}}|$BRAND_NAME|g" \
             -e "s|{{BRAND_DOMAIN}}|${BRAND_DOMAIN:-_}|g" \
             -e "s|{{API_PORT}}|${API_PORT:-8000}|g" \
-            "$REPO_DIR/config/nginx/energy-insights-nl.conf.template" \
+            "$REPO_DIR/config/nginx/api.conf.template" \
             > "/etc/nginx/sites-available/${BRAND_SLUG}"
 
         ln -sf "/etc/nginx/sites-available/${BRAND_SLUG}" /etc/nginx/sites-enabled/

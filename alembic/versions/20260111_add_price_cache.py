@@ -1,7 +1,7 @@
 """Add price_cache table for 24h fallback persistence
 
 Revision ID: 20260111_price_cache
-Revises: 20260102_archive_tennet_byo_migration
+Revises: 20260102_tennet_archive
 Create Date: 2026-01-11
 
 Issue: #61 - Add 24h price cache for fallback
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '20260111_price_cache'
-down_revision = '20260102_archive_tennet_byo_migration'
+down_revision = '20260102_tennet_archive'
 branch_labels = None
 depends_on = None
 

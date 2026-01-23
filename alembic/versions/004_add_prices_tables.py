@@ -1,13 +1,13 @@
 """add_prices_tables
 
-Revision ID: xxx
+Revision ID: 004_add_prices_tables
 Revises: 20251220_user_auth
 Create Date: 2025-12-22
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'xxx'
+revision = '004_add_prices_tables'
 down_revision = '20251220_user_auth'
 
 def upgrade():

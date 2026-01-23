@@ -1,7 +1,7 @@
 # SKILL 16 — BACKUP & RECOVERY
 
 Disaster Recovery Procedures for SYNCTACLES Infrastructure
-Version: 1.0 (2026-01-12)
+Version: 1.1 (2026-01-22)
 
 ---
 
@@ -21,7 +21,8 @@ Ensure business continuity through documented backup and recovery procedures for
 | Server | IP | Purpose | Critical Data |
 |--------|-----|---------|---------------|
 | PROD | 46.62.212.227 | Production API (synctacles.com) | PostgreSQL, .env |
-| DEV/HUB | 135.181.255.83 | Development + Claude Code (dev.synctacles.com) | PostgreSQL, .env, repos |
+| DEV | 135.181.255.83 | Development + Claude Code (dev.synctacles.com) | PostgreSQL, .env, repos |
+| HUB | 135.181.201.253 | CAI Skills Hub (Claude AI context) | Skills, CAI config |
 | HA/VPN | 91.99.150.36 | Home Assistant + WireGuard | HA config, VPN config |
 | Monitor | 77.42.41.135 | Grafana + Prometheus (monitor.synctacles.com) | Dashboards, metrics |
 

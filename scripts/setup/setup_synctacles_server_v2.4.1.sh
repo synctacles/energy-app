@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
-# setup_synctacles_server_v2.4.0.sh
+# setup_synctacles_server_v2.4.1.sh
 # ⚠️  DEPRECATED — Use FASE 3+ installers instead
 # Complete SYNCTACLES Server Installer — Ubuntu 24.04 / Hetzner
+#
+# CHANGELOG v2.4.1 (2026-01-23)
+#
+# MAJOR: FASE 2 simplified - monitoring runs on separate server
+# - REMOVED: Docker installation (not needed on PROD/DEV)
+# - REMOVED: Grafana installation (runs on Monitor server 77.42.41.135)
+# - KEPT: Node Exporter (metrics endpoint for remote Prometheus scraping)
+# - KEPT: PostgreSQL, TimescaleDB, Redis (direct apt install)
+# - Updated firewall rules: Node Exporter (9100) instead of Grafana (3000)
+# - Renumbered FASE 2 sections: 2.0 Python, 2.1 PostgreSQL, 2.2 Redis, 2.3 Metrics
 #
 # CHANGELOG v2.4.0 (2026-01-22)
 #
@@ -531,9 +541,11 @@ fase1() {
 #   FASE 2 — Software Stack
 # ========================================================
 fase2() {
-    header "FASE 2 — Software Stack (Docker, PostgreSQL, Redis, Monitoring)"
+    header "FASE 2 — Software Stack (Python, PostgreSQL, Redis, Metrics)"
 
     # NOTE: GitHub SSH key + repo clone is handled in FASE 3 (accounts/SSH) to avoid key mixing.
+    # NOTE: Docker/Grafana/Prometheus NOT installed here - monitoring runs on separate Monitor server.
+    #       Only Node Exporter is installed to expose metrics endpoint for remote Prometheus scraping.
 
     # -----------------------------
     # 2.0 Python 3.12 (early install for venv support)
@@ -550,41 +562,9 @@ fase2() {
     ok "Python 3.12 + venv + dev installed"
 
     # -----------------------------
-    # 2.1 Docker
+    # 2.1 PostgreSQL 16 + TimescaleDB
     # -----------------------------
-    header "2.1 — Docker Installatie"
-
-    info "Install Docker..."
-
-    if ! command -v docker >/dev/null 2>&1; then
-        apt-get install -y ca-certificates curl gnupg lsb-release >/dev/null 2>&1
-
-        # Add Docker GPG key
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-
-        # Add Docker repo
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-          tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-        apt-get update -qq
-        apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-        systemctl enable --now docker
-        ok "Docker geïnstalleerd en gestart."
-    else
-        ok "Docker al geïnstalleerd"
-    fi
-
-    docker --version && ok "Docker version verified"
-
-    # -----------------------------
-    # 2.2 PostgreSQL 16 + TimescaleDB
-    # -----------------------------
-    header "2.2 — PostgreSQL 16 + TimescaleDB"
+    header "2.1 — PostgreSQL 16 + TimescaleDB"
 
     info "Install PostgreSQL 16..."
 
@@ -622,9 +602,9 @@ fase2() {
     fi
 
     # -----------------------------
-    # 2.3 Redis
+    # 2.2 Redis
     # -----------------------------
-    header "2.3 — Redis"
+    header "2.2 — Redis"
 
     info "Install Redis..."
     if ! command -v redis-server >/dev/null 2>&1; then
@@ -637,26 +617,12 @@ fase2() {
     fi
 
     # -----------------------------
-    # 2.4 Monitoring (Grafana + Node Exporter)
+    # 2.3 Metrics Endpoint (Node Exporter for remote Prometheus)
     # -----------------------------
-    header "2.4 — Monitoring Stack"
+    header "2.3 — Metrics Endpoint"
 
-    # Grafana
-    info "Install Grafana..."
-    if ! dpkg -l | grep -q grafana; then
-        wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key
-        echo "deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list
-
-        apt-get update -qq
-        apt-get install -y grafana
-
-        systemctl enable --now grafana-server
-        ok "Grafana geïnstalleerd en gestart."
-    else
-        ok "Grafana al geïnstalleerd"
-    fi
-
-    # Node Exporter
+    # Node Exporter - exposes system metrics on :9100 for remote Prometheus scraping
+    # Prometheus + Grafana run on separate Monitor server (see SKILL_16)
     info "Install Node Exporter..."
     if ! id node_exporter &>/dev/null; then
         useradd --no-create-home --shell /bin/false node_exporter || true
@@ -929,10 +895,10 @@ EOF
     info "Configureer via: https://console.hetzner.cloud → Firewalls"
     echo
     info "Aanbevolen regels:"
-    echo "  - SSH (22)       → Allow from: Jouw thuis IP"
-    echo "  - HTTPS (443)    → Allow from: 0.0.0.0/0"
-    echo "  - HTTP (80)      → Allow from: 0.0.0.0/0 (redirect naar 443)"
-    echo "  - Grafana (3000) → Allow from: Jouw thuis IP (optioneel)"
+    echo "  - SSH (22)         → Allow from: Jouw thuis IP"
+    echo "  - HTTPS (443)      → Allow from: 0.0.0.0/0"
+    echo "  - HTTP (80)        → Allow from: 0.0.0.0/0 (redirect naar 443)"
+    echo "  - Node Exporter (9100) → Allow from: Monitor server IP (77.42.41.135)"
     echo
 
     ok "FASE 2 voltooid — je kunt nu FASE 3 draaien."
@@ -1039,12 +1005,6 @@ fase3() {
         ok "User '${SERVICE_USER}' aangemaakt."
     else
         ok "User '${SERVICE_USER}' bestaat al."
-    fi
-
-    # Add to docker group
-    if ! groups "${SERVICE_USER}" | grep -q docker; then
-        usermod -aG docker "${SERVICE_USER}"
-        ok "${SERVICE_USER} toegevoegd aan docker group."
     fi
 
     # Ensure SSH dir
@@ -1872,8 +1832,8 @@ fase5() {
     # Verify and fallback to known location
     if [[ -d "${DETECTED_REPO}/systemd" ]]; then
         REPO_ROOT="${DETECTED_REPO}"
-    elif [[ -d "/opt/github/ha-energy-insights-nl/systemd" ]]; then
-        REPO_ROOT="/opt/github/ha-energy-insights-nl"
+    elif [[ -d "/opt/github/synctacles-api/systemd" ]]; then
+        REPO_ROOT="/opt/github/synctacles-api"
     else
         error "Cannot find repository with systemd templates"
         exit 1
@@ -1891,8 +1851,8 @@ fase5() {
         exit 1
     fi
 
-    # Count templates
-    TEMPLATE_COUNT=$(find "${SYSTEMD_TEMPLATE_DIR}" -name "*.template" | wc -l)
+    # Count templates (root level only - scripts/ subdir has shell scripts, not systemd units)
+    TEMPLATE_COUNT=$(find "${SYSTEMD_TEMPLATE_DIR}" -maxdepth 1 -name "*.template" | wc -l)
     if [[ ${TEMPLATE_COUNT} -eq 0 ]]; then
         error "No systemd templates found in ${SYSTEMD_TEMPLATE_DIR}"
         error "Expected *.service.template and *.timer.template files"
@@ -1906,20 +1866,34 @@ fase5() {
     for template in "${SYSTEMD_TEMPLATE_DIR}"/*.template; do
         [[ ! -f "$template" ]] && continue
 
-        # Determine output filename (remove .template extension)
+        # Determine output filename: ${BRAND_SLUG}-<template_name>
+        # SKILL_09/12: Brand-free templates get BRAND_SLUG prefix at install time
         template_name=$(basename "$template")
-        unit_name="${template_name%.template}"
+        base_name="${template_name%.template}"
+        unit_name="${BRAND_SLUG}-${base_name}"
+
         output_file="${SYSTEMD_TARGET_DIR}/${unit_name}"
 
         # Generate unit file with ENV replacements
         # SKILL_10 v2.0: GITHUB_REPO_DEV is the working directory for services
+        # DB_PASSWORD empty for peer authentication (local connections)
         sed -e "s|{{BRAND_NAME}}|${BRAND_NAME}|g" \
             -e "s|{{SERVICE_USER}}|${SERVICE_USER}|g" \
+            -e "s|{{SERVICE_GROUP}}|${SERVICE_GROUP}|g" \
             -e "s|{{INSTALL_PATH}}|${INSTALL_PATH}|g" \
+            -e "s|{{APP_PATH}}|${APP_PATH}|g" \
             -e "s|{{GITHUB_REPO_DEV}}|${GITHUB_REPO_DEV}|g" \
             -e "s|{{LOG_PATH}}|${LOG_PATH}|g" \
             -e "s|{{ENV_FILE}}|/opt/.env|g" \
             -e "s|{{BRAND_SLUG}}|${BRAND_SLUG}|g" \
+            -e "s|{{API_PORT}}|${API_PORT}|g" \
+            -e "s|{{API_HOST}}|${API_HOST}|g" \
+            -e "s|{{DB_HOST}}|${DB_HOST:-localhost}|g" \
+            -e "s|{{DB_PORT}}|${DB_PORT:-5432}|g" \
+            -e "s|{{DB_NAME}}|${DB_NAME}|g" \
+            -e "s|{{DB_USER}}|${DB_USER}|g" \
+            -e "s|{{DB_PASSWORD}}|${DB_PASSWORD:-}|g" \
+            -e "s|{{DATABASE_URL}}|${DATABASE_URL}|g" \
             "${template}" > "${output_file}"
 
         # Verify generation succeeded
@@ -1938,7 +1912,7 @@ fase5() {
         # Set permissions
         chmod 644 "${output_file}"
 
-        ((GENERATED_COUNT++))
+        GENERATED_COUNT=$((GENERATED_COUNT + 1))
         ok "Generated: ${unit_name}"
     done
 
@@ -1947,14 +1921,14 @@ fase5() {
         exit 1
     fi
 
-    ok "All ${GENERATED_COUNT} systemd units generated successfully"
+    ok "Generated ${GENERATED_COUNT} systemd units with ${BRAND_SLUG}- prefix"
 
     info "Reloading systemd daemon..."
     systemctl daemon-reload
     ok "Systemd daemon reloaded"
 
     # Enable timers/services (use BRAND_SLUG for service names)
-    for unit in collector.timer importer.timer normalizer.timer health.timer; do
+    for unit in collector.timer importer.timer normalizer.timer health.timer frank-collector.timer; do
         UNIT_NAME="${BRAND_SLUG}-${unit}"
         if systemctl list-unit-files | grep -q "$UNIT_NAME"; then
             systemctl enable --now "$UNIT_NAME" >/dev/null 2>&1 || true
@@ -2317,10 +2291,8 @@ print_summary() {
     echo "   Python venv: ${INSTALL_PATH}/venv/"
     echo
     echo "🚀 Services Running:"
-    systemctl is-active --quiet docker && echo "   ✓ Docker" || echo "   ✗ Docker"
     systemctl is-active --quiet postgresql && echo "   ✓ PostgreSQL" || echo "   ✗ PostgreSQL"
     systemctl is-active --quiet redis-server && echo "   ✓ Redis" || echo "   ✗ Redis"
-    systemctl is-active --quiet grafana-server && echo "   ✓ Grafana (:3000)" || echo "   ✗ Grafana"
     systemctl is-active --quiet node_exporter && echo "   ✓ Node Exporter (:9100)" || echo "   ✗ Node Exporter"
     systemctl is-active --quiet fail2ban && echo "   ✓ Fail2ban" || echo "   ✗ Fail2ban"
     echo
@@ -2368,7 +2340,7 @@ main() {
             echo "Fasen:"
             echo "  fase0 - Brand configuration (interactive .env + manifest.json generation)"
             echo "  fase1 - Systeem update + kernel"
-            echo "  fase2 - Software stack (Docker, PostgreSQL, Redis, Grafana)"
+            echo "  fase2 - Software stack (Python, PostgreSQL, Redis, Node Exporter)"
             echo "  fase3 - Security (accounts, SSH keys, GitHub, SSH hardening, fail2ban)"
             echo "  fase4 - Python environment (venv + packages)"
             echo "  fase5 - Production automation (systemd services + timers)"

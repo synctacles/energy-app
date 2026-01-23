@@ -8,17 +8,18 @@ EnvironmentFile={{ENV_FILE}}
 Type=simple
 User={{SERVICE_USER}}
 Group={{SERVICE_USER}}
-WorkingDirectory={{INSTALL_PATH}}/app
+# SKILL_10 v2.0: Git repo IS the working directory
+WorkingDirectory={{APP_PATH}}
 Environment="PATH={{INSTALL_PATH}}/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="PYTHONPATH={{INSTALL_PATH}}/app"
+Environment="PYTHONPATH={{APP_PATH}}"
 Environment="PYTHONDONTWRITEBYTECODE=1"
 
 ExecStart={{INSTALL_PATH}}/venv/bin/gunicorn \
     synctacles_db.api.main:app \
-    --workers 4 \
+    --workers 8 \
     --worker-class uvicorn.workers.UvicornWorker \
-    --bind 0.0.0.0:8000 \
-    --chdir {{INSTALL_PATH}}/app
+    --bind 127.0.0.1:8000 \
+    --chdir {{APP_PATH}}
 
 Restart=always
 RestartSec=10
