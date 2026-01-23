@@ -3,17 +3,28 @@
 # Issue #31: Python __pycache__ owned by root blocks service account
 #
 # Problem: Claude Code runs as root, creating __pycache__ with root:root ownership.
-# This prevents the energy-insights-nl service account from writing new .pyc files.
+# This prevents the service account from writing new .pyc files.
 #
 # Solution: Remove all __pycache__ directories and fix ownership.
 # Python will recreate them with correct ownership when services restart.
+# Brand-free version - uses environment variables
 
 set -euo pipefail
 
-APP_DIR="/opt/energy-insights-nl/app"
-REPO_DIR="/opt/github/synctacles-api"
-SERVICE_USER="energy-insights-nl"
-SERVICE_GROUP="energy-insights-nl"
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+SERVICE_USER="${SERVICE_USER:-${BRAND_SLUG}}"
+SERVICE_GROUP="${SERVICE_GROUP:-${BRAND_SLUG}}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+APP_PATH="${APP_PATH:-/opt/github/synctacles-api}"
+
+APP_DIR="${INSTALL_PATH}/app"
+REPO_DIR="${APP_PATH}"
 
 echo "=== Fix __pycache__ Ownership ==="
 echo "Date: $(date)"

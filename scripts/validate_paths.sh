@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 # validate_paths.sh - Check PAD-CONTRACT compliance (SKILL 9)
+# Brand-free version - uses environment variables
 set -euo pipefail
 
-APP_DIR="${1:-/opt/energy-insights-nl/app}"
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+APP_DIR="${1:-${INSTALL_PATH}/app}"
 ERRORS=0
 
 echo "=== PAD-CONTRACT Validator ==="

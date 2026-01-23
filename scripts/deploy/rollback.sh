@@ -1,10 +1,21 @@
 #!/bin/bash
+# Brand-free version - uses environment variables
 set -euo pipefail
 
-echo "=== SYNCTACLES Rollback ==="
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
 
-BACKUP_BASE="/opt/energy-insights-nl/backups"
-APP_DIR="/opt/energy-insights-nl/app"
+# Defaults
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+BRAND_NAME="${BRAND_NAME:-SYNCTACLES}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+
+echo "=== ${BRAND_NAME} Rollback ==="
+
+BACKUP_BASE="${INSTALL_PATH}/backups"
+APP_DIR="${INSTALL_PATH}/app"
 
 # List available backups
 echo "Available backups:"
@@ -33,7 +44,7 @@ rm -rf "$APP_DIR"
 cp -r "$BACKUP_DIR/app" "$APP_DIR"
 
 # Restart
-systemctl restart energy-insights-nl-api
+systemctl restart "${BRAND_SLUG}-api"
 sleep 3
 
 # Verify

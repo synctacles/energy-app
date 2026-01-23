@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # deploy_fase2.sh
 # SYNCTACLES FASE 2 - Deploy D3/D4 Code
-# 
+# Brand-free version - uses environment variables
+#
 # Usage: sudo ./deploy_fase2.sh
-# 
-# Deploys SYNCTACLES API (D3) + SparkCrawler (D4) to /opt/energy-insights-nl
+#
+# Deploys SYNCTACLES API (D3) + SparkCrawler (D4) to ${INSTALL_PATH}
 
 set -euo pipefail
 
@@ -35,18 +36,30 @@ ensure_root() {
 }
 
 # ========================================================
+# ENVIRONMENT
+# ========================================================
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+BRAND_NAME="${BRAND_NAME:-SYNCTACLES}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+SERVICE_USER="${SERVICE_USER:-${BRAND_SLUG}}"
+
+# ========================================================
 # LOGGING
 # ========================================================
-LOG_DIR="/var/log/synctacles-setup"
+LOG_DIR="/var/log/${BRAND_SLUG}-setup"
 LOG_FILE="$LOG_DIR/fase2-$(date +%Y%m%d-%H%M%S).log"
 
 setup_logging() {
     mkdir -p "$LOG_DIR"
     exec > >(tee -a "$LOG_FILE")
     exec 2>&1
-    
+
     echo "==================================================="
-    echo "SYNCTACLES FASE 2 - Code Deployment"
+    echo "${BRAND_NAME} FASE 2 - Code Deployment"
     echo "Start: $(date)"
     echo "Log: $LOG_FILE"
     echo "==================================================="
@@ -60,10 +73,10 @@ setup_logging() {
 ensure_root
 setup_logging
 
-header "FASE 2 — SYNCTACLES API + SparkCrawler Deployment"
+header "FASE 2 — ${BRAND_NAME} API + SparkCrawler Deployment"
 
 # Paths
-SYNCTACLES_PROD="/opt/energy-insights-nl"
+SYNCTACLES_PROD="${INSTALL_PATH}"
 SYNCTACLES_API_DIR="$SYNCTACLES_PROD/app/synctacles_db"
 VENV_PATH="$SYNCTACLES_PROD/venv"
 
@@ -103,7 +116,7 @@ fi
 # Step 3: Fix permissions
 # ========================================================
 info "Fix permissions..."
-chown -R synctacles:synctacles "$SYNCTACLES_PROD"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "$SYNCTACLES_PROD"
 ok "Permissions gefixed"
 
 # ========================================================
@@ -162,11 +175,12 @@ ok "All modules importable"
 # ========================================================
 info "Verify database connectivity..."
 
-# Check if synctacles database exists
-if sudo -u postgres psql -lqt 2>/dev/null | grep -q synctacles; then
-    ok "Database 'synctacles' exists"
+# Check if database exists
+DB_NAME="${DB_NAME:-${BRAND_SLUG}}"
+if sudo -u postgres psql -lqt 2>/dev/null | grep -q "${DB_NAME}"; then
+    ok "Database '${DB_NAME}' exists"
 else
-    fail "Database 'synctacles' not found"
+    fail "Database '${DB_NAME}' not found"
     fail "Run FASE 2.5 (database initialization) first!"
     exit 1
 fi
@@ -185,8 +199,8 @@ echo "✔ Imports verified"
 echo "✔ Database verified"
 echo
 echo "Next steps:"
-echo "  1. Test imports: python3 -c 'import sys; sys.path.insert(0, \"/opt/energy-insights-nl/app\"); import synctacles_db'"
-echo "  2. Start SYNCTACLES API: systemctl start energy-insights-nl-api.service"
+echo "  1. Test imports: python3 -c 'import sys; sys.path.insert(0, \"${INSTALL_PATH}/app\"); import synctacles_db'"
+echo "  2. Start ${BRAND_NAME} API: systemctl start ${BRAND_SLUG}-api.service"
 echo "  3. Verify API: curl http://localhost:8000/health"
 echo
 ok "FASE 2 Deployment Complete!"

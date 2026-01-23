@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
+# Brand-free version - uses environment variables
 set -euo pipefail
 
-LOG_DIR="${LOG_PATH:-/var/log/energy-insights-nl}/scheduler"
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+LOG_DIR="${LOG_PATH:-/var/log/${BRAND_SLUG}}/scheduler"
 LOG_FILE="$LOG_DIR/health_$(date +%Y%m%d_%H%M%S).log"
 
 mkdir -p "$LOG_DIR"

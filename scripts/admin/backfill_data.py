@@ -39,9 +39,10 @@ from dotenv import load_dotenv
 #   CONFIGURATION
 # ========================================================
 
-load_dotenv()
+load_dotenv('/opt/.env')
 
-LOG_DIR = Path(os.getenv("LOG_PATH", "/opt/energy-insights/logs"))
+BRAND_SLUG = os.getenv("BRAND_SLUG", "synctacles")
+LOG_DIR = Path(os.getenv("LOG_PATH", f"/var/log/{BRAND_SLUG}"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -58,8 +59,9 @@ logger = logging.getLogger(__name__)
 # Import settings AFTER adjusting sys.path if needed
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config.settings import DATABASE_URL
-COLLECTORS_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "app" / "synctacles_db" / "collectors")
-VENV_PATH = Path(os.getenv("INSTALL_PATH", "/opt/energy-insights") / "venv")
+INSTALL_PATH = Path(os.getenv("INSTALL_PATH", f"/opt/{BRAND_SLUG}"))
+COLLECTORS_PATH = INSTALL_PATH / "app" / "synctacles_db" / "collectors"
+VENV_PATH = INSTALL_PATH / "venv"
 VENV_PYTHON = VENV_PATH / "bin" / "python3"
 
 # ========================================================

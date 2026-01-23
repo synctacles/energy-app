@@ -2,15 +2,23 @@
 
 # Fallback & Data Quality Analyse Script
 # Executes all queries on remote PostgreSQL server
+# Brand-free version - uses environment variables
 
-SSH_HOST="135.181.255.83"
-SSH_USER="root"
-DB_HOST="localhost"
-DB_NAME="energy_insights_nl"
-DB_USER="energy_insights_nl"
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+SSH_HOST="${SSH_HOST:-135.181.255.83}"
+SSH_USER="${SSH_USER:-root}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_NAME="${DB_NAME:-synctacles}"
+DB_USER="${DB_USER:-synctacles}"
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
 
 # Output files
-REPORT_DIR="/opt/energy-insights-nl/reports"
+REPORT_DIR="${REPORT_DIR:-/opt/${BRAND_SLUG}/reports}"
 REPORT_FILE="$REPORT_DIR/fallback-report-$(date +%Y%m%d).md"
 RESULTS_FILE="/tmp/fallback_results_$(date +%Y%m%d_%H%M%S).txt"
 

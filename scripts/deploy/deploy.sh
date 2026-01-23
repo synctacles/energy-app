@@ -1,13 +1,26 @@
 #!/bin/bash
+# Brand-free version - uses environment variables
 set -euo pipefail
 
-echo "=== SYNCTACLES Deploy ==="
+# Load environment
+if [[ -f /opt/.env ]]; then
+    source /opt/.env
+fi
+
+# Defaults
+BRAND_SLUG="${BRAND_SLUG:-synctacles}"
+BRAND_NAME="${BRAND_NAME:-SYNCTACLES}"
+INSTALL_PATH="${INSTALL_PATH:-/opt/${BRAND_SLUG}}"
+APP_PATH="${APP_PATH:-/opt/github/synctacles-api}"
+SERVICE_USER="${SERVICE_USER:-${BRAND_SLUG}}"
+
+echo "=== ${BRAND_NAME} Deploy ==="
 echo "Started: $(date)"
 
 # Variables
-REPO_DIR="/opt/github/ha-energy-insights-nl"
-APP_DIR="/opt/energy-insights-nl/app"
-BACKUP_BASE="/opt/energy-insights-nl/backups"
+REPO_DIR="${APP_PATH}"
+APP_DIR="${INSTALL_PATH}/app"
+BACKUP_BASE="${INSTALL_PATH}/backups"
 
 # 1. Pre-checks
 echo ""
@@ -62,7 +75,7 @@ echo "✅ Files synced"
 echo ""
 echo "--- Database migrations ---"
 cd "$APP_DIR"
-source /opt/energy-insights-nl/venv/bin/activate
+source "${INSTALL_PATH}/venv/bin/activate"
 export PYTHONPATH="$APP_DIR"
 if alembic current 2>/dev/null; then
     alembic upgrade head
@@ -74,14 +87,14 @@ fi
 # 6. Fix ownership (Claude Code runs as root, creates __pycache__ with root ownership)
 echo ""
 echo "--- Fixing file ownership ---"
-chown -R energy-insights-nl:energy-insights-nl "$APP_DIR"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "$APP_DIR"
 find "$APP_DIR" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 echo "✅ Ownership fixed, pycache cleaned"
 
 # 7. Restart services
 echo ""
 echo "--- Restarting services ---"
-systemctl restart energy-insights-nl-api
+systemctl restart "${BRAND_SLUG}-api"
 sleep 3
 echo "✅ API restarted"
 
@@ -95,7 +108,7 @@ else
     echo "❌ Health check FAILED!"
     echo "Rolling back..."
     cp -r "$BACKUP_DIR/app/"* "$APP_DIR/"
-    systemctl restart energy-insights-nl-api
+    systemctl restart "${BRAND_SLUG}-api"
     exit 1
 fi
 

@@ -78,12 +78,20 @@ def format_column_type(col):
 
 
 def main():
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv('/opt/.env')
+
+    db_name = os.getenv('DB_NAME', 'synctacles')
+    db_user = os.getenv('DB_USER', 'synctacles')
+
     # Source database config
     source_config = {
         'host': 'localhost',
         'port': 5433,
-        'database': 'synctacles',  # Adjust if needed
-        'user': 'synctacles',  # Adjust if needed
+        'database': db_name,
+        'user': db_user,
         'connect_timeout': 10
     }
 
@@ -91,8 +99,8 @@ def main():
     target_config = {
         'host': 'localhost',
         'port': 5432,
-        'database': 'energy_insights_nl',
-        'user': 'energy_insights_nl',
+        'database': db_name,
+        'user': db_user,
     }
 
     print("=" * 100)
