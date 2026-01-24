@@ -47,31 +47,55 @@ app = FastAPI(
 # Auth middleware (validates X-API-Key header)
 # Prometheus metrics
 http_requests_total = Counter(
-    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status", "source"]
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status", "source"],
 )
 
 http_request_duration_seconds = Histogram(
-    "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint", "source"]
+    "http_request_duration_seconds",
+    "HTTP request duration",
+    ["method", "endpoint", "source"],
 )
 
 # Internal IPs (monitoring, localhost, dev server)
 INTERNAL_IPS = {
-    "127.0.0.1", "::1", "localhost",
-    "77.42.41.135",      # monitoring server
-    "135.181.255.83",    # DEV server
-    "135.181.201.253",   # HUB server (cc-hub)
-    "46.62.212.227",     # PROD server (self)
+    "127.0.0.1",
+    "::1",
+    "localhost",
+    "77.42.41.135",  # monitoring server
+    "135.181.255.83",  # DEV server
+    "135.181.201.253",  # HUB server (cc-hub)
+    "46.62.212.227",  # PROD server (self)
 }
 
 # Bot/crawler User-Agent patterns (case-insensitive)
 BOT_USER_AGENTS = {
-    "prometheus", "blackbox", "node-exporter",  # monitoring
-    "curl", "wget", "httpie", "hey",            # CLI tools
-    "python-requests", "python-urllib",          # scripts
-    "bot", "crawler", "spider", "scraper",       # generic bots
-    "googlebot", "bingbot", "yandex", "baidu",   # search engines
-    "semrush", "ahrefs", "mj12bot", "dotbot",    # SEO bots
-    "zgrab", "masscan", "nmap", "nikto",         # scanners
+    "prometheus",
+    "blackbox",
+    "node-exporter",  # monitoring
+    "curl",
+    "wget",
+    "httpie",
+    "hey",  # CLI tools
+    "python-requests",
+    "python-urllib",  # scripts
+    "bot",
+    "crawler",
+    "spider",
+    "scraper",  # generic bots
+    "googlebot",
+    "bingbot",
+    "yandex",
+    "baidu",  # search engines
+    "semrush",
+    "ahrefs",
+    "mj12bot",
+    "dotbot",  # SEO bots
+    "zgrab",
+    "masscan",
+    "nmap",
+    "nikto",  # scanners
 }
 
 
@@ -106,7 +130,10 @@ async def metrics_middleware(request, call_next):
     source = get_traffic_source(request)
 
     http_requests_total.labels(
-        method=request.method, endpoint=request.url.path, status=response.status_code, source=source
+        method=request.method,
+        endpoint=request.url.path,
+        status=response.status_code,
+        source=source,
     ).inc()
 
     http_request_duration_seconds.labels(
