@@ -96,6 +96,16 @@ This project is moving toward production. Monitoring infrastructure is being set
 - [#29 - Phase 5: Load Testing](https://github.com/DATADIO/synctacles-api/issues/29)
 - [#30 - Phase 6: Documentation](https://github.com/DATADIO/synctacles-api/issues/30)
 
+## Development
+
+**Getting Started:**
+- [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
+- [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) - Local development setup
+
+**Operations:**
+- [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) - Release & deployment procedures
+- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) - Server access & credentials
+
 ## Support
 
 Discord: [link]

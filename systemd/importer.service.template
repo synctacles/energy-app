@@ -1,6 +1,6 @@
 [Unit]
 Description={{BRAND_NAME}} Data Importer
-After=synctacles-collector.service
+After={{BRAND_SLUG}}-collector.service
 
 [Service]
 EnvironmentFile={{ENV_FILE}}

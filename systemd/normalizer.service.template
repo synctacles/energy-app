@@ -1,6 +1,6 @@
 [Unit]
 Description={{BRAND_NAME}} Data Normalizer
-After=synctacles-importer.service
+After={{BRAND_SLUG}}-importer.service
 
 [Service]
 EnvironmentFile={{ENV_FILE}}

@@ -1,7 +1,7 @@
-# SKILL 11 â€” REPO STRUCTURE & SERVICE ACCOUNTS
+# SKILL 11 — REPO STRUCTURE & SERVICE ACCOUNTS
 
 Repository Organisation and Account Management
-Version: 1.5 (2026-01-23)
+Version: 1.6 (2026-01-24)
 
 ---
 
@@ -782,6 +782,81 @@ sudo systemctl restart synctacles-api
 
 ---
 
+## HOME ASSISTANT INFRASTRUCTURE
+
+### Overzicht
+
+Home Assistant draait op twee aparte HAOS servers (NIET op de SYNCTACLES servers):
+
+| Server | IP | DNS | Doel |
+|--------|-----|-----|------|
+| **HA PROD** | 91.99.150.36 | ha.synctacles.com | Production HA instance |
+| **HA DEV** | 82.169.33.175 | ha-dev.synctacles.com | Development/testing |
+
+### SSH Toegang via cc-hub
+
+**KRITIEK: Claude Code heeft GEEN directe SSH toegang tot HA servers!**
+
+Alle verbindingen gaan via cc-hub gateway:
+
+```bash
+# HA PROD
+ssh cc-hub "ssh homeassistant '<command>'"
+ssh -t cc-hub "ssh homeassistant"  # interactief
+
+# HA DEV
+ssh cc-hub "ssh homeassistant-dev '<command>'"
+ssh -t cc-hub "ssh homeassistant-dev"  # interactief
+```
+
+### SSH Keys op cc-hub
+
+| Host Alias | Key | User | IP:Port |
+|------------|-----|------|---------|
+| `homeassistant` | `id_homeassistant` | ha-user | 91.99.150.36:22 |
+| `homeassistant-dev` | `id_ha` | root | 82.169.33.175:22222 |
+
+### Beperkingen voor Claude Code
+
+**CC kan WEL:**
+- Resources checken via SSH commands
+- Logs opvragen via SSH
+- Configuratie bekijken
+- HA component code schrijven in `/opt/github/ha-integration/`
+
+**CC kan NIET:**
+- Direct SSH naar HA (alleen via cc-hub)
+- HA restart triggeren (geen sudo rechten op HA)
+- HA web interface gebruiken
+- Add-ons installeren/configureren
+
+### Server Specs
+
+**HA PROD:**
+- CPU: 2 cores
+- RAM: 3.7GB (beschikbaar: ~2.6GB)
+- Disk: 38GB (beschikbaar: ~31GB)
+- OS: Home Assistant OS (HAOS)
+
+**HA DEV:**
+- CPU: 1 core
+- RAM: 1.9GB (beschikbaar: ~1.3GB)
+- Disk: 30.8GB (beschikbaar: ~24.7GB)
+- SSH Port: 22222
+- OS: Home Assistant OS (HAOS)
+
+### Workflow: HA Component Development
+
+1. **CC** schrijft/edit code in `/opt/github/ha-integration/`
+2. **CC** commit + push naar GitHub
+3. **Leo** installeert/update via HACS of handmatig
+4. **Leo** restart HA integration
+5. **Leo** deelt logs/screenshots voor debugging
+
+**Zie ook:** `docs/CREDENTIALS.md` voor volledige SSH configuratie en key details.
+
+---
+
 ## RELATED SKILLS
 
 - **SKILL 09:** Installer Specs (FASE 0-6 setup)
@@ -791,5 +866,5 @@ sudo systemctl restart synctacles-api
 
 ---
 
-**Last Updated:** 2026-01-23
+**Last Updated:** 2026-01-24
 **Status:** Active

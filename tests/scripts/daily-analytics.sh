@@ -20,7 +20,7 @@ echo "" | tee -a "$REPORT"
 # Extract today's unique IPs
 grep "$TODAY_NGINX" "$NGINX_LOG" \
   | grep -E "/(generation-mix|load|balance|signals)" \
-  | grep -vE "(UptimeRobot|bot)" \
+  | grep -vE "(UptimeRobot|bot|135\.181\.255\.83|2a01:4f9:c013:9cdd)" \
   | awk '{print $1}' \
   | sort -u > "$TODAY_LOG"
 
@@ -34,7 +34,7 @@ echo "=== Usage Intensity ===" | tee -a "$REPORT"
 echo "Heavy users (>50 req/day):" | tee -a "$REPORT"
 grep "$TODAY_NGINX" "$NGINX_LOG" \
   | grep -E "/(generation-mix|load|balance|signals)" \
-  | grep -vE "(UptimeRobot|bot)" \
+  | grep -vE "(UptimeRobot|bot|135\.181\.255\.83|2a01:4f9:c013:9cdd)" \
   | awk '{print $1}' \
   | sort | uniq -c | sort -rn \
   | awk '$1 > 50 {print "  " $1 " requests - " $2}' | tee -a "$REPORT"
@@ -43,7 +43,7 @@ echo "" | tee -a "$REPORT"
 echo "Light users (10-50 req/day):" | tee -a "$REPORT"
 grep "$TODAY_NGINX" "$NGINX_LOG" \
   | grep -E "/(generation-mix|load|balance|signals)" \
-  | grep -vE "(UptimeRobot|bot)" \
+  | grep -vE "(UptimeRobot|bot|135\.181\.255\.83|2a01:4f9:c013:9cdd)" \
   | awk '{print $1}' \
   | sort | uniq -c | sort -rn \
   | awk '$1 >= 10 && $1 <= 50 {print "  " $1 " requests - " $2}' | tee -a "$REPORT"
@@ -52,7 +52,7 @@ echo "" | tee -a "$REPORT"
 echo "Testers (<10 req/day):" | tee -a "$REPORT"
 grep "$TODAY_NGINX" "$NGINX_LOG" \
   | grep -E "/(generation-mix|load|balance|signals)" \
-  | grep -vE "(UptimeRobot|bot)" \
+  | grep -vE "(UptimeRobot|bot|135\.181\.255\.83|2a01:4f9:c013:9cdd)" \
   | awk '{print $1}' \
   | sort | uniq -c | sort -rn \
   | awk '$1 < 10 {print "  " $1 " requests - " $2}' | tee -a "$REPORT"
