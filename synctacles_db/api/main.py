@@ -59,6 +59,7 @@ INTERNAL_IPS = {
     "127.0.0.1", "::1", "localhost",
     "77.42.41.135",      # monitoring server
     "135.181.255.83",    # DEV server
+    "135.181.201.253",   # HUB server (cc-hub)
     "46.62.212.227",     # PROD server (self)
 }
 
