@@ -474,6 +474,38 @@ systemctl list-units --type=service --all | grep -E "synctacles|${BRAND_SLUG}"
 
 ---
 
+## REBRAND / PATH MIGRATION
+
+**CRITICAL:** When changing `INSTALL_PATH` or `BRAND_SLUG` in `/opt/.env`, you MUST re-run FASE 4 to recreate the virtual environment at the new path.
+
+**Problem scenario (discovered 2026-01-24):**
+```
+Old: INSTALL_PATH="/opt/energy-insights-nl"  → venv at /opt/energy-insights-nl/venv/
+New: INSTALL_PATH="/opt/synctacles-dev"      → venv at /opt/synctacles-dev/venv/ (EMPTY!)
+```
+
+**Result:** Service fails with `exit-code 203/EXEC` (gunicorn not found)
+
+**Solution:**
+```bash
+# After updating .env with new paths:
+sudo ./scripts/setup/setup_synctacles_server_v2.4.1.sh --fase 4
+
+# Or manually:
+source /opt/.env
+python3.12 -m venv ${INSTALL_PATH}/venv
+${INSTALL_PATH}/venv/bin/pip install -r requirements.txt
+sudo systemctl restart ${BRAND_SLUG}-api
+```
+
+**Checklist after rebrand:**
+- [ ] Update `/opt/.env` with new brand values
+- [ ] Run FASE 4 to create venv at new `INSTALL_PATH`
+- [ ] Restart services
+- [ ] Verify API health: `curl https://<domain>/health`
+
+---
+
 ## CRITICAL RULES
 
 1. **Repository NEVER contains specific branding**
@@ -484,3 +516,4 @@ systemctl list-units --type=service --all | grep -E "synctacles|${BRAND_SLUG}"
 6. **Templates use {{PLACEHOLDER}} format**
 7. **Idempotent FASE 0 (can re-run safely)**
 8. **Legacy services MUST be cleaned up before creating new ones**
+9. **Re-run FASE 4 after changing INSTALL_PATH or BRAND_SLUG**
