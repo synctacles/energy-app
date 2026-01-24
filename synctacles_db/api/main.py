@@ -62,9 +62,20 @@ INTERNAL_IPS = {
     "46.62.212.227",     # PROD server (self)
 }
 
+# Bot/crawler User-Agent patterns (case-insensitive)
+BOT_USER_AGENTS = {
+    "prometheus", "blackbox", "node-exporter",  # monitoring
+    "curl", "wget", "httpie", "hey",            # CLI tools
+    "python-requests", "python-urllib",          # scripts
+    "bot", "crawler", "spider", "scraper",       # generic bots
+    "googlebot", "bingbot", "yandex", "baidu",   # search engines
+    "semrush", "ahrefs", "mj12bot", "dotbot",    # SEO bots
+    "zgrab", "masscan", "nmap", "nikto",         # scanners
+}
+
 
 def get_traffic_source(request) -> str:
-    """Classify traffic as internal or external based on client IP."""
+    """Classify traffic as internal, bot, or external."""
     # Get client IP from X-Forwarded-For (nginx) or direct connection
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -72,7 +83,17 @@ def get_traffic_source(request) -> str:
     else:
         client_ip = request.client.host if request.client else "unknown"
 
-    return "internal" if client_ip in INTERNAL_IPS else "external"
+    # Check internal IPs first
+    if client_ip in INTERNAL_IPS:
+        return "internal"
+
+    # Check User-Agent for bots
+    user_agent = (request.headers.get("user-agent") or "").lower()
+    for bot_pattern in BOT_USER_AGENTS:
+        if bot_pattern in user_agent:
+            return "bot"
+
+    return "external"
 
 
 @app.middleware("http")
