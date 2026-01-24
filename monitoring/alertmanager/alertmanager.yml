@@ -1,0 +1,117 @@
+# SYNCTACLES AlertManager Configuration
+# Deployed to: monitoring.synctacles.com (77.42.41.135)
+# Last updated: 2026-01-23
+#
+# Routes alerts from Prometheus to Slack channels
+
+global:
+  resolve_timeout: 5m
+  slack_api_url: 'https://hooks.slack.com/services/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'
+
+# Alert templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Alert routing configuration
+route:
+  # Default receiver for unmatched alerts
+  receiver: 'slack-warnings'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'server']
+
+  # Wait before sending grouped alerts
+  group_wait: 30s
+
+  # Wait before re-grouping
+  group_interval: 5m
+
+  # Re-send unresolved alerts
+  repeat_interval: 4h
+
+  # Routes by severity
+  routes:
+    # Critical alerts - immediate, repeat hourly
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
+      group_wait: 0s
+      repeat_interval: 1h
+
+    # Warning alerts - short delay, repeat 4h
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+      group_wait: 30s
+      repeat_interval: 4h
+
+    # Info alerts - longer delay, repeat 12h
+    - match:
+        severity: info
+      receiver: 'slack-info'
+      group_wait: 60s
+      repeat_interval: 12h
+
+# Receivers define where alerts are sent
+receivers:
+  # Critical alerts → #critical-alerts
+  - name: 'slack-critical'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/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'
+        channel: '#critical-alerts'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: '{{ if eq .Status "firing" }}🚨 CRITICAL{{ else }}✅ RESOLVED{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Server:* {{ .Labels.server }}
+          *Severity:* {{ .Labels.severity }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  # Warning alerts → #warnings
+  - name: 'slack-warnings'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/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'
+        channel: '#warnings'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: '{{ if eq .Status "firing" }}⚠️ WARNING{{ else }}✅ RESOLVED{{ end }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Server:* {{ .Labels.server }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+
+  # Info alerts → #info-metrics
+  - name: 'slack-info'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/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'
+        channel: '#info-metrics'
+        send_resolved: false
+        color: '#439FE0'
+        title: 'ℹ️ INFO'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+
+# Inhibit rules prevent duplicate notifications
+inhibit_rules:
+  # Don't send warning if critical is already firing for same alert
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'server']
+
+  # Don't send info if warning is already firing
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'server']

@@ -1,0 +1,150 @@
+# SYNCTACLES Prometheus Configuration
+# Deployed to: monitoring.synctacles.com (77.42.41.135)
+# Last updated: 2026-01-23
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'synctacles'
+
+# AlertManager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alert rules from file
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Scrape configurations
+scrape_configs:
+  # ==========================================================================
+  # PROMETHEUS SELF-MONITORING
+  # ==========================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          environment: 'monitoring'
+
+  # ==========================================================================
+  # PRODUCTION SERVER (46.62.212.227)
+  # Alerts: ENABLED
+  # ==========================================================================
+
+  # PROD - Node Exporter (system metrics)
+  - job_name: 'synctacles-prod-node'
+    static_configs:
+      - targets: ['46.62.212.227:9100']
+        labels:
+          environment: 'prod'
+          server: 'synctacles-prod'
+
+  # PROD - API metrics (/metrics endpoint) via HTTPS
+  - job_name: 'synctacles-prod-api'
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api.synctacles.com:443']
+        labels:
+          environment: 'prod'
+          server: 'synctacles-prod'
+
+  # PROD - Pipeline metrics (/v1/pipeline/metrics endpoint) via HTTPS
+  - job_name: 'synctacles-prod-pipeline'
+    scheme: https
+    metrics_path: /v1/pipeline/metrics
+    static_configs:
+      - targets: ['api.synctacles.com:443']
+        labels:
+          environment: 'prod'
+          server: 'synctacles-prod'
+
+  # ==========================================================================
+  # DEVELOPMENT SERVER (135.181.255.83)
+  # Alerts: DISABLED (metrics only, no alerting)
+  # ==========================================================================
+
+  # DEV - Node Exporter (system metrics)
+  - job_name: 'synctacles-dev-node'
+    static_configs:
+      - targets: ['135.181.255.83:9100']
+        labels:
+          environment: 'dev'
+          server: 'synctacles-dev'
+
+  # DEV - API metrics (/metrics endpoint) via HTTPS
+  - job_name: 'synctacles-dev-api'
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['dev.synctacles.com:443']
+        labels:
+          environment: 'dev'
+          server: 'synctacles-dev'
+
+  # DEV - Pipeline metrics (/v1/pipeline/metrics endpoint) via HTTPS
+  - job_name: 'synctacles-dev-pipeline'
+    scheme: https
+    metrics_path: /v1/pipeline/metrics
+    static_configs:
+      - targets: ['dev.synctacles.com:443']
+        labels:
+          environment: 'dev'
+          server: 'synctacles-dev'
+
+  # ==========================================================================
+  # SSL CERTIFICATE MONITORING (via Blackbox Exporter)
+  # Uses ssl_cert module for pure certificate validation (no HTTP check)
+  # ==========================================================================
+  - job_name: 'ssl-certificates'
+    metrics_path: /probe
+    params:
+      module: [ssl_cert]
+    static_configs:
+      - targets:
+          - synctacles.com:443
+        labels:
+          environment: 'prod'
+      - targets:
+          - dev.synctacles.com:443
+        labels:
+          environment: 'dev'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ==========================================================================
+  # HTTP ENDPOINT HEALTH (via Blackbox Exporter)
+  # ==========================================================================
+  - job_name: 'http-health'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      # PROD endpoints (via HTTPS)
+      - targets:
+          - https://api.synctacles.com/health
+          - https://api.synctacles.com/v1/pipeline/health
+        labels:
+          environment: 'prod'
+      # DEV endpoints (via HTTPS)
+      - targets:
+          - https://dev.synctacles.com/health
+          - https://dev.synctacles.com/v1/pipeline/health
+        labels:
+          environment: 'dev'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
