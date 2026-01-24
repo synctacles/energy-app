@@ -34,9 +34,32 @@ SYNCTACLES - Energy price API serving real-time and day-ahead electricity prices
 **Deploy to PROD (from DEV):**
 ```bash
 git push origin main      # Push code first
-~/bin/deploy-prod         # Then deploy to PROD
+~/bin/deploy-prod         # Then deploy to PROD (checks CI first!)
 ~/bin/prod-status         # Verify deployment
 ```
+
+## Development Workflow
+
+### Pre-commit Hooks
+Located in `.git/hooks/pre-commit`. Runs automatically on every commit:
+
+1. **Credentials check** - Blocks hardcoded passwords/secrets
+2. **Ruff format** - Auto-fixes Python formatting
+3. **Ruff check** - Auto-fixes linting errors (blocks unfixable ones)
+
+Files are automatically reformatted and re-staged before commit.
+
+### CI Pipeline (GitHub Actions)
+- Runs on every push to `main`
+- Checks: ruff format, ruff check, pytest, build validation
+- Must pass before deployment
+
+### Deploy Safety
+`~/bin/deploy-prod` automatically:
+1. Checks if CI passed for current commit
+2. Waits if CI is still running (max 5 min)
+3. Blocks deployment if CI failed
+4. Only deploys after CI success
 
 **Check PROD status:**
 ```bash
