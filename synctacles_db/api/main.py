@@ -47,12 +47,32 @@ app = FastAPI(
 # Auth middleware (validates X-API-Key header)
 # Prometheus metrics
 http_requests_total = Counter(
-    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
+    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status", "source"]
 )
 
 http_request_duration_seconds = Histogram(
-    "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint"]
+    "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint", "source"]
 )
+
+# Internal IPs (monitoring, localhost, dev server)
+INTERNAL_IPS = {
+    "127.0.0.1", "::1", "localhost",
+    "77.42.41.135",      # monitoring server
+    "135.181.255.83",    # DEV server
+    "46.62.212.227",     # PROD server (self)
+}
+
+
+def get_traffic_source(request) -> str:
+    """Classify traffic as internal or external based on client IP."""
+    # Get client IP from X-Forwarded-For (nginx) or direct connection
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+
+    return "internal" if client_ip in INTERNAL_IPS else "external"
 
 
 @app.middleware("http")
@@ -61,12 +81,14 @@ async def metrics_middleware(request, call_next):
     response = await call_next(request)
     duration = time.time() - start_time
 
+    source = get_traffic_source(request)
+
     http_requests_total.labels(
-        method=request.method, endpoint=request.url.path, status=response.status_code
+        method=request.method, endpoint=request.url.path, status=response.status_code, source=source
     ).inc()
 
     http_request_duration_seconds.labels(
-        method=request.method, endpoint=request.url.path
+        method=request.method, endpoint=request.url.path, source=source
     ).observe(duration)
 
     return response
