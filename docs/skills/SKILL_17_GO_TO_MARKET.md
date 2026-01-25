@@ -1,345 +1,510 @@
-# SKILL 17 — GO-TO-MARKET STRATEGY
+# SKILL 17 — GO-TO-MARKET STRATEGY V2
 
-Business Model, Pricing, and Adoption Strategy
-**Version: 1.0 (2026-01-21)**
+Business Model, Pricing, and Adoption Strategy  
+**Version: 2.0 (2026-01-25)**
 
-> **Kernbeslissing:** Gratis lanceren, zero frictie, maximale adoptie.
-> Premium features = roadmap, niet V1.
+> **Kernbeslissing:** Care is kernproduct (€25/jaar), Energy is gratis acquisition funnel.  
+> NL trial + EU premium bundle.
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-SYNCTACLES lanceert als **volledig gratis** product zonder API key vereiste. De strategische rationale: first-mover advantage in een markt waar AI-tools snel concurrerende oplossingen kunnen bouwen.
+SYNCTACLES positioneert als **Premium Bundle**: Care (maintenance) + Energy (insights) voor €25/jaar. 
 
-**Waarde propositie:** Niet data (Enever biedt dat voor €12.50/jaar), maar **intelligence + simpliciteit** — GO/WAIT/AVOID zonder configuratie.
+- **Care** = universele pijn (maintenance), converteert
+- **Energy** = regionale waarde (NL/EU), acquireert + sweetens deal
+- **NL** = trial funnel (14 dagen gratis Energy actions)
+- **EU** = direct sales (Care-first, Energy als bonus)
 
 ---
 
-## STRATEGISCHE RATIONALE
+## PRODUCT BUNDELING
 
-### Waarom Gratis?
+### Tier Structuur
 
-| Factor | Betaald (€1-2/maand) | Gratis |
-|--------|----------------------|--------|
-| Adoptie snelheid | Langzaam | Snel |
-| Concurrent risico | Hoog | Laag |
-| Community/reputatie | Matig | Sterk |
-| Tijd tot kritische massa | 12-24 maanden | 3-6 maanden |
+| Tier | Prijs | Energy | Care |
+|------|-------|--------|------|
+| **Gratis** | €0 | NL: prijzen + uren | Scan + view |
+| **Trial (14d)** | €0 | NL: + actions/best window | Scan + view |
+| **Premium** | €25/jaar | **Heel EU** + alles | **Cleanup + scheduled** |
 
-### De Concurrent Dreiging
+### Feature Matrix
+
+| Feature | Gratis | Trial (14d) | Premium |
+|---------|--------|-------------|---------|
+| **ENERGY** | | | |
+| Prijzen NL | ✅ | ✅ | ✅ |
+| Goedkoopste uren NL | ✅ | ✅ | ✅ |
+| GO/WAIT/AVOID | ❌ | ✅ | ✅ |
+| Best Window | ❌ | ✅ | ✅ |
+| Live Cost | ❌ | ✅ | ✅ |
+| Tomorrow preview | ❌ | ✅ | ✅ |
+| EU landen | ❌ | ❌ | ✅ |
+| **CARE** | | | |
+| Health scan + score | ✅ | ✅ | ✅ |
+| Security scan + score | ✅ | ✅ | ✅ |
+| Orphan view | ✅ | ✅ | ✅ |
+| **Cleanup** | 🔒 | 🔒 | ✅ |
+| **Scheduled** | 🔒 | 🔒 | ✅ |
+| **Backup mgmt** | 🔒 | 🔒 | ✅ |
+
+### Kritieke Regel
 
 ```
-AI-tools kunnen dit concept binnen weken nabouwen.
-Wie eerst 5K+ users heeft met goede reputatie, wint.
-Gratis = claim de niche voordat iemand anders het doet.
+Care cleanup is NOOIT in trial.
+Dat is de conversie driver.
 ```
 
-### Monetization Pad
+---
 
-1. **V1:** Gratis — bouw userbase + reputatie
-2. **V2:** Premium tier — multi-property, multi-country, AI support
-3. **V3:** B2B — energieleveranciers, laadpaal operators
+## WAARDE PROPOSITIE
+
+### Messaging
+
+**Primair:**
+> "€25/jaar voor Care + Energy insights voor heel Europa gratis erbij"
+
+**Alternatief:**
+> "SYNCTACLES Premium: One-click HA cleanup + slimme energie voor €2.08/maand"
+
+### Wat Lost Het Op?
+
+| Probleem | Oplossing | Waarde |
+|----------|-----------|--------|
+| "7000 orphaned statistics, handmatig klikken" | One-click cleanup | Uren werk bespaard |
+| "Database 7GB, help!" | Health scan + cleanup | Ruimte + snelheid |
+| "Is mijn HA veilig?" | Security Score 0-100 | Peace of mind |
+| "Wanneer energie goedkoop?" | GO/WAIT/AVOID | €50-150/jaar besparing |
 
 ---
 
-## GEEN API KEY (V1)
+## USER JOURNEY
 
-### Beslissing
-
-Geen API key vereist voor gebruik. Zero frictie = maximale adoptie.
-
-### Anti-Abuse
-
-| Mechanisme | Implementatie |
-|------------|---------------|
-| Rate limiting | Per IP (niet per key) |
-| Metrics | HA installation_id (anoniem) |
-| Abuse detectie | Request patterns monitoring |
-
-### Communicatiekanalen (zonder email)
-
-| Kanaal | Doel |
-|--------|------|
-| HA integration changelog | Release notes |
-| GitHub releases | Technische updates |
-| Discord/community | Support, announcements |
-| README | Documentatie |
-
----
-
-## KEIHARDE WAARDE SYNCTACLES
-
-Wat rechtvaardigt gebruik (ook al is het gratis)?
-
-| Waarde | Omschrijving |
-|--------|--------------|
-| **Zero-config intelligence** | GO/WAIT/AVOID zonder nadenken |
-| **6-tier fallback stack** | Altijd werkend, zelf bouwen = nightmare |
-| **Onderhoud** | API's veranderen, SYNCTACLES fixt |
-| **Bundeling** | Eén integratie vs 3-4 losse bronnen |
-| **Best Window algoritme** | Variabele duration, server-berekend |
-
-### SYNCTACLES vs Enever
-
-| Aspect | Enever (€12.50/jaar) | SYNCTACLES (gratis) |
-|--------|----------------------|---------------------|
-| Levert | Data (prijzen) | Intelligence (acties) |
-| GO/WAIT/AVOID | ❌ | ✅ |
-| Best Window berekening | ❌ | ✅ |
-| Zero-config | ❌ | ✅ |
-| Install and forget | ❌ | ✅ |
-
----
-
-## PREMIUM MODEL FILOSOFIE
-
-### Kernprincipe
+### NL Funnel (Trial-based)
 
 ```
-Premium = gemak + support, NIET exclusiviteit.
-Client-side features zijn niet afdwingbaar (open source).
+DISCOVERY
+└── Installeert Energy Integration (HACS)
+└── Geen registratie nodig
+└── Ziet: prijzen, goedkoopste uren
+    ↓
+GRATIS WAARDE
+└── "Handig! Wat is Care?"
+└── Installeert Care Add-on
+└── Ziet: Health B, Security 65/100
+└── Ziet: "247 orphaned statistics" 😱
+└── Klikt Cleanup → 🔒 Premium
+    ↓
+TRIAL START
+└── "14 dagen gratis"
+└── Email registratie
+└── Energy actions unlocken
+└── Care cleanup blijft 🔒
+    ↓
+TRIAL EXPERIENCE (14 dagen)
+└── Geniet van GO/WAIT/AVOID
+└── Ziet dagelijks: "247 orphans wachten"
+└── Dag 12: "Trial eindigt over 2 dagen"
+    ↓
+CONVERSION
+└── "€25/jaar = €2.08/maand"
+└── "Inclusief Energy voor heel EU"
+└── Betaalt → Alles unlocked
+└── Eerste cleanup: "487MB vrijgemaakt!" 🎉
 ```
 
-### Implicaties
+### EU Funnel (Direct)
 
-| Aspect | Betekenis |
-|--------|-----------|
-| Pricing | Laag houden (€5 max), anders bouwt dev het zelf |
-| Value prop | "Bespaar jezelf de moeite" |
-| Doelgroep premium | Niet-technische HA users, tijd > geld |
-| Doelgroep gratis | Devs, tinkerers, prijsbewust |
-
-### Enforcement Realiteit
-
-| Waar | Afdwingbaar? |
-|------|--------------|
-| Server-side berekening | ✅ Ja |
-| Client-side (HA integration) | ❌ Nee, open source |
+```
+DISCOVERY
+└── Hoort van Care (Reddit, forum, YouTube)
+└── Maintenance pijn herkenbaar
+    ↓
+INSTALL
+└── Installeert Care Add-on
+└── Ziet: Health C, Security 45/100
+└── Ziet: "1.2GB aan orphans" 😱
+    ↓
+DIRECT CONVERSION
+└── "€25/jaar voor cleanup"
+└── "Bonus: Energy voor jouw land"
+└── Betaalt → Alles unlocked
+```
 
 ---
 
-## PREMIUM FEATURES ANALYSE
+## PSYCHOLOGICAL TRIGGERS
 
-### ❌ AFGEWEZEN voor Premium
-
-| Feature | Reden |
-|---------|-------|
-| Historical data (30+ dagen) | Geen behoefte bij HA users |
-| Live Cost + Savings | Gratis voor stickiness, client-side |
-| 15-min resolution | Enever's upsell, niet de onze |
-| Best Window | Gratis (best_4_hours schrappen, best_window met variabele duration) |
-| Tomorrow Preview | Niet actionable genoeg |
-| API access | Rate limits = anti-abuse, niet paywall |
-| CSV exports | Niemand wil historical data export |
-| Webhook notifications | HA doet dit al |
-| YAML Generator / Claude Agent | Niet KISS, te veel bewegende delen |
-| Priority support | Niet schaalbaar als solo developer |
-| Dashboard/webapp | Andere doelgroep, geen actie-waarde |
-| Leverancier vergelijking | Bestaat al (Pricewise, etc.) |
-| Hardware integraties | Buiten scope, HA lost dit op |
-
-### ✅ GRATIS als Adoptie Driver
-
-| Feature | Waarom gratis |
+| Trigger | Implementatie |
 |---------|---------------|
-| Blueprints | Publiek deelbaar (YAML), geen paywall mogelijk |
-| Live Cost + Savings | Stickiness, "ik bespaar €X" gevoel |
-| Best Window | Core value, variabele duration |
-| Tomorrow Preview | Nice-to-have awareness |
-
-### ⏸️ ROADMAP Premium (Later)
-
-| Feature | Rationale | Enforcement |
-|---------|-----------|-------------|
-| Multi-property | Meerdere HA instances, zakelijk gebruik | HA installation_id binding |
-| Multi-country (DE/FR/BE) | Extra infra/maintenance | Geografische waarde-afbakening |
-| AI Support | Schaalbaar, API kosten = per gebruik | Server-side |
+| **Loss aversion** | "247 orphans vreten ruimte" |
+| **Sunk cost** | 14 dagen invested in setup |
+| **Social proof** | "1.2GB vrijgemaakt door 500+ users" |
+| **Urgency** | "Trial eindigt over 2 dagen" |
+| **Anchoring** | "€2.08/maand" ipv "€25/jaar" |
+| **Bonus framing** | "Energy EU gratis erbij" |
 
 ---
 
-## MULTI-PROPERTY ENFORCEMENT
+## COMPETITIVE POSITIONING
 
-### Mechanisme
+### vs Spook (gratis)
 
+| Aspect | Spook | SYNCTACLES Care |
+|--------|-------|-----------------|
+| Orphan listing | ✅ Buggy | ✅ Betrouwbaar |
+| One-click cleanup | ❌ "Fix All" gevraagd sinds 2022 | ✅ Met safeguards |
+| Statistics cleanup | ❌ Alleen listen | ✅ Daadwerkelijk delete |
+| Security audit | ❌ | ✅ Score 0-100 |
+| Database optimize | ❌ | ✅ VACUUM |
+| Backup-first | ❌ | ✅ Verplicht |
+| Scheduled | ❌ | ✅ Premium |
+
+**Conclusie:** Spook = feature voor devs, SYNCTACLES Care = product voor users.
+
+### vs HA Native Tools
+
+| Tool | Functie | SYNCTACLES Care |
+|------|---------|-----------------|
+| Developer Tools > Statistics | Één voor één fixen | One-click alle |
+| Recorder purge | Oude data | + Orphans + VACUUM |
+| auto_repack | Config (advanced) | Zero-config |
+
+**Conclusie:** HA tools = primitives, SYNCTACLES Care = UX layer.
+
+---
+
+## REVENUE PROJECTIONS
+
+### Conversie Funnel
+
+**NL (Trial):**
+| Stap | Conversie | Users |
+|------|-----------|-------|
+| NL HA users (dynamisch) | 30K | - |
+| Installeert Energy | 10% | 3.000 |
+| Installeert Care | 50% | 1.500 |
+| Start trial | 40% | 600 |
+| Converteert | 25% | **150** |
+
+**EU (Direct):**
+| Stap | Conversie | Users |
+|------|-----------|-------|
+| EU maintenance pijn | 100K | - |
+| Hoort van Care | 3% | 3.000 |
+| Installeert | 40% | 1.200 |
+| Converteert | 10% | **120** |
+
+### Revenue Scenarios
+
+| Jaar | NL | EU | Totaal | Revenue | MRR |
+|------|----|----|--------|---------|-----|
+| Y1 | 150 | 120 | 270 | €6.750 | €562 |
+| Y2 | 300 | 400 | 700 | €17.500 | €1.458 |
+| Y3 | 500 | 800 | 1.300 | €32.500 | €2.708 |
+
+**MRR Target €2.5K: Q4 Y3**
+
+### Break-even
+
+- Server kosten: ~€60/jaar
+- Break-even: **3 premium users**
+
+---
+
+## TRIAL MECHANICS
+
+### Backend Implementation
+
+```python
+TRIAL_DAYS = 14
+
+def start_trial(email: str) -> APIKey:
+    """Start 14-dag trial."""
+    key = generate_api_key()
+    db.insert(
+        api_key=key,
+        email=email,
+        tier="trial",
+        trial_ends_at=now() + timedelta(days=14)
+    )
+    return key
+
+def check_feature(sub: Subscription, feature: str) -> bool:
+    """Check feature access."""
+    # Premium = alles
+    if sub.tier == "premium":
+        return True
+    
+    # Trial actief
+    if sub.tier == "trial" and sub.trial_ends_at > now():
+        if feature in TRIAL_FEATURES:
+            return True
+        if feature == "care_cleanup":
+            return False  # NOOIT
+    
+    # Gratis
+    if feature in FREE_FEATURES:
+        return True
+    
+    return False
 ```
-1. API key (later) bindt aan eerste HA installation_id
-2. 2e instance met zelfde key → reject
-3. Multi-property premium → unlock meerdere instance IDs per key
-```
 
-### Realiteit Check
+### Email Triggers
 
-| User type | Gaat spoofen? |
-|-----------|---------------|
-| Casual user | Nee |
-| Tech-savvy | Misschien, maar effort vs €5/maand |
-| Determined freeloader | Ja, maar betaalt sowieso nooit |
-
-**Conclusie:** "Good enough" enforcement. 90% gestopt, 10% was toch nooit klant.
+| Dag | Onderwerp | Inhoud |
+|-----|-----------|--------|
+| 0 | "Welkom bij SYNCTACLES" | Setup tips, Care install hint |
+| 7 | "Halverwege je trial" | Orphan count reminder |
+| 12 | "Nog 2 dagen" | Urgency, upgrade CTA |
+| 14 | "Trial verlopen" | Features gelocked, upgrade |
 
 ---
 
-## B2B STRATEGIE
+## ANTI-ABUSE
 
-### Timing
+### Rate Limiting
 
-Na 500+ B2C users (bewijs van waarde).
+| Tier | Limiet | Enforcement |
+|------|--------|-------------|
+| Geen key | 100/dag/IP | IP blocking |
+| Gratis key | 500/dag | Key blocking |
+| Trial | 1000/dag | Key blocking |
+| Premium | 2000/dag | Key blocking |
 
-### Targets
+### Abuse Detectie
 
-| Partij | Potentieel |
-|--------|------------|
-| Energieleverancier (white-label) | €500-2000/maand |
-| Laadpaal operators | €1000-5000/maand |
-| Installateurs | €200-500/maand |
-| Woningcorporaties | €2000-10000/project |
-
-### Pricing Framework (B2B)
-
-| Model | Prijs |
-|-------|-------|
-| Per request | €0.001 |
-| Per user/maand | €1-1.50 |
-| Flat fee | €500-2000/maand |
-| Enterprise | Custom |
-
-**Onderhandelingsprincipe:** Wie eerst prijs noemt, verliest.
+- Request patterns monitoring
+- HA installation_id binding (premium)
+- Automated blocking bij spikes
 
 ---
 
-## EXIT STRATEGIE
+## PRICING PSYCHOLOGY
 
-### Oud Denken vs Nieuw Denken
+### Waarom €25/jaar
 
-| Oud | Nieuw |
-|-----|-------|
-| MRR opbouwen (€2.5K/maand) | Userbase opbouwen (10K+ users) |
-| SaaS metrics | Platform metrics |
-| Revenue = waarde | Adoptie + data = waarde |
+| Factor | Rationale |
+|--------|-----------|
+| < €30 | Impulsaankoop drempel |
+| > €10 | Genoeg om serieus te nemen |
+| Jaarlijks | Minder churn, hogere LTV |
+| Round number | Geen nickle-and-diming gevoel |
 
-### Exit Waarde
+### Framing
 
-```
-Platform met:
-- 10K+ actieve users
-- Unieke historische dataset
-- Community + reputatie
-- B2B partnerships
-```
-
----
-
-## RATE LIMITS ANALYSE
-
-### Realiteit Check
-
-| Data type | Calls nodig |
-|-----------|-------------|
-| Uurprijzen (vooraf bekend) | ~2/dag = 60/maand |
-| Smart caching (huidige impl) | ~31/maand |
-| Actieve HA user | ~150/dag max |
-
-**Conclusie:** 1000 req/dag = ruim voldoende voor iedereen. Rate limits zijn anti-abuse tool, niet monetization tool.
-
-### Finale Rate Limit Strategie
-
-| Gebruik | Limiet |
-|---------|--------|
-| Normaal gebruik | 1000/dag (ruim) |
-| Abuse/scraping | IP block |
-| B2B | Custom afspraken |
+| Frame | Toepassing |
+|-------|------------|
+| Per maand | "€2.08/maand" in CTA's |
+| Per jaar | "€25/jaar" in pricing page |
+| Bundle | "Care + Energy EU" altijd samen |
+| Vergelijking | "Minder dan 1 koffie/maand" |
 
 ---
 
-## TECHNISCHE BESLISSINGEN (Uit Strategie)
+## GO-TO-MARKET PLAN
 
-### best_4_hours → best_window ✅ GEÏMPLEMENTEERD
+### Pre-Launch (Week -2 to 0)
 
-**Beslissing:** Schrap `best_4_hours` attribuut, behoud `best_window` sensor met variabele duration parameter (user configureerbaar, default 3 uur).
+- [ ] Care add-on feature-complete
+- [ ] Trial flow werkend
+- [ ] Payment integratie
+- [ ] Landing page live
+- [ ] Docs compleet
 
-**Rationale:** Dubbele functionaliteit, best_window is completere abstractie.
+### Soft Launch (Week 1-2)
 
-**Status:** Geïmplementeerd in v2.3.0 (2026-01-21). `best_4_hours` attribuut verwijderd uit CheapestHourSensor.
+- [ ] Invite-only beta (50 users)
+- [ ] Feedback verzamelen
+- [ ] Bug fixes
+- [ ] Conversion optimalisatie
 
-### Lokale Scheduling ✅ GEÏMPLEMENTEERD
+### Public Launch (Week 3)
 
-**Verbetering:** HA zet lokale timers op basis van ontvangen prijsarray, actions triggeren exact op uurgrens i.p.v. polling-afhankelijk.
+- [ ] HA Community Forum post
+- [ ] Tweakers forum
+- [ ] Reddit r/homeassistant
+- [ ] Home Assistant subreddit
+- [ ] GitHub repository public
 
-**Rationale:** Prijzen zijn vooraf bekend, geen 14-min delay meer op uurtransities.
+### Growth (Week 4+)
 
-**Status:** Geïmplementeerd in v2.4.0 (2026-01-21). `_schedule_hourly_updates()` in ServerDataCoordinator.
-
----
-
-## LAUNCH CHECKLIST
-
-### Vóór Launch
-
-- [ ] API key requirement verwijderen
-- [ ] Rate limiting op IP implementeren
-- [ ] HA installation_id metrics (anoniem)
-- [ ] Blueprints publiceren (GitHub)
-- [ ] Discord/community opzetten
-- [ ] README + documentatie compleet
-
-### Na Launch
-
-- [ ] Adoptie metrics monitoren
-- [ ] Community feedback verzamelen
-- [ ] Blueprints uitbreiden op basis van vraag
-- [ ] B2B outreach na 500 users
+- [ ] YouTube outreach
+- [ ] Feature requests implementeren
+- [ ] EU expansion (DE/BE/AT)
+- [ ] Word-of-mouth incentives
 
 ---
 
-## COMMUNICATIE BOODSCHAP
+## MARKETING CHANNELS
 
-### Naar Users
+### Organic (Gratis)
 
-> "SYNCTACLES is gratis. Voor altijd? Geen idee. Maar nu wel. 
-> Install, configure, forget. Wij regelen de rest."
+| Kanaal | Verwachte Impact |
+|--------|------------------|
+| HA Community Forum | Hoog - core audience |
+| Reddit r/homeassistant | Hoog - 800K members |
+| Tweakers forum | Medium - NL focus |
+| GitHub trending | Low - devs only |
 
-### Naar Community
+### Earned Media
 
-> "Open source HA integration. Data van ENTSO-E, Enever, Energy-Charts.
-> Wij bundelen, normaliseren, en geven je GO/WAIT/AVOID.
-> Geen account nodig, geen API key, geen bullshit."
+| Type | Strategie |
+|------|-----------|
+| YouTube reviews | Outreach naar HA YouTubers |
+| Blog posts | Guest posts op HA blogs |
+| Podcast mentions | HA-focused podcasts |
 
-### Naar Potentiële B2B
+### Paid (Later)
 
-> "X actieve HA users in Nederland vertrouwen op onze energy actions.
-> White-label mogelijk. Laten we praten."
+- Geen paid marketing Y1
+- Mogelijk Reddit ads na product-market fit
+- ROI moet >3x zijn
 
 ---
 
-## RISICO'S EN MITIGATIE
+## SUCCESS METRICS
+
+### V1.0 (90 dagen)
+
+| Metric | Target |
+|--------|--------|
+| Total installs | 2.000+ |
+| Trial starts | 500+ |
+| Trial → Premium | 20%+ |
+| Premium users | 100+ |
+| Revenue | €2.500+ |
+| Cleanup success | >99% |
+| Data loss | 0 |
+| NPS | >40 |
+
+### Y1
+
+| Metric | Target |
+|--------|--------|
+| Premium users | 270+ |
+| Revenue | €6.750+ |
+| MRR | €562+ |
+| Countries | NL + DE |
+
+---
+
+## RISK MITIGATION
 
 | Risico | Impact | Mitigatie |
 |--------|--------|-----------|
-| Concurrent bouwt zelfde (gratis) | Hoog | First-mover, community, reputatie |
-| Server kosten zonder revenue | Matig | Hetzner goedkoop, schaalbaar |
-| Abuse/scraping | Laag | IP rate limiting |
-| Support overload | Matig | Docs, Discord, community-driven |
-| Geen pad naar monetization | Laag | B2B + premium roadmap |
+| Spook improves | Medium | UX + security differentiatie |
+| HA adds native cleanup | High | Security focus, ahead blijven |
+| Low trial conversion | Medium | A/B test CTAs, messaging |
+| Support overload | Medium | Docs, self-service, Discord |
+| Abuse/scraping | Low | Rate limits, IP blocking |
+
+---
+
+## EU EXPANSION ROADMAP
+
+### Phase 1: NL (Launch)
+- Frank Energie
+- EasyEnergy  
+- Enever
+
+### Phase 2: DE (Q2 2026)
+- ENTSO-E (basis)
+- aWATTar
+- Tibber
+
+### Phase 3: BE/AT (Q3 2026)
+- ENTSO-E data
+- Local providers research
+
+### Phase 4: FR/ES (Q4 2026)
+- Market research
+- API integraties
+
+---
+
+## COMMUNICATION TEMPLATES
+
+### Launch Announcement
+
+> **SYNCTACLES Premium: One-click HA maintenance + slimme energie**
+>
+> Nieuw: SYNCTACLES Care add-on
+> - Security Score: Is je HA veilig?
+> - Health Score: Hoe gezond is je database?
+> - One-click Cleanup: Verwijder orphans veilig
+>
+> + Energy insights voor heel Europa
+>
+> 14 dagen gratis proberen → synctacles.com
+
+### Trial Ending Email
+
+> **Je SYNCTACLES trial eindigt over 2 dagen**
+>
+> Je hebt 247 orphaned statistics gevonden (~500MB).
+> 
+> Upgrade naar Premium voor €25/jaar:
+> ✓ One-click cleanup
+> ✓ Scheduled maintenance
+> ✓ Energy voor heel EU
+>
+> [Upgrade nu]
+
+### Premium Upsell (In-app)
+
+> **🔒 Premium Feature**
+>
+> Je hebt 247 orphaned statistics (~500MB).
+> Upgrade om ze in één klik te verwijderen.
+>
+> €25/jaar = €2.08/maand
+> + Energy insights voor heel Europa
+>
+> [Upgrade naar Premium]
+
+---
+
+## BESLISSINGEN LOG
+
+| Datum | Beslissing | Rationale |
+|-------|------------|-----------|
+| 2026-01-21 | Gratis lanceren | First-mover, adoptie |
+| 2026-01-25 | Care = kernproduct | Universele pijn, converteert |
+| 2026-01-25 | Energy = acquisition | NL sweetener, EU bonus |
+| 2026-01-25 | €25/jaar bundle | Impulsaankoop, hoge perceived value |
+| 2026-01-25 | 14-dag trial (NL) | Ervaar Energy, wil Care cleanup |
+| 2026-01-25 | Cleanup nooit in trial | Conversie driver |
 
 ---
 
 ## SAMENVATTING
 
 ```
-V1 STRATEGIE:
-├── Prijs: GRATIS
-├── API key: GEEN
-├── Rate limits: Anti-abuse, niet paywall
-├── Premium: Later (multi-property, multi-country, AI support)
-├── B2B: Na 500+ users
-└── Exit: Userbase + data + partnerships
-```
+SYNCTACLES PREMIUM (€25/jaar)
+├── Care (global) = kernproduct
+│   ├── Health scan + score (gratis)
+│   ├── Security scan + score (gratis)
+│   ├── Orphan view (gratis)
+│   └── Cleanup + scheduled (PREMIUM)
+│
+└── Energy (NL → EU) = acquisition + bonus
+    ├── Prijzen + uren (gratis)
+    ├── Actions + Best Window (trial/premium)
+    └── EU landen (PREMIUM)
 
-**Kernbeslissing:** De €12-24/jaar die we mislopen is niets vs de marktpositie die we winnen.
+FUNNEL:
+NL: Gratis Energy → Care scan → Trial → Premium
+EU: Care scan → Premium (+ Energy bonus)
+
+TARGET:
+Y1: 270 users, €6.750
+Y3: 1.300 users, €32.500, €2.7K MRR
+```
 
 ---
 
-*Versie: 1.0*
-*Datum: 2026-01-21*
-*Gebaseerd op: Strategische sessie CAI*
+*Versie: 2.0*  
+*Datum: 2026-01-25*  
+*Model: NL Trial + EU Premium Bundle*
