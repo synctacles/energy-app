@@ -7,6 +7,69 @@
 
 ---
 
+## Background & Context
+
+### Hoe dit idee ontstond
+
+Tijdens het opzetten van de Synctacles Energy integratie op HA DEV (25 januari 2026) liepen we tegen een veelvoorkomend probleem aan: **"Fix Issue" meldingen in Developer Tools → Statistics**.
+
+Na onderzoek bleek:
+- 47+ orphaned statistics van oude `energy_insights_nl_*` sensors
+- 46+ orphaned statistics van oude Growatt (`xhl0ced01n_*`) sensors
+- Entities die niet meer bestonden maar wel statistieken hadden
+
+### Het probleem handmatig oplossen vereiste:
+
+```bash
+# 1. SSH naar de HA server
+ssh homeassistant-dev
+
+# 2. HA Core stoppen
+ha core stop
+
+# 3. Database backup maken
+cp home-assistant_v2.db home-assistant_v2.db.backup
+
+# 4. SQLite queries uitvoeren
+sqlite3 home-assistant_v2.db "DELETE FROM statistics WHERE metadata_id IN (...)"
+sqlite3 home-assistant_v2.db "DELETE FROM statistics_meta WHERE ..."
+
+# 5. HA Core herstarten
+ha core start
+```
+
+### De gebruiker's frustratie
+
+> *"Dus je moet tegenwoordig netwerkengineer zijn om een veilige HA installatie thuis op te zetten?"*
+
+> *"Ligt het aan mij of ontstaat er zomaar chaos in HA zonder dat je daar als gebruiker iets aan kunt doen?"*
+
+Dit is een **universeel probleem**:
+- Elke HA gebruiker ervaart dit na verloop van tijd
+- HA ruimt nooit automatisch op
+- Bestaande tools (Spook) lossen het probleem niet volledig op
+- Handmatige cleanup vereist technische kennis die de gemiddelde gebruiker niet heeft
+
+### De kans voor Synctacles
+
+| Probleem | Huidige oplossing | Synctacles Care |
+|----------|-------------------|-----------------|
+| Orphaned entities | Handmatig of Spook (beperkt) | One-click cleanup |
+| Orphaned statistics | SQLite kennis nodig | Automatisch detecteren & verwijderen |
+| Database bloat | Handmatig VACUUM | Scheduled optimization |
+| Geen maintenance UI | Developer Tools (verwarrend) | Duidelijk dashboard |
+
+### Waarom dit waardevol is voor Synctacles
+
+1. **Lost echte pijn op** - #1 frustratie in HA community forums
+2. **Unieke propositie** - Niemand doet dit goed
+3. **Brand awareness** - Elke cleanup toont "Powered by Synctacles"
+4. **Funnel** - Gebruikers ontdekken Synctacles Energy
+5. **Sticky** - Terugkerende maintenance = terugkerende gebruikers
+6. **Recurring revenue** - Premium features via subscription
+
+---
+
 ## Executive Summary
 
 Synctacles Care is a Home Assistant add-on that solves the universal problem of HA maintenance - orphaned entities, bloated databases, and accumulated cruft that every HA user experiences but few can fix.
