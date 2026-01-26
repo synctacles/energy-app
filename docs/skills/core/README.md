@@ -11,6 +11,7 @@ Fundamental AI operating protocols, development standards, and communication rul
 | [SKILL_02_CODING_STANDARDS.md](SKILL_02_CODING_STANDARDS.md) | Code style, testing, documentation |
 | [SKILL_03_COMMUNICATION.md](SKILL_03_COMMUNICATION.md) | User communication rules |
 | [SKILL_04_DEVELOPMENT.md](SKILL_04_DEVELOPMENT.md) | Development workflow & standards |
+| [SKILL_05_SECURITY.md](SKILL_05_SECURITY.md) | Security standards (MANDATORY) |
 
 ---
 

@@ -121,9 +121,27 @@ def get_data_freshness(
     session: Session, source: str, raw_table: str, norm_table: str
 ) -> dict:
     """Get data freshness from database (historical data only, excludes forecasts)."""
+    # Security: Validate table names against whitelist to prevent SQL injection
+    ALLOWED_TABLES = {
+        "raw_entso_e_a44",
+        "norm_entso_e_a44",
+        "raw_entso_e_a65",
+        "norm_entso_e_a65",
+        "raw_entso_e_a75",
+        "norm_entso_e_a75",
+        "raw_prices",
+        "norm_prices",
+    }
+
+    if raw_table not in ALLOWED_TABLES:
+        raise ValueError(f"Invalid table name: {raw_table}")
+    if norm_table not in ALLOWED_TABLES:
+        raise ValueError(f"Invalid table name: {norm_table}")
+
     # Raw data age - only historical (timestamp <= NOW)
+    # Note: Table names validated against whitelist above, safe to use in query
     raw_result = session.execute(
-        text(f"""
+        text(f"""  # nosec B608 - table name validated against whitelist
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {raw_table}
         WHERE timestamp <= NOW()
@@ -132,8 +150,9 @@ def get_data_freshness(
     raw_age = round(raw_result[0], 1) if raw_result and raw_result[0] else None
 
     # Normalized data age - only historical (timestamp <= NOW)
+    # Note: Table names validated against whitelist above, safe to use in query
     norm_result = session.execute(
-        text(f"""
+        text(f"""  # nosec B608 - table name validated against whitelist
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {norm_table}
         WHERE timestamp <= NOW()

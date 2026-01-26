@@ -1,0 +1,53 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          pip install bandit safety pip-audit
+          pip install -r requirements.txt
+          
+      - name: Bandit security scan
+        run: bandit -ll -r synctacles_db/ -f json -o bandit-report.json
+        continue-on-error: true
+        
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          
+      - name: Dependency audit
+        run: pip-audit -r requirements.txt
+        
+      - name: Safety check
+        run: safety check --file requirements.txt
+        
+      - name: SQL injection check
+        run: |
+          if grep -rn "execute.*f\"" synctacles_db/ | grep -v test; then
+            echo "ERROR: Potential SQL injection found"
+            exit 1
+          fi
+          
+      - name: Secrets check
+        run: |
+          if grep -rn "postgresql://.*:.*@" synctacles_db/; then
+            echo "ERROR: Hardcoded credentials found"
+            exit 1
+          fi

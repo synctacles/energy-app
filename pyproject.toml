@@ -1,0 +1,24 @@
+[project]
+name = "synctacles-api"
+version = "1.0.0"
+description = "SYNCTACLES Energy API - Real-time electricity prices for NL"
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
+skips = ["B101"]  # assert statements OK in tests
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "*test_*.py", "tests/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"

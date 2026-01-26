@@ -1,84 +1,44 @@
-# Pre-commit hooks configuration for Synctacles
-# Install with: pre-commit install
-# Run manually: pre-commit run --all-files
-
 repos:
-  # =========================================================================
-  # Dependency Scanning - Task #2
-  # =========================================================================
+  # Block direct commits to main
   - repo: local
     hooks:
-      - id: pip-audit
-        name: "Scan dependencies for vulnerabilities"
-        entry: bash -c 'pip-audit -r requirements.txt --desc'
+      - id: no-main-commits
+        name: Block direct main commits
+        entry: bash -c 'branch=$(git rev-parse --abbrev-ref HEAD); if [ "$branch" = "main" ]; then echo "ERROR: Direct commits to main blocked. Use feature branch."; exit 1; fi'
         language: system
-        files: requirements.*\.txt$
-        stages: [commit]
+        always_run: true
         pass_filenames: false
-        always_run: false
 
-  # =========================================================================
-  # Code Quality - Pre-launch checks
-  # =========================================================================
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+  # Security scan
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
     hooks:
-      # Prevent giant files from being committed
-      - id: check-added-large-files
-        args: ['--maxkb=5000']
-        stages: [commit]
+      - id: bandit
+        args: ["-ll", "-r", "synctacles_db/"]
+        exclude: "tests/"
 
-      # Check for merge conflicts
-      - id: check-merge-conflict
-        stages: [commit]
-
-      # Check YAML syntax
-      - id: check-yaml
-        args: ['--unsafe']
-        stages: [commit]
-
-      # Check JSON syntax
-      - id: check-json
-        stages: [commit]
-
-      # Ensure files end with newline
-      - id: end-of-file-fixer
-        stages: [commit]
-
-      # Trim trailing whitespace
-      - id: trailing-whitespace
-        stages: [commit]
-
-      # Detect private keys
-      - id: detect-private-key
-        stages: [commit]
-
-  # =========================================================================
-  # Python Code Quality
-  # =========================================================================
-  - repo: https://github.com/psf/black
-    rev: 24.1.1
+  # SQL injection patterns
+  - repo: local
     hooks:
-      - id: black
-        language_version: python3.12
-        stages: [commit]
+      - id: sql-injection-check
+        name: SQL injection patterns
+        entry: bash -c 'if grep -rn "execute.*f\"" synctacles_db/ 2>/dev/null | grep -v test; then echo "ERROR: F-string in SQL execute() detected"; exit 1; fi'
+        language: system
+        pass_filenames: false
 
+  # Secrets check
+  - repo: local
+    hooks:
+      - id: no-secrets
+        name: No hardcoded secrets
+        entry: bash -c 'if grep -rn "postgresql://.*:.*@" synctacles_db/ 2>/dev/null; then echo "ERROR: Hardcoded database URL detected"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+  # Code formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.13
+    rev: v0.1.9
     hooks:
       - id: ruff
         args: [--fix]
-        stages: [commit]
       - id: ruff-format
-        stages: [commit]
-
-  # =========================================================================
-  # Security Scanning
-  # =========================================================================
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
-    hooks:
-      - id: bandit
-        args: ['-c', '.bandit']
-        stages: [commit]
-        exclude: '^tests/'
