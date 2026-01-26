@@ -1,4 +1,4 @@
-# SKILL 13 — LOGGING, DIAGNOSTICS & HA INTEGRATION STANDARDS
+# SKILL INFRASTRUCTURE 04 — LOGGING, DIAGNOSTICS & HA INTEGRATION STANDARDS
 
 Logging, Error Handling, and Home Assistant Integration Standards
 Version: 2.1 (2026-01-22) - Post-Implementation
@@ -666,7 +666,7 @@ All new code must pass this checklist before merge:
 ### For Developers
 
 1. **Before submitting PR:** Verify code passes checklist above
-2. **In code review:** Check logging compliance with SKILL_13
+2. **In code review:** Check logging compliance with this SKILL
 3. **During testing:** Validate log output at DEBUG level
 4. **After deployment:** Monitor logs for new ERROR patterns
 
@@ -678,7 +678,7 @@ After this update:
 
 1. **All new backend modules MUST use:** `get_logger(__name__)`
 2. **All new HA components MUST have:** `diagnostics.py`
-3. **Code review MUST verify:** SKILL_13 compliance
+3. **Code review MUST verify:** compliance with this SKILL
 4. **Exceptions MUST be logged** with type and message context
 5. **No backwards-compatibility exceptions** - consistency is mandatory
 
@@ -879,7 +879,7 @@ async def get_energy_action(country: str = "NL"):
 ## CONTACT & ESCALATION
 
 Questions about logging standards:
-1. Check this document first (SKILL_13 v2.1)
+1. Check this document first (infrastructure/SKILL_04_LOGGING v2.1)
 2. Review examples in `/opt/github/synctacles-api/synctacles_db/`
 3. Contact architecture team if unclear
 

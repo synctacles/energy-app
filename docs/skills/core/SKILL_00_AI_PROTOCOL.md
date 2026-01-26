@@ -1,4 +1,4 @@
-# SKILL 00 â€” AI OPERATING PROTOCOL
+# SKILL CORE 00 — AI PROTOCOL
 
 **MANDATORY READING BEFORE ANY ACTION**
 Version: 2.3 (2026-01-22)
@@ -7,9 +7,9 @@ Scope: Claude Code (CC) + Claude AI (CAI)
 
 ---
 
-## â›” STOP â€” READ THIS FIRST
+## ⛔ STOP — READ THIS FIRST
 
-Dit document is VERPLICHT voor elke AI sessie (CC Ã©n CAI).
+Dit document is VERPLICHT voor elke AI sessie (CC én CAI).
 Geen acties, geen fixes, geen edits voordat je dit hebt gelezen EN bewezen dat je het snapt.
 
 **Incident aanleiding:** 4.5 uur verspild door CC die:
@@ -31,31 +31,31 @@ Geen acties, geen fixes, geen edits voordat je dit hebt gelezen EN bewezen dat j
 
 | SKILL | Bestand | Waarom verplicht |
 |-------|---------|------------------|
-| **SKILL 00** | SKILL_00_AI_OPERATING_PROTOCOL.md | Dit document |
-| **SKILL 01** | SKILL_01_HARD_RULES.md | Non-negotiable regels, fail-fast, KISS |
-| **SKILL 02** | SKILL_02_ARCHITECTURE.md | System design, TenneT BYO-KEY model |
-| **SKILL 11** | SKILL_11_REPO_AND_ACCOUNTS.md | Git workflow, service accounts, GEEN ROOT |
+| **CORE 00** | core/SKILL_00_AI_PROTOCOL.md | Dit document |
+| **CORE 01** | core/SKILL_01_HARD_RULES.md | Non-negotiable regels, fail-fast, KISS |
+| **ENERGY 01** | energy/SKILL_01_ARCHITECTURE.md | System design, fallback stack |
+| **INFRA 02** | infrastructure/SKILL_02_REPOS_ACCOUNTS.md | Git workflow, service accounts, GEEN ROOT |
 
 ### Lees INDIEN RELEVANT:
 
 | SKILL | Bestand | Wanneer |
 |-------|---------|---------|
-| SKILL 03 | SKILL_03_CODING_STANDARDS.md | Bij code schrijven |
-| SKILL 06 | SKILL_06_DATA_SOURCES.md | Bij data pipeline werk |
-| SKILL 09 | SKILL_09_INSTALLER_SPECS.md | Bij deployment/setup |
-| SKILL 10 | SKILL_10_DEPLOYMENT_WORKFLOW.md | Bij deployment |
-| SKILL 13 | SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md | Bij logging/debugging |
+| CORE 02 | core/SKILL_02_CODING_STANDARDS.md | Bij code schrijven |
+| ENERGY 03 | energy/SKILL_03_DATA_SOURCES.md | Bij data pipeline werk |
+| INFRA 07 | infrastructure/SKILL_07_INSTALLER.md | Bij deployment/setup |
+| INFRA 01 | infrastructure/SKILL_01_DEPLOYMENT.md | Bij deployment |
+| INFRA 04 | infrastructure/SKILL_04_LOGGING.md | Bij logging/debugging |
 
 ### Bewijs dat je gelezen hebt:
 
 **START ELKE SESSIE MET:**
 ```
-"Ik heb SKILL_00, SKILL_01, SKILL_02, SKILL_11 gelezen.
+"Ik heb core/SKILL_00, core/SKILL_01, energy/SKILL_01, infrastructure/SKILL_02 gelezen.
 Key points:
-- [1 bullet SKILL_00]
-- [1 bullet SKILL_01]
-- [1 bullet SKILL_02]
-- [1 bullet SKILL_11]
+- [1 bullet CORE 00]
+- [1 bullet CORE 01]
+- [1 bullet ENERGY 01]
+- [1 bullet INFRA 02]
 
 Mag ik beginnen?"
 ```
@@ -69,14 +69,14 @@ Mag ik beginnen?"
 ### Wat PROTECT MODE betekent:
 
 ```
-âœ… TOEGESTAAN:
+✅ TOEGESTAAN:
 - Lezen (cat, view, less)
 - Analyseren (grep, find, ls)
 - Vragen stellen
 - Documenteren
 - Plannen maken
 
-âŒ VERBODEN:
+→Œ VERBODEN:
 - Bestanden aanpassen
 - Services herstarten
 - Git commits
@@ -102,7 +102,7 @@ Mag ik beginnen?"
 
 ## SECTIE C: VERIFICATIE VOOR CONCLUSIES
 
-### âŒ VERBODEN gedrag:
+### →Œ VERBODEN gedrag:
 
 ```
 "Script mist" â†’ zonder `ls -la` output
@@ -111,7 +111,7 @@ Mag ik beginnen?"
 "Volgens mij..." â†’ zonder verificatie
 ```
 
-### âœ… VERPLICHT gedrag:
+### ✅ VERPLICHT gedrag:
 
 ```
 STAP 1: Observatie
@@ -169,20 +169,20 @@ STAP 4: Pas DAN actie voorstellen
 ### Action Whitelist (autonomous safe):
 
 ```
-âœ… READ-ONLY:
+✅ READ-ONLY:
 - cat, less, view, grep, find, ls
 - systemctl status
 - journalctl (read)
 - git log, git status, git diff
 - Database SELECT queries (read-only)
 
-âœ… LOW-RISK WRITES:
+✅ LOW-RISK WRITES:
 - git pull (op dev/test)
 - Documentation updates
 - Log file analysis
 - Test runs (niet-productie)
 
-âŒ ALTIJD SUPERVISED:
+→ ALTIJD SUPERVISED:
 - systemctl restart/stop/start
 - git push/commit
 - File edits (code, config)
@@ -261,10 +261,10 @@ CC: "Logs geanalyseerd. Laatste 50 entries tonen geen errors."
 
 | Gebied | Reden | Documentatie |
 |--------|-------|--------------|
-| **TenneT services** | Juridisch: geen redistributie | SKILL_02 Â§TenneT BYO-KEY |
-| **synctacles-* services** | Deprecated (oude naming) | SKILL_11 |
-| **/opt/.env** | Productie secrets | SKILL_01 |
-| **Database credentials** | Security | SKILL_03 |
+| **TenneT services** | Juridisch: geen redistributie | energy/SKILL_01_ARCHITECTURE §TenneT BYO-KEY |
+| **synctacles-* services** | Deprecated (oude naming) | infrastructure/SKILL_02_REPOS_ACCOUNTS |
+| **/opt/.env** | Productie secrets | core/SKILL_01_HARD_RULES |
+| **Database credentials** | Security | core/SKILL_02_CODING_STANDARDS |
 
 ### Bij twijfel:
 
@@ -288,7 +288,7 @@ Is dit toegestaan of off-limits?"
 ### Format:
 
 ```
-âš ï¸ ESCALATIE:
+► ï¸ ESCALATIE:
 - Situatie: [wat ik zie]
 - Twijfel: [waarom ik stop]
 - Opties: [a, b, c]
@@ -302,12 +302,12 @@ Is dit toegestaan of off-limits?"
 ### Start sessie:
 
 ```
-â–¡ SKILL_00 gelezen (dit document)
-â–¡ SKILL_01, SKILL_02, SKILL_11 gelezen
-â–¡ Key points samengevat aan Leo
-â–¡ Goedkeuring ontvangen om te beginnen
-â–¡ PROTECT MODE = actief
-â–¡ STATUS_MERGED_CURRENT.md gelezen (indien bestaat)
+☐ core/SKILL_00 gelezen (dit document)
+☐ core/SKILL_01, energy/SKILL_01, infrastructure/SKILL_02 gelezen
+☐ Key points samengevat aan Leo
+☐ Goedkeuring ontvangen om te beginnen
+☐ PROTECT MODE = actief
+☐ STATUS_MERGED_CURRENT.md gelezen (indien bestaat)
 ```
 
 ### Tijdens sessie:
@@ -353,7 +353,7 @@ cd /opt/github/synctacles-api && git push
 
 ### Na file edits (KRITIEK):
 
-**âš ï¸ Na ELKE file creatie of edit â†’ DIRECT chown uitvoeren**
+**► ï¸ Na ELKE file creatie of edit â†’ DIRECT chown uitvoeren**
 
 Niet wachten tot het einde van de sessie. Niet wachten tot voor git commit.
 Direct na de edit, vÃ³Ã³r de volgende actie.
@@ -425,11 +425,11 @@ Welke zijn:
 
 **STAP 4:** Onderzoek ALLEEN wat Leo aanwijst als "broken"
 
-### â›” NOOIT:
+### ⛔ NOOIT:
 
 - Aannemen dat failed = moet gerepareerd
 - Alle services tegelijk proberen te fixen
-- TenneT services aanraken (BYO-KEY model, zie SKILL_02)
+- TenneT services aanraken (BYO-KEY model, zie energy/SKILL_01_ARCHITECTURE)
 
 ---
 
@@ -555,13 +555,13 @@ Als CC later ook op andere servers draait (bijv. monitoring server voor local ta
 
 ### Migration Status:
 
-- âœ… Hub opgezet (135.181.201.253)
-- âœ… ccops user aangemaakt
-- âœ… Spoke keys gegenereerd
-- âœ… SSH config aangemaakt
-- â¬œ Public keys deployen naar spokes (in progress)
-- â¬œ Firewall restricties (hub-only)
-- â¬œ Test alle connections
+- ✅ Hub opgezet (135.181.201.253)
+- ✅ ccops user aangemaakt
+- ✅ Spoke keys gegenereerd
+- ✅ SSH config aangemaakt
+- ✓œ Public keys deployen naar spokes (in progress)
+- ✓œ Firewall restricties (hub-only)
+- ✓œ Test alle connections
 
 **VANAF NU: CC gebruikt ALLEEN hub-spoke model voor server toegang**
 
@@ -717,7 +717,7 @@ CC heeft WEL:
 | alembic migrations | service user | `sudo -u synctacles-dev` |
 | Python/pip in venv | service user | `sudo -u synctacles-dev` |
 
-**âš ï¸ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
+**► ï¸ File edits:** Root mag editen, maar ownership DIRECT fixen (zie Sectie G).
 
 ---
 
@@ -730,25 +730,25 @@ CC heeft WEL:
 ### CAI doet WEL:
 
 ```
-âœ… Architectuur design en review
-âœ… Planning en projectmanagement
-âœ… Documentatie schrijven en structureren
-âœ… Code review (op basis van gedeelde code)
-âœ… SKILL updates en uitbreidingen
-âœ… ADR's opstellen
-âœ… Strategische adviezen
-âœ… Troubleshooting analyse (zonder server toegang)
+✅ Architectuur design en review
+✅ Planning en projectmanagement
+✅ Documentatie schrijven en structureren
+✅ Code review (op basis van gedeelde code)
+✅ SKILL updates en uitbreidingen
+✅ ADR's opstellen
+✅ Strategische adviezen
+✅ Troubleshooting analyse (zonder server toegang)
 ```
 
 ### CAI doet NIET:
 
 ```
-âŒ Directe server toegang
-âŒ Git commits (geen repo toegang)
-âŒ Service restarts
-âŒ File edits op server
-âŒ Database queries
-âŒ API calls naar productie
+→Œ Directe server toegang
+→Œ Git commits (geen repo toegang)
+→Œ Service restarts
+→Œ File edits op server
+→Œ Database queries
+→Œ API calls naar productie
 ```
 
 ### CAI's output = altijd voor Leo/CC om uit te voeren
@@ -806,20 +806,47 @@ ADR_001_TENNET_BYO_KEY.md         â†’ Architecture Decision Record
 â”‚
 â”œâ”€â”€ README.md                           # Index van alle documentatie
 â”‚
-â”œâ”€â”€ skills/                             # SKILL documenten
-â”‚   â”œâ”€â”€ SKILL_00_AI_OPERATING_PROTOCOL.md
-â”‚   â”œâ”€â”€ SKILL_01_HARD_RULES.md
-â”‚   â”œâ”€â”€ SKILL_02_ARCHITECTURE.md
-â”‚   â”œâ”€â”€ SKILL_03_CODING_STANDARDS.md
-â”‚   â”œâ”€â”€ SKILL_04_PRODUCT_REQUIREMENTS.md
-â”‚   â”œâ”€â”€ SKILL_05_COMMUNICATION_RULES.md
-â”‚   â”œâ”€â”€ SKILL_06_DATA_SOURCES.md
-â”‚   â”œâ”€â”€ SKILL_08_HARDWARE_PROFILE.md
-â”‚   â”œâ”€â”€ SKILL_09_INSTALLER_SPECS.md
-â”‚   â”œâ”€â”€ SKILL_10_DEPLOYMENT_WORKFLOW.md
-â”‚   â”œâ”€â”€ SKILL_11_REPO_AND_ACCOUNTS.md
-â”‚   â”œâ”€â”€ SKILL_12_BRAND_FREE_ARCHITECTURE.md
-â”‚   â””â”€â”€ SKILL_13_LOGGING_DIAGNOSTICS_HA_STANDARDS.md
+├── skills/                             # SKILL documenten
+│   ├── README.md                       # Master index + navigatie
+│   │
+│   ├── core/                           # Fundamentele protocollen
+│   │   ├── README.md
+│   │   ├── SKILL_00_AI_PROTOCOL.md
+│   │   ├── SKILL_01_HARD_RULES.md
+│   │   ├── SKILL_02_CODING_STANDARDS.md
+│   │   ├── SKILL_03_COMMUNICATION.md
+│   │   └── SKILL_04_DEVELOPMENT.md
+│   │
+│   ├── infrastructure/                 # Deployment & systemen
+│   │   ├── README.md
+│   │   ├── SKILL_00_HARDWARE.md
+│   │   ├── SKILL_01_DEPLOYMENT.md
+│   │   ├── SKILL_02_REPOS_ACCOUNTS.md
+│   │   ├── SKILL_03_BRAND_FREE.md
+│   │   ├── SKILL_04_LOGGING.md
+│   │   ├── SKILL_05_MONITORING.md
+│   │   ├── SKILL_06_BACKUP.md
+│   │   └── SKILL_07_INSTALLER.md
+│   │
+│   ├── energy/                         # Energy product
+│   │   ├── README.md
+│   │   ├── SKILL_00_ENERGY_OVERVIEW.md
+│   │   ├── SKILL_01_ARCHITECTURE.md
+│   │   ├── SKILL_02_PRODUCT.md
+│   │   ├── SKILL_03_DATA_SOURCES.md
+│   │   └── SKILL_04_PRICE_ENGINE.md
+│   │
+│   ├── care/                           # Care product
+│   │   ├── README.md
+│   │   ├── SKILL_00_CARE_OVERVIEW.md
+│   │   ├── SKILL_01_CARE_SAFETY.md
+│   │   ├── SKILL_02_CARE_ARCHITECTURE.md
+│   │   └── SKILL_03_CARE_TESTING.md
+│   │
+│   └── business/                       # Business context
+│       ├── README.md
+│       ├── SKILL_00_GO_TO_MARKET.md
+│       └── SKILL_01_PERSONAL_PROFILE.md
 â”‚
 â”œâ”€â”€ status/                             # Live state files
 â”‚   â”œâ”€â”€ STATUS_MERGED_CURRENT.md        # SSOT (Leo's versie)
@@ -988,10 +1015,10 @@ ADR_001_TENNET_BYO_KEY.md         â†’ Architecture Decision Record
 
 | Situatie | Handoff nodig? |
 |----------|----------------|
-| Sessie-einde met onafgerond werk | âœ… JA |
-| Taak overdracht CC â†” CAI | âœ… JA |
-| Volledige taak afgerond, geen follow-up | âŒ NEE |
-| Mini-taak < 5 min zonder context | âŒ NEE |
+| Sessie-einde met onafgerond werk | ✅ JA |
+| Taak overdracht CC â†” CAI | ✅ JA |
+| Volledige taak afgerond, geen follow-up | →Œ NEE |
+| Mini-taak < 5 min zonder context | →Œ NEE |
 
 ### CC â†’ CAI Handoff
 
@@ -1201,8 +1228,8 @@ Examples:
 **SKILLs (op synct-dev):**
 ```
 ✅ CORRECT:
-cat /opt/github/synctacles-api/docs/skills/SKILL_00.md
-grep "TenneT" /opt/github/synctacles-api/docs/skills/SKILL_02.md
+cat /opt/github/synctacles-api/docs/skills/core/SKILL_00_AI_PROTOCOL.md
+grep "TenneT" /opt/github/synctacles-api/docs/skills/energy/SKILL_01_ARCHITECTURE.md
 ```
 
 **Handoffs (op HUB):**
@@ -1233,7 +1260,7 @@ cat /home/ccops/handoffs/HANDOFF_*.md
 ### Wanneer ADR maken?
 
 ```
-âœ… ADR NODIG:
+✅ ADR NODIG:
 - Architectuur keuze met lange termijn impact
 - Technologie selectie
 - Data model beslissingen
@@ -1241,7 +1268,7 @@ cat /home/ccops/handoffs/HANDOFF_*.md
 - Integratie patronen
 - Security beslissingen
 
-âŒ GEEN ADR:
+→Œ GEEN ADR:
 - Bug fixes
 - Kleine refactors
 - Documentatie updates
@@ -1512,15 +1539,15 @@ Check docs/decisions/ voor hoogste bestaande nummer.
 
 | SKILL | Focus |
 |-------|-------|
-| SKILL_01 | Hard rules, fail-fast, KISS |
-| SKILL_02 | Architecture, TenneT BYO-KEY |
-| SKILL_03 | Coding standards |
-| SKILL_05 | Communication rules |
-| SKILL_06 | Data sources |
-| SKILL_09 | Installer specs |
-| SKILL_10 | Deployment workflow |
-| SKILL_11 | Repo structure, git discipline |
-| SKILL_13 | Logging, diagnostics |
+| core/SKILL_01_HARD_RULES | Hard rules, fail-fast, KISS |
+| energy/SKILL_01_ARCHITECTURE | Architecture, TenneT BYO-KEY |
+| core/SKILL_02_CODING_STANDARDS | Coding standards |
+| core/SKILL_03_COMMUNICATION | Communication rules |
+| energy/SKILL_03_DATA_SOURCES | Data sources |
+| infrastructure/SKILL_07_INSTALLER | Installer specs |
+| infrastructure/SKILL_01_DEPLOYMENT | Deployment workflow |
+| infrastructure/SKILL_02_REPOS_ACCOUNTS | Repo structure, git discipline |
+| infrastructure/SKILL_04_LOGGING | Logging, diagnostics |
 
 ---
 

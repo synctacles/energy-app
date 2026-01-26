@@ -1,4 +1,4 @@
-# SKILL 15 — CONSUMER PRICE ENGINE
+# SKILL ENERGY 04 — CONSUMER PRICE ENGINE
 
 Dual-Source Price Calculation with Frank & Enever Integration
 Version: 2.2 (2026-01-22) — Hybrid Conversion Model

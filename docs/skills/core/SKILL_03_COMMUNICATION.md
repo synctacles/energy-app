@@ -1,4 +1,4 @@
-# SKILL 5 — COMMUNICATION RULES
+# SKILL CORE 03 — COMMUNICATION RULES
 
 How to Structure Messages, Documentation, and Team Communication
 Version: 1.1 (2026-01-22)

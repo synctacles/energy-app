@@ -1,4 +1,4 @@
-# SKILL 8 — HARDWARE PROFILE
+# SKILL INFRASTRUCTURE 00 — HARDWARE PROFILE
 
 System Requirements and Deployment Infrastructure
 Version: 1.1 (2026-01-23)

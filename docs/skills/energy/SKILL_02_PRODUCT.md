@@ -1,4 +1,4 @@
-# SKILL 4 — PRODUCT REQUIREMENTS
+# SKILL ENERGY 02 — PRODUCT REQUIREMENTS
 
 Features, Sensors, and Product Vision
 **Version: 3.0 (2026-01-19) - Generated from source code**

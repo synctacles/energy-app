@@ -1,4 +1,4 @@
-# SKILL 17 — GO-TO-MARKET STRATEGY V2
+# SKILL BUSINESS 00 — GO-TO-MARKET STRATEGY V2
 
 Business Model, Pricing, and Adoption Strategy  
 **Version: 2.0 (2026-01-25)**

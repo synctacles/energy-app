@@ -1,4 +1,4 @@
-# SKILL 16 — BACKUP & RECOVERY
+# SKILL INFRASTRUCTURE 06 — BACKUP & RECOVERY
 
 Disaster Recovery Procedures for SYNCTACLES Infrastructure
 Version: 1.1 (2026-01-22)

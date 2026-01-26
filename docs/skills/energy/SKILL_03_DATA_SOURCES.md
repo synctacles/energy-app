@@ -1,4 +1,4 @@
-# SKILL 6 — DATA SOURCES
+# SKILL ENERGY 03 — DATA SOURCES
 
 ENTSO-E A44 Prices, Energy-Charts Fallback, and Consumer Price Engine
 Version: 2.1 (2026-01-22) - Hybrid Conversion + EasyEnergy Fallback
@@ -203,7 +203,7 @@ consumer_price = marketPrice + marketPriceTax + sourcingMarkupPrice + energyTaxP
 - Dual-source validation with Enever
 - Consumer price calculation baseline
 
-See SKILL_15_CONSUMER_PRICE_ENGINE.md for full integration details.
+See SKILL_04_PRICE_ENGINE.md for full integration details.
 
 ---
 
@@ -339,7 +339,7 @@ Automated fallback cascade when primary sources fail or are too stale.
 - Frank DB added as Tier 1 (requires `--tomorrow` flag on collector)
 - EasyEnergy added as Tier 3 (was missing)
 - Hybrid conversion replaces static offset (100% vs 85% accuracy)
-- See SKILL_15 for hybrid formula details
+- See SKILL_04_PRICE_ENGINE for hybrid formula details
 
 ### Energy-Charts Price API (Tier 3)
 

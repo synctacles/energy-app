@@ -1,4 +1,4 @@
-# SKILL 3 — CODING STANDARDS
+# SKILL CORE 02 — CODING STANDARDS
 
 Code Quality, Style, and Best Practices
 Version: 2.0 (2026-01-23)

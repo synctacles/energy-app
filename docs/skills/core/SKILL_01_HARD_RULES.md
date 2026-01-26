@@ -1,4 +1,4 @@
-# SKILL 1 — HARD RULES
+# SKILL CORE 01 — HARD RULES
 
 Fundamental Non-Negotiable Rules for SYNCTACLES
 Version: 1.1 (2026-01-22)

@@ -1,4 +1,4 @@
-# SKILL 2 — SYSTEM ARCHITECTURE
+# SKILL ENERGY 01 — SYSTEM ARCHITECTURE
 
 Design Principles and Data Pipeline
 **Version: 4.0 (2026-01-19) - Generated from source code**
@@ -454,12 +454,14 @@ _ec_circuit_breaker = {
 
 ## RELATED SKILLS
 
-- **SKILL 1**: Hard Rules
-- **SKILL 3**: Coding Standards
-- **SKILL 4**: Product Requirements
-- **SKILL 6**: Data Sources
-- **SKILL 10**: Deployment Workflow
-- **SKILL 15**: Consumer Price Engine (partially superseded by static offsets)
+| Skill | Description |
+|-------|-------------|
+| [SKILL_02_PRODUCT.md](SKILL_02_PRODUCT.md) | Product requirements & features |
+| [SKILL_03_DATA_SOURCES.md](SKILL_03_DATA_SOURCES.md) | Data providers & APIs |
+| [SKILL_04_PRICE_ENGINE.md](SKILL_04_PRICE_ENGINE.md) | Consumer price calculation |
+| [../core/SKILL_01_HARD_RULES.md](../core/SKILL_01_HARD_RULES.md) | Hard rules |
+| [../core/SKILL_02_CODING_STANDARDS.md](../core/SKILL_02_CODING_STANDARDS.md) | Coding standards |
+| [../infrastructure/SKILL_01_DEPLOYMENT.md](../infrastructure/SKILL_01_DEPLOYMENT.md) | Deployment workflow |
 
 ---
 

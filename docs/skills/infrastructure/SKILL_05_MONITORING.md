@@ -1,4 +1,4 @@
-# SKILL_14: Monitoring Infrastructure
+# SKILL INFRASTRUCTURE 05 — MONITORING INFRASTRUCTURE
 
 **Version:** 1.0
 **Date:** 2026-01-06
@@ -121,7 +121,7 @@ sudo apt install prometheus-node-exporter
 **Why native here?**
 - Lightweight (~20MB, not 500MB Docker)
 - Direct access to system metrics
-- Follows SKILL_11 pattern (service account)
+- Follows SKILL_02_REPOS_ACCOUNTS pattern (service account)
 - No Docker dependency
 
 ---
@@ -415,17 +415,17 @@ For federation/multi-region:
 
 ## Integration with Other SKILLs
 
-### SKILL_11: Service Accounts
+### SKILL_02_REPOS_ACCOUNTS: Service Accounts
 - Monitoring user: `monitoring` (dedicated)
 - Pattern: Similar to `energy-insights-nl` on app servers
 - Principle: Each service has minimal privileges
 
-### SKILL_08: Hardware Profiles
+### SKILL_00_HARDWARE: Hardware Profiles
 - CX23: 3-5 servers (our current scale)
 - CX33: 10-15 servers (upgrade path)
 - Guidelines: Monitor RAM, upgrade at 85%
 
-### SKILL_13: Logging
+### SKILL_04_LOGGING: Logging
 - Prometheus data: time-series (metrics)
 - Journal logs: application events
 - Integration: Both visible in operational dashboards
@@ -505,9 +505,9 @@ sudo ufw allow from <monitoring_ip> to any port 9100
 ## References
 
 **Related SKILLs:**
-- SKILL_11: Service accounts and permissions
-- SKILL_08: Hardware profiles and tuning
-- SKILL_13: Logging standards
+- SKILL_02_REPOS_ACCOUNTS: Service accounts and permissions
+- SKILL_00_HARDWARE: Hardware profiles and tuning
+- SKILL_04_LOGGING: Logging standards
 
 **External Resources:**
 - Prometheus: https://prometheus.io/docs/
