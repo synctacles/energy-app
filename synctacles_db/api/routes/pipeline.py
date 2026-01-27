@@ -141,22 +141,26 @@ def get_data_freshness(
     # Raw data age - only historical (timestamp <= NOW)
     # Note: Table names validated against whitelist above, safe to use in query
     raw_result = session.execute(
-        text(f"""  # nosec B608 - table name validated against whitelist
+        text(
+            f"""
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {raw_table}
         WHERE timestamp <= NOW()
-    """)
+    """
+        )
     ).fetchone()
     raw_age = round(raw_result[0], 1) if raw_result and raw_result[0] else None
 
     # Normalized data age - only historical (timestamp <= NOW)
     # Note: Table names validated against whitelist above, safe to use in query
     norm_result = session.execute(
-        text(f"""  # nosec B608 - table name validated against whitelist
+        text(
+            f"""
         SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp)))/60 as age_min
         FROM {norm_table}
         WHERE timestamp <= NOW()
-    """)
+    """
+        )
     ).fetchone()
     norm_age = round(norm_result[0], 1) if norm_result and norm_result[0] else None
 

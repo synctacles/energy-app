@@ -1,0 +1,39 @@
+# SYNCTACLES Requirements
+# Python 3.12
+# Phase 3: Energy Action Focus - Cleaned dependencies (2026-01-11)
+# Web Framework
+fastapi==0.128.0
+uvicorn[standard]==0.32.1
+pydantic==2.10.6
+pydantic-settings==2.5.0
+email-validator==2.2.0
+# Required by pydantic EmailStr
+python-multipart==0.0.22
+# Database
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+# Async PostgreSQL for collectors and fallback chain
+sqlalchemy==2.0.36
+alembic==1.14.1
+# Energy Data APIs
+entsoe-py==0.7.8
+# A44 prices only (A65/A75 discontinued)
+# Data Processing
+lxml>=4.9.0
+# Dependency of pandas, entsoe-py
+pandas==2.3.3
+# Used by entsoe-py
+python-dateutil==2.8.2
+# Async HTTP (Energy-Charts fallback)
+aiohttp==3.13.3
+# Caching
+cachetools==5.3.2
+# Environment & Config
+python-dotenv==1.0.1
+# Production Server
+gunicorn>=21.0.0
+# Observability
+prometheus-client>=0.17.0
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.2
