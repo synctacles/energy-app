@@ -1,0 +1,156 @@
+# Claude Code Ignore File
+# Files and directories listed here will not be read by Claude Code
+
+# =============================================================================
+# CREDENTIALS & SECRETS
+# =============================================================================
+
+# Environment files
+.env*
+!.env.example
+*.env
+*.env.*
+
+# Secret files
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+credentials.json
+secrets.yaml
+secrets.yml
+secrets/
+.secrets/
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_ecdsa
+id_ecdsa.pub
+id_dsa
+id_dsa.pub
+*.ppk
+
+# API keys and tokens
+.token
+*.token
+api_key.txt
+.api_key
+
+# Configuration with credentials
+config/.env*
+/opt/synctacles/config/
+
+# =============================================================================
+# LOGS & TEMPORARY FILES
+# =============================================================================
+
+# Log files
+*.log
+logs/
+*.log.*
+/tmp/*.log
+/var/log/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+
+# =============================================================================
+# DATABASES & BACKUPS
+# =============================================================================
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Database dumps
+*.sql
+*.sql.gz
+*.dump
+*.bak
+backup/
+backups/
+
+# =============================================================================
+# BUILD & DEPENDENCIES
+# =============================================================================
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# =============================================================================
+# IDE & EDITOR
+# =============================================================================
+
+# VSCode
+.vscode/settings.json
+.vscode/launch.json
+
+# PyCharm
+.idea/workspace.xml
+.idea/tasks.xml
+
+# Vim
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# OS FILES
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# =============================================================================
+# OTHER SENSITIVE FILES
+# =============================================================================
+
+# Private notes
+PRIVATE*.md
+NOTES*.md
+TODO-PRIVATE*.md
+
+# Test data with PII
+test_data_real/
+production_data/
+
+# Docker secrets
+docker-compose.override.yml
+.dockerignore
+
+# Kubernetes secrets
+*-secret.yaml
+*-secret.yml
