@@ -1,5 +1,24 @@
 # CLAUDE.md - Project Context for Claude Code
 
+## ⚠️ SCOPE WARNING
+
+**Dit is de ENERGY API repo. CARE/Moltbot werk hoort hier NIET.**
+
+| Project | Juiste locatie |
+|---------|----------------|
+| CARE code | `/opt/synctacles/moltbot/` |
+| KB/Support | `/opt/synctacles/moltbot/` |
+| Deming Cycle | `/opt/synctacles/moltbot/` |
+| Claude SDK | `/opt/synctacles/moltbot/shared/` |
+| Moltbot issues | `synctacles/moltbot` repo |
+
+**Deze repo is ALLEEN voor:**
+- Energy API endpoints
+- Price collectors (TenneT, Frank, ENTSO-E)
+- HA integration backend
+
+---
+
 ## MANDATORY: Read SKILLs First
 
 **Before ANY action, read these SKILLs:**
