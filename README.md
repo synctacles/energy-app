@@ -1,112 +1,59 @@
-# Energy Insights NL
+# Synctacles Platform
 
-Real-time Dutch electricity grid data for Home Assistant automation.
+Shared infrastructure and authentication for all Synctacles products.
 
-## What Makes This Different
+## Products
 
-**Single integration for ALL Dutch energy data:**
-- ✅ Generation mix (wind/solar/gas/nuclear) - live breakdown
-- ✅ Grid balance (import/export) - optimize usage timing  
-- ✅ Load forecasts - plan ahead
-- ✅ Normalized data - no API complexity
+This repository contains platform-level infrastructure. Product-specific code has been extracted to dedicated repositories:
 
-**vs Other Solutions:**
-- ENTSO-E integration: Raw data only, no normalization
-- Energy prices integrations: Only prices, no grid data
-- Custom API scripts: Requires coding skills
+- **Energy API:** [synctacles/energy](https://github.com/synctacles/energy) - Dutch electricity price API
+- **Care (Support Bot):** [synctacles/care](https://github.com/synctacles/care) - Customer support automation
+- **Brains (AI/ML):** [synctacles/brains](https://github.com/synctacles/brains) - Embedding generation and ML infrastructure
 
-**Key Benefits:**
-- 15-minute updates
-- Quality indicators (OK/STALE/NO_DATA)
-- Fallback sources (ENTSO-E → Energy-Charts)
-- Ready for automations (binary sensors)
+## This Repository
 
-## Pricing
+**Platform** contains shared infrastructure and future authentication services:
 
-**Beta (Now):** Free - test and provide feedback
-**After Launch:** Paid subscription model
-**Early Contributor Perk:** 1 year free for beta participants who contribute
+- Shared libraries (future: `platform/shared/`)
+- Authentication service (future: `platform/auth-service/`)
+- Infrastructure as Code
+- System-level documentation
+- Cross-product deployment scripts
 
-Details: [pricing page after launch]
+## Repository Migration
 
-## Installation
+Energy code was extracted from this repository in **February 2025** (Issue #143).
 
-Via HACS (recommended):
-1. Add custom repository
-2. Search "Energy Insights NL"
-3. Configure with API endpoint
+### What Moved
 
-Manual: [link to docs]
+- `synctacles_db/` → `energy_api/` in [synctacles/energy](https://github.com/synctacles/energy)
+- Energy-specific scripts, docs, tests, and configuration
+- Database migrations (Alembic)
+- Systemd service files
 
-## Use Cases
+### What Remains
 
-- EV charging when renewable % high
-- Appliance scheduling on low-load periods
-- Energy dashboards with live grid mix
-- Home automation based on grid balance
+- Platform-level documentation (`docs/skills/infrastructure/`, `docs/skills/core/`)
+- Deployment and monitoring scripts (`scripts/deploy/`, `scripts/monitoring/`)
+- Shared configuration templates
+- Cross-product CI/CD workflows
 
-## Technical
+## Future Structure
 
-### Data Sources
-- **ENTSO-E** - European grid data (generation, load, wholesale prices)
-- **TenneT** - Dutch grid balance (BYO-key in HA component)
-- **Enever.nl** - Leverancier-specific consumer prices (BYO-key in HA component)
-- **Energy-Charts** - Fallback data source
+```
+platform/
+├── auth-service/       # Centralized authentication (Issue #121)
+├── shared/             # Shared Python libraries
+├── infrastructure/     # IaC, deploy scripts
+└── docs/              # System-level documentation
+```
 
-### BYO-Key Features (Home Assistant)
+## Related Documentation
 
-De HA component ondersteunt optionele BYO-keys voor extra functionaliteit:
+See [CLAUDE.md](CLAUDE.md) for Claude Code operating guidelines.
 
-| Feature | Data | Update Interval |
-|---------|------|-----------------|
-| TenneT API key | Real-time grid balance | 60 seconden |
-| Enever.nl token | Leverancier-specific prijzen | 1 uur |
+For product-specific documentation, see respective repositories.
 
-**Enever voordelen:**
-- Echte consumentenprijzen (niet wholesale)
-- 19 Nederlandse leveranciers ondersteund
-- Inclusief belastingen en leveranciers-opslag
+## License
 
-### System
-- Update interval: 15 minutes
-- Sensors: 8+ entities (12+ with BYO-keys)
-- Requirements: Home Assistant 2024.1+
-
-## Production Monitoring
-
-This project is moving toward production. Monitoring infrastructure is being set up.
-
-**Current Status:**
-- ✅ Code quality: 100% SKILL_11 compliant
-- 🟡 Monitoring: In progress (Issue #24)
-- 📊 Load testing: Planned
-
-**Documentation:**
-- [Code Quality Audit Report](CODE_QUALITY_AUDIT_REPORT.md) - 0 credential violations, all checks passed
-- [Production Blockers](PRODUCTION_BLOCKERS.md) - Current production readiness status
-- [Monitoring Project Overview](MONITORING_PROJECT_OVERVIEW.md) - Full monitoring infrastructure plan
-- [Quick Start Guide](MONITORING_QUICK_START.md) - Get started quickly
-
-**GitHub Project Issues:**
-- [#24 - Main Monitoring Project](https://github.com/DATADIO/synctacles-api/issues/24)
-- [#25 - Phase 1: CX23 Server Setup](https://github.com/DATADIO/synctacles-api/issues/25)
-- [#26 - Phase 2: node-exporter Setup](https://github.com/DATADIO/synctacles-api/issues/26)
-- [#27 - Phase 3: AlertManager & Slack](https://github.com/DATADIO/synctacles-api/issues/27)
-- [#28 - Phase 4: Grafana Dashboards](https://github.com/DATADIO/synctacles-api/issues/28)
-- [#29 - Phase 5: Load Testing](https://github.com/DATADIO/synctacles-api/issues/29)
-- [#30 - Phase 6: Documentation](https://github.com/DATADIO/synctacles-api/issues/30)
-
-## Development
-
-**Getting Started:**
-- [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
-- [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) - Local development setup
-
-**Operations:**
-- [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) - Release & deployment procedures
-- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) - Server access & credentials
-
-## Support
-
-Discord: [link]
-Issues: GitHub Issues
+MIT - See LICENSE file

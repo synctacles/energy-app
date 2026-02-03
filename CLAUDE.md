@@ -19,6 +19,48 @@
 
 ---
 
+## Error Handling Protocol
+
+**CRITICAL: When errors are detected, follow this protocol:**
+
+1. **Immediate Investigation**
+   - Stop current work and investigate the error immediately
+   - Identify root cause and impact
+   - Document findings
+
+2. **Priority Assessment**
+   - **High Priority** (blocking, security, data loss): Fix immediately
+   - **Medium Priority** (bugs, broken features): Create GitHub issue in this repo
+   - **Low Priority** (nice-to-have, optimization): Create GitHub issue with "enhancement" label
+
+3. **Issue Creation Template**
+   ```bash
+   gh issue create --repo synctacles/platform \
+     --title "Error: [Brief description]" \
+     --body "## Problem
+   [Error description]
+
+   ## Context
+   [When/where detected]
+
+   ## Investigation
+   [Root cause analysis]
+
+   ## Impact
+   [What's affected]
+
+   ## Suggested Fix
+   [Potential solution]" \
+     --label "bug"
+   ```
+
+4. **Never Ignore Errors**
+   - All errors must be either fixed immediately or tracked in GitHub
+   - Silent failures are unacceptable
+   - Always inform user of error and tracking status
+
+---
+
 ## MANDATORY: Read SKILLs First
 
 **Before ANY action, read these SKILLs:**
