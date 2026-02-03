@@ -2,20 +2,27 @@
 
 ## ⚠️ SCOPE WARNING
 
-**Dit is de ENERGY API repo. CARE/Moltbot werk hoort hier NIET.**
+**Dit is de PLATFORM repo. Product-specifieke code hoort hier NIET.**
 
-| Project | Juiste locatie |
-|---------|----------------|
-| CARE code | `/opt/synctacles/moltbot/` |
-| KB/Support | `/opt/synctacles/moltbot/` |
-| Deming Cycle | `/opt/synctacles/moltbot/` |
-| Claude SDK | `/opt/synctacles/moltbot/shared/` |
-| Moltbot issues | `synctacles/moltbot` repo |
+| Component | Juiste repo |
+|-----------|-------------|
+| Energy API | `synctacles/energy` |
+| Care/Moltbot | `synctacles/care` |
+| Brains/AI | `synctacles/brains` |
+| HA Integration | `synctacles/ha-integration` |
 
 **Deze repo is ALLEEN voor:**
-- Energy API endpoints
-- Price collectors (TenneT, Frank, ENTSO-E)
-- HA integration backend
+- Auth Service (centralized authentication)
+- Shared libraries (gebruikt door alle products)
+- Infrastructure as Code (deployment scripts, systemd templates)
+- Cross-product utilities
+- Platform documentation
+
+**NIET in deze repo:**
+- ❌ Product-specifieke API endpoints
+- ❌ Product-specifieke business logic
+- ❌ Product-specifieke collectors/workers
+- ❌ Product-specifieke tests
 
 ---
 
@@ -61,95 +68,116 @@
 
 ---
 
-## MANDATORY: Read SKILLs First
-
-**Before ANY action, read these SKILLs:**
-| SKILL | File | Purpose |
-|-------|------|---------|
-| **SKILL 00** | `docs/skills/SKILL_00_AI_OPERATING_PROTOCOL.md` | Operating protocol (VERPLICHT) |
-| **SKILL 01** | `docs/skills/SKILL_01_HARD_RULES.md` | Non-negotiable rules |
-| **SKILL 02** | `docs/skills/SKILL_02_ARCHITECTURE.md` | System architecture |
-| **SKILL 11** | `docs/skills/SKILL_11_REPO_AND_ACCOUNTS.md` | Git workflow, accounts |
-
-**For infrastructure work:**
-- `docs/CREDENTIALS.md` - Server access, SSH keys, deployment commands
-
 ## Project Overview
-SYNCTACLES - Energy price API serving real-time and day-ahead electricity prices for the Netherlands.
+SYNCTACLES Platform - Shared infrastructure and services for all Synctacles products (Energy, Care, Brains).
+
+## Repository Structure
+```
+platform/
+├── auth/                    # Auth Service (centralized authentication)
+│   ├── main.py
+│   ├── models.py
+│   └── middleware.py
+├── shared/                  # Shared libraries
+│   ├── database/           # Common database utilities
+│   ├── logging/            # Logging configuration
+│   ├── monitoring/         # Prometheus metrics
+│   └── utils/              # Common utilities
+├── infrastructure/         # IaC templates
+│   ├── systemd/           # Systemd service templates
+│   ├── nginx/             # Nginx configs
+│   └── deployment/        # Deployment scripts
+├── docs/
+│   ├── ARCHITECTURE.md    # Platform architecture
+│   ├── DEPLOYMENT.md      # Deployment procedures
+│   └── API.md             # Auth API documentation
+└── tests/
+    ├── test_auth.py
+    └── test_shared.py
+```
 
 ## Infrastructure
 
 ### Servers
 | Server | Purpose | Access |
 |--------|---------|--------|
-| DEV | Development (this machine) | Direct |
-| PROD | Production (46.62.212.227) | Via `ssh cc-hub "ssh synct-prod '...'"` |
+| DEV | Development | Direct (`/opt/github/synctacles-api`) |
+| PROD | Production | Via `ssh cc-hub "ssh synct-prod '...'"` |
 
 ### GitHub Account
 - **Bot account**: `synctacles-bot`
-- **Repository**: `synctacles/backend`
+- **Repository**: `synctacles/platform`
 - **Authentication**: PAT token (configured in gh CLI)
 
-### Quick Commands
-
-**Deploy to PROD (from DEV):**
-```bash
-git push origin main      # Push code first
-~/bin/deploy-prod         # Then deploy to PROD (checks CI first!)
-~/bin/prod-status         # Verify deployment
-```
+### Product Repositories
+- **Energy**: `synctacles/energy` - Price API, collectors
+- **Care**: `synctacles/care` - Support bot, KB
+- **Brains**: `synctacles/brains` - AI/ML services
+- **HA Integration**: `synctacles/ha-integration` - Home Assistant addon
 
 ## Development Workflow
 
-### Pre-commit Hooks
-Located in `.git/hooks/pre-commit`. Runs automatically on every commit:
-
-1. **Credentials check** - Blocks hardcoded passwords/secrets
-2. **Ruff format** - Auto-fixes Python formatting
-3. **Ruff check** - Auto-fixes linting errors (blocks unfixable ones)
-
-Files are automatically reformatted and re-staged before commit.
-
-### CI Pipeline (GitHub Actions)
-- Runs on every push to `main`
-- Checks: ruff format, ruff check, pytest, build validation
-- Must pass before deployment
-
-### Deploy Safety
-`~/bin/deploy-prod` automatically:
-1. Checks if CI passed for current commit
-2. Waits if CI is still running (max 5 min)
-3. Blocks deployment if CI failed
-4. Only deploys after CI success
-
-**Check PROD status:**
+### Local Development
 ```bash
-ssh cc-hub "ssh synct-prod 'systemctl status synctacles-api'"
+# Setup
+python3.12 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run Auth Service
+uvicorn platform.auth.main:app --reload --port 8000
+
+# Run tests
+pytest
+
+# Code quality
+ruff format .
+ruff check .
 ```
 
-**Check PROD logs:**
+## Deployment
+
+### Shared Libraries
+When shared libraries are updated, all dependent products must be notified:
 ```bash
-ssh cc-hub "ssh synct-prod 'journalctl -u synctacles-api -n 50'"
+# After merging shared lib changes
+gh issue create --repo synctacles/energy --title "Update shared lib dependency"
+gh issue create --repo synctacles/care --title "Update shared lib dependency"
 ```
 
-## Brand-Free Architecture
-All scripts and templates use environment variables from `/opt/.env`:
-- `BRAND_NAME`, `BRAND_SLUG` - Brand identity
-- `DB_NAME`, `DB_USER` - Database credentials
-- `APP_PATH`, `INSTALL_PATH` - Paths
-- Templates use `{{PLACEHOLDER}}` syntax
+### Auth Service
+Auth service updates require coordination across all products:
+```bash
+# Deploy Auth Service
+~/bin/deploy-platform
 
-## Key Directories
-```
-/opt/github/synctacles-api/     # Application code
-/opt/synctacles/                 # Runtime (venv, logs, backups)
-/opt/.env                        # Environment configuration
+# Verify all products can authenticate
+~/bin/verify-auth-integration
 ```
 
-## Services (PROD)
-- `synctacles-api` - Main FastAPI server (8 Gunicorn workers)
-- `synctacles-collector` - Data collection (timer)
-- `synctacles-importer` - Data import (timer)
-- `synctacles-normalizer` - Data normalization (timer)
-- `synctacles-health` - Health checks (timer)
-- `synctacles-frank-collector` - Frank Energie data (timer)
+## CI/CD Pipeline
+GitHub Actions runs on every push:
+- Ruff linting & formatting
+- Pytest (unit + integration tests)
+- Auth service validation
+- Shared lib compatibility checks
+
+## Related Repos
+- **Energy:** https://github.com/synctacles/energy
+- **Care:** https://github.com/synctacles/care
+- **Brains:** https://github.com/synctacles/brains
+- **HA Integration:** https://github.com/synctacles/ha-integration
+
+## Migration Status (2026-02-03)
+
+This repository was renamed from `synctacles/backend` to `synctacles/platform` as part of the multi-repo migration:
+- ✅ Energy code extracted to `synctacles/energy`
+- ✅ Platform/Auth code remains here
+- ✅ Shared libraries organized
+- 🚧 Care extraction (planned)
+- 🚧 Brains extraction (planned)
+
+**Note:** Most active development happens in product repos. This repo focuses on:
+- Cross-product infrastructure
+- Authentication services
+- Shared libraries
