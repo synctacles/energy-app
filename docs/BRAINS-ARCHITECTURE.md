@@ -68,10 +68,11 @@ BRAINS is a single-purpose production server hosting the Knowledge Base system f
 - Records feedback in `kb.knowledge_base_feedback`
 
 **Telegram Configuration:**
-- **Username:** @SynctaclesCareBot
+- **Username:** @SynctaclesSupportBot (previously @SynctaclesCareBot)
 - **Group ID:** -1003846489213
 - **Topics:** 2 (support), 3 (monitoring)
 - **Privacy Mode:** Enabled (sees mentions only)
+- **Disclaimer:** Required acceptance before use (v1.0)
 
 ### 2. KB Harvesters (`openclaw-harvest.service` + timer)
 
@@ -241,10 +242,20 @@ BRAINS is a single-purpose production server hosting the Knowledge Base system f
 ├── harvesters/                  # Python application root
 │   ├── venv/                   # Python virtual environment
 │   ├── .env                    # Environment variables & secrets
-│   ├── support_agent/          # Telegram bot code
-│   │   ├── main.py            # Bot entry point
-│   │   ├── handlers.py        # Command handlers
-│   │   └── faq_handler.py     # KB query handler
+│   ├── support_agent/          # Support bot code
+│   │   ├── main.py            # Bot entry point (Telegram)
+│   │   ├── handlers.py        # Document handlers
+│   │   ├── faq_handler.py     # KB query handler
+│   │   ├── core/              # Platform-agnostic core (NEW)
+│   │   │   ├── __init__.py
+│   │   │   ├── models.py      # User, Agreement, Platform enums
+│   │   │   └── service.py     # SupportService business logic
+│   │   └── adapters/          # Platform adapters (NEW)
+│   │       ├── __init__.py
+│   │       ├── base.py        # BasePlatformAdapter interface
+│   │       ├── telegram_adapter.py  # Telegram implementation
+│   │       ├── discord_adapter.py   # Discord (placeholder)
+│   │       └── slack_adapter.py     # Slack (placeholder)
 │   ├── tools/                  # Harvester tools
 │   │   └── scanners/
 │   │       ├── run_harvest.py        # Main harvest runner
@@ -503,6 +514,179 @@ sudo systemctl restart openclaw-harvest
 - Memory Usage: ~43 MB per service
 - CPU Usage: <2% per service
 
+## Multi-Platform Architecture
+
+**Added:** 2026-02-04
+**Status:** ✅ Telegram Production | 🚧 Discord/Slack Planned
+
+The support bot now uses a platform-agnostic architecture to support multiple chat platforms (Telegram, Discord, Slack) with a shared core.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Platform Adapters                            │
+│                                                                       │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
+│   │  Telegram   │    │   Discord   │    │    Slack    │             │
+│   │   Adapter   │    │   Adapter   │    │   Adapter   │             │
+│   │    (✅)     │    │    (🚧)     │    │    (🚧)     │             │
+│   └──────┬──────┘    └──────┬──────┘    └──────┬──────┘             │
+│          │                  │                  │                     │
+└──────────┼──────────────────┼──────────────────┼─────────────────────┘
+           │                  │                  │
+           └─────────────┬────┴─────────────────┬┘
+                         │                      │
+                   ┌─────▼──────────────────────▼─────┐
+                   │         Core Service              │
+                   │                                    │
+                   │  • User Agreement Management       │
+                   │  • FAQ Query Processing            │
+                   │  • Feedback Recording              │
+                   │  • Response Text Generation        │
+                   │                                    │
+                   └─────────────────┬─────────────────┘
+                                     │
+                   ┌─────────────────▼─────────────────┐
+                   │    PostgreSQL + Knowledge Base     │
+                   │                                    │
+                   │  • user_agreements (multi-platform)│
+                   │  • knowledge_base                  │
+                   │  • knowledge_base_feedback         │
+                   └───────────────────────────────────┘
+```
+
+### Core Module (`support_agent/core/`)
+
+**Platform-agnostic business logic:**
+
+```python
+# Models (core/models.py)
+class Platform(Enum):
+    TELEGRAM = "telegram"
+    DISCORD = "discord"
+    SLACK = "slack"
+
+class User:
+    platform: Platform
+    platform_user_id: str
+    username: Optional[str]
+    display_name: Optional[str]
+
+# Service (core/service.py)
+class SupportService:
+    async def check_user_agreement(user: User) -> bool
+    async def save_user_agreement(user: User) -> None
+    async def handle_faq_query(query: str) -> FAQResult
+    async def record_feedback(feedback: FeedbackRecord) -> bool
+    def get_help_text() -> str
+    def get_welcome_text(returning_user: bool) -> str
+    def get_disclaimer_prompt() -> str
+```
+
+### Adapters Module (`support_agent/adapters/`)
+
+**Platform-specific implementations:**
+
+| Adapter | Status | Library | Description |
+|---------|--------|---------|-------------|
+| `TelegramAdapter` | ✅ Production | python-telegram-bot | Full implementation |
+| `DiscordAdapter` | 🚧 Placeholder | discord.py | Not yet implemented |
+| `SlackAdapter` | 🚧 Placeholder | slack-bolt | Not yet implemented |
+
+**Base Adapter Interface:**
+```python
+class BasePlatformAdapter(ABC):
+    @abstractmethod
+    def create_user(platform_user) -> User
+
+    @abstractmethod
+    async def send_message(chat_id, text, parse_mode, **kwargs)
+
+    @abstractmethod
+    async def send_buttons(chat_id, text, buttons, **kwargs)
+
+    @abstractmethod
+    async def edit_message(chat_id, message_id, text, **kwargs)
+
+    @abstractmethod
+    async def answer_callback(callback_id, text)
+
+    @abstractmethod
+    async def show_typing(chat_id)
+
+    # High-level methods (shared logic)
+    async def handle_start(platform_user, chat_id)
+    async def handle_help(platform_user, chat_id)
+    async def handle_faq(platform_user, chat_id, query)
+    async def show_disclaimer(chat_id)
+```
+
+### Updated Database Schema
+
+**`public.user_agreements` table (multi-platform support):**
+
+```sql
+CREATE TABLE public.user_agreements (
+    id                    SERIAL PRIMARY KEY,
+    platform              VARCHAR(20) DEFAULT 'telegram',  -- NEW
+    platform_user_id      VARCHAR(100),                    -- NEW (string for all platforms)
+    platform_username     VARCHAR(255),                    -- NEW
+    platform_display_name VARCHAR(255),                    -- NEW
+    agreed_at             TIMESTAMPTZ DEFAULT NOW(),
+    disclaimer_version    VARCHAR(20) DEFAULT '1.0',
+    ip_hash               VARCHAR(64),
+    -- Legacy columns (deprecated)
+    telegram_user_id      BIGINT,
+    telegram_username     VARCHAR(255),
+    telegram_first_name   VARCHAR(255)
+);
+
+-- Multi-platform unique constraint
+CREATE UNIQUE INDEX idx_user_agreements_platform_unique
+ON public.user_agreements (platform, platform_user_id, disclaimer_version);
+
+-- Platform index for queries
+CREATE INDEX idx_user_agreements_platform ON public.user_agreements (platform);
+```
+
+### Adding a New Platform
+
+To add Discord or Slack support:
+
+1. **Implement adapter** in `support_agent/adapters/`:
+   - Copy `telegram_adapter.py` as template
+   - Implement all abstract methods from `BasePlatformAdapter`
+   - Handle platform-specific formatting (embeds, blocks, etc.)
+
+2. **Update environment** in `.env`:
+   - Add platform-specific bot token
+   - Add any platform-specific settings
+
+3. **Create entry point** (e.g., `discord_main.py`):
+   - Initialize platform client
+   - Create adapter with shared service
+   - Register command handlers
+
+4. **Create systemd service**:
+   - `openclaw-discord.service`
+   - Same security hardening as Telegram
+
+Example for Discord:
+```python
+# discord_main.py
+from support_agent.core import SupportService
+from support_agent.adapters import DiscordAdapter
+
+async def main():
+    service = SupportService(db=db, kb_repository=kb)
+    adapter = DiscordAdapter(service, bot=discord_bot)
+
+    @bot.tree.command()
+    async def start(interaction):
+        await adapter.start_command_handler(interaction)
+```
+
 ## Future Enhancements
 
 **Planned:**
@@ -515,6 +699,9 @@ sudo systemctl restart openclaw-harvest
 - [ ] Community feedback loop integration
 - [ ] Duplicate detection improvements
 - [ ] Multi-language support
+- [x] **Multi-platform architecture** (added 2026-02-04)
+- [ ] Discord adapter implementation
+- [ ] Slack adapter implementation
 
 **Under Consideration:**
 - [ ] Separate read-replica for analytics
