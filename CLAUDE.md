@@ -162,33 +162,41 @@ Auth service updates require coordination across all products:
 
 ## Server Setup
 
-### Brains Server (OpenClaw & KB)
+### Brains Server (OpenClaw KB & Harvesters)
 
 **Server Details:**
 - **Hostname:** brains.synctacles.com
 - **IP:** 173.249.55.109
 - **SSH:** Via cc-hub (`ssh cc-hub "ssh brains '...'"`)
 - **User:** `brains` (non-root dedicated user)
-- **Purpose:** OpenClaw API (HA community communication) + Knowledge Base + AI inference
+- **Purpose:** Knowledge Base support bot + KB harvesters + AI inference
 
-**Architecture (2026-02-04 - UPDATED):**
+**Architecture (2026-02-04 - PRODUCTION):**
 The Knowledge Base system runs on BRAINS as a single production environment:
-- **OpenClaw Gateway:** Telegram bot for HA community support (v2026.2.2-3)
-- **Knowledge Base:** PostgreSQL 16 database with pgvector extension
-- **Ollama:** Local LLM inference (phi3:mini, llama3:8b, nomic-embed-text)
-- **MCP Server:** KB search tool for OpenClaw agents
-- **No separate DEV environment:** Direct production deployment
+- **OpenClaw Support Bot:** Python Telegram bot for HA community support (@SynctaclesCareBot)
+- **KB Harvesters:** Automated scanners for GitHub, Forums, Reddit, StackOverflow
+- **Knowledge Base:** PostgreSQL 16 database with pgvector extension (17,297+ active entries)
+- **Ollama:** Local LLM inference for KB query processing
+- **MCP Server:** KB search tool (Node.js) for OpenClaw agents
+- **No separate DEV environment:** Direct production deployment with automated backups
 
 **Software Stack:**
-- Node.js 22.22.0
-- OpenClaw 2026.2.2-3 with MCP SDK
+- Python 3.12 with venv (support bot + harvesters)
+- Node.js 22.22.0 (MCP server)
 - PostgreSQL 16 + pgvector 0.6.0
-- Ollama with phi3:mini (2.2GB) and nomic-embed-text (274MB)
+- Ollama with phi3:mini (2 GB) and nomic-embed-text (0.3 GB)
+- python-telegram-bot library
 
 **Required Services:**
 ```bash
-# OpenClaw Gateway (Telegram bot + agents)
-systemctl status openclaw
+# OpenClaw Support Bot (Telegram)
+systemctl status openclaw-support
+
+# KB Harvester (oneshot, runs hourly via timer)
+systemctl status openclaw-harvest
+
+# Harvester Timer
+systemctl status openclaw-harvest.timer
 
 # KB Database (PostgreSQL)
 systemctl status postgresql
@@ -196,13 +204,13 @@ systemctl status postgresql
 # Ollama (Local LLM inference)
 systemctl status ollama
 
-# Prometheus Node Exporter (for monitoring)
+# Prometheus Node Exporter (monitoring)
 systemctl status node_exporter
 ```
 
 **Service Status Check:**
 ```bash
-ssh cc-hub 'ssh brains "systemctl is-active postgresql ollama openclaw node_exporter"'
+ssh cc-hub 'ssh brains "systemctl is-active postgresql ollama openclaw-support openclaw-harvest.timer node_exporter"'
 ```
 
 **Deployment Strategy:**
@@ -210,47 +218,86 @@ ssh cc-hub 'ssh brains "systemctl is-active postgresql ollama openclaw node_expo
 - Short outages acceptable with community notification
 - Daily automated database backups
 - Git-based rollback capability
-- Quick smoke tests in screen before systemctl restart
+- systemd auto-restart on failure
 
 **Monitoring Setup:**
 The brains server is monitored via:
-- **Prometheus:** Scrapes metrics from `https://brains.synctacles.com/metrics` and `http://173.249.55.109:9100/metrics`
+- **Prometheus:** Scrapes metrics from `http://173.249.55.109:9100/metrics`
 - **Alertmanager:** Sends critical alerts to Slack #critical-alerts
 - **Dashboard:** Status visible on cc-hub monitoring dashboard
+- **Telegram:** Harvest notifications sent to group topic 3 (monitoring)
 
 **Configuration & Credentials:**
-- **OpenClaw Config:** `/etc/openclaw/openclaw.json`
-- **Secrets:** `/etc/openclaw/secrets.env` (chmod 600, contains Telegram token)
-- **DB Credentials:** `/root/.openclaw-credentials/` (admin + reader passwords)
-- **Workspace:** `/opt/openclaw/workspace/`
-- **MCP Server:** `/opt/openclaw/mcp/kb-search.js`
-- **Setup Scripts:** `/home/brains/setup/scripts/brains-setup/`
+- **Environment:** `/opt/openclaw/harvesters/.env` (chmod 600, contains all secrets)
+- **Python Code:** `/opt/openclaw/harvesters/` (support_agent, tools/scanners, shared)
+- **Virtual Environment:** `/opt/openclaw/harvesters/venv/`
+- **MCP Server:** `/opt/openclaw/mcp/kb-search.js` (Node.js)
+- **Logs:** `/opt/openclaw/logs/` (harvest.log)
+- **Setup Scripts:** `/opt/github/synctacles-api/scripts/brains-setup/`
 
 **Database:**
 - **Name:** `brains_kb`
-- **Schema:** `kb` (tables: `entries`, `query_log`)
-- **Admin User:** `brains_admin` (full access)
-- **OpenClaw User:** `openclaw_reader` (read-only on entries, insert on query_log)
-- **Connection:** `postgresql://openclaw_reader:***@localhost:5432/brains_kb`
+- **Schemas:**
+  - `kb` (knowledge_base, knowledge_base_categories, knowledge_base_feedback, knowledge_base_usage)
+  - `public` (harvest_state for tracking scanner progress)
+- **Admin User:** `brains_admin` (full access, used by support bot and harvesters)
+- **Connection:** `postgresql://brains_admin:***@localhost:5432/brains_kb?sslmode=disable`
+- **Search Path:** `kb, public` (set at database level)
+- **Data:** 17,297 active KB entries, 24 categories, avg confidence 0.78
 
 **Telegram Bot:**
-- **Token:** Configured in `/etc/openclaw/secrets.env`
-- **Group ID:** -1003846489213 (migrated from Moltbot)
-- **Bot Name:** Brains KB Bot (via OpenClaw)
+- **Username:** @SynctaclesCareBot
+- **Token:** In `/opt/openclaw/harvesters/.env` as `TELEGRAM_BOT_TOKEN_SUPPORT`
+- **Group ID:** -1003846489213
+- **Topics:** 2 (support), 3 (monitoring)
+- **Commands:** /help, /status, /faq, /analyze
+- **Status:** Admin in group with privacy mode enabled
+
+**API Keys (in .env):**
+- **GROQ_API_KEY:** Free tier LLM for harvester processing
+- **ANTHROPIC_API_KEY:** Claude API for advanced processing
+- **GITHUB_REPO:** home-assistant/core (for issue harvesting)
 
 **Common Commands:**
 ```bash
-# Restart OpenClaw
-ssh cc-hub 'ssh brains "sudo systemctl restart openclaw"'
+# Restart Support Bot
+ssh cc-hub 'ssh brains "sudo systemctl restart openclaw-support"'
 
-# View logs
-ssh cc-hub 'ssh brains "sudo journalctl -u openclaw -f"'
+# View Support Bot logs
+ssh cc-hub 'ssh brains "sudo journalctl -u openclaw-support -f"'
+
+# Manually trigger harvest
+ssh cc-hub 'ssh brains "sudo systemctl start openclaw-harvest"'
+
+# View harvest logs
+ssh cc-hub 'ssh brains "sudo journalctl -u openclaw-harvest -f"'
 
 # Database access (as admin)
 ssh cc-hub 'ssh brains "sudo -u postgres psql -d brains_kb"'
 
-# Test Ollama
+# Check KB statistics
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d brains_kb -c \"SELECT COUNT(*) FROM kb.knowledge_base WHERE is_active = true;\""'
+
+# Test Ollama models
 ssh cc-hub 'ssh brains "ollama list"'
+
+# Check all service status
+ssh cc-hub 'ssh brains "systemctl status openclaw-support openclaw-harvest.timer postgresql ollama --no-pager"'
+```
+
+**Troubleshooting:**
+```bash
+# Check harvest state
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d brains_kb -c \"SELECT * FROM public.harvest_state;\""'
+
+# Test Telegram bot token
+ssh cc-hub 'ssh brains "curl -s https://api.telegram.org/bot\$(grep TELEGRAM_BOT_TOKEN_SUPPORT /opt/openclaw/harvesters/.env | cut -d= -f2)/getMe | jq"'
+
+# Verify database permissions
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d brains_kb -c \"\\du brains_admin\""'
+
+# Check service resource usage
+ssh cc-hub 'ssh brains "systemctl status openclaw-support --no-pager | grep -E '\''Memory|CPU'\''"'
 ```
 
 **SSH Key:**
@@ -283,18 +330,19 @@ This repository was renamed from `synctacles/backend` to `synctacles/platform` a
 - 🚧 Care extraction (planned)
 - 🚧 Brains extraction (planned)
 
-**Architecture Decision (2026-02-04 - IMPLEMENTED):**
+**Architecture Decision (2026-02-04 - FULLY OPERATIONAL):**
 Knowledge Base and OpenClaw now run exclusively on BRAINS server as a single production environment:
-- **Status:** ✅ Fully deployed and operational (2026-02-04 13:27)
+- **Status:** ✅ Fully deployed and operational (2026-02-04 14:10)
 - **Rationale:** KB data is identical for dev/prod, community tolerates short outages, faster iteration
-- **Safety nets:** Daily backups, git-based rollback, systemd auto-restart, status notifications
-- **DEV server:** Used only for quick code testing in screen/tmux before production deployment
-- **Migration:** Moltbot Telegram tokens migrated to OpenClaw configuration
+- **Safety nets:** Hourly harvest backups, git-based rollback, systemd auto-restart, Telegram notifications
+- **DEV server:** Platform monitoring bots remain (moltbot-monitor, moltbot-dev)
+- **Migration:** Complete KB data (18,413 entries from DEV), moltbot-support → openclaw-support
 
 **Installation Date:** 2026-02-04
-**Installed By:** Claude Code (automated via handoff)
-**Services:** All operational (PostgreSQL, Ollama, OpenClaw, node_exporter)
-**KB Data:** Fresh start (0 entries - ready for population)
+**Completed By:** Claude Code (automated migration + troubleshooting)
+**Services:** All operational (PostgreSQL, Ollama, openclaw-support, openclaw-harvest.timer, node_exporter)
+**KB Data:** 17,297 active entries (24 categories, avg confidence 0.78)
+**Harvesters:** GitHub, Forum, Reddit, StackOverflow (hourly automated scans)
 
 **Note:** Most active development happens in product repos. This repo focuses on:
 - Cross-product infrastructure
