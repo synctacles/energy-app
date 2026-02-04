@@ -173,7 +173,7 @@ Auth service updates require coordination across all products:
 
 **Architecture (2026-02-04 - PRODUCTION):**
 The Knowledge Base system runs on BRAINS as a single production environment:
-- **OpenClaw Support Bot:** Python Telegram bot for HA community support (@SynctaclesCareBot)
+- **OpenClaw Support Bot:** Python Telegram bot for HA community support (@SynctaclesSupportBot)
 - **KB Harvesters:** Automated scanners for GitHub, Forums, Reddit, StackOverflow
 - **Knowledge Base:** PostgreSQL 16 database with pgvector extension (17,297+ active entries)
 - **Ollama:** Local LLM inference for KB query processing
@@ -255,7 +255,7 @@ The brains server is monitored via:
 - **Data:** 17,297 active KB entries, 24 categories, avg confidence 0.78
 
 **Telegram Bot:**
-- **Username:** @SynctaclesCareBot
+- **Username:** @SynctaclesSupportBot
 - **Token:** In `/opt/openclaw/harvesters/.env` as `TELEGRAM_BOT_TOKEN_SUPPORT`
 - **Group ID:** -1003846489213
 - **Topics:** 2 (support), 3 (monitoring)

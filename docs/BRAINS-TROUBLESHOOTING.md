@@ -247,7 +247,7 @@ If bot doesn't see group messages, privacy mode is likely enabled:
 
 Or, use @mentions when sending commands in groups:
 ```
-/help@SynctaclesCareBot
+/help@SynctaclesSupportBot
 ```
 
 ## Issue: Ollama Not Working

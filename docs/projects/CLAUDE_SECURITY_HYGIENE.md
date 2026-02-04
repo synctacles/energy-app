@@ -260,7 +260,7 @@ psql -U care_dev synctacles_dev -c "SELECT COUNT(*), created_at::date FROM suppo
 
 1. **Open BotFather** in Telegram
 2. Send `/mybots`
-3. Select bot (e.g., "SynctaclesCareBot")
+3. Select bot (e.g., "SynctaclesSupportBot")
 4. Select "API Token"
 5. Select "Revoke current token"
 6. **COPY NEW TOKEN IMMEDIATELY**
