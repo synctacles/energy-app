@@ -107,7 +107,7 @@ platform/
 | BRAINS | **PRODUCTION** OpenClaw, KB & Ollama (brains.synctacles.com) | Via `ssh cc-hub "ssh brains '...'"` |
 | MONITOR | Prometheus & Grafana (77.42.41.135) | Via `ssh cc-hub "ssh -i ~/.ssh/id_monitoring monitoring@77.42.41.135 '...'"` |
 
-**Note:** As of 2026-02-04, the Knowledge Base and OpenClaw run exclusively on BRAINS (production). DEV server is used for quick code testing only.
+**Note:** As of 2026-02-04, the Knowledge Base and OpenClaw run exclusively on BRAINS (production). DEV server moltbot services removed (2026-02-04) - all harvest notifications now come directly from BRAINS via corrected import paths.
 
 ### GitHub Account
 - **Bot account**: `synctacles-bot`
