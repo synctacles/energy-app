@@ -235,6 +235,15 @@ The brains server is monitored via:
 - **Logs:** `/opt/openclaw/logs/` (harvest.log)
 - **Setup Scripts:** `/opt/github/synctacles-api/scripts/brains-setup/`
 
+**Version Control (2026-02-04):**
+- **Git Repo:** `/opt/openclaw/harvesters/.git` (initialized 2026-02-04)
+- **Current Branch:** `master`
+- **Latest Commit:** `cab15d5` (docs: add comprehensive README with dev workflow)
+- **Pre-commit Hook:** Python syntax validation (blocks commits with syntax errors)
+- **Workflow:** Feature branches → test → merge to master → rollback if needed
+- **README:** `/opt/openclaw/harvesters/README.md` (dev workflow, rollback procedures)
+- **Note:** Always commit working states before making changes for easy rollback
+
 **Database:**
 - **Name:** `brains_kb`
 - **Schemas:**
