@@ -72,7 +72,7 @@
 Synctacles Platform - Shared infrastructure and services for all Synctacles products (Energy, Care).
 
 **Key Documentation:**
-- [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) - **Official naming standards** for services, databases, directories, APIs
+- [docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md) - **Official naming standards** for services, databases, directories, APIs
 - [docs/PLATFORM_ARCHITECTURE.md](docs/PLATFORM_ARCHITECTURE.md) - Microservices design, authentication flow, adding new products
 
 ## Repository Structure
@@ -102,16 +102,16 @@ platform/
 
 ## Infrastructure
 
-> **Naming Convention:** See [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) for complete naming standards.
+> **Naming Convention:** See [docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md) for complete naming standards.
 
 ### Servers
-| Server | Domain | Purpose | Access |
-|--------|--------|---------|--------|
-| cc-hub | - | Central monitoring hub | Direct (current session) |
-| DEV | dev.synctacles.com | Multi-product development | Via `ssh cc-hub "ssh dev '...'"` |
-| ENERGY-PROD | energy.synctacles.com | Energy API + Auth (production) | Via `ssh cc-hub "ssh energy-prod '...'"` |
-| CARE-PROD | care.synctacles.com | Care/KB Support (production) | Via `ssh cc-hub "ssh care-prod '...'"` |
-| MONITOR | 77.42.41.135 | Prometheus & Grafana | Via `ssh cc-hub "ssh -i ~/.ssh/id_monitoring monitoring@77.42.41.135 '...'"` |
+| Server | Domain | Purpose | SSH Alias | Access |
+|--------|--------|---------|-----------|--------|
+| cc-hub | - | Central monitoring hub | - | Direct (current session) |
+| ENERGY-DEV | dev.synctacles.com | Multi-product development | `synct-dev` | `ssh cc-hub "ssh synct-dev '...'"` |
+| ENERGY-PROD | energy.synctacles.com | Energy API (production) | `energy-prod` | `ssh cc-hub "ssh energy-prod '...'"` |
+| CARE-PROD | care.synctacles.com | Care/KB Support (production) | `brains` | `ssh cc-hub "ssh brains '...'"` |
+| MONITOR | 77.42.41.135 | Prometheus & Grafana | - | `ssh cc-hub "ssh -i ~/.ssh/id_monitoring monitoring@77.42.41.135 '...'"` |
 
 ### Databases per Server
 | Server | Databases |
@@ -182,11 +182,11 @@ Auth service updates require coordination across all products:
 > **Migration Note (2026-02-05):** Server renamed from "BRAINS" to "CARE-PROD". Domain changing from brains.synctacles.com to care.synctacles.com.
 
 **Server Details:**
-- **Hostname:** care.synctacles.com (was: brains.synctacles.com)
+- **Hostname:** care.synctacles.com (DNS pending, currently brains.synctacles.com)
 - **IP:** 173.249.55.109
-- **SSH:** Via cc-hub (`ssh cc-hub "ssh care-prod '...'"`)
-- **User:** `care` (was: `brains`)
-- **Database:** `care_prod` (was: `brains_kb`)
+- **SSH Alias:** `brains` (via cc-hub: `ssh cc-hub "ssh brains '...'"`)
+- **User:** `brains` (system user)
+- **Database:** `brains_kb` (KB schema: `kb.*`)
 - **Purpose:** Knowledge Base support bot + KB harvesters + AI inference
 
 **Architecture (2026-02-05 - PRODUCTION):**
@@ -228,7 +228,7 @@ systemctl status node_exporter
 
 **Service Status Check:**
 ```bash
-ssh cc-hub 'ssh care-prod "systemctl is-active postgresql ollama care-prod-support care-prod-harvest.timer node_exporter"'
+ssh cc-hub 'ssh brains "systemctl is-active postgresql ollama care-prod-support care-prod-harvest.timer node_exporter"'
 ```
 
 **Deployment Strategy:**
@@ -290,43 +290,43 @@ The brains server is monitored via:
 **Common Commands:**
 ```bash
 # Restart Support Bot
-ssh cc-hub 'ssh care-prod "sudo systemctl restart care-prod-support"'
+ssh cc-hub 'ssh brains "sudo systemctl restart care-prod-support"'
 
 # View Support Bot logs
-ssh cc-hub 'ssh care-prod "sudo journalctl -u care-prod-support -f"'
+ssh cc-hub 'ssh brains "sudo journalctl -u care-prod-support -f"'
 
 # Manually trigger harvest
-ssh cc-hub 'ssh care-prod "sudo systemctl start care-prod-harvest"'
+ssh cc-hub 'ssh brains "sudo systemctl start care-prod-harvest"'
 
 # View harvest logs
-ssh cc-hub 'ssh care-prod "sudo journalctl -u care-prod-harvest -f"'
+ssh cc-hub 'ssh brains "sudo journalctl -u care-prod-harvest -f"'
 
 # Database access (as admin)
-ssh cc-hub 'ssh care-prod "sudo -u postgres psql -d care_prod"'
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d care_prod"'
 
 # Check KB statistics
-ssh cc-hub 'ssh care-prod "sudo -u postgres psql -d care_prod -c \"SELECT COUNT(*) FROM kb.knowledge_base WHERE is_active = true;\""'
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d care_prod -c \"SELECT COUNT(*) FROM kb.knowledge_base WHERE is_active = true;\""'
 
 # Test Ollama models
-ssh cc-hub 'ssh care-prod "ollama list"'
+ssh cc-hub 'ssh brains "ollama list"'
 
 # Check all service status
-ssh cc-hub 'ssh care-prod "systemctl status care-prod-support care-prod-harvest.timer postgresql ollama --no-pager"'
+ssh cc-hub 'ssh brains "systemctl status care-prod-support care-prod-harvest.timer postgresql ollama --no-pager"'
 ```
 
 **Troubleshooting:**
 ```bash
 # Check harvest state
-ssh cc-hub 'ssh care-prod "sudo -u postgres psql -d care_prod -c \"SELECT * FROM public.harvest_state;\""'
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d care_prod -c \"SELECT * FROM public.harvest_state;\""'
 
 # Test Telegram bot token
-ssh cc-hub 'ssh care-prod "curl -s https://api.telegram.org/bot\$(grep TELEGRAM_BOT_TOKEN_SUPPORT /opt/care-prod/.env | cut -d= -f2)/getMe | jq"'
+ssh cc-hub 'ssh brains "curl -s https://api.telegram.org/bot\$(grep TELEGRAM_BOT_TOKEN_SUPPORT /opt/care-prod/.env | cut -d= -f2)/getMe | jq"'
 
 # Verify database permissions
-ssh cc-hub 'ssh care-prod "sudo -u postgres psql -d care_prod -c \"\\du care\""'
+ssh cc-hub 'ssh brains "sudo -u postgres psql -d care_prod -c \"\\du care\""'
 
 # Check service resource usage
-ssh cc-hub 'ssh care-prod "systemctl status care-prod-support --no-pager | grep -E '\''Memory|CPU'\''"'
+ssh cc-hub 'ssh brains "systemctl status care-prod-support --no-pager | grep -E '\''Memory|CPU'\''"'
 ```
 
 **SSH Key:**
@@ -355,7 +355,7 @@ GitHub Actions runs on every push:
 GitHub Project: [DEV Infrastructure Overhaul](https://github.com/orgs/synctacles/projects/6)
 
 **Naming Convention Migration:**
-- ✅ Naming convention documented ([docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md))
+- ✅ Naming convention documented ([docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md))
 - 🚧 DEV server migration (Energy/Care/Auth databases)
 - 🚧 ENERGY-PROD server migration (was: PROD)
 - 🚧 CARE-PROD server migration (was: BRAINS)
