@@ -186,14 +186,14 @@ Auth service updates require coordination across all products:
 - **IP:** 173.249.55.109
 - **SSH Alias:** `brains` (via cc-hub: `ssh cc-hub "ssh brains '...'"`)
 - **User:** `brains` (system user)
-- **Database:** `brains_kb` (KB schema: `kb.*`)
+- **Database:** `care_prod` (schema: `kb.*`, `public.*`)
 - **Purpose:** Knowledge Base support bot + KB harvesters + AI inference
 
 **Architecture (2026-02-05 - PRODUCTION):**
 The Care product runs on CARE-PROD as a single production environment:
 - **Support Bot:** Python Telegram bot for HA community support (@SynctaclesSupportBot)
 - **KB Harvesters:** Automated scanners for GitHub, Forums, Reddit, StackOverflow
-- **Knowledge Base:** PostgreSQL 16 database with pgvector extension (17,297+ active entries)
+- **Knowledge Base:** PostgreSQL 16 database with pgvector extension (17,748+ active entries)
 - **Ollama:** Local LLM inference for KB query processing
 - **MCP Server:** KB search tool (Node.js) for OpenClaw agents
 - **No separate DEV environment:** Direct production deployment with automated backups
@@ -272,7 +272,7 @@ The brains server is monitored via:
 - **Admin User:** `care` (was: `brains_admin`)
 - **Connection:** `postgresql://care:***@localhost:5432/care_prod?sslmode=disable`
 - **Search Path:** `kb, public` (set at database level)
-- **Data:** 17,297 active KB entries, 24 categories, avg confidence 0.78
+- **Data:** 17,748+ active KB entries (growing daily via harvesters)
 
 **Telegram Bot:**
 - **Username:** @SynctaclesSupportBot
@@ -358,7 +358,7 @@ GitHub Project: [DEV Infrastructure Overhaul](https://github.com/orgs/synctacles
 - ✅ Naming convention documented ([docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md))
 - 🚧 DEV server migration (Energy/Care/Auth databases)
 - 🚧 ENERGY-PROD server migration (was: PROD)
-- 🚧 CARE-PROD server migration (was: BRAINS)
+- ✅ CARE-PROD database migrated (`brains_kb` → `care_prod`)
 
 **Server Renames:**
 | Old | New | Status |
