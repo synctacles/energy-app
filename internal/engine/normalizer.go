@@ -58,6 +58,7 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 
 	// Apply tax profile: wholesale → consumer
 	p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
+	p.IsConsumer = true
 	return p
 }
 

@@ -26,6 +26,7 @@ options:
   enever_leverancier: "frank"
   coefficient: 0
   power_sensor: ""
+  synctacles_url: ""
   debug_mode: false
 schema:
   zone: str
@@ -38,4 +39,5 @@ schema:
   enever_token: "str?"
   enever_leverancier: "str?"
   power_sensor: "str?"
+  synctacles_url: "str?"
   debug_mode: bool

@@ -88,6 +88,68 @@ func (c *zoneCache) Get(zone string) *zoneCacheEntry {
 	return c.entries[zone]
 }
 
+// completeness checks how many zones have full today/tomorrow data.
+func (c *zoneCache) completeness(zones []string) (todayComplete, tomorrowComplete int) {
+	now := time.Now().UTC()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	tomorrow := today.Add(24 * time.Hour)
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	for _, zone := range zones {
+		entry := c.entries[zone]
+		if entry == nil {
+			continue
+		}
+		th := countHoursInDay(entry.prices, today)
+		mh := countHoursInDay(entry.prices, tomorrow)
+		if th >= 23 {
+			todayComplete++
+		}
+		if mh >= 12 {
+			tomorrowComplete++
+		}
+	}
+	return
+}
+
+// incompleteZones returns zones that are missing today or tomorrow data.
+func (c *zoneCache) incompleteZones(zones []string) []string {
+	now := time.Now().UTC()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	tomorrow := today.Add(24 * time.Hour)
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var incomplete []string
+	for _, zone := range zones {
+		entry := c.entries[zone]
+		if entry == nil {
+			incomplete = append(incomplete, zone)
+			continue
+		}
+		th := countHoursInDay(entry.prices, today)
+		mh := countHoursInDay(entry.prices, tomorrow)
+		if th < 23 || mh < 12 {
+			incomplete = append(incomplete, zone)
+		}
+	}
+	return incomplete
+}
+
+func countHoursInDay(prices []models.HourlyPrice, dayStart time.Time) int {
+	dayEnd := dayStart.Add(24 * time.Hour)
+	count := 0
+	for _, p := range prices {
+		if !p.Timestamp.Before(dayStart) && p.Timestamp.Before(dayEnd) {
+			count++
+		}
+	}
+	return count
+}
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -193,86 +255,141 @@ func main() {
 	slog.Info("energy-server stopped")
 }
 
-// runCollectorLoop fetches prices for all zones every 15 minutes.
+// runCollectorLoop uses adaptive polling: fast when data is incomplete, slow when full.
+//
+// Intervals:
+//   - Cache empty/incomplete:   2 min (fill fast after start/restart)
+//   - Today full, no tomorrow:  30 min (or 15 min after 13:00 CET when ENTSO-E publishes)
+//   - Today + tomorrow full:    6 hours (nothing changes, just a health check)
+//   - Failed zones:             30s quick retry (once, then wait for next cycle)
 func runCollectorLoop(ctx context.Context, zones []string, fallbacks map[string]*engine.FallbackManager, normalizers map[string]*engine.Normalizer, pgStore *store.PostgresStore, cache *zoneCache) {
-	// Initial fetch
-	fetchAllZones(ctx, zones, fallbacks, normalizers, cache)
+	// Initial fetch — all zones
+	failed := fetchZones(ctx, zones, fallbacks, normalizers, cache)
 
-	ticker := time.NewTicker(15 * time.Minute)
-	defer ticker.Stop()
-
-	for {
+	// Quick retry for any zones that failed on first attempt
+	if len(failed) > 0 {
+		slog.Info("retrying failed zones", "count", len(failed))
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			fetchAllZones(ctx, zones, fallbacks, normalizers, cache)
+		case <-time.After(30 * time.Second):
+			fetchZones(ctx, failed, fallbacks, normalizers, cache)
+		}
+	}
+
+	for {
+		interval, reason := nextInterval(cache, zones)
+		slog.Info("next fetch scheduled", "interval", interval, "reason", reason)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
+
+		// Determine which zones need fetching
+		target := cache.incompleteZones(zones)
+		if len(target) == 0 {
+			// All complete — do a full refresh as health check
+			target = zones
+		}
+
+		failed = fetchZones(ctx, target, fallbacks, normalizers, cache)
+
+		// Quick retry for failed zones (once)
+		if len(failed) > 0 {
+			slog.Info("retrying failed zones", "count", len(failed))
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(30 * time.Second):
+				fetchZones(ctx, failed, fallbacks, normalizers, cache)
+			}
 		}
 	}
 }
 
-// fetchAllZones fetches prices for all zones concurrently.
-func fetchAllZones(ctx context.Context, zones []string, fallbacks map[string]*engine.FallbackManager, normalizers map[string]*engine.Normalizer, cache *zoneCache) {
-	slog.Info("fetching all zones", "count", len(zones))
+// nextInterval determines the polling interval based on cache completeness.
+func nextInterval(cache *zoneCache, zones []string) (time.Duration, string) {
+	total := len(zones)
+	todayOK, tomorrowOK := cache.completeness(zones)
+
+	// Less than 80% of zones have today's data → fill fast
+	if todayOK < total*80/100 {
+		return 2 * time.Minute, fmt.Sprintf("today incomplete (%d/%d)", todayOK, total)
+	}
+
+	// Today mostly complete, but tomorrow is missing
+	if tomorrowOK < total*80/100 {
+		// After 13:00 CET (ENTSO-E publication window) → poll more aggressively
+		cet := time.FixedZone("CET", 3600)
+		if time.Now().In(cet).Hour() >= 13 {
+			return 15 * time.Minute, fmt.Sprintf("awaiting tomorrow prices (%d/%d, post-13h CET)", tomorrowOK, total)
+		}
+		return 30 * time.Minute, fmt.Sprintf("awaiting tomorrow prices (%d/%d)", tomorrowOK, total)
+	}
+
+	// Everything complete → slow health check
+	return 6 * time.Hour, fmt.Sprintf("all complete (today=%d/%d, tomorrow=%d/%d)", todayOK, total, tomorrowOK, total)
+}
+
+// fetchZones fetches prices for the given zones sequentially with staggered
+// delays between requests to the same source. Returns zones that failed.
+func fetchZones(ctx context.Context, zones []string, fallbacks map[string]*engine.FallbackManager, normalizers map[string]*engine.Normalizer, cache *zoneCache) []string {
+	slog.Info("fetching zones", "count", len(zones))
 	start := time.Now()
 	now := time.Now().UTC()
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var successCount, failCount int
+	var failed []string
+	var successCount int
 
-	// Limit concurrency to avoid overwhelming APIs
-	sem := make(chan struct{}, 5)
+	for i, zone := range zones {
+		if ctx.Err() != nil {
+			break
+		}
 
-	for _, zone := range zones {
 		fb, ok := fallbacks[zone]
 		if !ok {
 			continue
 		}
 		norm := normalizers[zone]
 
-		wg.Add(1)
-		go func(zone string, fb *engine.FallbackManager, norm *engine.Normalizer) {
-			defer wg.Done()
-			sem <- struct{}{}        // acquire
-			defer func() { <-sem }() // release
+		// Stagger: 200ms between zones to spread load across sources
+		if i > 0 {
+			time.Sleep(200 * time.Millisecond)
+		}
 
-			// Fetch today + tomorrow
-			todayResult, err := fb.Fetch(ctx, zone, now)
-			if err != nil {
-				slog.Warn("fetch failed", "zone", zone, "error", err)
-				mu.Lock()
-				failCount++
-				mu.Unlock()
-				return
-			}
+		// Fetch today
+		todayResult, err := fb.Fetch(ctx, zone, now)
+		if err != nil {
+			slog.Warn("fetch failed", "zone", zone, "error", err)
+			failed = append(failed, zone)
+			continue
+		}
 
-			tomorrow := now.Add(24 * time.Hour)
-			tomorrowResult, _ := fb.Fetch(ctx, zone, tomorrow) // Tomorrow may not be available yet
+		// Fetch tomorrow (may not be available yet — that's OK)
+		tomorrow := now.Add(24 * time.Hour)
+		tomorrowResult, _ := fb.Fetch(ctx, zone, tomorrow)
 
-			// Normalize to consumer prices
-			allPrices := norm.ToConsumer(todayResult.Prices)
-			if tomorrowResult != nil {
-				allPrices = append(allPrices, norm.ToConsumer(tomorrowResult.Prices)...)
-			}
+		// Normalize to consumer prices
+		allPrices := norm.ToConsumer(todayResult.Prices)
+		if tomorrowResult != nil {
+			allPrices = append(allPrices, norm.ToConsumer(tomorrowResult.Prices)...)
+		}
 
-			// Update in-memory cache
-			cache.Set(zone, allPrices, todayResult.Source, todayResult.Quality)
+		// Update in-memory cache
+		cache.Set(zone, allPrices, todayResult.Source, todayResult.Quality)
+		successCount++
 
-			mu.Lock()
-			successCount++
-			mu.Unlock()
-
-			slog.Debug("zone fetched", "zone", zone, "source", todayResult.Source, "prices", len(allPrices))
-		}(zone, fb, norm)
+		slog.Debug("zone fetched", "zone", zone, "source", todayResult.Source, "prices", len(allPrices))
 	}
 
-	wg.Wait()
 	slog.Info("fetch cycle complete",
 		"success", successCount,
-		"failed", failCount,
+		"failed", len(failed),
 		"duration", time.Since(start).Round(time.Millisecond),
 	)
+	return failed
 }
 
 // --- API Handlers ---
