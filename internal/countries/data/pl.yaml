@@ -1,0 +1,19 @@
+country: PL
+name: Poland
+currency: PLN
+zones:
+  - code: "PL"
+    eic: "10YPL-AREA-----S"
+    name: "Poland"
+    country: "PL"
+    timezone: "Europe/Warsaw"
+tax_profile:
+  vat_rate: 0.23
+  coefficient: 1.0
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.00116
+  surcharges: 0.00249  # RES fee 7.3 PLN/MWh + cogeneration 3 PLN/MWh ÷ 4.15
+sources:
+  - name: energycharts
+    priority: 1

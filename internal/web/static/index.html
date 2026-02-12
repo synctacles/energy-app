@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synctacles Energy</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --bg-card: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #666;
+            --text-faint: #888;
+            --border: #e5e7eb;
+            --shadow: rgba(0,0,0,0.08);
+            --shadow-hover: rgba(0,0,0,0.12);
+            --accent: #1a73e8;
+            --spinner-track: #e5e7eb;
+            --input-bg: #f9fafb;
+            --input-border: #d1d5db;
+        }
+        .dark {
+            --bg: #111418;
+            --bg-card: #1e2128;
+            --text: #e4e6ea;
+            --text-muted: #9ca3af;
+            --text-faint: #6b7280;
+            --border: #2d3139;
+            --shadow: rgba(0,0,0,0.3);
+            --shadow-hover: rgba(0,0,0,0.4);
+            --accent: #4a9eff;
+            --spinner-track: #374151;
+            --input-bg: #282c34;
+            --input-border: #3d4250;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg); color: var(--text); padding: 16px;
+            transition: background 0.3s, color 0.3s;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* Header */
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .header-logo { height: 28px; width: auto; }
+        .header .meta { font-size: 0.75em; color: var(--text-faint); }
+        .theme-toggle {
+            background: none; border: 1px solid var(--border); border-radius: 8px;
+            cursor: pointer; padding: 6px 8px; font-size: 1.1em; color: var(--text-muted);
+            transition: background 0.2s;
+        }
+        .theme-toggle:hover { background: var(--bg-card); }
+
+        /* Source bar */
+        .source-bar {
+            display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+            padding: 6px 0; margin-bottom: 8px; font-size: 0.72em; color: var(--text-faint);
+        }
+        .source-item { display: flex; align-items: center; gap: 4px; }
+        .source-dot {
+            width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+        }
+        .source-dot.healthy { background: #22c55e; }
+        .source-dot.unhealthy { background: #ef4444; }
+        .source-dot.unknown { background: #9ca3af; }
+        .source-name { color: var(--text-muted); }
+        .source-name.active { color: var(--accent); font-weight: 600; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .tab {
+            padding: 8px 16px; cursor: pointer; font-size: 0.85em; font-weight: 500;
+            color: var(--text-muted); border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* Dashboard Grid — 3 columns */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .card {
+            background: var(--bg-card); border-radius: 12px; padding: 16px;
+            box-shadow: 0 1px 3px var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-1px); box-shadow: 0 2px 8px var(--shadow-hover); }
+        .card-label { font-size: 0.75em; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .card-value { font-size: 1.8em; font-weight: 700; }
+        .card-sub { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
+
+        .action-go { color: #0d9488; }
+        .action-wait { color: #d97706; }
+        .action-avoid { color: #dc2626; }
+        .action-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: 0.7em; font-weight: 600; margin-top: 4px;
+        }
+        .badge-go { background: #d1fae5; color: #065f46; }
+        .badge-wait { background: #fef3c7; color: #92400e; }
+        .badge-avoid { background: #fee2e2; color: #991b1b; }
+        .dark .badge-go { background: #064e3b; color: #6ee7b7; }
+        .dark .badge-wait { background: #78350f; color: #fcd34d; }
+        .dark .badge-avoid { background: #7f1d1d; color: #fca5a5; }
+
+        .chart-card { grid-column: 1 / -1; }
+        .chart-container { position: relative; height: 200px; margin-top: 8px; }
+        canvas { width: 100% !important; height: 100% !important; }
+
+        .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+        .stat { text-align: center; flex: 1; min-width: 80px; }
+        .stat-val { font-size: 1.1em; font-weight: 600; }
+        .stat-label { font-size: 0.7em; color: var(--text-faint); }
+
+        /* Settings */
+        .settings-section { margin-bottom: 24px; }
+        .settings-section h3 {
+            font-size: 0.9em; color: var(--accent); margin-bottom: 12px;
+            padding-bottom: 6px; border-bottom: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 0.8em; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+        .form-input, .form-select {
+            width: 100%; padding: 8px 12px; border: 1px solid var(--input-border);
+            border-radius: 8px; font-size: 0.85em; background: var(--input-bg); color: var(--text);
+            transition: border-color 0.2s;
+        }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); }
+        .form-input::placeholder { color: var(--text-faint); }
+        .form-hint { font-size: 0.72em; color: var(--text-faint); margin-top: 3px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        .toggle {
+            position: relative; width: 44px; height: 24px; background: var(--input-border);
+            border-radius: 12px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+        }
+        .toggle.on { background: var(--accent); }
+        .toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 20px; height: 20px; background: white; border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle.on::after { transform: translateX(20px); }
+        .btn-save {
+            background: var(--accent); color: white; border: none; padding: 10px 24px;
+            border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-save:disabled { opacity: 0.5; cursor: default; }
+        .save-status { font-size: 0.8em; color: #0d9488; margin-left: 12px; }
+        .save-row { display: flex; align-items: center; margin-top: 16px; }
+
+        /* License badge */
+        .license-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 600;
+        }
+        .license-free { background: #e5e7eb; color: #374151; }
+        .license-pro { background: #dbeafe; color: #1d4ed8; }
+        .dark .license-free { background: #374151; color: #d1d5db; }
+        .dark .license-pro { background: #1e3a5f; color: #93c5fd; }
+
+        .loading { text-align: center; padding: 40px; color: var(--text-faint); }
+        .loading .spinner {
+            width: 32px; height: 32px; border: 3px solid var(--spinner-track);
+            border-top: 3px solid var(--accent); border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .tab-page { display: none; }
+        .tab-page.active { display: block; }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+            .card-value { font-size: 1.4em; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img class="header-logo" id="headerLogo" src="static/logo-full-light.png" alt="Synctacles Energy">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <div class="meta" id="meta">Loading...</div>
+                <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">&#9789;</button>
+            </div>
+        </div>
+
+        <div class="source-bar" id="sourceBar"></div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="dashboard">Dashboard</div>
+            <div class="tab" data-tab="settings">Settings</div>
+        </div>
+
+        <div id="page-dashboard" class="tab-page active">
+            <div id="content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Fetching energy prices...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-settings" class="tab-page">
+            <div id="settingsContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading settings...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- Theme ---
+    var isDark = localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    function applyTheme() {
+        document.body.classList.toggle('dark', isDark);
+        var logo = document.getElementById('headerLogo');
+        if (logo) logo.src = isDark ? 'static/logo-full-dark.jpg' : 'static/logo-full-light.png';
+        document.getElementById('themeToggle').innerHTML = isDark ? '&#9788;' : '&#9789;';
+    }
+    applyTheme();
+
+    document.getElementById('themeToggle').onclick = function() {
+        isDark = !isDark;
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        applyTheme();
+        if (lastPrices) drawChart(lastPrices, lastAvg);
+    };
+
+    // --- Source Health ---
+    var sourceNames = {
+        'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'Energy-Charts',
+        'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
+        'spothinta': 'spot-hinta.fi', 'enever': 'Enever'
+    };
+
+    var supplierNames = {
+        'anwb': 'ANWB', 'budget': 'Budget', 'coolblue': 'Coolblue', 'easyenergy': 'EasyEnergy',
+        'energiedirect': 'Energie Direct', 'energievanons': 'Energie van Ons', 'energiek': 'Energiek',
+        'energyzero': 'EnergyZero', 'essent': 'Essent', 'frank': 'Frank', 'groenestroom': 'Groene Stroom',
+        'hegg': 'Hegg', 'innova': 'Innova', 'mijndomein': 'Mijn Domein', 'nextenergy': 'NextEnergy',
+        'pureenergie': 'Pure Energie', 'quatt': 'Quatt', 'samsam': 'SamSam', 'tibber': 'Tibber',
+        'vandebron': 'Vandebron', 'vattenfall': 'Vattenfall', 'vrijopnaam': 'Vrij op naam',
+        'wout': 'Wout', 'zonneplan': 'Zonneplan'
+    };
+
+    async function loadSources() {
+        try {
+            var resp = await fetch('api/sources');
+            var d = await resp.json();
+            if (!d.sources || d.sources.length === 0) {
+                document.getElementById('sourceBar').innerHTML = '';
+                return;
+            }
+            var html = '<span style="font-weight:500">Sources:</span>';
+            d.sources.forEach(function(s) {
+                var cls = s.healthy ? 'healthy' : 'unhealthy';
+                var nameCls = s.active ? 'source-name active' : 'source-name';
+                var label = sourceNames[s.name] || s.name;
+                // Show leverancier in parentheses for Enever
+                if (s.name === 'enever' && d.leverancier) {
+                    label += ' (' + (supplierNames[d.leverancier] || d.leverancier) + ')';
+                }
+                if (s.active) label += ' (active)';
+                html += '<span class="source-item"><span class="source-dot ' + cls + '"></span><span class="' + nameCls + '">' + label + '</span></span>';
+            });
+            document.getElementById('sourceBar').innerHTML = html;
+        } catch (e) { /* ignore */ }
+    }
+    loadSources();
+    setInterval(loadSources, 60000);
+
+    // --- Tabs ---
+    var tabs = document.querySelectorAll('.tab');
+    tabs.forEach(function(tab) {
+        tab.onclick = function() {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            document.querySelectorAll('.tab-page').forEach(function(p) { p.classList.remove('active'); });
+            document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
+            if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
+        };
+    });
+
+    // --- Dashboard ---
+    var lastPrices = null, lastAvg = 0;
+    function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
+
+    async function loadDashboard() {
+        try {
+            var resp = await fetch('api/dashboard');
+            var d = await resp.json();
+
+            if (d.status === 'waiting') {
+                document.getElementById('content').innerHTML =
+                    '<div class="loading"><div class="spinner"></div>' +
+                    '<p>Waiting for first price update...</p>' +
+                    '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">Zone: ' + d.zone + ' | ' + d.version + '</p></div>';
+                setTimeout(loadDashboard, 5000);
+                return;
+            }
+
+            var action = (d.action && d.action.action) || 'WAIT';
+            var actionClass = action.toLowerCase();
+            var price = (d.current_price && d.current_price.price) || '0';
+            var priceCent = formatPrice(price);
+            var sourceName = sourceNames[(d.current_price && d.current_price.source)] || ((d.current_price && d.current_price.source) || '?');
+            if (d.current_price && d.current_price.source === 'enever' && d.current_price.leverancier) {
+                sourceName += ' (' + (supplierNames[d.current_price.leverancier] || d.current_price.leverancier) + ')';
+            }
+
+            document.getElementById('meta').textContent =
+                d.zone + ' | ' + d.quality + ' | ' + sourceName + ' | v' + d.version;
+
+            var bwHtml = '';
+            if (d.best_window) {
+                bwHtml = '<div class="card">' +
+                    '<div class="card-label">Best Window</div>' +
+                    '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
+                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ct/kWh avg | ' + d.best_window.duration + 'h</div></div>';
+            }
+
+            var tomorrowHtml = '';
+            var ts = d.tomorrow && d.tomorrow.status;
+            if (ts && ts !== 'PENDING') {
+                var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
+                tomorrowHtml = '<div class="card">' +
+                    '<div class="card-label">Tomorrow</div>' +
+                    '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + ts + '</div>' +
+                    '<div class="card-sub">' + d.tomorrow.hours + ' hours | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ct avg' : 'pending') + '</div></div>';
+            }
+
+            var deviationText = '';
+            if (d.action && d.action.deviation) {
+                var dev = d.action.deviation;
+                deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% vs avg';
+            }
+
+            document.getElementById('content').innerHTML =
+                '<div class="grid">' +
+                    '<div class="card">' +
+                        '<div class="card-label">Current Price</div>' +
+                        '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ct/kWh</span></div>' +
+                        '<div class="card-sub">Avg: ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
+                    '</div>' +
+                    '<div class="card">' +
+                        '<div class="card-label">Action</div>' +
+                        '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
+                        '<div class="card-sub">' + ((d.action && d.action.reason) || '') + '</div>' +
+                        '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
+                    '</div>' +
+                    '<div class="card">' +
+                        '<div class="card-label">Cheapest</div>' +
+                        '<div class="card-value" style="font-size:1.3em;color:#0d9488">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ct/kWh</div>' +
+                    '</div>' +
+                    '<div class="card">' +
+                        '<div class="card-label">Expensive</div>' +
+                        '<div class="card-value" style="font-size:1.3em;color:#dc2626">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ct/kWh</div>' +
+                    '</div>' +
+                    bwHtml +
+                    tomorrowHtml +
+                '</div>' +
+                '<div class="card chart-card">' +
+                    '<div class="card-label">Today\'s Prices (ct/kWh)</div>' +
+                    '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
+                    '<div class="stats-row">' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">Min</div></div>' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.average) || 0) + '</div><div class="stat-label">Avg</div></div>' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.max) || 0) + '</div><div class="stat-label">Max</div></div>' +
+                    '</div>' +
+                '</div>';
+
+            if (d.prices_today && d.prices_today.length > 0) {
+                lastPrices = d.prices_today;
+                lastAvg = (d.stats && d.stats.average) || 0;
+                drawChart(lastPrices, lastAvg);
+            }
+
+            setTimeout(loadDashboard, 60000);
+        } catch (err) {
+            document.getElementById('content').innerHTML =
+                '<div class="loading">' +
+                '<p style="color:#dc2626">Connection error</p>' +
+                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">Retrying in 10s...</p></div>';
+            setTimeout(loadDashboard, 10000);
+        }
+    }
+
+    function drawChart(prices, avg) {
+        var canvas = document.getElementById('priceChart');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+
+        var rect = canvas.parentElement.getBoundingClientRect();
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        var W = rect.width, H = rect.height;
+
+        var vals = prices.map(function(p) { return p.price * 100; });
+        var hours = prices.map(function(p) { return p.hour; });
+        var avgCent = avg * 100;
+        var minV = Math.min.apply(null, vals) * 0.9;
+        var maxV = Math.max.apply(null, vals) * 1.1;
+        var range = maxV - minV || 1;
+
+        var pad = { top: 10, right: 10, bottom: 24, left: 36 };
+        var cW = W - pad.left - pad.right;
+        var cH = H - pad.top - pad.bottom;
+        var barW = cW / vals.length;
+
+        ctx.clearRect(0, 0, W, H);
+
+        var now = new Date();
+        var currentHour = String(now.getUTCHours()).padStart(2, '0') + ':00';
+
+        var dark = isDark;
+        var avgLineColor = dark ? '#6b7280' : '#9ca3af';
+        var labelColor = dark ? '#9ca3af' : '#888';
+        var barNormal = dark ? '#3b82f6' : '#93c5fd';
+        var barCurrent = dark ? '#4a9eff' : '#1a73e8';
+        var barBelow = dark ? '#34d399' : '#6ee7b7';
+        var barAbove = dark ? '#f87171' : '#fca5a5';
+
+        // Average line
+        var avgY = pad.top + cH - ((avgCent - minV) / range) * cH;
+        ctx.strokeStyle = avgLineColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, avgY);
+        ctx.lineTo(W - pad.right, avgY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = avgLineColor;
+        ctx.font = '10px sans-serif';
+        ctx.fillText('avg', pad.left + 2, avgY - 3);
+
+        // Bars
+        for (var i = 0; i < vals.length; i++) {
+            var x = pad.left + i * barW + 1;
+            var h = ((vals[i] - minV) / range) * cH;
+            var y = pad.top + cH - h;
+            var w = barW - 2;
+
+            var isCurrent = hours[i] === currentHour;
+            var isBelow = vals[i] <= avgCent * 0.85;
+            var isAbove = vals[i] >= avgCent * 1.20;
+
+            if (isCurrent) {
+                ctx.fillStyle = barCurrent;
+            } else if (isBelow) {
+                ctx.fillStyle = barBelow;
+            } else if (isAbove) {
+                ctx.fillStyle = barAbove;
+            } else {
+                ctx.fillStyle = barNormal;
+            }
+
+            ctx.fillRect(x, y, w, h);
+
+            if (i % 3 === 0) {
+                ctx.fillStyle = labelColor;
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(hours[i], x + w / 2, H - 4);
+            }
+        }
+
+        // Y-axis labels
+        ctx.fillStyle = labelColor;
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(maxV.toFixed(0), pad.left - 4, pad.top + 10);
+        ctx.fillText(minV.toFixed(0), pad.left - 4, H - pad.bottom);
+    }
+
+    // --- Settings ---
+    var settingsLoaded = false;
+    var currentConfig = {};
+
+    async function loadSettings() {
+        try {
+            var resp = await fetch('api/config');
+            currentConfig = await resp.json();
+            settingsLoaded = true;
+            renderSettings();
+        } catch (err) {
+            document.getElementById('settingsContent').innerHTML =
+                '<div class="loading"><p style="color:#dc2626">Failed to load settings</p></div>';
+        }
+    }
+
+    function renderSettings() {
+        var c = currentConfig;
+        var licenseBadge = c.has_license
+            ? '<span class="license-badge license-pro">PRO</span>'
+            : '<span class="license-badge license-free">FREE</span>';
+
+        document.getElementById('settingsContent').innerHTML =
+            '<div class="settings-section">' +
+                '<h3>License ' + licenseBadge + '</h3>' +
+                '<div class="form-group">' +
+                    '<label class="form-label">License Key</label>' +
+                    '<input class="form-input" id="cfg-license" type="text" placeholder="pro_xxxx..." value="' + esc(c.license_key || '') + '">' +
+                    '<div class="form-hint">Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="settings-section">' +
+                '<h3>Enever (NL only)</h3>' +
+                '<div class="form-hint" style="margin-bottom:12px">' +
+                    '<a href="https://enever.nl" target="_blank" style="color:var(--accent)">Enever</a> is a Dutch price comparison service that provides real-time all-in consumer prices for your energy supplier. ' +
+                    'It is not an energy supplier itself &mdash; it aggregates pricing data from 24 Dutch suppliers including VAT, energy tax, ODE levy, and supplier-specific markup.' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<div class="toggle-row">' +
+                        '<div><span class="form-label" style="margin:0">Enable Enever</span>' +
+                        '<div class="form-hint" style="margin-top:2px">Replaces calculated wholesale+tax prices with exact supplier prices from Enever</div></div>' +
+                        '<div class="toggle' + (c.enever_enabled ? ' on' : '') + '" id="cfg-enever-toggle"></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="enever-fields" style="' + (c.enever_enabled ? '' : 'display:none') + '">' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">Enever API Token</label>' +
+                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="Your Enever API key" value="' + esc(c.enever_token || '') + '">' +
+                        '<div class="form-hint">Get your free token at <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> &mdash; Free tier: max 250 API calls/month (addon uses ~3/day). ' +
+                        '<a href="https://enever.nl/supporter" target="_blank" style="color:var(--accent)">Become a supporter</a> for higher rate limits.</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">Your Energy Supplier</label>' +
+                        '<select class="form-select" id="cfg-enever-lev">' +
+                            levOptions(c.enever_leverancier || 'frank') +
+                        '</select>' +
+                        '<div class="form-hint">Select your energy supplier &mdash; Enever will return prices specific to this supplier\'s rates and markups</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="settings-section">' +
+                '<h3>Zone & Thresholds</h3>' +
+                '<div class="form-row">' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">Bidding Zone</label>' +
+                        '<input class="form-input" id="cfg-zone" type="text" value="' + esc(c.zone || 'NL') + '">' +
+                        '<div class="form-hint">e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">Coefficient</label>' +
+                        '<input class="form-input" id="cfg-coeff" type="number" step="0.01" value="' + (c.coefficient || 0) + '">' +
+                        '<div class="form-hint">0 = country default. e.g. 1.05 = 5% markup</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-row">' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">GO Threshold (%)</label>' +
+                        '<input class="form-input" id="cfg-go" type="number" step="1" value="' + (c.go_threshold || -15) + '">' +
+                        '<div class="form-hint">Below average % to recommend GO</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">AVOID Threshold (%)</label>' +
+                        '<input class="form-input" id="cfg-avoid" type="number" step="1" value="' + (c.avoid_threshold || 20) + '">' +
+                        '<div class="form-hint">Above average % to recommend AVOID</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="settings-section">' +
+                '<h3>Advanced</h3>' +
+                '<div class="form-group">' +
+                    '<label class="form-label">Power Sensor Entity</label>' +
+                    '<input class="form-input" id="cfg-power" type="text" placeholder="sensor.power_consumption" value="' + esc(c.power_sensor || '') + '">' +
+                    '<div class="form-hint">Optional HA entity for live cost calculation (Pro only)</div>' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<div class="toggle-row">' +
+                        '<span class="form-label" style="margin:0">Debug Mode</span>' +
+                        '<div class="toggle' + (c.debug_mode ? ' on' : '') + '" id="cfg-debug-toggle"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="save-row">' +
+                '<button class="btn-save" id="btnSave">Save Settings</button>' +
+                '<span class="save-status" id="saveStatus"></span>' +
+            '</div>';
+
+        // Bind events
+        document.getElementById('cfg-enever-toggle').onclick = function() {
+            this.classList.toggle('on');
+            document.getElementById('enever-fields').style.display = this.classList.contains('on') ? '' : 'none';
+        };
+        document.getElementById('cfg-debug-toggle').onclick = function() {
+            this.classList.toggle('on');
+        };
+        document.getElementById('btnSave').onclick = saveSettings;
+    }
+
+    function levOptions(current) {
+        var suppliers = [
+            ['anwb', 'ANWB Energie'],
+            ['budget', 'Budget Energie'],
+            ['coolblue', 'Coolblue Energie'],
+            ['easyenergy', 'EasyEnergy'],
+            ['energiedirect', 'Energie Direct'],
+            ['energievanons', 'Energie van Ons'],
+            ['energiek', 'Energiek'],
+            ['energyzero', 'EnergyZero'],
+            ['essent', 'Essent'],
+            ['frank', 'Frank Energie'],
+            ['groenestroom', 'Groene Stroom Lokaal'],
+            ['hegg', 'Hegg'],
+            ['innova', 'Innova Energie'],
+            ['mijndomein', 'Mijn Domein Energie'],
+            ['nextenergy', 'NextEnergy'],
+            ['pureenergie', 'Pure Energie'],
+            ['quatt', 'Quatt'],
+            ['samsam', 'SamSam'],
+            ['tibber', 'Tibber'],
+            ['vandebron', 'Vandebron'],
+            ['vattenfall', 'Vattenfall'],
+            ['vrijopnaam', 'Vrij op naam'],
+            ['wout', 'Wout Energie'],
+            ['zonneplan', 'Zonneplan']
+        ];
+        return suppliers.map(function(s) {
+            return '<option value="' + s[0] + '"' + (s[0] === current ? ' selected' : '') + '>' + s[1] + '</option>';
+        }).join('');
+    }
+
+    function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+    async function saveSettings() {
+        var btn = document.getElementById('btnSave');
+        var status = document.getElementById('saveStatus');
+        btn.disabled = true;
+        status.textContent = 'Saving...';
+        status.style.color = 'var(--text-muted)';
+
+        var payload = {
+            zone: document.getElementById('cfg-zone').value,
+            go_threshold: parseFloat(document.getElementById('cfg-go').value),
+            avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
+            coefficient: parseFloat(document.getElementById('cfg-coeff').value) || 0,
+            license_key: document.getElementById('cfg-license').value.trim(),
+            enever_enabled: document.getElementById('cfg-enever-toggle').classList.contains('on'),
+            enever_token: document.getElementById('cfg-enever-token') ? document.getElementById('cfg-enever-token').value.trim() : '',
+            enever_leverancier: document.getElementById('cfg-enever-lev') ? document.getElementById('cfg-enever-lev').value : 'frank',
+            power_sensor: document.getElementById('cfg-power').value.trim(),
+            debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
+        };
+
+        try {
+            var resp = await fetch('api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            var result = await resp.json();
+            if (resp.ok) {
+                status.textContent = 'Saved! Restart addon for source changes to take effect.';
+                status.style.color = '#0d9488';
+                currentConfig = Object.assign(currentConfig, payload);
+            } else {
+                status.textContent = 'Error: ' + (result.error || 'unknown');
+                status.style.color = '#dc2626';
+            }
+        } catch (err) {
+            status.textContent = 'Connection error';
+            status.style.color = '#dc2626';
+        }
+        btn.disabled = false;
+    }
+
+    loadDashboard();
+    </script>
+</body>
+</html>

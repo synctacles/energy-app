@@ -1,0 +1,23 @@
+country: FI
+name: Finland
+currency: EUR
+zones:
+  - code: "FI"
+    eic: "10YFI-1--------U"
+    name: "Finland"
+    country: "FI"
+    timezone: "Europe/Helsinki"
+tax_profile:
+  vat_rate: 0.255
+  coefficient: 1.0
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.02253
+  surcharges: 0.0
+sources:
+  - name: spothinta
+    priority: 1
+  - name: energidataservice
+    priority: 2
+  - name: energycharts
+    priority: 3

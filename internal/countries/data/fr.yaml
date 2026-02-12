@@ -1,0 +1,21 @@
+country: FR
+name: France
+currency: EUR
+zones:
+  - code: "FR"
+    eic: "10YFR-RTE------C"
+    name: "France"
+    country: "FR"
+    timezone: "Europe/Paris"
+tax_profile:
+  vat_rate: 0.20
+  coefficient: 1.0
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.02110  # TICFE/Accise 2024
+    - from: "2026-01-01"
+      rate: 0.03085  # Accise sur l'électricité 30.85 EUR/MWh (household <36kVA)
+  surcharges: 0.0
+sources:
+  - name: energycharts
+    priority: 1

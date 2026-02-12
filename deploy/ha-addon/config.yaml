@@ -1,0 +1,38 @@
+name: "Synctacles Energy"
+version: "1.0.0"
+slug: "synctacles_energy"
+description: "EU electricity prices with GO/WAIT/AVOID recommendations — fully local"
+url: "https://github.com/synctacles/energy-go"
+documentation: "https://github.com/synctacles/energy-go/blob/main/DOCS.md"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+ingress: true
+ingress_port: 8098
+panel_icon: "mdi:lightning-bolt"
+panel_title: "Synctacles Energy"
+homeassistant_api: true
+hassio_api: true
+options:
+  zone: "NL"
+  go_threshold: -15
+  avoid_threshold: 20
+  license_key: ""
+  enever_enabled: false
+  enever_token: ""
+  enever_leverancier: "frank"
+  coefficient: 0
+  power_sensor: ""
+  debug_mode: false
+schema:
+  zone: str
+  go_threshold: float
+  avoid_threshold: float
+  coefficient: "float?"
+  license_key: "str?"
+  enever_enabled: bool
+  enever_token: "str?"
+  enever_leverancier: "str?"
+  power_sensor: "str?"
+  debug_mode: bool
