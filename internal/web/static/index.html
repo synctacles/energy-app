@@ -47,12 +47,12 @@
         .header-left { display: flex; align-items: center; gap: 10px; }
         .header-logo { height: 28px; width: auto; }
         .header .meta { font-size: 0.75em; color: var(--text-faint); }
-        .theme-toggle {
+        .header-btn {
             background: none; border: 1px solid var(--border); border-radius: 8px;
             cursor: pointer; padding: 6px 8px; font-size: 1.1em; color: var(--text-muted);
-            transition: background 0.2s;
+            transition: background 0.2s; text-decoration: none; display: inline-flex; align-items: center;
         }
-        .theme-toggle:hover { background: var(--bg-card); }
+        .header-btn:hover { background: var(--bg-card); }
 
         /* Source bar */
         .source-bar {
@@ -187,7 +187,8 @@
             </div>
             <div style="display:flex;align-items:center;gap:10px">
                 <div class="meta" id="meta">Loading...</div>
-                <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">&#9789;</button>
+                <button class="header-btn" id="addonInfo" title="Addon Info, Changelog & Restart">&#9881;</button>
+                <button class="header-btn" id="themeToggle" title="Toggle dark mode">&#9789;</button>
             </div>
         </div>
 
@@ -229,6 +230,10 @@
         document.getElementById('themeToggle').innerHTML = isDark ? '&#9788;' : '&#9789;';
     }
     applyTheme();
+
+    document.getElementById('addonInfo').onclick = function() {
+        window.top.location.href = '/hassio/addon/local_synctacles_energy/info';
+    };
 
     document.getElementById('themeToggle').onclick = function() {
         isDark = !isDark;
