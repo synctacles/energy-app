@@ -54,20 +54,40 @@
         }
         .header-btn:hover { background: var(--bg-card); }
 
-        /* Source bar */
+        /* Source bar — two-line layout */
         .source-bar {
-            display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
             padding: 6px 0; margin-bottom: 8px; font-size: 0.72em; color: var(--text-faint);
         }
-        .source-item { display: flex; align-items: center; gap: 4px; }
+        .source-summary {
+            display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+            padding-bottom: 4px; margin-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .source-label { font-weight: 500; color: var(--text-muted); }
+        .source-active-name { color: var(--accent); font-weight: 600; }
+        .source-quality {
+            display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.95em;
+        }
+        .source-quality.live { background: #d1fae5; color: #065f46; }
+        .source-quality.cached { background: #fef3c7; color: #92400e; }
+        .dark .source-quality.live { background: #064e3b; color: #6ee7b7; }
+        .dark .source-quality.cached { background: #78350f; color: #fcd34d; }
+        .source-age { color: var(--text-faint); }
+        .source-chain {
+            display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+        }
+        .source-chain-item { display: flex; align-items: center; gap: 3px; }
         .source-dot {
             width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
         }
         .source-dot.healthy { background: #22c55e; }
         .source-dot.unhealthy { background: #ef4444; }
         .source-dot.unknown { background: #9ca3af; }
-        .source-name { color: var(--text-muted); }
-        .source-name.active { color: var(--accent); font-weight: 600; }
+        .source-chain-name { color: var(--text-faint); }
+        .source-chain-name.active { color: var(--accent); font-weight: 600; }
+        .source-chain-name.primary { font-weight: 500; }
+        .source-serving { color: var(--accent); font-size: 0.9em; }
+        .chart-source { font-weight: 400; font-size: 0.85em; color: var(--text-faint); }
 
         /* Tabs */
         .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
@@ -261,6 +281,24 @@
         'wout': 'Wout', 'zonneplan': 'Zonneplan'
     };
 
+    function sourceLabel(name, lev) {
+        var label = sourceNames[name] || name;
+        if (name === 'enever' && lev) {
+            label += ' (' + (supplierNames[lev] || lev) + ')';
+        }
+        return label;
+    }
+
+    function timeAgo(isoStr) {
+        if (!isoStr) return '';
+        var ms = Date.now() - new Date(isoStr).getTime();
+        if (ms < 60000) return 'just now';
+        if (ms < 3600000) return Math.floor(ms / 60000) + 'm ago';
+        var h = Math.floor(ms / 3600000);
+        if (h < 24) return h + 'h ago';
+        return Math.floor(h / 24) + 'd ago';
+    }
+
     async function loadSources() {
         try {
             var resp = await fetch('api/sources');
@@ -269,18 +307,47 @@
                 document.getElementById('sourceBar').innerHTML = '';
                 return;
             }
-            var html = '<span style="font-weight:500">Sources:</span>';
-            d.sources.forEach(function(s) {
-                var cls = s.healthy ? 'healthy' : 'unhealthy';
-                var nameCls = s.active ? 'source-name active' : 'source-name';
-                var label = sourceNames[s.name] || s.name;
-                // Show leverancier in parentheses for Enever
-                if (s.name === 'enever' && d.leverancier) {
-                    label += ' (' + (supplierNames[d.leverancier] || d.leverancier) + ')';
+
+            var ai = d.active_info;
+            var html = '';
+
+            // Line 1: Active source summary — what the user is actually seeing
+            if (ai) {
+                var srcLabel = sourceLabel(ai.source, d.leverancier);
+                var qualLabel = ai.quality;
+                var qualCls = ai.quality;
+                if (ai.from_mem_cache && ai.quality === 'live') {
+                    // Data from memory cache — still live quality but show age
+                    var age = timeAgo(ai.fetched_at);
+                    qualLabel = 'live';
+                    if (age && age !== 'just now') qualLabel += ' (cached)';
                 }
-                if (s.active) label += ' (active)';
-                html += '<span class="source-item"><span class="source-dot ' + cls + '"></span><span class="' + nameCls + '">' + label + '</span></span>';
+                html += '<div class="source-summary">' +
+                    '<span class="source-label">Prices from:</span> ' +
+                    '<span class="source-active-name">' + srcLabel + '</span> ' +
+                    '<span class="source-quality ' + qualCls + '">' + qualLabel + '</span>' +
+                    (ai.fetched_at ? '<span class="source-age">' + timeAgo(ai.fetched_at) + '</span>' : '') +
+                    '</div>';
+            }
+
+            // Line 2: Source chain — all sources with health and tier
+            html += '<div class="source-chain">';
+            html += '<span class="source-label">Chain:</span>';
+            d.sources.forEach(function(s) {
+                var dotCls = s.healthy ? 'healthy' : 'unhealthy';
+                var nameCls = 'source-chain-name';
+                if (s.active) nameCls += ' active';
+                if (s.primary) nameCls += ' primary';
+                var label = s.tier + '. ' + sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '');
+                var extra = '';
+                if (s.active) extra = ' <span class="source-serving">[serving]</span>';
+                else if (s.last_success) extra = ' <span class="source-age">' + timeAgo(s.last_success) + '</span>';
+                html += '<span class="source-chain-item">' +
+                    '<span class="source-dot ' + dotCls + '"></span>' +
+                    '<span class="' + nameCls + '">' + label + extra + '</span></span>';
             });
+            html += '</div>';
+
             document.getElementById('sourceBar').innerHTML = html;
         } catch (e) { /* ignore */ }
     }
@@ -321,14 +388,9 @@
             var actionClass = action.toLowerCase();
             var price = (d.current_price && d.current_price.price) || '0';
             var priceCent = formatPrice(price);
-            var sourceName = sourceNames[(d.current_price && d.current_price.source)] || ((d.current_price && d.current_price.source) || '?');
-            if (d.current_price && d.current_price.source === 'enever' && d.current_price.leverancier) {
-                sourceName += ' (' + (supplierNames[d.current_price.leverancier] || d.current_price.leverancier) + ')';
-            }
-
             var tierLabel = d.trial ? 'TRIAL (' + d.trial_days_left + 'd)' : (d.is_pro ? 'PRO' : 'FREE');
             document.getElementById('meta').textContent =
-                d.zone + ' | ' + tierLabel + ' | ' + sourceName + ' | v' + d.version;
+                d.zone + ' | ' + tierLabel + ' | v' + d.version;
 
             var bwHtml = '';
             if (d.best_window) {
@@ -381,7 +443,11 @@
                     tomorrowHtml +
                 '</div>' +
                 '<div class="card chart-card">' +
-                    '<div class="card-label">Today\'s Prices (ct/kWh)</div>' +
+                    '<div class="card-label">Today\'s Prices (ct/kWh)' +
+                        (d.source_info ? ' <span class="chart-source">&mdash; ' +
+                            sourceLabel(d.source_info.source, d.source_info.leverancier) +
+                            ' &middot; ' + (d.source_info.quality || 'live') + '</span>' : '') +
+                    '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
                         '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">Min</div></div>' +

@@ -268,6 +268,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Source info for chart attribution
+	dashboard["source_info"] = map[string]any{
+		"source":      data.Source,
+		"quality":     data.Quality,
+		"leverancier": data.Leverancier,
+	}
+
 	// License/trial info
 	dashboard["is_pro"] = s.license.IsPro()
 	dashboard["tier"] = s.license.Tier()
@@ -364,18 +371,29 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
 	activeSource := ""
 	leverancier := ""
+	quality := ""
 	if data := s.sensorData.Get(); data != nil {
 		activeSource = data.Source
 		leverancier = data.Leverancier
+		quality = data.Quality
 	}
 	var statuses []engine.SourceHealth
 	if s.fallback != nil {
 		statuses = s.fallback.SourceStatus(activeSource)
 	}
+
+	// Active source info — reveals what's actually being served, even if circuit breaker is open
+	var activeInfo *engine.ActiveSourceInfo
+	if s.fallback != nil {
+		activeInfo = s.fallback.ActiveInfo(s.cfg.BiddingZone, time.Now().UTC())
+	}
+
 	writeJSON(w, map[string]any{
 		"sources":     statuses,
 		"zone":        s.cfg.BiddingZone,
 		"leverancier": leverancier,
+		"quality":     quality,
+		"active_info": activeInfo,
 	})
 }
 

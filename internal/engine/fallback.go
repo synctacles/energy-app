@@ -20,6 +20,7 @@ type FallbackManager struct {
 	cache       PriceCache
 	breaker     *circuitBreaker
 	memCache    map[string]*memCacheEntry // zone+date → cached result
+	lastSuccess map[string]time.Time      // source → last successful fetch time
 	mu          sync.Mutex
 }
 
@@ -43,10 +44,11 @@ type PriceCache interface {
 // NewFallbackManager creates a fallback manager with prioritized sources.
 func NewFallbackManager(sources []collector.PriceSource, cache PriceCache) *FallbackManager {
 	return &FallbackManager{
-		sources:  sources,
-		cache:    cache,
-		breaker:  newCircuitBreaker(),
-		memCache: make(map[string]*memCacheEntry),
+		sources:     sources,
+		cache:       cache,
+		breaker:     newCircuitBreaker(),
+		memCache:    make(map[string]*memCacheEntry),
+		lastSuccess: make(map[string]time.Time),
 	}
 }
 
@@ -93,6 +95,7 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		}
 
 		f.breaker.recordSuccess(src.Name())
+		f.lastSuccess[src.Name()] = time.Now()
 
 		// Cache the result
 		if f.cache != nil {
@@ -142,8 +145,22 @@ type SourceHealth struct {
 	Name        string `json:"name"`
 	Healthy     bool   `json:"healthy"`
 	RequiresKey bool   `json:"requires_key"`
-	Active      bool   `json:"active"`    // true if this source was used for the last successful fetch
-	LastFailure string `json:"last_failure,omitempty"` // ISO 8601 timestamp, empty if healthy
+	Active      bool   `json:"active"`                 // true if this source provided the current data
+	Primary     bool   `json:"primary"`                // true if first in chain (user's configured preference)
+	Tier        int    `json:"tier"`                    // position in fallback chain (1-based)
+	LastFailure string `json:"last_failure,omitempty"`  // ISO 8601 timestamp, empty if healthy
+	LastSuccess string `json:"last_success,omitempty"`  // ISO 8601 timestamp of last successful fetch
+}
+
+// ActiveSourceInfo describes the source of currently served data.
+// This solves the "Enever is red but data IS from Enever" confusion:
+// the circuit breaker may be open, but data is still served from memory cache.
+type ActiveSourceInfo struct {
+	Source       string `json:"source"`
+	Quality      string `json:"quality"`
+	Tier         int    `json:"tier"`
+	FromMemCache bool   `json:"from_mem_cache"`
+	FetchedAt    string `json:"fetched_at"`
 }
 
 // SourceStatus returns the health status of all configured sources.
@@ -152,11 +169,13 @@ func (f *FallbackManager) SourceStatus(activeSource string) []SourceHealth {
 	defer f.mu.Unlock()
 
 	var statuses []SourceHealth
-	for _, src := range f.sources {
+	for i, src := range f.sources {
 		sh := SourceHealth{
 			Name:        src.Name(),
 			RequiresKey: src.RequiresKey(),
 			Active:      src.Name() == activeSource,
+			Primary:     i == 0,
+			Tier:        i + 1,
 		}
 		if t, ok := f.breaker.failures[src.Name()]; ok && time.Since(t) < f.breaker.cooldown {
 			sh.Healthy = false
@@ -164,9 +183,49 @@ func (f *FallbackManager) SourceStatus(activeSource string) []SourceHealth {
 		} else {
 			sh.Healthy = true
 		}
+		if t, ok := f.lastSuccess[src.Name()]; ok {
+			sh.LastSuccess = t.Format(time.RFC3339)
+		}
 		statuses = append(statuses, sh)
 	}
 	return statuses
+}
+
+// ActiveInfo returns metadata about the data currently being served for a zone.
+// It reveals whether data comes from the memory cache (and which source originally provided it),
+// even if that source's circuit breaker is now open.
+func (f *FallbackManager) ActiveInfo(zone string, date time.Time) *ActiveSourceInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	cacheKey := zone + ":" + date.Format("2006-01-02")
+	entry, ok := f.memCache[cacheKey]
+	if !ok || entry.result == nil {
+		return nil
+	}
+
+	return &ActiveSourceInfo{
+		Source:       entry.result.Source,
+		Quality:      entry.result.Quality,
+		Tier:         entry.result.Tier,
+		FromMemCache: time.Since(entry.fetchedAt) > 0,
+		FetchedAt:    entry.fetchedAt.Format(time.RFC3339),
+	}
+}
+
+// humanAge formats a duration into a compact human-readable string.
+func humanAge(d time.Duration) string {
+	if d < time.Minute {
+		return "just now"
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	}
+	h := int(d.Hours())
+	if h < 24 {
+		return fmt.Sprintf("%dh ago", h)
+	}
+	return fmt.Sprintf("%dd ago", h/24)
 }
 
 func supportsZone(src collector.PriceSource, zone string) bool {
