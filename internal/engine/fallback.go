@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/synctacles/energy-go/internal/collector"
 	"github.com/synctacles/energy-go/internal/models"
 )
@@ -86,7 +88,13 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		prices, err := src.FetchDayAhead(ctx, zone, date)
 		if err != nil {
 			slog.Warn("source failed", "source", src.Name(), "zone", zone, "error", err)
-			f.breaker.recordFailure(src.Name())
+			// Use Retry-After duration from 429 responses as circuit breaker cooldown
+			var rateLimited *collector.ErrRateLimited
+			if errors.As(err, &rateLimited) {
+				f.breaker.recordFailureWithCooldown(src.Name(), rateLimited.RetryAfter)
+			} else {
+				f.breaker.recordFailure(src.Name())
+			}
 			continue
 		}
 
@@ -177,7 +185,11 @@ func (f *FallbackManager) SourceStatus(activeSource string) []SourceHealth {
 			Primary:     i == 0,
 			Tier:        i + 1,
 		}
-		if t, ok := f.breaker.failures[src.Name()]; ok && time.Since(t) < f.breaker.cooldown {
+		cd := f.breaker.cooldown
+		if custom, ok := f.breaker.cooldowns[src.Name()]; ok {
+			cd = custom
+		}
+		if t, ok := f.breaker.failures[src.Name()]; ok && time.Since(t) < cd {
 			sh.Healthy = false
 			sh.LastFailure = t.Format(time.RFC3339)
 		} else {
@@ -238,15 +250,18 @@ func supportsZone(src collector.PriceSource, zone string) bool {
 }
 
 // circuitBreaker prevents hammering failed sources.
+// Supports per-source cooldown durations (e.g. from 429 Retry-After headers).
 type circuitBreaker struct {
-	failures map[string]time.Time // source → last failure time
-	cooldown time.Duration
+	failures  map[string]time.Time    // source → last failure time
+	cooldowns map[string]time.Duration // source → custom cooldown (from Retry-After)
+	cooldown  time.Duration            // default cooldown
 }
 
 func newCircuitBreaker() *circuitBreaker {
 	return &circuitBreaker{
-		failures: make(map[string]time.Time),
-		cooldown: 2 * time.Hour,
+		failures:  make(map[string]time.Time),
+		cooldowns: make(map[string]time.Duration),
+		cooldown:  2 * time.Hour,
 	}
 }
 
@@ -255,13 +270,26 @@ func (cb *circuitBreaker) isOpen(source string) bool {
 	if !ok {
 		return false
 	}
-	return time.Since(t) < cb.cooldown
+	cd := cb.cooldown
+	if custom, ok := cb.cooldowns[source]; ok {
+		cd = custom
+	}
+	return time.Since(t) < cd
 }
 
 func (cb *circuitBreaker) recordFailure(source string) {
 	cb.failures[source] = time.Now()
+	delete(cb.cooldowns, source) // use default cooldown
+}
+
+// recordFailureWithCooldown records a failure with a custom cooldown duration.
+// Used for 429 Retry-After responses to respect the server's requested wait time.
+func (cb *circuitBreaker) recordFailureWithCooldown(source string, cooldown time.Duration) {
+	cb.failures[source] = time.Now()
+	cb.cooldowns[source] = cooldown
 }
 
 func (cb *circuitBreaker) recordSuccess(source string) {
 	delete(cb.failures, source)
+	delete(cb.cooldowns, source)
 }

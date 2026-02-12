@@ -258,17 +258,34 @@ func main() {
 }
 
 // buildSourceChain creates the prioritized source list for a bidding zone.
-// If Enever is enabled and zone is NL, it's prepended as highest priority.
+//
+// Hybrid architecture:
+//   Tier 0: Synctacles API (central server, pre-computed consumer prices)
+//   Tier 1+: Direct sources (only activated when Synctacles server is unreachable)
+//
+// When the Synctacles server is healthy, the addon makes exactly 1 API call.
+// When it's down, the circuit breaker opens and the full fallback chain takes over,
+// including Enever (NL), EasyEnergy, Energy-Charts, etc.
 func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []collector.PriceSource {
 	var chain []collector.PriceSource
 
-	// Enever as optional highest priority (NL only, user BYO key)
+	// Tier 0: Synctacles central server (primary source for all zones)
+	if cfg.HasSynctaclesServer() {
+		chain = append(chain, &collector.SynctaclesAPI{
+			BaseURL: cfg.SynctaclesURL,
+		})
+		slog.Info("Synctacles API enabled as primary source", "url", cfg.SynctaclesURL)
+	}
+
+	// Tier 1+: Direct sources (emergency fallback when server is unreachable)
+
+	// Enever as optional high priority fallback (NL only, user BYO key)
 	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
 		chain = append(chain, &collector.Enever{
 			Token:       cfg.EneverToken,
 			Leverancier: cfg.EneverLeverancier,
 		})
-		slog.Info("Enever enabled", "leverancier", cfg.EneverLeverancier)
+		slog.Info("Enever enabled as fallback", "leverancier", cfg.EneverLeverancier)
 	}
 
 	cc, ok := registry.GetCountryForZone(cfg.BiddingZone)
@@ -279,13 +296,13 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []colle
 	}
 
 	sourceMap := map[string]collector.PriceSource{
-		"easyenergy":       &collector.EasyEnergy{},
-		"frank":            &collector.FrankEnergie{},
-		"energycharts":     &collector.EnergyCharts{},
+		"easyenergy":        &collector.EasyEnergy{},
+		"frank":             &collector.FrankEnergie{},
+		"energycharts":      &collector.EnergyCharts{},
 		"energidataservice": &collector.EnergiDataService{},
-		"awattar":          &collector.AWATTar{},
-		"omie":             &collector.OMIE{},
-		"spothinta":        &collector.SpotHinta{},
+		"awattar":           &collector.AWATTar{},
+		"omie":              &collector.OMIE{},
+		"spothinta":         &collector.SpotHinta{},
 	}
 
 	for _, sp := range cc.Sources {
@@ -294,7 +311,7 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []colle
 		}
 	}
 
-	// Always add Energy-Charts as final fallback if not already in chain
+	// Always add Energy-Charts as final direct fallback if not already in chain
 	hasEC := false
 	for _, src := range chain {
 		if src.Name() == "energycharts" {

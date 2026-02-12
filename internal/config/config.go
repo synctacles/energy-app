@@ -38,6 +38,11 @@ type Config struct {
 	// Optional: P1 power sensor for Live Cost calculation
 	PowerSensorEntity string `env:"POWER_SENSOR_ENTITY"`
 
+	// Synctacles central price server (primary source, Tier 0).
+	// When set, the addon fetches pre-computed consumer prices from this server.
+	// All other collectors (Energy-Charts, etc.) become emergency fallback only.
+	SynctaclesURL string `env:"SYNCTACLES_URL" envDefault:"https://energy.synctacles.com"`
+
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`
 }
@@ -76,4 +81,9 @@ func (c *Config) HasEnever() bool {
 // HasPowerSensor returns true if a power sensor is configured for live cost.
 func (c *Config) HasPowerSensor() bool {
 	return c.PowerSensorEntity != ""
+}
+
+// HasSynctaclesServer returns true if a Synctacles server URL is configured.
+func (c *Config) HasSynctaclesServer() bool {
+	return c.SynctaclesURL != ""
 }

@@ -1,7 +1,7 @@
 name: "Synctacles Energy"
-version: "1.2.0"
+version: "1.3.0"
 slug: "synctacles_energy"
-description: "EU electricity prices with GO/WAIT/AVOID recommendations — fully local"
+description: "EU electricity prices with GO/WAIT/AVOID recommendations for 30 bidding zones"
 url: "https://github.com/synctacles/energy-go"
 documentation: "https://github.com/synctacles/energy-go/blob/main/DOCS.md"
 arch:
