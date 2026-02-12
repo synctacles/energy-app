@@ -46,11 +46,11 @@ func main() {
 		})))
 	}
 
-	configPath := "/config"
-
-	// Override paths for local development
-	if v := os.Getenv("HA_CONFIG_PATH"); v != "" {
-		configPath = v
+	// /data is the addon's writable persistent directory.
+	// /config is HA's config dir (mounted read-only via config:ro).
+	dataPath := "/data"
+	if v := os.Getenv("HA_DATA_PATH"); v != "" {
+		dataPath = v
 	}
 
 	// Load country configs and zone registry
@@ -68,11 +68,11 @@ func main() {
 	}
 
 	// Initialize state store
-	stateStore := state.NewStore(configPath)
+	stateStore := state.NewStore(dataPath)
 
 	// Initialize SQLite price cache (48h retention)
 	var priceCache engine.PriceCache
-	sqliteCache, err := store.NewSQLiteCache(configPath)
+	sqliteCache, err := store.NewSQLiteCache(dataPath)
 	if err != nil {
 		slog.Warn("SQLite cache disabled", "error", err)
 	} else {
@@ -84,7 +84,7 @@ func main() {
 	}
 
 	// Validate license (against api.synctacles.com)
-	licenseValidator := license.NewValidator(cfg.LicenseKey, configPath)
+	licenseValidator := license.NewValidator(cfg.LicenseKey, dataPath)
 	if cfg.HasLicense() {
 		if err := licenseValidator.ValidateOnce(context.Background()); err != nil {
 			slog.Warn("license validation failed, running in free mode", "error", err)
