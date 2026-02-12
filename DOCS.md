@@ -31,7 +31,7 @@ The addon compares the current hour's price to the daily average:
 | **WAIT** | Price is within normal range | No urgency either way |
 | **AVOID** | Price is >20% above average | Postpone if possible |
 
-Thresholds are user-configurable. The addon also identifies the cheapest/most expensive hours and finds the best consecutive 3-hour window.
+Thresholds are user-configurable. The addon also identifies the cheapest/most expensive hours and finds the best consecutive window (configurable from 1 to 8 hours, default 3).
 
 ## Supported Countries and Zones
 
@@ -61,7 +61,7 @@ All sources are free, public APIs. No API keys required (except for the optional
 
 ## Sensors
 
-The addon publishes up to 11 sensors to Home Assistant:
+The addon publishes up to 12 sensors to Home Assistant:
 
 ### Free Tier
 
@@ -71,20 +71,22 @@ The addon publishes up to 11 sensors to Home Assistant:
 | Cheapest Hour | `sensor.synctacles_cheapest_hour` | HH:00 | Today's cheapest hour |
 | Expensive Hour | `sensor.synctacles_expensive_hour` | HH:00 | Today's most expensive hour |
 | Prices Today | `sensor.synctacles_prices_today` | count | Hourly prices array in attributes |
+| Cheap Hour | `binary_sensor.synctacles_cheap_hour` | on/off | ON during GO periods, OFF during WAIT/AVOID |
 
 ### Pro Tier
 
 | Sensor | Entity ID | State | Description |
 |--------|-----------|-------|-------------|
 | Action | `sensor.synctacles_energy_action` | GO/WAIT/AVOID | Current recommendation |
-| Best Window | `sensor.synctacles_best_window` | HH:00 - HH:00 | Best 3-hour consecutive window |
+| Best Window | `sensor.synctacles_best_window` | HH:00 - HH:00 | Best consecutive window (configurable 1-8h) |
 | Tomorrow Preview | `sensor.synctacles_tomorrow_preview` | FAVORABLE/NORMAL/EXPENSIVE/PENDING | Tomorrow's price outlook |
 | Prices Tomorrow | `sensor.synctacles_prices_tomorrow` | count | Tomorrow's hourly prices in attributes |
 | Live Cost | `sensor.synctacles_live_cost` | EUR/h | Real-time cost based on power sensor |
 | Savings | `sensor.synctacles_savings` | EUR | Daily savings vs average price |
 | Usage Score | `sensor.synctacles_usage_score` | 0-100 | How well you use cheap hours |
+| Daily Cost | `sensor.synctacles_daily_cost` | EUR | Cumulative daily cost, resets at midnight |
 
-Live Cost, Savings, and Usage Score require a power sensor entity to be configured.
+Live Cost, Savings, Usage Score, and Daily Cost require a power sensor entity to be configured.
 
 ## Configuration
 
@@ -95,6 +97,7 @@ Live Cost, Savings, and Usage Score require a power sensor entity to be configur
 | `zone` | NL | Your electricity bidding zone (see table above) |
 | `go_threshold` | -15 | % below average to recommend GO |
 | `avoid_threshold` | 20 | % above average to recommend AVOID |
+| `best_window_hours` | 3 | Duration of the best consecutive window in hours (1-8) |
 | `coefficient` | 0 | Price coefficient override (0 = use country default tax profile) |
 | `license_key` | — | Pro license key for premium sensors |
 | `power_sensor` | — | HA entity ID for power consumption (e.g. `sensor.power_consumption`) |
@@ -139,12 +142,20 @@ ANWB Energie, Budget Energie, Coolblue Energie, EasyEnergy, Energie Direct, Ener
 | Cheapest/expensive hour | Yes | Yes |
 | Prices today (hourly array) | Yes | Yes |
 | GO/WAIT/AVOID action | — | Yes |
-| Best 3-hour window | — | Yes |
+| Cheap hour binary sensor | Yes | Yes |
+| Best window (configurable hours) | — | Yes |
 | Tomorrow preview | — | Yes |
 | Prices tomorrow | — | Yes |
 | Live cost (needs power sensor) | — | Yes |
 | Savings tracking | — | Yes |
 | Usage score | — | Yes |
+| Daily cost tracking | — | Yes |
+
+### 14-Day Free Trial
+
+Every new installation gets **14 days of full Pro access** — no license key needed. All Pro sensors and features are unlocked immediately. The trial countdown starts when the addon first runs.
+
+After the trial ends, the addon reverts to the free tier. Enter a license key in Settings to keep Pro features permanently.
 
 Pro licenses are available at [synctacles.com](https://synctacles.com).
 
@@ -161,10 +172,6 @@ This is normal outside of data availability windows. Day-ahead prices are typica
 ### Source shows as unhealthy (red dot)
 
 A source's circuit breaker has tripped after a failure. It will automatically recover after 2 hours. The addon uses the next available source in the meantime.
-
-### SQLite cache disabled
-
-If you see "SQLite cache disabled" in logs, the addon couldn't create the cache database. This doesn't affect functionality — the addon works fine with just the in-memory cache. Prices will be re-fetched from live sources after each restart.
 
 ### Version shows "dev"
 

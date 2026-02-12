@@ -226,6 +226,19 @@ func (c *SupervisorClient) SetAddonOptions(ctx context.Context, options map[stri
 	return err
 }
 
+// GetAllStates returns all entity states from HA Core API.
+func (c *SupervisorClient) GetAllStates(ctx context.Context) ([]map[string]any, error) {
+	data, err := c.requestWithRetry(ctx, "GET", "/core/api/states", nil)
+	if err != nil {
+		return nil, err
+	}
+	var states []map[string]any
+	if err := json.Unmarshal(data, &states); err != nil {
+		return nil, fmt.Errorf("parse states: %w", err)
+	}
+	return states, nil
+}
+
 // CreateNotification creates a persistent HA notification.
 func (c *SupervisorClient) CreateNotification(ctx context.Context, title, message, notifID string) error {
 	payload := map[string]string{

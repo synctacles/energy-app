@@ -158,8 +158,10 @@
         }
         .license-free { background: #e5e7eb; color: #374151; }
         .license-pro { background: #dbeafe; color: #1d4ed8; }
+        .license-trial { background: #fef3c7; color: #92400e; }
         .dark .license-free { background: #374151; color: #d1d5db; }
         .dark .license-pro { background: #1e3a5f; color: #93c5fd; }
+        .dark .license-trial { background: #78350f; color: #fcd34d; }
 
         .loading { text-align: center; padding: 40px; color: var(--text-faint); }
         .loading .spinner {
@@ -324,8 +326,9 @@
                 sourceName += ' (' + (supplierNames[d.current_price.leverancier] || d.current_price.leverancier) + ')';
             }
 
+            var tierLabel = d.trial ? 'TRIAL (' + d.trial_days_left + 'd)' : (d.is_pro ? 'PRO' : 'FREE');
             document.getElementById('meta').textContent =
-                d.zone + ' | ' + d.quality + ' | ' + sourceName + ' | v' + d.version;
+                d.zone + ' | ' + tierLabel + ' | ' + sourceName + ' | v' + d.version;
 
             var bwHtml = '';
             if (d.best_window) {
@@ -511,9 +514,18 @@
 
     function renderSettings() {
         var c = currentConfig;
-        var licenseBadge = c.has_license
-            ? '<span class="license-badge license-pro">PRO</span>'
-            : '<span class="license-badge license-free">FREE</span>';
+        var licenseBadge;
+        var licenseHint;
+        if (c.trial) {
+            licenseBadge = '<span class="license-badge license-trial">TRIAL &mdash; ' + c.trial_days_left + ' days left</span>';
+            licenseHint = 'You have full Pro access during your 14-day trial. Enter a license key to keep Pro features after the trial ends.';
+        } else if (c.is_pro) {
+            licenseBadge = '<span class="license-badge license-pro">PRO</span>';
+            licenseHint = 'Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score';
+        } else {
+            licenseBadge = '<span class="license-badge license-free">FREE</span>';
+            licenseHint = 'Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score';
+        }
 
         document.getElementById('settingsContent').innerHTML =
             '<div class="settings-section">' +
@@ -521,7 +533,7 @@
                 '<div class="form-group">' +
                     '<label class="form-label">License Key</label>' +
                     '<input class="form-input" id="cfg-license" type="text" placeholder="pro_xxxx..." value="' + esc(c.license_key || '') + '">' +
-                    '<div class="form-hint">Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score</div>' +
+                    '<div class="form-hint">' + licenseHint + '</div>' +
                 '</div>' +
             '</div>' +
 
@@ -581,14 +593,19 @@
                         '<div class="form-hint">Above average % to recommend AVOID</div>' +
                     '</div>' +
                 '</div>' +
+                '<div class="form-group">' +
+                    '<label class="form-label">Best Window Duration (hours)</label>' +
+                    '<input class="form-input" id="cfg-bw" type="number" min="1" max="8" step="1" value="' + (c.best_window_hours || 3) + '">' +
+                    '<div class="form-hint">Duration of the cheapest contiguous window (1-8 hours, default 3)</div>' +
+                '</div>' +
             '</div>' +
 
             '<div class="settings-section">' +
                 '<h3>Advanced</h3>' +
                 '<div class="form-group">' +
                     '<label class="form-label">Power Sensor Entity</label>' +
-                    '<input class="form-input" id="cfg-power" type="text" placeholder="sensor.power_consumption" value="' + esc(c.power_sensor || '') + '">' +
-                    '<div class="form-hint">Optional HA entity for live cost calculation (Pro only)</div>' +
+                    '<input class="form-input" id="cfg-power" type="text" placeholder="' + (c.detected_power_sensor ? 'Auto: ' + esc(c.detected_power_sensor) : 'sensor.power_consumption') + '" value="' + esc(c.power_sensor || '') + '">' +
+                    '<div class="form-hint">' + (c.detected_power_sensor && !c.power_sensor ? 'Auto-detected: ' + esc(c.detected_power_sensor) + ' (leave empty to keep)' : 'HA entity for live cost (auto-detected if empty)') + '</div>' +
                 '</div>' +
                 '<div class="form-group">' +
                     '<div class="toggle-row">' +
@@ -659,6 +676,7 @@
             zone: document.getElementById('cfg-zone').value,
             go_threshold: parseFloat(document.getElementById('cfg-go').value),
             avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
+            best_window_hours: parseInt(document.getElementById('cfg-bw').value) || 3,
             coefficient: parseFloat(document.getElementById('cfg-coeff').value) || 0,
             license_key: document.getElementById('cfg-license').value.trim(),
             enever_enabled: document.getElementById('cfg-enever-toggle').classList.contains('on'),

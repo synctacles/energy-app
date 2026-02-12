@@ -15,6 +15,7 @@ import (
 	"github.com/synctacles/energy-go/internal/config"
 	"github.com/synctacles/energy-go/internal/engine"
 	"github.com/synctacles/energy-go/internal/ha"
+	"github.com/synctacles/energy-go/internal/license"
 	"github.com/synctacles/energy-go/internal/state"
 )
 
@@ -23,34 +24,40 @@ var staticFS embed.FS
 
 // Server is the energy addon HTTP server.
 type Server struct {
-	cfg        *config.Config
-	router     chi.Router
-	stateStore *state.Store
-	sensorData *SensorData
-	supervisor *ha.SupervisorClient
-	fallback   *engine.FallbackManager
-	version    string
+	cfg                 *config.Config
+	router              chi.Router
+	stateStore          *state.Store
+	sensorData          *SensorData
+	supervisor          *ha.SupervisorClient
+	fallback            *engine.FallbackManager
+	license             *license.Validator
+	version             string
+	detectedPowerSensor string
 }
 
 // Deps holds dependencies for the web server.
 type Deps struct {
-	Config     *config.Config
-	StateStore *state.Store
-	SensorData *SensorData
-	Supervisor *ha.SupervisorClient
-	Fallback   *engine.FallbackManager
-	Version    string
+	Config              *config.Config
+	StateStore          *state.Store
+	SensorData          *SensorData
+	Supervisor          *ha.SupervisorClient
+	Fallback            *engine.FallbackManager
+	License             *license.Validator
+	Version             string
+	DetectedPowerSensor string
 }
 
 // NewServer creates a new energy addon web server.
 func NewServer(deps Deps) *Server {
 	s := &Server{
-		cfg:        deps.Config,
-		stateStore: deps.StateStore,
-		sensorData: deps.SensorData,
-		supervisor: deps.Supervisor,
-		fallback:   deps.Fallback,
-		version:    deps.Version,
+		cfg:                 deps.Config,
+		stateStore:          deps.StateStore,
+		sensorData:          deps.SensorData,
+		supervisor:          deps.Supervisor,
+		fallback:            deps.Fallback,
+		license:             deps.License,
+		version:             deps.Version,
+		detectedPowerSensor: deps.DetectedPowerSensor,
 	}
 
 	r := chi.NewRouter()
@@ -109,11 +116,18 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]any{
+	resp := map[string]any{
 		"version":     s.version,
 		"zone":        s.cfg.BiddingZone,
 		"has_license": s.cfg.HasLicense(),
-	})
+		"is_pro":      s.license.IsPro(),
+		"tier":        s.license.Tier(),
+	}
+	if s.license.IsTrial() {
+		resp["trial"] = true
+		resp["trial_days_left"] = s.license.TrialDaysLeft()
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -254,25 +268,42 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// License/trial info
+	dashboard["is_pro"] = s.license.IsPro()
+	dashboard["tier"] = s.license.Tier()
+	if s.license.IsTrial() {
+		dashboard["trial"] = true
+		dashboard["trial_days_left"] = s.license.TrialDaysLeft()
+	}
+
 	writeJSON(w, dashboard)
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]any{
-		"zone":                s.cfg.BiddingZone,
-		"currency":            s.cfg.Currency,
-		"go_threshold":        s.cfg.GoThreshold,
-		"avoid_threshold":     s.cfg.AvoidThreshold,
-		"has_license":         s.cfg.HasLicense(),
-		"license_key":         s.cfg.LicenseKey,
-		"has_power_sensor":    s.cfg.HasPowerSensor(),
-		"power_sensor":        s.cfg.PowerSensorEntity,
-		"enever_enabled":      s.cfg.EneverEnabled,
-		"enever_token":        s.cfg.EneverToken,
-		"enever_leverancier":  s.cfg.EneverLeverancier,
-		"coefficient":         s.cfg.Coefficient,
-		"debug_mode":          s.cfg.DebugMode,
-	})
+	resp := map[string]any{
+		"zone":                    s.cfg.BiddingZone,
+		"currency":                s.cfg.Currency,
+		"go_threshold":            s.cfg.GoThreshold,
+		"avoid_threshold":         s.cfg.AvoidThreshold,
+		"best_window_hours":       s.cfg.BestWindowHours,
+		"has_license":             s.cfg.HasLicense(),
+		"license_key":             s.cfg.LicenseKey,
+		"has_power_sensor":        s.cfg.HasPowerSensor(),
+		"power_sensor":            s.cfg.PowerSensorEntity,
+		"enever_enabled":          s.cfg.EneverEnabled,
+		"enever_token":            s.cfg.EneverToken,
+		"enever_leverancier":      s.cfg.EneverLeverancier,
+		"coefficient":             s.cfg.Coefficient,
+		"debug_mode":              s.cfg.DebugMode,
+		"detected_power_sensor":   s.detectedPowerSensor,
+		"is_pro":                  s.license.IsPro(),
+		"tier":                    s.license.Tier(),
+	}
+	if s.license.IsTrial() {
+		resp["trial"] = true
+		resp["trial_days_left"] = s.license.TrialDaysLeft()
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
@@ -295,8 +326,8 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Merge allowed fields
-	allowed := []string{"zone", "go_threshold", "avoid_threshold", "license_key",
-		"enever_enabled", "enever_token", "enever_leverancier",
+	allowed := []string{"zone", "go_threshold", "avoid_threshold", "best_window_hours",
+		"license_key", "enever_enabled", "enever_token", "enever_leverancier",
 		"coefficient", "power_sensor", "debug_mode"}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -311,6 +342,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update in-memory config for immediate effect on select fields
+	if v, ok := incoming["best_window_hours"].(float64); ok {
+		s.cfg.BestWindowHours = int(v)
+	}
 	if v, ok := incoming["license_key"].(string); ok {
 		s.cfg.LicenseKey = v
 	}

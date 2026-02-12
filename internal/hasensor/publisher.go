@@ -110,6 +110,25 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, hasLicense boo
 		return fmt.Errorf("publish prices today: %w", err)
 	}
 
+	// 5. Cheap hour binary sensor (FREE) — ON when action is GO
+	cheapState := "off"
+	if s.Action.Action == models.ActionGo {
+		cheapState = "on"
+	}
+	if err := pub.UpdateSensor(ctx, "binary_sensor.synctacles_cheap_hour",
+		cheapState,
+		map[string]any{
+			"device_class":  "power",
+			"friendly_name": "Synctacles Cheap Hour",
+			"icon":          "mdi:flash",
+			"current_price": s.CurrentPrice,
+			"average_price": s.Stats.Average,
+			"last_updated":  now,
+		},
+	); err != nil {
+		return fmt.Errorf("publish cheap hour: %w", err)
+	}
+
 	// --- PRO sensors (require license) ---
 	if !hasLicense {
 		return nil
@@ -253,6 +272,24 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, hasLicense boo
 		}
 	}
 
+	// 12. Daily Cost (PRO, needs power sensor)
+	if costEUR, totalKWh, ok := pt.DailyCost(); ok {
+		if err := pub.UpdateSensor(ctx, "sensor.synctacles_daily_cost",
+			fmt.Sprintf("%.2f", costEUR),
+			map[string]any{
+				"unit_of_measurement": "EUR",
+				"daily_kwh":           fmt.Sprintf("%.1f", totalKWh),
+				"friendly_name":       "Synctacles Daily Cost",
+				"icon":                "mdi:counter",
+				"device_class":        "monetary",
+				"state_class":         "total",
+				"last_updated":        now,
+			},
+		); err != nil {
+			return fmt.Errorf("publish daily cost: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -269,6 +306,7 @@ func actionIcon(a models.Action) string {
 
 // ComputeSensorSet builds a SensorSet from fetched prices and engine results.
 // leverancier is the Enever supplier name (empty string when not using Enever).
+// bestWindowHours controls the best window duration (default 3, range 1-8).
 func ComputeSensorSet(
 	zone string,
 	todayPrices []models.HourlyPrice,
@@ -277,6 +315,7 @@ func ComputeSensorSet(
 	fetchResult *engine.FetchResult,
 	now time.Time,
 	leverancier string,
+	bestWindowHours int,
 ) *SensorSet {
 	stats := engine.CalcStats(todayPrices)
 
@@ -294,8 +333,11 @@ func ComputeSensorSet(
 	actionResult := actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())
 	actionResult.Quality = fetchResult.Quality
 
-	// Best window (3 hours)
-	bestWindow := engine.FindBestWindow(todayPrices, now, 3)
+	// Best window (configurable duration)
+	if bestWindowHours < 1 {
+		bestWindowHours = 3
+	}
+	bestWindow := engine.FindBestWindow(todayPrices, now, bestWindowHours)
 
 	// Tomorrow preview
 	tomorrow := engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)

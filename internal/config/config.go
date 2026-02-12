@@ -32,6 +32,9 @@ type Config struct {
 	// Optional: price coefficient override (0 = use country default, e.g. 1.05 = 5% markup)
 	Coefficient float64 `env:"ENERGY_COEFFICIENT" envDefault:"0"`
 
+	// Best window duration in hours (1-8, default 3)
+	BestWindowHours int `env:"BEST_WINDOW_HOURS" envDefault:"3"`
+
 	// Optional: P1 power sensor for Live Cost calculation
 	PowerSensorEntity string `env:"POWER_SENSOR_ENTITY"`
 
@@ -44,6 +47,12 @@ func Load() (*Config, error) {
 	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("parse energy config: %w", err)
+	}
+	// Clamp best window hours to valid range
+	if cfg.BestWindowHours < 1 {
+		cfg.BestWindowHours = 1
+	} else if cfg.BestWindowHours > 8 {
+		cfg.BestWindowHours = 8
 	}
 	return cfg, nil
 }

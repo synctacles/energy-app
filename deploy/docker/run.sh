@@ -10,6 +10,7 @@ export ENEVER_ENABLED="$(bashio::config 'enever_enabled' 'false')"
 export ENEVER_TOKEN="$(bashio::config 'enever_token' '')"
 export ENEVER_LEVERANCIER="$(bashio::config 'enever_leverancier' '')"
 export ENERGY_COEFFICIENT="$(bashio::config 'coefficient' '0')"
+export BEST_WINDOW_HOURS="$(bashio::config 'best_window_hours' '3')"
 export POWER_SENSOR_ENTITY="$(bashio::config 'power_sensor' '')"
 export DEBUG_MODE="$(bashio::config 'debug_mode' 'false')"
 

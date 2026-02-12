@@ -1,5 +1,5 @@
 name: "Synctacles Energy"
-version: "1.0.0"
+version: "1.2.0"
 slug: "synctacles_energy"
 description: "EU electricity prices with GO/WAIT/AVOID recommendations — fully local"
 url: "https://github.com/synctacles/energy-go"
@@ -14,10 +14,12 @@ panel_icon: "mdi:lightning-bolt"
 panel_title: "Synctacles Energy"
 homeassistant_api: true
 hassio_api: true
+init: false
 options:
   zone: "NL"
   go_threshold: -15
   avoid_threshold: 20
+  best_window_hours: 3
   license_key: ""
   enever_enabled: false
   enever_token: ""
@@ -29,6 +31,7 @@ schema:
   zone: str
   go_threshold: float
   avoid_threshold: float
+  best_window_hours: "int(1,8)"
   coefficient: "float?"
   license_key: "str?"
   enever_enabled: bool

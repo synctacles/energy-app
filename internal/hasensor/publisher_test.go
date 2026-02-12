@@ -27,6 +27,15 @@ func (m *mockPublisher) UpdateSensor(_ context.Context, entityID, state string, 
 	return nil
 }
 
+func findUpdate(updates []sensorUpdate, entityID string) (sensorUpdate, bool) {
+	for _, u := range updates {
+		if u.entityID == entityID {
+			return u, true
+		}
+	}
+	return sensorUpdate{}, false
+}
+
 func TestPublishAll_FreeOnly(t *testing.T) {
 	pub := &mockPublisher{}
 	s := &SensorSet{
@@ -43,12 +52,13 @@ func TestPublishAll_FreeOnly(t *testing.T) {
 	err := PublishAll(context.Background(), pub, s, false)
 	require.NoError(t, err)
 
-	// Free tier: only 4 sensors (price, cheapest, expensive, prices_today)
-	assert.Len(t, pub.updates, 4)
+	// Free tier: 5 sensors (price, cheapest, expensive, prices_today, cheap_hour)
+	assert.Len(t, pub.updates, 5)
 	assert.Equal(t, "sensor.synctacles_energy_price", pub.updates[0].entityID)
 	assert.Equal(t, "sensor.synctacles_cheapest_hour", pub.updates[1].entityID)
 	assert.Equal(t, "sensor.synctacles_expensive_hour", pub.updates[2].entityID)
 	assert.Equal(t, "sensor.synctacles_prices_today", pub.updates[3].entityID)
+	assert.Equal(t, "binary_sensor.synctacles_cheap_hour", pub.updates[4].entityID)
 }
 
 func TestPublishAll_Pro(t *testing.T) {
@@ -67,9 +77,8 @@ func TestPublishAll_Pro(t *testing.T) {
 	err := PublishAll(context.Background(), pub, s, true)
 	require.NoError(t, err)
 
-	// Pro tier: 4 free + 4 pro = 8 sensors
-	assert.Len(t, pub.updates, 8)
-	// Check pro sensors are included
+	// Pro tier: 5 free + 4 pro = 9 sensors
+	assert.Len(t, pub.updates, 9)
 	entityIDs := make([]string, len(pub.updates))
 	for i, u := range pub.updates {
 		entityIDs[i] = u.entityID
@@ -78,6 +87,64 @@ func TestPublishAll_Pro(t *testing.T) {
 	assert.Contains(t, entityIDs, "sensor.synctacles_best_window")
 	assert.Contains(t, entityIDs, "sensor.synctacles_tomorrow_preview")
 	assert.Contains(t, entityIDs, "sensor.synctacles_prices_tomorrow")
+	assert.Contains(t, entityIDs, "binary_sensor.synctacles_cheap_hour")
+}
+
+func TestPublishAll_CheapHour_OnDuringGO(t *testing.T) {
+	pub := &mockPublisher{}
+	s := &SensorSet{
+		Zone:         "NL",
+		CurrentPrice: 0.10,
+		Action:       models.ActionResult{Action: models.ActionGo},
+		Stats:        models.PriceStats{Average: 0.20, Min: 0.08, Max: 0.35, CheapestHour: "03:00", ExpensiveHour: "18:00"},
+		TodayPrices:  make([]models.HourlyPrice, 24),
+		UpdatedAt:    time.Now(),
+	}
+
+	err := PublishAll(context.Background(), pub, s, false)
+	require.NoError(t, err)
+
+	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")
+	require.True(t, found)
+	assert.Equal(t, "on", u.state)
+}
+
+func TestPublishAll_CheapHour_OffDuringWait(t *testing.T) {
+	pub := &mockPublisher{}
+	s := &SensorSet{
+		Zone:         "NL",
+		CurrentPrice: 0.20,
+		Action:       models.ActionResult{Action: models.ActionWait},
+		Stats:        models.PriceStats{Average: 0.20, Min: 0.08, Max: 0.35, CheapestHour: "03:00", ExpensiveHour: "18:00"},
+		TodayPrices:  make([]models.HourlyPrice, 24),
+		UpdatedAt:    time.Now(),
+	}
+
+	err := PublishAll(context.Background(), pub, s, false)
+	require.NoError(t, err)
+
+	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")
+	require.True(t, found)
+	assert.Equal(t, "off", u.state)
+}
+
+func TestPublishAll_CheapHour_OffDuringAvoid(t *testing.T) {
+	pub := &mockPublisher{}
+	s := &SensorSet{
+		Zone:         "NL",
+		CurrentPrice: 0.35,
+		Action:       models.ActionResult{Action: models.ActionAvoid},
+		Stats:        models.PriceStats{Average: 0.20, Min: 0.08, Max: 0.35, CheapestHour: "03:00", ExpensiveHour: "18:00"},
+		TodayPrices:  make([]models.HourlyPrice, 24),
+		UpdatedAt:    time.Now(),
+	}
+
+	err := PublishAll(context.Background(), pub, s, false)
+	require.NoError(t, err)
+
+	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")
+	require.True(t, found)
+	assert.Equal(t, "off", u.state)
 }
 
 func TestComputeSensorSet(t *testing.T) {
@@ -96,10 +163,45 @@ func TestComputeSensorSet(t *testing.T) {
 	ae := engine.NewActionEngine(-15, 20)
 	fr := &engine.FetchResult{Source: "easyenergy", Tier: 1, Quality: "live"}
 
-	ss := ComputeSensorSet("NL", prices, nil, ae, fr, now)
+	ss := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3)
 
 	assert.Equal(t, "NL", ss.Zone)
 	assert.InDelta(t, 0.10, ss.CurrentPrice, 0.001)
 	assert.Equal(t, "easyenergy", ss.Source)
 	assert.Equal(t, models.PreviewPending, ss.Tomorrow.Status)
+}
+
+func TestComputeSensorSet_BestWindowHours(t *testing.T) {
+	now := time.Date(2026, 2, 11, 10, 0, 0, 0, time.UTC)
+	prices := make([]models.HourlyPrice, 24)
+	for i := range prices {
+		prices[i] = models.HourlyPrice{
+			Timestamp: time.Date(2026, 2, 11, i, 0, 0, 0, time.UTC),
+			PriceEUR:  0.25,
+			Unit:      models.UnitKWh,
+			Zone:      "NL",
+		}
+	}
+	// Make hours 12-17 cheap
+	for i := 12; i <= 17; i++ {
+		prices[i].PriceEUR = 0.10
+	}
+
+	ae := engine.NewActionEngine(-15, 20)
+	fr := &engine.FetchResult{Source: "easyenergy", Tier: 1, Quality: "live"}
+
+	// 3-hour window
+	ss3 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3)
+	require.NotNil(t, ss3.BestWindow)
+	assert.Equal(t, 3, ss3.BestWindow.Duration)
+
+	// 5-hour window
+	ss5 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 5)
+	require.NotNil(t, ss5.BestWindow)
+	assert.Equal(t, 5, ss5.BestWindow.Duration)
+
+	// Default (0 falls back to 3)
+	ss0 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 0)
+	require.NotNil(t, ss0.BestWindow)
+	assert.Equal(t, 3, ss0.BestWindow.Duration)
 }

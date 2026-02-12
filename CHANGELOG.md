@@ -5,6 +5,30 @@ All notable changes to Synctacles Energy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-12
+
+### Added
+- **14-day free trial** — all Pro features unlocked for 14 days after first install, no license key needed
+- Power sensor auto-detection — automatically finds P1 meter or power sensor from HA entities
+- Trial status badge in dashboard header and settings page with days remaining
+
+### Changed
+- License section in Settings now shows TRIAL/PRO/FREE badge with contextual hint
+
+## [1.1.0] - 2026-02-12
+
+### Added
+- `binary_sensor.synctacles_cheap_hour` — free-tier binary sensor, ON during GO periods
+- `sensor.synctacles_daily_cost` — pro-tier cumulative daily cost sensor (resets at midnight, requires power sensor)
+- Configurable best window duration (`best_window_hours`, 1-8 hours, default 3)
+
+### Fixed
+- SQLite cache now writes to `/data` instead of read-only `/config` mount
+
+### Changed
+- Sensor count: 11 → 12 (5 free, 7 pro)
+- Best window sensor description updated for configurable duration
+
 ## [1.0.0] - 2026-02-12
 
 ### Added
@@ -14,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GO/WAIT/AVOID action recommendations based on price deviation from daily average
 - Best 3-hour consecutive window finder
 - Tomorrow price preview (FAVORABLE/NORMAL/EXPENSIVE)
-- 11 Home Assistant sensors (4 free, 7 pro)
+- 12 Home Assistant sensors (5 free, 7 pro)
 - Enever integration for NL all-in consumer prices (24 Dutch suppliers)
 - Rate limit protection for Enever API (2h in-memory cache, ~3 calls/day)
 - YAML-driven country tax profiles (VAT, energy tax, ODE) with embedded configs

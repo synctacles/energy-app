@@ -83,15 +83,17 @@ func main() {
 		}
 	}
 
-	// Validate license (against api.synctacles.com)
+	// Initialize license validator with 14-day free trial
 	licenseValidator := license.NewValidator(cfg.LicenseKey, dataPath)
+	licenseValidator.InitTrial()
+
 	if cfg.HasLicense() {
 		if err := licenseValidator.ValidateOnce(context.Background()); err != nil {
-			slog.Warn("license validation failed, running in free mode", "error", err)
-		} else {
-			slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro())
+			slog.Warn("license validation failed", "error", err)
 		}
 	}
+	slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro(),
+		"trial", licenseValidator.IsTrial(), "trial_days_left", licenseValidator.TrialDaysLeft())
 
 	// Build price source chain for the configured zone
 	sources := buildSourceChain(cfg, registry)
@@ -106,6 +108,15 @@ func main() {
 	sensorData := web.NewSensorData()
 
 	// Initialize power tracker (for Live Cost, Savings, Usage Score)
+	// Auto-detect power sensor if not explicitly configured
+	var detectedPowerSensor string
+	if !cfg.HasPowerSensor() && supervisor != nil {
+		if detected := hasensor.DetectPowerSensor(context.Background(), supervisor); detected != "" {
+			detectedPowerSensor = detected
+			cfg.PowerSensorEntity = detected
+			slog.Info("power sensor auto-detected", "entity", detected)
+		}
+	}
 	var powerTracker *hasensor.PowerTracker
 	if cfg.HasPowerSensor() && supervisor != nil {
 		powerTracker = hasensor.NewPowerTracker(cfg.PowerSensorEntity, supervisor)
@@ -150,6 +161,7 @@ func main() {
 		sensorSet := hasensor.ComputeSensorSet(
 			cfg.BiddingZone, todayPrices, tomorrowPrices,
 			actionEngine, result, now, cfg.EneverLeverancier,
+			cfg.BestWindowHours,
 		)
 
 		// Update shared sensor data for web dashboard
@@ -202,12 +214,14 @@ func main() {
 
 	// Create web server
 	srv := web.NewServer(web.Deps{
-		Config:     cfg,
-		StateStore: stateStore,
-		SensorData: sensorData,
-		Supervisor: supervisor,
-		Fallback:   fallbackMgr,
-		Version:    version,
+		Config:              cfg,
+		StateStore:          stateStore,
+		SensorData:          sensorData,
+		Supervisor:          supervisor,
+		Fallback:            fallbackMgr,
+		License:             licenseValidator,
+		Version:             version,
+		DetectedPowerSensor: detectedPowerSensor,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)

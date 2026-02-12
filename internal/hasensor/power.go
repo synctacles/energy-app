@@ -4,11 +4,91 @@ import (
 	"context"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/synctacles/energy-go/internal/ha"
 )
+
+// DetectPowerSensor queries HA for a power sensor (W) and returns the best match.
+// Priority: 1) entity with "p1" in the name, 2) entity with "power" in the name
+// (excluding phase-specific and generation sensors), 3) any sensor with unit W.
+// Returns empty string if nothing suitable is found.
+func DetectPowerSensor(ctx context.Context, supervisor *ha.SupervisorClient) string {
+	states, err := supervisor.GetAllStates(ctx)
+	if err != nil {
+		slog.Warn("auto-detect power sensor: failed to get states", "error", err)
+		return ""
+	}
+
+	type candidate struct {
+		entityID string
+		priority int // lower = better
+	}
+
+	var candidates []candidate
+
+	for _, s := range states {
+		eid, _ := s["entity_id"].(string)
+		if !strings.HasPrefix(eid, "sensor.") {
+			continue
+		}
+
+		attrs, _ := s["attributes"].(map[string]any)
+		if attrs == nil {
+			continue
+		}
+
+		unit, _ := attrs["unit_of_measurement"].(string)
+		if unit != "W" {
+			continue
+		}
+
+		// Skip phase-specific sensors (phase_1, phase_2, etc.)
+		lower := strings.ToLower(eid)
+		if strings.Contains(lower, "phase") {
+			continue
+		}
+		// Skip generation/output sensors
+		if strings.Contains(lower, "output") || strings.Contains(lower, "solar") ||
+			strings.Contains(lower, "export") || strings.Contains(lower, "charging") ||
+			strings.Contains(lower, "discharging") || strings.Contains(lower, "battery") {
+			continue
+		}
+
+		// Verify it has a numeric state
+		stateStr, _ := s["state"].(string)
+		if _, err := strconv.ParseFloat(stateStr, 64); err != nil {
+			continue
+		}
+
+		prio := 30 // default priority
+		if strings.Contains(lower, "p1") && strings.Contains(lower, "power") {
+			prio = 10 // P1 meter total power = best
+		} else if strings.Contains(lower, "p1") {
+			prio = 15
+		} else if strings.Contains(lower, "power") && !strings.Contains(lower, "maximum") {
+			prio = 20
+		}
+
+		candidates = append(candidates, candidate{eid, prio})
+	}
+
+	if len(candidates) == 0 {
+		return ""
+	}
+
+	// Find best candidate
+	best := candidates[0]
+	for _, c := range candidates[1:] {
+		if c.priority < best.priority {
+			best = c
+		}
+	}
+
+	return best.entityID
+}
 
 // PowerTracker reads a power sensor from HA and accumulates usage data
 // for Live Cost, Savings, and Usage Score calculations.
@@ -125,6 +205,33 @@ func (t *PowerTracker) DailySavings(avgPrice float64) (savingsEUR float64, total
 	totalKWh = totalWh / 1000.0
 	savingsEUR = flatCost - actualCost // Positive = saved money
 	return savingsEUR, totalKWh, true
+}
+
+// DailyCost returns the cumulative daily electricity cost in EUR.
+// Resets at midnight (same as other daily accumulators).
+func (t *PowerTracker) DailyCost() (costEUR float64, totalKWh float64, ok bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	var totalWh float64
+	hasData := false
+
+	for _, u := range t.hourlyUsage {
+		if u.Samples == 0 {
+			continue
+		}
+		hasData = true
+		kWh := u.AvgWatts / 1000.0
+		totalWh += u.AvgWatts
+		costEUR += kWh * u.PriceEUR
+	}
+
+	if !hasData {
+		return 0, 0, false
+	}
+
+	totalKWh = totalWh / 1000.0
+	return costEUR, totalKWh, true
 }
 
 // UsageScore calculates a 0-100 score based on cheap-hour usage.

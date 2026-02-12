@@ -87,8 +87,82 @@ func TestValidator_NoKey(t *testing.T) {
 	err := v.ValidateOnce(context.Background())
 	require.NoError(t, err) // No error, just stays free
 
-	assert.False(t, v.IsPro())
+	assert.False(t, v.IsPro())  // No trial initialized, so no Pro
 	assert.Equal(t, "", v.Tier())
+}
+
+func TestValidator_TrialActive(t *testing.T) {
+	tmp := t.TempDir()
+	v := NewValidator("", tmp)
+	v.InitTrial()
+
+	// Trial just started → Pro access
+	assert.True(t, v.IsPro())
+	assert.True(t, v.IsTrial())
+	assert.Equal(t, "trial", v.Tier())
+	assert.Equal(t, 14, v.TrialDaysLeft())
+
+	// Install file should exist
+	_, err := os.Stat(filepath.Join(tmp, ".synctacles_install.json"))
+	assert.NoError(t, err)
+}
+
+func TestValidator_TrialExpired(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Write an old install file (20 days ago)
+	old := trialInfo{InstalledAt: time.Now().Add(-20 * 24 * time.Hour)}
+	data, _ := json.Marshal(old)
+	os.WriteFile(filepath.Join(tmp, ".synctacles_install.json"), data, 0600)
+
+	v := NewValidator("", tmp)
+	v.InitTrial()
+
+	assert.False(t, v.IsPro())   // Trial expired
+	assert.False(t, v.IsTrial())
+	assert.Equal(t, "", v.Tier())
+	assert.Equal(t, 0, v.TrialDaysLeft())
+}
+
+func TestValidator_TrialPersistence(t *testing.T) {
+	tmp := t.TempDir()
+
+	// First validator creates the trial
+	v1 := NewValidator("", tmp)
+	v1.InitTrial()
+	assert.True(t, v1.IsPro())
+
+	// Second validator loads the same install file
+	v2 := NewValidator("", tmp)
+	v2.InitTrial()
+	assert.True(t, v2.IsPro())
+	assert.True(t, v2.IsTrial())
+	assert.Equal(t, 14, v2.TrialDaysLeft())
+}
+
+func TestValidator_LicenseOverridesTrial(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(statsResponse{
+			UserID: "u1", Email: "test@example.com", Tier: "paid",
+			RateLimitDaily: 100000, UsageToday: 0, RemainingToday: 100000,
+		})
+	}))
+	defer srv.Close()
+
+	tmp := t.TempDir()
+	v := NewValidator("my-key", tmp)
+	v.baseURL = srv.URL
+	v.InitTrial()
+
+	// Before validation, trial is active
+	assert.True(t, v.IsTrial())
+
+	// After validation with paid license, trial is no longer active
+	err := v.ValidateOnce(context.Background())
+	require.NoError(t, err)
+	assert.True(t, v.IsPro())
+	assert.False(t, v.IsTrial()) // License takes precedence
+	assert.Equal(t, "paid", v.Tier())
 }
 
 func TestValidator_InvalidKey(t *testing.T) {
