@@ -1,0 +1,56 @@
+[Unit]
+Description=Synctacles Energy API (Go)
+Documentation=https://github.com/synctacles/energy-go
+After=network-online.target postgresql.service auth-service.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=synctacles-dev
+Group=synctacles-dev
+WorkingDirectory=/opt/github/energy-go
+
+# Environment
+Environment="PORT=8002"
+Environment="DATABASE_URL=postgres://synctacles_dev@localhost:5432/energy_dev?sslmode=disable"
+Environment="AUTH_SERVICE_URL=http://localhost:8000"
+Environment="LOG_LEVEL=info"
+Environment="LOG_FILE=/var/log/energy-api/energy-api.log"
+
+# Production override (use .env file in production)
+EnvironmentFile=-/opt/github/energy-go/.env
+
+# Main process
+ExecStart=/opt/github/energy-go/energy-api
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=5s
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/energy-api
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Resource limits
+MemoryMax=256M
+TasksMax=256
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

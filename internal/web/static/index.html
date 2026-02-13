@@ -438,9 +438,15 @@
         html += '<div style="color:var(--text-muted)">💸 VAT (' + (profile.vat * 100).toFixed(0) + '%)</div>' +
                 '<div style="text-align:right;font-weight:600">+ ' + vCent + ' ct/kWh</div>';
 
-        // Total line
-        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">✅ Total consumer price</div>' +
+        // Total line (commodity only - excludes network and supplier costs)
+        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">💡 Energy commodity price</div>' +
                 '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + totCent + ' ct/kWh</div>';
+
+        // Disclaimer about excluded costs
+        html += '<div style="grid-column:1 / -1;margin-top:12px;padding:8px;background:rgba(251,191,36,0.1);border-left:3px solid #f59e0b;border-radius:4px;font-size:0.75em;color:var(--text-muted)">' +
+                '⚠️ <strong>Note:</strong> Your actual electricity bill includes additional fixed costs not shown here: ' +
+                'network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). ' +
+                'This breakdown shows only the <em>hour-variable</em> energy commodity price.</div>';
 
         html += '</div></div>';
         return html;

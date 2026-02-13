@@ -8,3 +8,15 @@ dist/
 .env
 /tmp/
 scripts/venv/
+
+# Binaries
+energy-api
+energy-server
+energy-addon
+
+# Benchmark scripts (temporary)
+benchmark*.sh
+*.tar.gz
+
+# Logs
+*.log
