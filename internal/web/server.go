@@ -12,11 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/synctacles/energy-go/internal/config"
-	"github.com/synctacles/energy-go/internal/engine"
-	"github.com/synctacles/energy-go/internal/ha"
-	"github.com/synctacles/energy-go/internal/license"
-	"github.com/synctacles/energy-go/internal/state"
+	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-backend/pkg/engine"
+	"github.com/synctacles/energy-app/internal/ha"
+	"github.com/synctacles/energy-app/internal/license"
+	"github.com/synctacles/energy-app/internal/state"
 )
 
 //go:embed static/*

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/synctacles/energy-go/internal/ha"
+	"github.com/synctacles/energy-app/internal/ha"
 )
 
 // RESTPublisher publishes sensor state via the HA Supervisor REST API.

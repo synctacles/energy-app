@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/synctacles/energy-go/internal/engine"
-	"github.com/synctacles/energy-go/internal/models"
+	"github.com/synctacles/energy-backend/pkg/engine"
+	"github.com/synctacles/energy-backend/pkg/models"
 )
 
 // Publisher is the interface for publishing sensor state to Home Assistant.

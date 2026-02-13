@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/synctacles/energy-go/internal/ha"
+	"github.com/synctacles/energy-app/internal/ha"
 )
 
 // mqttAddonSlugs are known MQTT broker addon slugs in HA.

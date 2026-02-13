@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/synctacles/energy-go/internal/ha"
+	"github.com/synctacles/energy-app/internal/ha"
 )
 
 // DetectPowerSensor queries HA for a power sensor (W) and returns the best match.

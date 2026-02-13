@@ -3,7 +3,7 @@ package web
 import (
 	"sync"
 
-	"github.com/synctacles/energy-go/internal/hasensor"
+	"github.com/synctacles/energy-app/internal/hasensor"
 )
 
 // SensorData holds the latest sensor values for the web API.
