@@ -1,0 +1,79 @@
+# EU Countries for Tax Harvesting
+# Using PWC Tax Summaries as primary source (reliable, consistent format)
+
+missing_countries:
+  # EU Countries with EUR
+
+  - code: EE
+    name: Estonia
+    currency: EUR
+    timezone: Europe/Tallinn
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/estonia/corporate/other-taxes"
+
+  - code: IE
+    name: Ireland
+    currency: EUR
+    timezone: Europe/Dublin
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/ireland/corporate/other-taxes"
+
+  - code: GR
+    name: Greece
+    currency: EUR
+    timezone: Europe/Athens
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/greece/corporate/other-taxes"
+
+  - code: HR
+    name: Croatia
+    currency: EUR
+    timezone: Europe/Zagreb
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/croatia/corporate/other-taxes"
+
+  - code: LT
+    name: Lithuania
+    currency: EUR
+    timezone: Europe/Vilnius
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/lithuania/corporate/other-taxes"
+
+  - code: LV
+    name: Latvia
+    currency: EUR
+    timezone: Europe/Riga
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/latvia/corporate/other-taxes"
+
+  - code: CY
+    name: Cyprus
+    currency: EUR
+    timezone: Asia/Nicosia
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/cyprus/corporate/other-taxes"
+
+  - code: SK
+    name: Slovakia
+    currency: EUR
+    timezone: Europe/Bratislava
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/slovakia/corporate/other-taxes"
+
+  # EU Countries with local currency
+
+  - code: BG
+    name: Bulgaria
+    currency: BGN
+    typical_exchange_rate: 1.95583  # BGN/EUR (ERM-II fixed)
+    timezone: Europe/Sofia
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/bulgaria/corporate/other-taxes"
+
+  - code: RO
+    name: Romania
+    currency: RON
+    typical_exchange_rate: 4.95  # RON/EUR
+    timezone: Europe/Bucharest
+    tax_authority_urls:
+      - "https://taxsummaries.pwc.com/romania/corporate/other-taxes"

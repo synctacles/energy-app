@@ -1,0 +1,63 @@
+missing_countries:
+- code: EE
+  currency: EUR
+  name: Estonia
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/estonia/corporate/other-taxes
+  timezone: Europe/Tallinn
+- code: IE
+  currency: EUR
+  name: Ireland
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/ireland/corporate/other-taxes
+  timezone: Europe/Dublin
+- code: GR
+  currency: EUR
+  name: Greece
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/greece/corporate/other-taxes
+  timezone: Europe/Athens
+- code: HR
+  currency: EUR
+  name: Croatia
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/croatia/corporate/other-taxes
+  timezone: Europe/Zagreb
+- code: LT
+  currency: EUR
+  name: Lithuania
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/lithuania/corporate/other-taxes
+  timezone: Europe/Vilnius
+- code: LV
+  currency: EUR
+  name: Latvia
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/latvia/corporate/other-taxes
+  timezone: Europe/Riga
+- code: CY
+  currency: EUR
+  name: Cyprus
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/cyprus/corporate/other-taxes
+  timezone: Asia/Nicosia
+- code: SK
+  currency: EUR
+  name: Slovakia
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/slovakia/corporate/other-taxes
+  timezone: Europe/Bratislava
+- code: BG
+  currency: BGN
+  name: Bulgaria
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/bulgaria/corporate/other-taxes
+  timezone: Europe/Sofia
+  typical_exchange_rate: 1.95583
+- code: RO
+  currency: RON
+  name: Romania
+  tax_authority_urls:
+  - https://taxsummaries.pwc.com/romania/corporate/other-taxes
+  timezone: Europe/Bucharest
+  typical_exchange_rate: 4.95

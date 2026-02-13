@@ -1,0 +1,23 @@
+country: EE
+name: Estonia
+currency: EUR
+zones:
+  - code: "EE"
+    name: "Estonia"
+    timezone: "Europe/Tallinn"
+tax_profile:
+  vat_rate: 0.22  # 22% standard VAT rate
+  coefficient: 1.0
+  energy_tax:
+    - from: "2025-05-01"
+      rate: 0.00210  # EUR/kWh excl. VAT (€2.10/MWh)
+    - from: "2026-05-01"
+      rate: 0.00307  # EUR/kWh excl. VAT (€3.07/MWh)
+  surcharges: 0.0
+sources:
+  - name: energycharts
+    priority: 1
+
+# Manually verified 2026-02-13 from:
+# https://news.err.ee/1609893193/overview-2026-excise-duties-and-other-tax-changes
+# Electricity excise duty increases to €3.07/MWh on May 1, 2026
