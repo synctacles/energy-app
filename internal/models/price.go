@@ -84,6 +84,43 @@ func (tp *TaxProfile) ActiveEnergyTax(at time.Time) float64 {
 	return active
 }
 
+// PriceBreakdown shows the detailed composition of a consumer price.
+type PriceBreakdown struct {
+	Wholesale    float64 `json:"wholesale"`     // Original wholesale price (EUR/kWh)
+	Coefficient  float64 `json:"coefficient"`   // Supplier markup factor
+	Markup       float64 `json:"markup"`        // Markup amount = wholesale * (coeff - 1)
+	EnergyTax    float64 `json:"energy_tax"`    // Energy excise tax (EUR/kWh excl. VAT)
+	Surcharges   float64 `json:"surcharges"`    // Additional levies (EUR/kWh excl. VAT)
+	Subtotal     float64 `json:"subtotal"`      // Sum before VAT
+	VATRate      float64 `json:"vat_rate"`      // VAT rate as decimal (0.21 = 21%)
+	VATAmount    float64 `json:"vat_amount"`    // VAT amount (EUR/kWh)
+	ConsumerTotal float64 `json:"consumer_total"` // Final consumer price (EUR/kWh)
+}
+
+// CalculateBreakdown returns detailed price breakdown showing all tax components.
+func (tp *TaxProfile) CalculateBreakdown(wholesaleKWh float64, at time.Time) PriceBreakdown {
+	energyTax := tp.ActiveEnergyTax(at)
+	coeff := tp.EffectiveCoefficient()
+
+	wholesaleWithMarkup := wholesaleKWh * coeff
+	markup := wholesaleKWh * (coeff - 1)
+	subtotal := wholesaleWithMarkup + energyTax + tp.Surcharges
+	vatAmount := subtotal * tp.VATRate
+	consumerTotal := subtotal * (1 + tp.VATRate)
+
+	return PriceBreakdown{
+		Wholesale:     wholesaleKWh,
+		Coefficient:   coeff,
+		Markup:        markup,
+		EnergyTax:     energyTax,
+		Surcharges:    tp.Surcharges,
+		Subtotal:      subtotal,
+		VATRate:       tp.VATRate,
+		VATAmount:     vatAmount,
+		ConsumerTotal: consumerTotal,
+	}
+}
+
 // WholesaleToConsumer converts a wholesale EUR/kWh price to consumer price.
 // Formula: consumer = (wholesale × coefficient + energy_tax + surcharges) × (1 + VAT)
 func (tp *TaxProfile) WholesaleToConsumer(wholesaleKWh float64, at time.Time) float64 {

@@ -370,6 +370,82 @@
     var lastPrices = null, lastAvg = 0;
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
 
+    // Tax profiles per zone (subset - expand as needed)
+    var taxProfiles = {
+        'NL': { energy_tax: 0.09161, vat: 0.21, surcharges: 0, name: 'Netherlands' },
+        'DE-LU': { energy_tax: 0.02050, vat: 0.19, surcharges: 0.02946, name: 'Germany' },
+        'IE': { energy_tax: 0.071, vat: 0.135, surcharges: 0, name: 'Ireland' },
+        'EE': { energy_tax: 0.00307, vat: 0.22, surcharges: 0, name: 'Estonia' },
+        'BE': { energy_tax: 0.02360, vat: 0.06, surcharges: 0, name: 'Belgium' },
+        'FR': { energy_tax: 0.03085, vat: 0.20, surcharges: 0, name: 'France' },
+        'BG': { energy_tax: 0, vat: 0.20, surcharges: 0, name: 'Bulgaria' }, // Zero for households!
+        'CY': { energy_tax: 0.001, vat: 0.09, surcharges: 0.005, name: 'Cyprus' },
+        'GR': { energy_tax: 0.001, vat: 0.13, surcharges: 0, name: 'Greece' },
+    };
+
+    function buildTaxBreakdownCard(consumerPriceEUR, zone) {
+        var profile = taxProfiles[zone];
+        if (!profile) {
+            // No tax profile - skip breakdown card
+            return '';
+        }
+
+        // Reverse-calculate wholesale from consumer price
+        // consumer = (wholesale * 1.0 + energy_tax + surcharges) * (1 + VAT)
+        // wholesale = (consumer / (1 + VAT)) - energy_tax - surcharges
+        var subtotal = consumerPriceEUR / (1 + profile.vat);
+        var wholesale = subtotal - profile.energy_tax - profile.surcharges;
+        var vatAmount = consumerPriceEUR - subtotal;
+
+        // Format in cents for display
+        var wCent = formatPrice(wholesale);
+        var eCent = formatPrice(profile.energy_tax);
+        var sCent = formatPrice(profile.surcharges);
+        var subCent = formatPrice(subtotal);
+        var vCent = formatPrice(vatAmount);
+        var totCent = formatPrice(consumerPriceEUR);
+
+        var html = '<div class="card" style="grid-column: 1 / -1;">' +
+            '<div class="card-label">💰 Tax Breakdown (' + profile.name + ')' +
+                '<span style="font-weight:normal;color:var(--text-faint);margin-left:8px">How your price is calculated</span>' +
+            '</div>' +
+            '<div style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:0.85em;">';
+
+        // Wholesale
+        html += '<div style="color:var(--text-muted)">💵 Wholesale price</div>' +
+                '<div style="text-align:right;font-weight:600">' + wCent + ' ct/kWh</div>';
+
+        // Energy tax
+        if (profile.energy_tax > 0) {
+            html += '<div style="color:var(--text-muted)">🏛️ Energy tax (excl. VAT)</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + eCent + ' ct/kWh</div>';
+        } else {
+            html += '<div style="color:#0d9488">🎁 Energy tax (FREE for households!)</div>' +
+                    '<div style="text-align:right;font-weight:600;color:#0d9488">€0.00</div>';
+        }
+
+        // Surcharges
+        if (profile.surcharges > 0) {
+            html += '<div style="color:var(--text-muted)">📊 Surcharges (levies)</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + sCent + ' ct/kWh</div>';
+        }
+
+        // Subtotal line
+        html += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-weight:500">Subtotal (before VAT)</div>' +
+                '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + subCent + ' ct/kWh</div>';
+
+        // VAT
+        html += '<div style="color:var(--text-muted)">💸 VAT (' + (profile.vat * 100).toFixed(0) + '%)</div>' +
+                '<div style="text-align:right;font-weight:600">+ ' + vCent + ' ct/kWh</div>';
+
+        // Total line
+        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">✅ Total consumer price</div>' +
+                '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + totCent + ' ct/kWh</div>';
+
+        html += '</div></div>';
+        return html;
+    }
+
     async function loadDashboard() {
         try {
             var resp = await fetch('api/dashboard');
@@ -423,6 +499,7 @@
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ct/kWh</span></div>' +
                         '<div class="card-sub">Avg: ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
                     '</div>' +
+                    buildTaxBreakdownCard(price, d.zone) +
                     '<div class="card">' +
                         '<div class="card-label">Action</div>' +
                         '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
