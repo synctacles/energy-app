@@ -5,6 +5,26 @@ All notable changes to Synctacles Energy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-02-13
+
+### Fixed
+- Clarified tax breakdown UI label: changed "Total consumer price" to "Energy commodity price"
+- Added disclaimer explaining that network delivery costs (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh) are not included in the displayed breakdown
+- Emphasized that the breakdown shows only hour-variable components (wholesale + taxes + VAT)
+
+## [1.3.0] - 2026-02-13
+
+### Added
+- 10 new EU countries: Estonia, Ireland, Croatia, Latvia, Lithuania, Greece, Slovakia, Bulgaria, Romania, Cyprus
+- Achieved 100% EU coverage (all 27 member states now supported)
+- Tax breakdown visualization showing: wholesale price, energy tax, surcharges, VAT breakdown
+- Per-zone tax profiles in web dashboard UI (9 zones: NL, DE-LU, IE, EE, BE, FR, BG, CY, GR)
+- Notable: Bulgaria has ZERO energy tax for households, Ireland has highest tax (€0.071/kWh)
+
+### Changed
+- Expanded country tax database with manually verified government data
+- Updated Netherlands tax rates for 2026 (EB: €0.09161/kWh, includes former ODE)
+
 ## [1.0.0] - 2026-02-12
 
 ### Added
