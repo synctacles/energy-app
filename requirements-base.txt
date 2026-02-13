@@ -11,4 +11,4 @@ pydantic
 email-validator
 
 # Data processing
-lxml==5.1.0
+lxml==5.4.0
