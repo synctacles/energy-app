@@ -83,17 +83,9 @@ func main() {
 		}
 	}
 
-	// Initialize license validator with 14-day free trial
+	// Initialize license validator (all features free)
 	licenseValidator := license.NewValidator(cfg.LicenseKey, dataPath)
-	licenseValidator.InitTrial()
-
-	if cfg.HasLicense() {
-		if err := licenseValidator.ValidateOnce(context.Background()); err != nil {
-			slog.Warn("license validation failed", "error", err)
-		}
-	}
-	slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro(),
-		"trial", licenseValidator.IsTrial(), "trial_days_left", licenseValidator.TrialDaysLeft())
+	slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro())
 
 	// Build price source chain for the configured zone
 	sources := buildSourceChain(cfg, registry)
@@ -184,7 +176,7 @@ func main() {
 
 		// Publish to all publishers
 		for _, pub := range publishers {
-			if err := hasensor.PublishAll(ctx, pub, sensorSet, licenseValidator.IsPro(), powerTracker); err != nil {
+			if err := hasensor.PublishAll(ctx, pub, sensorSet, powerTracker); err != nil {
 				slog.Error("sensor publish failed", "error", err)
 			}
 		}

@@ -5,7 +5,6 @@
 export ENERGY_ZONE="$(bashio::config 'zone' 'NL')"
 export ENERGY_GO_THRESHOLD="$(bashio::config 'go_threshold' '-15')"
 export ENERGY_AVOID_THRESHOLD="$(bashio::config 'avoid_threshold' '20')"
-export SYNCTACLES_LICENSE_KEY="$(bashio::config 'license_key' '')"
 export ENEVER_ENABLED="$(bashio::config 'enever_enabled' 'false')"
 export ENEVER_TOKEN="$(bashio::config 'enever_token' '')"
 export ENEVER_LEVERANCIER="$(bashio::config 'enever_leverancier' '')"

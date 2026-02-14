@@ -2,11 +2,16 @@
 package web
 
 import (
+	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -88,6 +93,11 @@ func NewServer(deps Deps) *Server {
 
 		// Sources health
 		r.Get("/sources", s.handleSources)
+
+		// Feedback
+		r.Get("/feedback/sysinfo", s.handleFeedbackSysInfo)
+		r.Post("/feedback/rating", s.handleFeedbackRating)
+		r.Post("/feedback/bug", s.handleFeedbackBug)
 	})
 
 	// Static files and SPA
@@ -406,6 +416,135 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(data)
+}
+
+// --- Feedback Handlers ---
+
+const feedbackBaseURL = "https://api.synctacles.com"
+
+// feedbackSystemInfo collects system information for feedback submissions.
+func (s *Server) feedbackSystemInfo() map[string]any {
+	info := map[string]any{
+		"addon_version": s.version,
+		"zone":          s.cfg.BiddingZone,
+		"tier":          s.license.Tier(),
+	}
+
+	if s.supervisor != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if core, err := s.supervisor.GetCoreInfo(ctx); err == nil {
+			info["ha_version"] = core.Version
+			info["ha_arch"] = core.Arch
+			info["ha_machine"] = core.Machine
+		}
+	}
+
+	return info
+}
+
+func (s *Server) handleFeedbackSysInfo(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.feedbackSystemInfo())
+}
+
+func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Rating  int    `json:"rating"`
+		Comment string `json:"comment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	if req.Rating < 1 || req.Rating > 5 {
+		writeError(w, http.StatusBadRequest, "rating must be between 1 and 5")
+		return
+	}
+
+	payload := map[string]any{
+		"type":        "rating",
+		"product_id":  "energy",
+		"rating":      req.Rating,
+		"comment":     req.Comment,
+		"system_info": s.feedbackSystemInfo(),
+	}
+
+	resp, err := s.forwardFeedback(payload)
+	if err != nil {
+		slog.Error("failed to forward rating", "error", err)
+		writeError(w, http.StatusBadGateway, "failed to submit feedback")
+		return
+	}
+	writeJSON(w, resp)
+}
+
+func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	if strings.TrimSpace(req.Title) == "" || strings.TrimSpace(req.Description) == "" {
+		writeError(w, http.StatusBadRequest, "title and description are required")
+		return
+	}
+
+	payload := map[string]any{
+		"type":        "bug",
+		"product_id":  "energy",
+		"title":       req.Title,
+		"description": req.Description,
+		"system_info": s.feedbackSystemInfo(),
+	}
+
+	resp, err := s.forwardFeedback(payload)
+	if err != nil {
+		slog.Error("failed to forward bug report", "error", err)
+		writeError(w, http.StatusBadGateway, "failed to submit bug report")
+		return
+	}
+	writeJSON(w, resp)
+}
+
+// forwardFeedback sends a feedback payload to the auth service.
+func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error) {
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal payload: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", feedbackBaseURL+"/auth/feedback", bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("auth service returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	return result, nil
 }
 
 // --- Helpers ---

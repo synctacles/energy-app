@@ -1,0 +1,110 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug. What did you expect to happen?
+      placeholder: "When I open the dashboard, the prices show as 0.00..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Open the addon web UI
+        2. Click on Dashboard tab
+        3. Observe that prices are all 0.00
+    validations:
+      required: false
+
+  - type: input
+    id: addon_version
+    attributes:
+      label: Addon version
+      description: "Found in the addon web UI header (e.g. v1.3.1)"
+      placeholder: "v1.3.1"
+    validations:
+      required: false
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: "Settings > About (e.g. 2026.2.0)"
+      placeholder: "2026.2.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: zone
+    attributes:
+      label: Bidding zone
+      description: Your configured electricity zone
+      options:
+        - NL
+        - DE-LU
+        - BE
+        - AT
+        - FR
+        - ES
+        - PT
+        - DK-1
+        - DK-2
+        - "NO-1 / NO-2 / NO-3 / NO-4 / NO-5"
+        - "SE-1 / SE-2 / SE-3 / SE-4"
+        - FI
+        - EE
+        - LT
+        - LV
+        - PL
+        - CZ
+        - HU
+        - SI
+        - IE
+        - Other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture
+      description: Your HA host architecture
+      options:
+        - amd64 (x86_64)
+        - aarch64 (RPi 4/5, ARM64)
+        - armv7 (RPi 3, ARM32)
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: "Addon logs from Settings > Add-ons > Synctacles Energy > Log"
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have checked the addon logs for errors
+          required: false
+        - label: I am using the latest addon version
+          required: false

@@ -36,7 +36,7 @@ func findUpdate(updates []sensorUpdate, entityID string) (sensorUpdate, bool) {
 	return sensorUpdate{}, false
 }
 
-func TestPublishAll_FreeOnly(t *testing.T) {
+func TestPublishAll_AllSensors(t *testing.T) {
 	pub := &mockPublisher{}
 	s := &SensorSet{
 		Zone:         "NL",
@@ -49,45 +49,24 @@ func TestPublishAll_FreeOnly(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	err := PublishAll(context.Background(), pub, s, false)
+	err := PublishAll(context.Background(), pub, s)
 	require.NoError(t, err)
 
-	// Free tier: 5 sensors (price, cheapest, expensive, prices_today, cheap_hour)
-	assert.Len(t, pub.updates, 5)
-	assert.Equal(t, "sensor.synctacles_energy_price", pub.updates[0].entityID)
-	assert.Equal(t, "sensor.synctacles_cheapest_hour", pub.updates[1].entityID)
-	assert.Equal(t, "sensor.synctacles_expensive_hour", pub.updates[2].entityID)
-	assert.Equal(t, "sensor.synctacles_prices_today", pub.updates[3].entityID)
-	assert.Equal(t, "binary_sensor.synctacles_cheap_hour", pub.updates[4].entityID)
-}
-
-func TestPublishAll_Pro(t *testing.T) {
-	pub := &mockPublisher{}
-	s := &SensorSet{
-		Zone:         "NL",
-		CurrentPrice: 0.2134,
-		Action:       models.ActionResult{Action: models.ActionGo},
-		Stats:        models.PriceStats{Average: 0.20, Min: 0.08, Max: 0.35, CheapestHour: "03:00", ExpensiveHour: "18:00"},
-		BestWindow:   &models.BestWindow{StartHour: "02:00", EndHour: "05:00", AvgPrice: 0.09, Duration: 3},
-		Tomorrow:     models.TomorrowResult{Status: models.PreviewFavorable},
-		TodayPrices:  make([]models.HourlyPrice, 24),
-		UpdatedAt:    time.Now(),
-	}
-
-	err := PublishAll(context.Background(), pub, s, true)
-	require.NoError(t, err)
-
-	// Pro tier: 5 free + 4 pro = 9 sensors
+	// All 9 sensors published (no license gate)
 	assert.Len(t, pub.updates, 9)
 	entityIDs := make([]string, len(pub.updates))
 	for i, u := range pub.updates {
 		entityIDs[i] = u.entityID
 	}
+	assert.Contains(t, entityIDs, "sensor.synctacles_energy_price")
+	assert.Contains(t, entityIDs, "sensor.synctacles_cheapest_hour")
+	assert.Contains(t, entityIDs, "sensor.synctacles_expensive_hour")
+	assert.Contains(t, entityIDs, "sensor.synctacles_prices_today")
+	assert.Contains(t, entityIDs, "binary_sensor.synctacles_cheap_hour")
 	assert.Contains(t, entityIDs, "sensor.synctacles_energy_action")
 	assert.Contains(t, entityIDs, "sensor.synctacles_best_window")
 	assert.Contains(t, entityIDs, "sensor.synctacles_tomorrow_preview")
 	assert.Contains(t, entityIDs, "sensor.synctacles_prices_tomorrow")
-	assert.Contains(t, entityIDs, "binary_sensor.synctacles_cheap_hour")
 }
 
 func TestPublishAll_CheapHour_OnDuringGO(t *testing.T) {
@@ -101,7 +80,7 @@ func TestPublishAll_CheapHour_OnDuringGO(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	err := PublishAll(context.Background(), pub, s, false)
+	err := PublishAll(context.Background(), pub, s)
 	require.NoError(t, err)
 
 	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")
@@ -120,7 +99,7 @@ func TestPublishAll_CheapHour_OffDuringWait(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	err := PublishAll(context.Background(), pub, s, false)
+	err := PublishAll(context.Background(), pub, s)
 	require.NoError(t, err)
 
 	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")
@@ -139,7 +118,7 @@ func TestPublishAll_CheapHour_OffDuringAvoid(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	err := PublishAll(context.Background(), pub, s, false)
+	err := PublishAll(context.Background(), pub, s)
 	require.NoError(t, err)
 
 	u, found := findUpdate(pub.updates, "binary_sensor.synctacles_cheap_hour")

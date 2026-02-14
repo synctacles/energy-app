@@ -55,7 +55,7 @@ deploy/
 3. **Pure Go SQLite**: modernc.org/sqlite (no CGo) → static binary + cross-compile.
 4. **Dual sensor publishing**: REST API (always) + MQTT auto-discovery (if broker detected).
 5. **Country YAML configs**: Data-driven tax profiles embedded via `//go:embed`.
-6. **Freemium**: FREE (prices, cheapest hour) vs PRO €10/year (GO/WAIT/AVOID, best window, tomorrow).
+6. **Free model**: All features (prices, GO/WAIT/AVOID, best window, tomorrow) are free for all users.
 
 ## Thresholds (from existing product)
 
@@ -76,6 +76,6 @@ make docker-addon          # Docker build
 ```
 
 ## Related Repos
-- **care-go**: `synctacles/care-go` — Care addon (patterns copied from here)
-- **ha-integration**: `synctacles/ha-integration` — Legacy HA custom component
-- **energy**: `synctacles/energy` — Legacy Python energy API (being replaced)
+- **energy-backend**: `synctacles/energy-backend` — Energy API server, shared pkg/
+- **care-app**: `synctacles/care-app` — Care HA addon (Go)
+- **platform**: `synctacles/platform` — Auth service, licensing

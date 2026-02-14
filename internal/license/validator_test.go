@@ -14,7 +14,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidator_PaidTier(t *testing.T) {
+func TestValidator_AlwaysPro(t *testing.T) {
+	// All features are free — IsPro() always returns true regardless of state
+	v := NewValidator("", t.TempDir())
+	assert.True(t, v.IsPro())
+	assert.False(t, v.IsTrial())
+	assert.Equal(t, 0, v.TrialDaysLeft())
+	assert.Equal(t, "pro", v.Tier())
+}
+
+func TestValidator_InitTrialNoOp(t *testing.T) {
+	tmp := t.TempDir()
+	v := NewValidator("", tmp)
+	v.InitTrial()
+
+	// InitTrial is a no-op, no install file created
+	assert.True(t, v.IsPro())
+	assert.False(t, v.IsTrial())
+	assert.Equal(t, "pro", v.Tier())
+}
+
+func TestValidator_ValidateOnce_NoKey(t *testing.T) {
+	v := NewValidator("", t.TempDir())
+	err := v.ValidateOnce(context.Background())
+	require.NoError(t, err)
+	assert.True(t, v.IsPro())
+}
+
+func TestValidator_ValidateOnce_WithKey(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/auth/stats", r.URL.Path)
 		assert.Equal(t, "test-api-key-123", r.Header.Get("X-API-Key"))
@@ -30,139 +57,13 @@ func TestValidator_PaidTier(t *testing.T) {
 	v := NewValidator("test-api-key-123", tmp)
 	v.baseURL = srv.URL
 
-	assert.False(t, v.IsPro()) // Not yet validated
-
 	err := v.ValidateOnce(context.Background())
 	require.NoError(t, err)
-
 	assert.True(t, v.IsPro())
-	assert.Equal(t, "paid", v.Tier())
 
 	// Cache file should exist
 	_, err = os.Stat(filepath.Join(tmp, ".synctacles_license.json"))
 	assert.NoError(t, err)
-}
-
-func TestValidator_FreeTier(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{
-			UserID: "u2", Email: "free@example.com", Tier: "free",
-			RateLimitDaily: 1000, UsageToday: 0, RemainingToday: 1000,
-		})
-	}))
-	defer srv.Close()
-
-	v := NewValidator("free-key", t.TempDir())
-	v.baseURL = srv.URL
-
-	err := v.ValidateOnce(context.Background())
-	require.NoError(t, err)
-
-	assert.False(t, v.IsPro())
-	assert.Equal(t, "free", v.Tier())
-}
-
-func TestValidator_BetaTier(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{
-			UserID: "u3", Email: "beta@example.com", Tier: "beta",
-			RateLimitDaily: 10000, UsageToday: 0, RemainingToday: 10000,
-		})
-	}))
-	defer srv.Close()
-
-	v := NewValidator("beta-key", t.TempDir())
-	v.baseURL = srv.URL
-
-	err := v.ValidateOnce(context.Background())
-	require.NoError(t, err)
-
-	assert.True(t, v.IsPro())
-	assert.Equal(t, "beta", v.Tier())
-}
-
-func TestValidator_NoKey(t *testing.T) {
-	v := NewValidator("", t.TempDir())
-
-	err := v.ValidateOnce(context.Background())
-	require.NoError(t, err) // No error, just stays free
-
-	assert.False(t, v.IsPro())  // No trial initialized, so no Pro
-	assert.Equal(t, "", v.Tier())
-}
-
-func TestValidator_TrialActive(t *testing.T) {
-	tmp := t.TempDir()
-	v := NewValidator("", tmp)
-	v.InitTrial()
-
-	// Trial just started → Pro access
-	assert.True(t, v.IsPro())
-	assert.True(t, v.IsTrial())
-	assert.Equal(t, "trial", v.Tier())
-	assert.Equal(t, 14, v.TrialDaysLeft())
-
-	// Install file should exist
-	_, err := os.Stat(filepath.Join(tmp, ".synctacles_install.json"))
-	assert.NoError(t, err)
-}
-
-func TestValidator_TrialExpired(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Write an old install file (20 days ago)
-	old := trialInfo{InstalledAt: time.Now().Add(-20 * 24 * time.Hour)}
-	data, _ := json.Marshal(old)
-	os.WriteFile(filepath.Join(tmp, ".synctacles_install.json"), data, 0600)
-
-	v := NewValidator("", tmp)
-	v.InitTrial()
-
-	assert.False(t, v.IsPro())   // Trial expired
-	assert.False(t, v.IsTrial())
-	assert.Equal(t, "", v.Tier())
-	assert.Equal(t, 0, v.TrialDaysLeft())
-}
-
-func TestValidator_TrialPersistence(t *testing.T) {
-	tmp := t.TempDir()
-
-	// First validator creates the trial
-	v1 := NewValidator("", tmp)
-	v1.InitTrial()
-	assert.True(t, v1.IsPro())
-
-	// Second validator loads the same install file
-	v2 := NewValidator("", tmp)
-	v2.InitTrial()
-	assert.True(t, v2.IsPro())
-	assert.True(t, v2.IsTrial())
-	assert.Equal(t, 14, v2.TrialDaysLeft())
-}
-
-func TestValidator_LicenseOverridesTrial(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{
-			UserID: "u1", Email: "test@example.com", Tier: "paid",
-			RateLimitDaily: 100000, UsageToday: 0, RemainingToday: 100000,
-		})
-	}))
-	defer srv.Close()
-
-	tmp := t.TempDir()
-	v := NewValidator("my-key", tmp)
-	v.baseURL = srv.URL
-	v.InitTrial()
-
-	// Before validation, trial is active
-	assert.True(t, v.IsTrial())
-
-	// After validation with paid license, trial is no longer active
-	err := v.ValidateOnce(context.Background())
-	require.NoError(t, err)
-	assert.True(t, v.IsPro())
-	assert.False(t, v.IsTrial()) // License takes precedence
-	assert.Equal(t, "paid", v.Tier())
 }
 
 func TestValidator_InvalidKey(t *testing.T) {
@@ -178,6 +79,9 @@ func TestValidator_InvalidKey(t *testing.T) {
 	err := v.ValidateOnce(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid API key")
+
+	// IsPro still true even with invalid key (all features free)
+	assert.True(t, v.IsPro())
 }
 
 func TestValidator_CachePersistence(t *testing.T) {
@@ -209,28 +113,6 @@ func TestValidator_CachePersistence(t *testing.T) {
 	assert.True(t, v2.IsPro())
 }
 
-func TestValidator_GracePeriodExpired(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Write an expired cache file (100 days old)
-	expired := cachedResult{
-		Tier:        "paid",
-		IsPro:       true,
-		ValidatedAt: time.Now().Add(-100 * 24 * time.Hour),
-		Email:       "old@example.com",
-	}
-	data, _ := json.Marshal(expired)
-	os.WriteFile(filepath.Join(tmp, ".synctacles_license.json"), data, 0600)
-
-	// Server is down (no mock)
-	v := NewValidator("key", tmp)
-	v.baseURL = "http://127.0.0.1:1" // Connection refused
-
-	// Load from cache but grace period expired
-	_ = v.ValidateOnce(context.Background())
-	assert.False(t, v.IsPro()) // Grace period expired → no Pro
-}
-
 func TestValidator_OfflineGrace(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -251,5 +133,5 @@ func TestValidator_OfflineGrace(t *testing.T) {
 	err := v.ValidateOnce(context.Background())
 	require.NoError(t, err) // Should succeed using cache
 
-	assert.True(t, v.IsPro()) // Within grace period → still Pro
+	assert.True(t, v.IsPro())
 }

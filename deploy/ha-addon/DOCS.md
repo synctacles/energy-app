@@ -61,9 +61,7 @@ All sources are free, public APIs. No API keys required (except for the optional
 
 ## Sensors
 
-The addon publishes up to 11 sensors to Home Assistant:
-
-### Free Tier
+The addon publishes up to 11 sensors to Home Assistant — all included for free:
 
 | Sensor | Entity ID | State | Description |
 |--------|-----------|-------|-------------|
@@ -71,11 +69,6 @@ The addon publishes up to 11 sensors to Home Assistant:
 | Cheapest Hour | `sensor.synctacles_cheapest_hour` | HH:00 | Today's cheapest hour |
 | Expensive Hour | `sensor.synctacles_expensive_hour` | HH:00 | Today's most expensive hour |
 | Prices Today | `sensor.synctacles_prices_today` | count | Hourly prices array in attributes |
-
-### Pro Tier
-
-| Sensor | Entity ID | State | Description |
-|--------|-----------|-------|-------------|
 | Action | `sensor.synctacles_energy_action` | GO/WAIT/AVOID | Current recommendation |
 | Best Window | `sensor.synctacles_best_window` | HH:00 - HH:00 | Best 3-hour consecutive window |
 | Tomorrow Preview | `sensor.synctacles_tomorrow_preview` | FAVORABLE/NORMAL/EXPENSIVE/PENDING | Tomorrow's price outlook |
@@ -96,7 +89,6 @@ Live Cost, Savings, and Usage Score require a power sensor entity to be configur
 | `go_threshold` | -15 | % below average to recommend GO |
 | `avoid_threshold` | 20 | % above average to recommend AVOID |
 | `coefficient` | 0 | Price coefficient override (0 = use country default tax profile) |
-| `license_key` | — | Pro license key for premium sensors |
 | `power_sensor` | — | HA entity ID for power consumption (e.g. `sensor.power_consumption`) |
 | `debug_mode` | false | Enable verbose logging |
 
@@ -130,23 +122,6 @@ If you need higher rate limits or want to support the Enever project, consider b
 Enever provides pricing data for 24 Dutch energy suppliers:
 
 ANWB Energie, Budget Energie, Coolblue Energie, EasyEnergy, Energie Direct, Energie van Ons, Energiek, EnergyZero, Essent, Frank Energie, Groene Stroom Lokaal, Hegg, Innova Energie, Mijn Domein Energie, NextEnergy, Pure Energie, Quatt, SamSam, Tibber, Vandebron, Vattenfall, Vrij op naam, Wout Energie, Zonneplan.
-
-## Freemium Model
-
-| Feature | Free | Pro |
-|---------|------|-----|
-| Current price sensor | Yes | Yes |
-| Cheapest/expensive hour | Yes | Yes |
-| Prices today (hourly array) | Yes | Yes |
-| GO/WAIT/AVOID action | — | Yes |
-| Best 3-hour window | — | Yes |
-| Tomorrow preview | — | Yes |
-| Prices tomorrow | — | Yes |
-| Live cost (needs power sensor) | — | Yes |
-| Savings tracking | — | Yes |
-| Usage score | — | Yes |
-
-Pro licenses are available at [synctacles.com](https://synctacles.com).
 
 ## Troubleshooting
 

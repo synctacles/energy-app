@@ -34,7 +34,7 @@ type SensorSet struct {
 
 // PublishAll publishes all sensor entities to HA via the given publisher.
 // If a PowerTracker is provided (non-nil), sensors #9-11 are published when data is available.
-func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, hasLicense bool, power ...*PowerTracker) error {
+func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*PowerTracker) error {
 	now := s.UpdatedAt.Format(time.RFC3339)
 
 	// 1. Current price (FREE)
@@ -129,12 +129,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, hasLicense boo
 		return fmt.Errorf("publish cheap hour: %w", err)
 	}
 
-	// --- PRO sensors (require license) ---
-	if !hasLicense {
-		return nil
-	}
-
-	// 5. Action (PRO)
+	// 6. Action
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_energy_action",
 		string(s.Action.Action),
 		map[string]any{

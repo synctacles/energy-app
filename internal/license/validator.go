@@ -77,107 +77,27 @@ func NewValidator(apiKey, dataPath string) *Validator {
 	}
 }
 
-// InitTrial records the first-install timestamp if not already present.
-// Call this at startup before ValidateOnce.
-func (v *Validator) InitTrial() {
-	data, err := os.ReadFile(v.trialPath)
-	if err == nil {
-		var t trialInfo
-		if err := json.Unmarshal(data, &t); err == nil {
-			v.mu.Lock()
-			v.trial = &t
-			v.mu.Unlock()
-			slog.Info("trial info loaded", "installed_at", t.InstalledAt, "days_left", v.TrialDaysLeft())
-			return
-		}
-	}
+// InitTrial is a no-op. Kept for backward compatibility.
+func (v *Validator) InitTrial() {}
 
-	// First install — record now
-	t := trialInfo{InstalledAt: time.Now().UTC()}
-	v.mu.Lock()
-	v.trial = &t
-	v.mu.Unlock()
-
-	if d, err := json.MarshalIndent(t, "", "  "); err == nil {
-		tmpPath := v.trialPath + ".tmp"
-		if err := os.WriteFile(tmpPath, d, 0600); err == nil {
-			os.Rename(tmpPath, v.trialPath)
-		}
-	}
-
-	slog.Info("trial started", "installed_at", t.InstalledAt, "days", 14)
+// IsPro returns true — all features are free.
+func (v *Validator) IsPro() bool {
+	return true
 }
 
-// IsPro returns true if the current license grants Pro features.
-// Pro access is granted if: valid license, or active trial (first 14 days).
-// Safe for concurrent use.
-func (v *Validator) IsPro() bool {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-
-	// Check license first
-	if v.cached != nil {
-		if time.Since(v.cached.ValidatedAt) > gracePeriod {
-			slog.Warn("license grace period expired", "last_validated", v.cached.ValidatedAt)
-		} else if v.cached.IsPro {
-			return true
-		}
-	}
-
-	// Fall back to trial: Pro for 14 days after first install
-	if v.trial != nil && time.Since(v.trial.InstalledAt) < trialDuration {
-		return true
-	}
-
+// IsTrial returns false — no trial concept when all features are free.
+func (v *Validator) IsTrial() bool {
 	return false
 }
 
-// IsTrial returns true if Pro access is granted via the free trial (not a license).
-func (v *Validator) IsTrial() bool {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-
-	// If a valid license grants Pro, it's not a trial
-	if v.cached != nil && v.cached.IsPro && time.Since(v.cached.ValidatedAt) <= gracePeriod {
-		return false
-	}
-
-	return v.trial != nil && time.Since(v.trial.InstalledAt) < trialDuration
-}
-
-// TrialDaysLeft returns remaining trial days (0 if expired or has license).
+// TrialDaysLeft returns 0 — no trial concept when all features are free.
 func (v *Validator) TrialDaysLeft() int {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-
-	if v.trial == nil {
-		return 0
-	}
-
-	remaining := trialDuration - time.Since(v.trial.InstalledAt)
-	if remaining <= 0 {
-		return 0
-	}
-
-	// Round up to full days
-	days := int(remaining.Hours()/24) + 1
-	if days > 14 {
-		days = 14
-	}
-	return days
+	return 0
 }
 
-// Tier returns the current license tier (empty string if unknown).
+// Tier returns "pro" — all features are free.
 func (v *Validator) Tier() string {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-	if v.cached != nil {
-		return v.cached.Tier
-	}
-	if v.trial != nil && time.Since(v.trial.InstalledAt) < trialDuration {
-		return "trial"
-	}
-	return ""
+	return "pro"
 }
 
 // ValidateOnce performs a single validation check.

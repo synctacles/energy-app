@@ -20,7 +20,6 @@ options:
   go_threshold: -15
   avoid_threshold: 20
   best_window_hours: 3
-  license_key: ""
   enever_enabled: false
   enever_token: ""
   enever_leverancier: "frank"
@@ -34,7 +33,6 @@ schema:
   avoid_threshold: float
   best_window_hours: "int(1,8)"
   coefficient: "float?"
-  license_key: "str?"
   enever_enabled: bool
   enever_token: "str?"
   enever_leverancier: "str?"

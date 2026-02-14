@@ -199,6 +199,48 @@
             .card-value { font-size: 1.4em; }
             .form-row { grid-template-columns: 1fr; }
         }
+
+        /* Feedback tab */
+        .feedback-section { margin-bottom: 24px; }
+        .feedback-section h3 {
+            color: var(--accent); font-size: 1em; font-weight: 600;
+            margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+        }
+        .star-rating { display: flex; gap: 4px; margin-bottom: 10px; }
+        .star-rating .star {
+            font-size: 2em; cursor: pointer; color: var(--text-faint);
+            transition: color 0.15s; user-select: none;
+        }
+        .star-rating .star.hovered,
+        .star-rating .star.selected { color: #f59e0b; }
+        .star-label { font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px; min-height: 1.2em; }
+        .feedback-textarea {
+            width: 100%; min-height: 80px; padding: 8px 10px; border: 1px solid var(--input-border);
+            border-radius: 6px; background: var(--input-bg); color: var(--text); font: inherit;
+            resize: vertical;
+        }
+        .feedback-input {
+            width: 100%; padding: 8px 10px; border: 1px solid var(--input-border);
+            border-radius: 6px; background: var(--input-bg); color: var(--text); font: inherit;
+            margin-bottom: 8px;
+        }
+        .btn-submit {
+            margin-top: 10px; padding: 8px 20px; background: var(--accent); color: #fff;
+            border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em;
+        }
+        .btn-submit:hover { opacity: 0.9; }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .feedback-msg { margin-top: 8px; font-size: 0.85em; min-height: 1.2em; }
+        .feedback-msg.success { color: #0d9488; }
+        .feedback-msg.error { color: #dc2626; }
+        .sysinfo-box {
+            background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
+            padding: 12px 14px; font-size: 0.82em; color: var(--text-muted);
+        }
+        .sysinfo-box dt { font-weight: 600; color: var(--text); display: inline; }
+        .sysinfo-box dt::after { content: ' '; }
+        .sysinfo-box dd { display: inline; margin: 0; }
+        .sysinfo-box dd::after { content: '\A'; white-space: pre; }
     </style>
 </head>
 <body>
@@ -219,6 +261,7 @@
         <div class="tabs">
             <div class="tab active" data-tab="dashboard">Dashboard</div>
             <div class="tab" data-tab="settings">Settings</div>
+            <div class="tab" data-tab="feedback">Feedback</div>
         </div>
 
         <div id="page-dashboard" class="tab-page active">
@@ -235,6 +278,40 @@
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Loading settings...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-feedback" class="tab-page">
+            <div class="card" style="margin-bottom:16px">
+                <div class="feedback-section">
+                    <h3>Rate this addon</h3>
+                    <div class="star-rating" id="starRating">
+                        <span class="star" data-value="1">&#9733;</span>
+                        <span class="star" data-value="2">&#9733;</span>
+                        <span class="star" data-value="3">&#9733;</span>
+                        <span class="star" data-value="4">&#9733;</span>
+                        <span class="star" data-value="5">&#9733;</span>
+                    </div>
+                    <div class="star-label" id="starLabel"></div>
+                    <textarea class="feedback-textarea" id="ratingComment" placeholder="Optional comment..." rows="3"></textarea>
+                    <br>
+                    <button class="btn-submit" id="btnRating" disabled>Submit Rating</button>
+                    <div class="feedback-msg" id="ratingMsg"></div>
+                </div>
+
+                <div class="feedback-section">
+                    <h3>Report a Bug</h3>
+                    <input class="feedback-input" id="bugTitle" placeholder="Short summary of the issue" maxlength="200">
+                    <textarea class="feedback-textarea" id="bugDescription" placeholder="Describe what happened and what you expected..." rows="5"></textarea>
+                    <br>
+                    <button class="btn-submit" id="btnBug">Submit Bug Report</button>
+                    <div class="feedback-msg" id="bugMsg"></div>
+                </div>
+
+                <div class="feedback-section">
+                    <h3>System Info</h3>
+                    <div class="sysinfo-box" id="sysInfoBox">Loading...</div>
                 </div>
             </div>
         </div>
@@ -363,6 +440,7 @@
             document.querySelectorAll('.tab-page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
             if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
+            if (tab.getAttribute('data-tab') === 'feedback' && !feedbackLoaded) loadFeedbackSysInfo();
         };
     });
 
@@ -856,6 +934,125 @@
         }
         btn.disabled = false;
     }
+
+    // --- Feedback ---
+    var feedbackLoaded = false;
+    var selectedRating = 0;
+    var starLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+    var stars = document.querySelectorAll('#starRating .star');
+    var starLabel = document.getElementById('starLabel');
+    var btnRating = document.getElementById('btnRating');
+
+    function highlightStars(n) {
+        stars.forEach(function(s) {
+            s.classList.toggle('hovered', parseInt(s.getAttribute('data-value')) <= n);
+        });
+        starLabel.textContent = n > 0 ? starLabels[n] : (selectedRating > 0 ? starLabels[selectedRating] : '');
+    }
+
+    stars.forEach(function(star) {
+        star.onmouseenter = function() { highlightStars(parseInt(star.getAttribute('data-value'))); };
+        star.onmouseleave = function() { highlightStars(0); updateStarDisplay(); };
+        star.onclick = function() {
+            selectedRating = parseInt(star.getAttribute('data-value'));
+            updateStarDisplay();
+            btnRating.disabled = false;
+        };
+    });
+
+    function updateStarDisplay() {
+        stars.forEach(function(s) {
+            s.classList.toggle('selected', parseInt(s.getAttribute('data-value')) <= selectedRating);
+            s.classList.remove('hovered');
+        });
+        starLabel.textContent = selectedRating > 0 ? starLabels[selectedRating] : '';
+    }
+
+    async function loadFeedbackSysInfo() {
+        feedbackLoaded = true;
+        try {
+            var resp = await fetch('api/feedback/sysinfo');
+            var info = await resp.json();
+            var html = '<dl>';
+            var labels = {addon_version:'Addon Version',zone:'Zone',tier:'Tier',ha_version:'HA Version',ha_arch:'Architecture',ha_machine:'Machine'};
+            for (var key in labels) {
+                if (info[key]) html += '<dt>' + labels[key] + ':</dt><dd>' + info[key] + '</dd>';
+            }
+            html += '</dl>';
+            document.getElementById('sysInfoBox').innerHTML = html;
+        } catch (e) {
+            document.getElementById('sysInfoBox').textContent = 'Could not load system info';
+        }
+    }
+
+    btnRating.onclick = async function() {
+        var msg = document.getElementById('ratingMsg');
+        btnRating.disabled = true;
+        msg.className = 'feedback-msg';
+        msg.textContent = 'Submitting...';
+        try {
+            var resp = await fetch('api/feedback/rating', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating: selectedRating, comment: document.getElementById('ratingComment').value })
+            });
+            var result = await resp.json();
+            if (resp.ok) {
+                msg.className = 'feedback-msg success';
+                msg.textContent = result.message || 'Thank you for your rating!';
+                selectedRating = 0; updateStarDisplay();
+                document.getElementById('ratingComment').value = '';
+            } else {
+                msg.className = 'feedback-msg error';
+                msg.textContent = result.message || result.error || 'Failed to submit';
+                btnRating.disabled = false;
+            }
+        } catch (e) {
+            msg.className = 'feedback-msg error';
+            msg.textContent = 'Connection error';
+            btnRating.disabled = false;
+        }
+    };
+
+    document.getElementById('btnBug').onclick = async function() {
+        var title = document.getElementById('bugTitle').value.trim();
+        var desc = document.getElementById('bugDescription').value.trim();
+        var msg = document.getElementById('bugMsg');
+        var btn = document.getElementById('btnBug');
+
+        if (!title || !desc) {
+            msg.className = 'feedback-msg error';
+            msg.textContent = 'Please fill in both title and description';
+            return;
+        }
+
+        btn.disabled = true;
+        msg.className = 'feedback-msg';
+        msg.textContent = 'Submitting...';
+        try {
+            var resp = await fetch('api/feedback/bug', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, description: desc })
+            });
+            var result = await resp.json();
+            if (resp.ok) {
+                msg.className = 'feedback-msg success';
+                var text = result.message || 'Bug report submitted!';
+                if (result.issue_url) text += ' <a href="' + result.issue_url + '" target="_blank" style="color:var(--accent)">View issue</a>';
+                msg.innerHTML = text;
+                document.getElementById('bugTitle').value = '';
+                document.getElementById('bugDescription').value = '';
+            } else {
+                msg.className = 'feedback-msg error';
+                msg.textContent = result.message || result.error || 'Failed to submit';
+            }
+        } catch (e) {
+            msg.className = 'feedback-msg error';
+            msg.textContent = 'Connection error';
+        }
+        btn.disabled = false;
+    };
 
     loadDashboard();
     </script>
