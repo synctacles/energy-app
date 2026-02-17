@@ -2,7 +2,7 @@
 //
 // Feature matrix for Energy App:
 //
-//	Without heartbeat: NOTHING works (except Enever prices for NL, without actions)
+//	Without heartbeat: Prices work (Synctacles server + Enever NL). No actions, no fallback.
 //	With heartbeat:    Everything works. Local fallback requires a valid server-signed lease.
 package gate
 
@@ -67,16 +67,10 @@ func (g *Gate) UpdateLease(l *lease.Lease) {
 }
 
 // CanFetchPrices returns whether the app is allowed to fetch prices at all.
-// NL with Enever: always allowed (local Dutch source, user's own API key).
-// All others: requires heartbeat.
+// Always allowed — price display is a basic feature that works without heartbeat.
+// Only actions and fallback require heartbeat.
 func (g *Gate) CanFetchPrices() bool {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if g.isNL && g.hasEnever {
-		return true
-	}
-	return g.heartbeatOK
+	return true
 }
 
 // CanUseActions returns whether GO/WAIT/AVOID actions and automations are allowed.
@@ -104,8 +98,8 @@ func (g *Gate) CanUseFallback() bool {
 	return g.leaseVerifier.Verify(*g.currentLease)
 }
 
-// IsEneverOnly returns true if only Enever (NL) is available without heartbeat.
-// When true, the source chain should be limited to Enever only.
+// IsEneverOnly returns true if NL Enever is available but heartbeat is off.
+// When true, the source chain includes Enever but excludes fallback sources.
 func (g *Gate) IsEneverOnly() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -123,8 +117,5 @@ func (g *Gate) Status() string {
 		}
 		return "active"
 	}
-	if g.isNL && g.hasEnever {
-		return "enever_only"
-	}
-	return "disabled"
+	return "prices_only"
 }
