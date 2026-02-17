@@ -68,7 +68,7 @@ func (p *MQTTPublisher) Close() {
 	defer p.mu.Unlock()
 	if p.conn != nil {
 		// Send DISCONNECT packet
-		p.conn.Write([]byte{0xE0, 0x00})
+		_, _ = p.conn.Write([]byte{0xE0, 0x00})
 		p.conn.Close()
 		p.conn = nil
 	}
@@ -165,7 +165,7 @@ func (p *MQTTPublisher) publish(topic string, payload []byte, retain bool) error
 	packet = append(packet, topicBytes...)
 	packet = append(packet, payload...)
 
-	p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	_ = p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	_, err := p.conn.Write(packet)
 	return err
 }
@@ -190,14 +190,14 @@ func (p *MQTTPublisher) sendConnect() error {
 	packet = append(packet, byte(len(clientIDBytes)>>8), byte(len(clientIDBytes)))
 	packet = append(packet, clientIDBytes...)
 
-	p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	_ = p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	_, err := p.conn.Write(packet)
 	return err
 }
 
 // readConnack reads and validates the CONNACK packet.
 func (p *MQTTPublisher) readConnack() error {
-	p.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = p.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	buf := make([]byte, 4)
 	_, err := p.conn.Read(buf)
 	if err != nil {

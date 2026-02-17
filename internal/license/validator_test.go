@@ -46,7 +46,7 @@ func TestValidator_ValidateOnce_WithKey(t *testing.T) {
 		assert.Equal(t, "/auth/stats", r.URL.Path)
 		assert.Equal(t, "test-api-key-123", r.Header.Get("X-API-Key"))
 
-		json.NewEncoder(w).Encode(statsResponse{
+		_ = json.NewEncoder(w).Encode(statsResponse{
 			UserID: "u1", Email: "test@example.com", Tier: "paid",
 			RateLimitDaily: 100000, UsageToday: 5, RemainingToday: 99995,
 		})
@@ -69,7 +69,7 @@ func TestValidator_ValidateOnce_WithKey(t *testing.T) {
 func TestValidator_InvalidKey(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"detail":"Invalid API key"}`))
+		_, _ = w.Write([]byte(`{"detail":"Invalid API key"}`))
 	}))
 	defer srv.Close()
 
@@ -88,7 +88,7 @@ func TestValidator_CachePersistence(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		json.NewEncoder(w).Encode(statsResponse{
+		_ = json.NewEncoder(w).Encode(statsResponse{
 			UserID: "u1", Email: "test@example.com", Tier: "paid",
 			RateLimitDaily: 100000, UsageToday: 0, RemainingToday: 100000,
 		})
@@ -124,7 +124,7 @@ func TestValidator_OfflineGrace(t *testing.T) {
 		Email:       "test@example.com",
 	}
 	data, _ := json.Marshal(recent)
-	os.WriteFile(filepath.Join(tmp, ".synctacles_license.json"), data, 0600)
+	_ = os.WriteFile(filepath.Join(tmp, ".synctacles_license.json"), data, 0600)
 
 	// Server is down
 	v := NewValidator("key", tmp)

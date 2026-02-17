@@ -411,11 +411,11 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 	data, err := staticFS.ReadFile("static/index.html")
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not Found"))
+		_, _ = w.Write([]byte("Not Found"))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 // --- Feedback Handlers ---
@@ -551,11 +551,11 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
