@@ -43,6 +43,9 @@ type Config struct {
 	// All other collectors (Energy-Charts, etc.) become emergency fallback only.
 	SynctaclesURL string `env:"SYNCTACLES_URL" envDefault:"https://energy.synctacles.com"`
 
+	// Heartbeat (anonymous install counting — enables all features)
+	HeartbeatEnabled bool `env:"HEARTBEAT_ENABLED" envDefault:"true"`
+
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`
 }

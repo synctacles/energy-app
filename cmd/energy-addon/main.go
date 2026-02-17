@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/synctacles/energy-backend/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/gate"
+	"github.com/synctacles/energy-app/internal/heartbeat"
 	"github.com/synctacles/energy-backend/pkg/countries"
 	"github.com/synctacles/energy-backend/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -22,6 +25,7 @@ import (
 	"github.com/synctacles/energy-backend/pkg/models"
 	"github.com/synctacles/energy-app/internal/state"
 	"github.com/synctacles/energy-backend/pkg/store"
+	"github.com/synctacles/energy-app/internal/telemetry"
 	"github.com/synctacles/energy-app/internal/web"
 )
 
@@ -87,8 +91,21 @@ func main() {
 	licenseValidator := license.NewValidator(cfg.LicenseKey, dataPath)
 	slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro())
 
+	// Load persistent install UUID (shared by heartbeat, telemetry, and lease)
+	installUUID := telemetry.LoadInstallUUID(dataPath)
+	osArch := telemetry.OSArch()
+	slog.Info("install identity", "uuid", installUUID, "arch", osArch)
+
+	// Initialize feature gate (controls what's available based on heartbeat)
+	featureGate := gate.New(cfg.BiddingZone, cfg.HasEnever())
+	slog.Info("feature gate initialized",
+		"heartbeat_enabled", cfg.HeartbeatEnabled,
+		"zone", cfg.BiddingZone,
+		"enever", cfg.HasEnever(),
+	)
+
 	// Build price source chain for the configured zone
-	sources := buildSourceChain(cfg, registry)
+	sources, synctaclesSource := buildSourceChain(cfg, registry, installUUID)
 	slog.Info("source chain configured", "zone", cfg.BiddingZone, "sources", len(sources))
 
 	// Initialize engine components
@@ -117,17 +134,19 @@ func main() {
 
 	// Initialize sensor publishers
 	var publishers []hasensor.Publisher
+	var mqttPub *hasensor.MQTTPublisher
 	if supervisor != nil {
 		publishers = append(publishers, hasensor.NewRESTPublisher(supervisor))
 
 		// Detect MQTT broker
 		mqttHost, found := hasensor.DetectMQTTBroker(context.Background(), supervisor)
 		if found {
-			mqtt := hasensor.NewMQTTPublisher(mqttHost, 1883)
-			if err := mqtt.Connect(); err != nil {
+			mqttPub = hasensor.NewMQTTPublisher(mqttHost, 1883)
+			if err := mqttPub.Connect(); err != nil {
 				slog.Warn("MQTT connection failed, using REST only", "error", err)
+				mqttPub = nil
 			} else {
-				publishers = append(publishers, mqtt)
+				publishers = append(publishers, mqttPub)
 				slog.Info("MQTT publisher enabled (dual publishing)")
 			}
 		}
@@ -135,6 +154,18 @@ func main() {
 
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
+		// Update lease from Synctacles server response (for fallback authorization)
+		if synctaclesSource != nil {
+			if l := synctaclesSource.LastLease(); l != nil {
+				featureGate.UpdateLease(l)
+			}
+		}
+
+		// Feature gate: check if actions are allowed
+		if !featureGate.CanUseActions() {
+			slog.Debug("actions disabled (no heartbeat)")
+		}
+
 		// Split into today/tomorrow
 		now := time.Now().UTC()
 		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -200,6 +231,89 @@ func main() {
 	// Start background license re-validation (monthly)
 	licenseValidator.RunBackground(ctx)
 
+	// Start heartbeat sender (always-on when enabled, controls feature gate)
+	if cfg.HeartbeatEnabled {
+		hb := heartbeat.NewSender(heartbeat.Config{
+			InstallUUID:  installUUID,
+			Product:      "energy",
+			AddonVersion: version,
+			OSArch:       osArch,
+			OnSuccess:    func() { featureGate.SetHeartbeatOK(true) },
+			OnFailure:    func() { featureGate.SetHeartbeatOK(false) },
+		})
+		go hb.Run(ctx)
+		slog.Info("heartbeat sender started")
+	} else {
+		slog.Warn("heartbeat disabled — remote features will be limited")
+	}
+
+	// Start telemetry sender (daily, first send after 2 min)
+	telemetrySender := telemetry.NewSender(telemetry.Deps{
+		DataPath: dataPath,
+		Version:  version,
+		Zone:     cfg.BiddingZone,
+		GetCoreInfo: func(ctx context.Context) (arch, haVersion, machine string, err error) {
+			if supervisor == nil {
+				return "", "", "", fmt.Errorf("no supervisor")
+			}
+			info, err := supervisor.GetCoreInfo(ctx)
+			if err != nil {
+				return "", "", "", err
+			}
+			return info.Arch, info.Version, info.Machine, nil
+		},
+		GetSupervisorInfo: func(ctx context.Context) (channel string, err error) {
+			if supervisor == nil {
+				return "", fmt.Errorf("no supervisor")
+			}
+			info, err := supervisor.GetSupervisorInfo(ctx)
+			if err != nil {
+				return "", err
+			}
+			return info.Channel, nil
+		},
+		GetHostOS: func(ctx context.Context) (operatingSystem string, err error) {
+			if supervisor == nil {
+				return "", fmt.Errorf("no supervisor")
+			}
+			info, err := supervisor.GetHostInfo(ctx)
+			if err != nil {
+				return "", err
+			}
+			return info.OperatingSystem, nil
+		},
+		HasSupervisor: cfg.HasSupervisor(),
+		GetLocale: func(ctx context.Context) (locale string, err error) {
+			if supervisor == nil {
+				return "", fmt.Errorf("no supervisor")
+			}
+			haConfig, err := supervisor.GetConfig(ctx)
+			if err != nil {
+				return "", err
+			}
+			if lang, ok := haConfig["language"].(string); ok {
+				return lang, nil
+			}
+			return "", nil
+		},
+		GetActiveSource: func() string {
+			if data := sensorData.Get(); data != nil {
+				return data.Source
+			}
+			return ""
+		},
+		GetSensorCount: func() int {
+			if mqttPub != nil {
+				return mqttPub.SensorCount()
+			}
+			return 0
+		},
+		CheapestHoursOn: func() bool {
+			return cfg.BestWindowHours > 0
+		},
+	})
+	telemetrySender.RunBackground(ctx)
+
 	// Start scheduler
 	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn)
 	go scheduler.Run(ctx)
@@ -250,22 +364,27 @@ func main() {
 }
 
 // buildSourceChain creates the prioritized source list for a bidding zone.
+// Returns the source chain and a reference to the SynctaclesAPI source (for lease access).
 //
 // Hybrid architecture:
-//   Tier 0: Synctacles API (central server, pre-computed consumer prices)
-//   Tier 1+: Direct sources (only activated when Synctacles server is unreachable)
+//
+//	Tier 0: Synctacles API (central server, pre-computed consumer prices)
+//	Tier 1+: Direct sources (only activated when Synctacles server is unreachable)
 //
 // When the Synctacles server is healthy, the addon makes exactly 1 API call.
 // When it's down, the circuit breaker opens and the full fallback chain takes over,
 // including Enever (NL), EasyEnergy, Energy-Charts, etc.
-func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []collector.PriceSource {
+func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, installUUID string) ([]collector.PriceSource, *collector.SynctaclesAPI) {
 	var chain []collector.PriceSource
+	var synctaclesSource *collector.SynctaclesAPI
 
 	// Tier 0: Synctacles central server (primary source for all zones)
 	if cfg.HasSynctaclesServer() {
-		chain = append(chain, &collector.SynctaclesAPI{
-			BaseURL: cfg.SynctaclesURL,
-		})
+		synctaclesSource = &collector.SynctaclesAPI{
+			BaseURL:     cfg.SynctaclesURL,
+			InstallUUID: installUUID,
+		}
+		chain = append(chain, synctaclesSource)
 		slog.Info("Synctacles API enabled as primary source", "url", cfg.SynctaclesURL)
 	}
 
@@ -284,7 +403,7 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []colle
 	if !ok {
 		slog.Warn("no country config for zone, using Energy-Charts only", "zone", cfg.BiddingZone)
 		chain = append(chain, &collector.EnergyCharts{})
-		return chain
+		return chain, synctaclesSource
 	}
 
 	sourceMap := map[string]collector.PriceSource{
@@ -315,5 +434,5 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []colle
 		chain = append(chain, &collector.EnergyCharts{})
 	}
 
-	return chain
+	return chain, synctaclesSource
 }
