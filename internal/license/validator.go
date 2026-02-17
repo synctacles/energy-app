@@ -45,11 +45,6 @@ type cachedResult struct {
 	Email       string    `json:"email"`
 }
 
-// trialInfo records the first-install timestamp for the 14-day free trial.
-type trialInfo struct {
-	InstalledAt time.Time `json:"installed_at"`
-}
-
 // Validator checks license status against api.synctacles.com.
 type Validator struct {
 	apiKey    string
@@ -60,7 +55,6 @@ type Validator struct {
 
 	mu     sync.RWMutex
 	cached *cachedResult
-	trial  *trialInfo
 }
 
 // NewValidator creates a license validator.
@@ -236,5 +230,7 @@ func (v *Validator) saveCache(result *cachedResult) {
 		slog.Debug("failed to write license cache", "error", err)
 		return
 	}
-	os.Rename(tmpPath, v.cachePath)
+	if err := os.Rename(tmpPath, v.cachePath); err != nil {
+		slog.Debug("failed to rename license cache", "error", err)
+	}
 }

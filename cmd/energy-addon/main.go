@@ -203,7 +203,7 @@ func main() {
 		st.Quality = result.Quality
 		st.PriceSource = result.Source
 		st.LastFetch = now.Format(time.RFC3339)
-		stateStore.Save(st)
+		_ = stateStore.Save(st)
 
 		// Publish to all publishers
 		for _, pub := range publishers {
@@ -358,7 +358,9 @@ func main() {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	httpSrv.Shutdown(shutdownCtx)
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP server shutdown error", "error", err)
+	}
 
 	slog.Info("energy-addon stopped")
 }
