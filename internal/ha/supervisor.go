@@ -47,6 +47,20 @@ type AddonInfo struct {
 	State   string `json:"state"`
 }
 
+// HostInfo holds host-level information from the Supervisor /host/info endpoint.
+type HostInfo struct {
+	Hostname    string `json:"hostname"`
+	OperatingSystem string `json:"operating_system"`
+	CPUArch     string `json:"chassis"`
+}
+
+// SupervisorInfo holds Supervisor metadata from the /supervisor/info endpoint.
+type SupervisorInfo struct {
+	Version  string `json:"version"`
+	Channel  string `json:"channel"`  // "stable", "beta", "dev"
+	Healthy  bool   `json:"healthy"`
+}
+
 // transientStatusCodes are worth retrying.
 var transientStatusCodes = map[int]bool{502: true, 503: true, 504: true}
 
@@ -251,4 +265,30 @@ func (c *SupervisorClient) CreateNotification(ctx context.Context, title, messag
 	body, _ := json.Marshal(payload)
 	_, err := c.requestWithRetry(ctx, "POST", "/core/api/services/persistent_notification/create", strings.NewReader(string(body)))
 	return err
+}
+
+// GetHostInfo returns host-level information (OS, chassis, etc.).
+func (c *SupervisorClient) GetHostInfo(ctx context.Context) (*HostInfo, error) {
+	data, err := c.requestWithRetry(ctx, "GET", "/host/info", nil)
+	if err != nil {
+		return nil, err
+	}
+	var info HostInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return nil, fmt.Errorf("parse host info: %w", err)
+	}
+	return &info, nil
+}
+
+// GetSupervisorInfo returns Supervisor metadata (version, channel, health).
+func (c *SupervisorClient) GetSupervisorInfo(ctx context.Context) (*SupervisorInfo, error) {
+	data, err := c.requestWithRetry(ctx, "GET", "/supervisor/info", nil)
+	if err != nil {
+		return nil, err
+	}
+	var info SupervisorInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return nil, fmt.Errorf("parse supervisor info: %w", err)
+	}
+	return &info, nil
 }

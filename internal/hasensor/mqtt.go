@@ -212,6 +212,13 @@ func (p *MQTTPublisher) readConnack() error {
 	return nil
 }
 
+// SensorCount returns the number of MQTT sensors that have been discovered/published.
+func (p *MQTTPublisher) SensorCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.discovered)
+}
+
 // encodeRemainingLength encodes an MQTT remaining length field.
 func encodeRemainingLength(length int) []byte {
 	var encoded []byte
