@@ -155,16 +155,15 @@ make lint
 make addon-all
 ```
 
-Requires Go 1.24+. Uses shared packages from [energy-backend](https://github.com/synctacles/energy-backend).
+Requires Go 1.24+.
 
 ---
 
-## Related Repositories
+## Related
 
-- [synctacles/energy-backend](https://github.com/synctacles/energy-backend) — Central price API and shared packages
 - [synctacles/ha-apps](https://github.com/synctacles/ha-apps) — Home Assistant app store repository
-- [synctacles/platform](https://github.com/synctacles/platform) — Auth service and infrastructure
 - [synctacles/care-app](https://github.com/synctacles/care-app) — Care diagnostics app for Home Assistant
+- [synctacles.com](https://www.synctacles.com/) — Project website
 
 ---
 
