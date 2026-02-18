@@ -172,16 +172,34 @@
         .save-status { font-size: 0.8em; color: #0d9488; margin-left: 12px; }
         .save-row { display: flex; align-items: center; margin-top: 16px; }
 
-        /* License badge */
+        /* License / registration badge */
         .license-badge {
             display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 600;
         }
         .license-free { background: #e5e7eb; color: #374151; }
         .license-pro { background: #dbeafe; color: #1d4ed8; }
-        .license-trial { background: #fef3c7; color: #92400e; }
         .dark .license-free { background: #374151; color: #d1d5db; }
         .dark .license-pro { background: #1e3a5f; color: #93c5fd; }
-        .dark .license-trial { background: #78350f; color: #fcd34d; }
+
+        /* Registration nudge banner */
+        .reg-nudge {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border: 1px solid #93c5fd; border-radius: 10px;
+            padding: 12px 16px; margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            font-size: 0.82em;
+        }
+        .dark .reg-nudge { background: linear-gradient(135deg, #1e3a5f22, #1e2a4a44); border-color: #3b82f6; }
+        .reg-nudge-text { color: var(--text); line-height: 1.4; }
+        .reg-nudge-text strong { color: var(--accent); }
+        .reg-nudge-link {
+            flex-shrink: 0; padding: 6px 14px; background: var(--accent); color: white;
+            text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.9em;
+            white-space: nowrap;
+        }
+        .locked-note {
+            font-size: 0.72em; color: var(--text-faint); margin-top: 4px;
+        }
 
         .loading { text-align: center; padding: 40px; color: var(--text-faint); }
         .loading .spinner {
@@ -444,6 +462,20 @@
         };
     });
 
+    // --- Gate state (fetched once at startup from /api/version) ---
+    var gateState = { status: 'prices_only', can_actions: false, can_tomorrow: false, has_license: false };
+
+    async function loadVersion() {
+        try {
+            var resp = await fetch('api/version');
+            var d = await resp.json();
+            if (d.gate_status) gateState.status = d.gate_status;
+            if (typeof d.can_actions !== 'undefined') gateState.can_actions = d.can_actions;
+            if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
+            if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
+        } catch (e) { /* ignore — defaults stay */ }
+    }
+
     // --- Dashboard ---
     var lastPrices = null, lastAvg = 0;
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
@@ -548,7 +580,7 @@
             var actionClass = action.toLowerCase();
             var price = (d.current_price && d.current_price.price) || '0';
             var priceCent = formatPrice(price);
-            var tierLabel = d.trial ? 'TRIAL (' + d.trial_days_left + 'd)' : (d.is_pro ? 'PRO' : 'FREE');
+            var tierLabel = gateState.has_license ? 'Registered' : 'Anonymous';
             document.getElementById('meta').textContent =
                 d.zone + ' | ' + tierLabel + ' | v' + d.version;
 
@@ -564,10 +596,14 @@
             var ts = d.tomorrow && d.tomorrow.status;
             if (ts && ts !== 'PENDING') {
                 var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
+                var tNote = !gateState.can_tomorrow
+                    ? '<div class="locked-note">⚠ Register free to use in HA automations</div>'
+                    : '';
                 tomorrowHtml = '<div class="card">' +
                     '<div class="card-label">Tomorrow</div>' +
                     '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + ts + '</div>' +
-                    '<div class="card-sub">' + d.tomorrow.hours + ' hours | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ct avg' : 'pending') + '</div></div>';
+                    '<div class="card-sub">' + d.tomorrow.hours + ' hours | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ct avg' : 'pending') + '</div>' +
+                    tNote + '</div>';
             }
 
             var deviationText = '';
@@ -576,7 +612,21 @@
                 deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% vs avg';
             }
 
+            var nudgeHtml = '';
+            if (!gateState.has_license) {
+                nudgeHtml = '<div class="reg-nudge">' +
+                    '<div class="reg-nudge-text">⚡ <strong>Actions &amp; tomorrow preview</strong> worden getoond, ' +
+                    'maar voor gebruik in HA automations heb je een gratis Synctacles account nodig.</div>' +
+                    '<a class="reg-nudge-link" href="https://synctacles.com" target="_blank">Registreer gratis &rarr;</a>' +
+                    '</div>';
+            }
+
+            var actionNote = !gateState.can_actions
+                ? '<div class="locked-note">⚠ Register free to enable in HA automations</div>'
+                : '';
+
             document.getElementById('content').innerHTML =
+                nudgeHtml +
                 '<div class="grid">' +
                     '<div class="card">' +
                         '<div class="card-label">Current Price</div>' +
@@ -589,6 +639,7 @@
                         '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
                         '<div class="card-sub">' + ((d.action && d.action.reason) || '') + '</div>' +
                         '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
+                        actionNote +
                     '</div>' +
                     '<div class="card">' +
                         '<div class="card-label">Cheapest</div>' +
@@ -741,25 +792,22 @@
 
     function renderSettings() {
         var c = currentConfig;
-        var licenseBadge;
-        var licenseHint;
-        if (c.trial) {
-            licenseBadge = '<span class="license-badge license-trial">TRIAL &mdash; ' + c.trial_days_left + ' days left</span>';
-            licenseHint = 'You have full Pro access during your 14-day trial. Enter a license key to keep Pro features after the trial ends.';
-        } else if (c.is_pro) {
-            licenseBadge = '<span class="license-badge license-pro">PRO</span>';
-            licenseHint = 'Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score';
+        var licenseBadge, licenseHint;
+        if (c.has_license) {
+            licenseBadge = '<span class="license-badge license-pro">Registered</span>';
+            licenseHint = 'Account actief. GO/WAIT/AVOID actions en tomorrow preview zijn ontgrendeld voor HA automations.';
         } else {
-            licenseBadge = '<span class="license-badge license-free">FREE</span>';
-            licenseHint = 'Pro unlocks: GO/WAIT/AVOID action, best window, tomorrow preview, live cost, savings, usage score';
+            licenseBadge = '<span class="license-badge license-free">Anonymous</span>';
+            licenseHint = 'Registreer een gratis Synctacles account op <a href="https://synctacles.com" target="_blank" style="color:var(--accent)">synctacles.com</a> ' +
+                'en plak hier je API key om GO/WAIT/AVOID actions en tomorrow prices te gebruiken in HA automations.';
         }
 
         document.getElementById('settingsContent').innerHTML =
             '<div class="settings-section">' +
-                '<h3>License ' + licenseBadge + '</h3>' +
+                '<h3>Account ' + licenseBadge + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">License Key</label>' +
-                    '<input class="form-input" id="cfg-license" type="text" placeholder="pro_xxxx..." value="' + esc(c.license_key || '') + '">' +
+                    '<label class="form-label">API Key</label>' +
+                    '<input class="form-input" id="cfg-license" type="text" placeholder="sk_pro_..." value="' + esc(c.license_key || '') + '">' +
                     '<div class="form-hint">' + licenseHint + '</div>' +
                 '</div>' +
             '</div>' +
@@ -1054,7 +1102,7 @@
         btn.disabled = false;
     };
 
-    loadDashboard();
+    loadVersion().then(loadDashboard);
     </script>
 </body>
 </html>

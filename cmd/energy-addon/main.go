@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,6 +31,30 @@ import (
 )
 
 var version = "dev"
+
+// alertState tracks price alert deduplication (1-hour cooldown).
+type alertState struct {
+	mu          sync.Mutex
+	lastAlertAt time.Time
+}
+
+// MaybeSendAlert sends an HA persistent notification when the price is at or below the
+// threshold — but at most once per hour to avoid spamming.
+func (a *alertState) MaybeSendAlert(ctx context.Context, sv *ha.SupervisorClient, price, threshold float64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if time.Since(a.lastAlertAt) < time.Hour {
+		return // cooldown active
+	}
+	a.lastAlertAt = time.Now()
+	if sv != nil {
+		title := "⚡ Lage energieprijs"
+		msg := fmt.Sprintf("Prijs gedaald naar €%.4f/kWh (drempel: €%.4f)", price, threshold)
+		if err := sv.CreateNotification(ctx, title, msg, "synctacles_price_alert"); err != nil {
+			slog.Warn("price alert notification failed", "error", err)
+		}
+	}
+}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -96,12 +121,13 @@ func main() {
 	osArch := telemetry.OSArch()
 	slog.Info("install identity", "uuid", installUUID, "arch", osArch)
 
-	// Initialize feature gate (controls what's available based on heartbeat)
-	featureGate := gate.New(cfg.BiddingZone, cfg.HasEnever())
+	// Initialize feature gate (controls what's available based on registration + heartbeat)
+	featureGate := gate.New(cfg.BiddingZone, cfg.HasEnever(), cfg.LicenseKey)
 	slog.Info("feature gate initialized",
 		"heartbeat_enabled", cfg.HeartbeatEnabled,
 		"zone", cfg.BiddingZone,
 		"enever", cfg.HasEnever(),
+		"registered", cfg.HasLicense(),
 	)
 
 	// Build price source chain for the configured zone
@@ -152,6 +178,9 @@ func main() {
 		}
 	}
 
+	// Price alert state (deduplication across price updates)
+	alerts := &alertState{}
+
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
 		// Update lease from Synctacles server response (for fallback authorization)
@@ -161,9 +190,9 @@ func main() {
 			}
 		}
 
-		// Feature gate: check if actions are allowed
+		// Feature gate: check if actions are allowed (logged for diagnostics)
 		if !featureGate.CanUseActions() {
-			slog.Debug("actions disabled (no heartbeat)")
+			slog.Debug("actions disabled (registration required)")
 		}
 
 		// Split into today/tomorrow
@@ -189,6 +218,11 @@ func main() {
 
 		// Update shared sensor data for web dashboard
 		sensorData.Update(sensorSet)
+
+		// Price alert: notify when current price is at or below threshold
+		if cfg.HasAlerts() && sensorSet.CurrentPrice > 0 && sensorSet.CurrentPrice <= cfg.AlertThreshold {
+			alerts.MaybeSendAlert(ctx, supervisor, sensorSet.CurrentPrice, cfg.AlertThreshold)
+		}
 
 		// Read power sensor (if configured)
 		if powerTracker != nil {
@@ -326,6 +360,7 @@ func main() {
 		Supervisor:          supervisor,
 		Fallback:            fallbackMgr,
 		License:             licenseValidator,
+		Gate:                featureGate,
 		Version:             version,
 		DetectedPowerSensor: detectedPowerSensor,
 	})

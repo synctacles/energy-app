@@ -21,6 +21,7 @@ const LeasePublicKey = "qVXQZowCyCDPV/2q+cGY3IhBc+BYJvhX7lbkuKfiDFg="
 type Gate struct {
 	mu            sync.RWMutex
 	heartbeatOK   bool
+	isRegistered  bool // true when a Synctacles API key is configured
 	isNL          bool
 	hasEnever     bool
 	leaseVerifier *lease.Verifier
@@ -28,12 +29,14 @@ type Gate struct {
 }
 
 // New creates a feature gate for the given zone configuration.
-func New(biddingZone string, eneverEnabled bool) *Gate {
+// apiKey is the Synctacles license/API key — non-empty means the user is registered.
+func New(biddingZone string, eneverEnabled bool, apiKey string) *Gate {
 	v, err := lease.NewVerifier(LeasePublicKey)
 	if err != nil {
 		slog.Error("failed to create lease verifier", "error", err)
 	}
 	return &Gate{
+		isRegistered:  apiKey != "",
 		isNL:          biddingZone == "NL",
 		hasEnever:     eneverEnabled,
 		leaseVerifier: v,
@@ -74,22 +77,30 @@ func (g *Gate) CanFetchPrices() bool {
 }
 
 // CanUseActions returns whether GO/WAIT/AVOID actions and automations are allowed.
-// Always requires heartbeat, even for NL Enever users.
+// Requires both a registered API key and a live heartbeat.
 func (g *Gate) CanUseActions() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.heartbeatOK
+	return g.isRegistered && g.heartbeatOK
+}
+
+// CanUseTomorrow returns whether tomorrow price preview is allowed.
+// Requires a registered API key (heartbeat not required).
+func (g *Gate) CanUseTomorrow() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.isRegistered
 }
 
 // CanUseFallback returns whether local fallback scraping is allowed.
-// Requires heartbeat + valid server-signed lease.
+// Requires registration (API key) + heartbeat + valid server-signed lease.
 // NL Enever: Enever itself is always allowed (it's the user's own API key),
 // but scraping other sources (Energy-Charts etc.) requires a lease.
 func (g *Gate) CanUseFallback() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if !g.heartbeatOK {
+	if !g.isRegistered || !g.heartbeatOK {
 		return false
 	}
 	if g.currentLease == nil || g.leaseVerifier == nil {
@@ -107,15 +118,18 @@ func (g *Gate) IsEneverOnly() bool {
 }
 
 // Status returns a human-readable status for the web UI.
+// "full"        — registered + heartbeat + valid lease (all features)
+// "registered"  — registered + heartbeat, no lease (actions work, no fallback)
+// "prices_only" — no API key (basic prices only)
 func (g *Gate) Status() string {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.heartbeatOK {
+	if g.isRegistered && g.heartbeatOK {
 		if g.currentLease != nil && g.leaseVerifier != nil && g.leaseVerifier.Verify(*g.currentLease) {
 			return "full"
 		}
-		return "active"
+		return "registered"
 	}
 	return "prices_only"
 }

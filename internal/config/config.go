@@ -43,8 +43,12 @@ type Config struct {
 	// All other collectors (Energy-Charts, etc.) become emergency fallback only.
 	SynctaclesURL string `env:"SYNCTACLES_URL" envDefault:"https://energy.synctacles.com"`
 
-	// Heartbeat (anonymous install counting — enables all features)
+	// Heartbeat (anonymous install counting — enables registered features)
 	HeartbeatEnabled bool `env:"HEARTBEAT_ENABLED" envDefault:"true"`
+
+	// Price alerts — HA persistent notification when price drops below threshold
+	AlertEnabled   bool    `env:"ENERGY_ALERTS_ENABLED" envDefault:"false"`
+	AlertThreshold float64 `env:"ENERGY_ALERT_THRESHOLD" envDefault:"0"`
 
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`
@@ -89,4 +93,9 @@ func (c *Config) HasPowerSensor() bool {
 // HasSynctaclesServer returns true if a Synctacles server URL is configured.
 func (c *Config) HasSynctaclesServer() bool {
 	return c.SynctaclesURL != ""
+}
+
+// HasAlerts returns true if price alerts are enabled with a valid threshold.
+func (c *Config) HasAlerts() bool {
+	return c.AlertEnabled && c.AlertThreshold > 0
 }

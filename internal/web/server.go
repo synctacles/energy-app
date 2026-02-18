@@ -19,6 +19,7 @@ import (
 
 	"github.com/synctacles/energy-app/internal/config"
 	"github.com/synctacles/energy-backend/pkg/engine"
+	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
 	"github.com/synctacles/energy-app/internal/license"
 	"github.com/synctacles/energy-app/internal/state"
@@ -36,6 +37,7 @@ type Server struct {
 	supervisor          *ha.SupervisorClient
 	fallback            *engine.FallbackManager
 	license             *license.Validator
+	featureGate         *gate.Gate
 	version             string
 	detectedPowerSensor string
 }
@@ -48,6 +50,7 @@ type Deps struct {
 	Supervisor          *ha.SupervisorClient
 	Fallback            *engine.FallbackManager
 	License             *license.Validator
+	Gate                *gate.Gate
 	Version             string
 	DetectedPowerSensor string
 }
@@ -61,6 +64,7 @@ func NewServer(deps Deps) *Server {
 		supervisor:          deps.Supervisor,
 		fallback:            deps.Fallback,
 		license:             deps.License,
+		featureGate:         deps.Gate,
 		version:             deps.Version,
 		detectedPowerSensor: deps.DetectedPowerSensor,
 	}
@@ -133,6 +137,12 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 		"is_pro":      s.license.IsPro(),
 		"tier":        s.license.Tier(),
 	}
+	if s.featureGate != nil {
+		resp["gate_status"] = s.featureGate.Status()
+		resp["can_actions"] = s.featureGate.CanUseActions()
+		resp["can_tomorrow"] = s.featureGate.CanUseTomorrow()
+		resp["alerts_enabled"] = s.cfg.HasAlerts()
+	}
 	if s.license.IsTrial() {
 		resp["trial"] = true
 		resp["trial_days_left"] = s.license.TrialDaysLeft()
@@ -176,6 +186,16 @@ func (s *Server) handlePricesToday(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePricesTomorrow(w http.ResponseWriter, r *http.Request) {
+	if s.featureGate != nil && !s.featureGate.CanUseTomorrow() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "registration_required",
+			"message": "Tomorrow prices require a free Synctacles account. Register at synctacles.com.",
+		})
+		return
+	}
+
 	data := s.sensorData.Get()
 	if data == nil {
 		writeJSON(w, map[string]any{"prices": []any{}, "status": "waiting"})
@@ -198,6 +218,16 @@ func (s *Server) handlePricesTomorrow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
+	if s.featureGate != nil && !s.featureGate.CanUseActions() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "registration_required",
+			"message": "Actions (GO/WAIT/AVOID) require a free Synctacles account. Register at synctacles.com.",
+		})
+		return
+	}
+
 	data := s.sensorData.Get()
 	if data == nil {
 		writeJSON(w, map[string]any{"action": "WAIT", "reason": "waiting for data"})
