@@ -15,6 +15,13 @@ jobs:
       - name: "Checkout code"
         uses: actions/checkout@v4
 
+      - name: "Checkout energy-backend"
+        uses: actions/checkout@v4
+        with:
+          repository: synctacles/energy-backend
+          path: ../energy-backend
+          token: ${{ secrets.SYNCTACLES_BOT_TOKEN }}
+
       - name: "Setup Go"
         uses: actions/setup-go@v5
         with:
