@@ -20,7 +20,7 @@ jobs:
         with:
           repository: synctacles/energy-backend
           path: ../energy-backend
-          token: ${{ secrets.SYNCTACLES_BOT_TOKEN }}
+          token: ${{ secrets.REPO_TOKEN }}
 
       - name: "Setup Go"
         uses: actions/setup-go@v5
