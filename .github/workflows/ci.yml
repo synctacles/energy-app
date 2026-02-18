@@ -19,8 +19,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: synctacles/energy-backend
-          path: ../energy-backend
+          path: energy-backend
           token: ${{ secrets.REPO_TOKEN }}
+
+      - name: "Fix replace directive for CI"
+        run: go mod edit -replace github.com/synctacles/energy-backend=./energy-backend
 
       - name: "Setup Go"
         uses: actions/setup-go@v5
