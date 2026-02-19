@@ -228,6 +228,21 @@ func (c *SupervisorClient) GetAddonOptions(ctx context.Context) (map[string]any,
 	return info.Options, nil
 }
 
+// GetAddonSlug returns this addon's slug from the Supervisor API.
+func (c *SupervisorClient) GetAddonSlug(ctx context.Context) string {
+	data, err := c.requestWithRetry(ctx, "GET", "/addons/self/info", nil)
+	if err != nil {
+		return ""
+	}
+	var info struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(data, &info); err != nil {
+		return ""
+	}
+	return info.Slug
+}
+
 // SetAddonOptions writes addon options via Supervisor API.
 // This updates /data/options.json inside the addon container.
 func (c *SupervisorClient) SetAddonOptions(ctx context.Context, options map[string]any) error {

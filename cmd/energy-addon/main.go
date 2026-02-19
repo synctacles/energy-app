@@ -18,6 +18,7 @@ import (
 	"github.com/synctacles/energy-app/internal/config"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
+	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-backend/pkg/countries"
 	"github.com/synctacles/energy-backend/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -61,7 +62,7 @@ func main() {
 		Level: slog.LevelInfo,
 	})))
 
-	slog.Info("starting energy-addon", "version", version)
+	slog.Info("starting energy-app", "version", version)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -89,6 +90,21 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
+
+	// Build plan registry and resolve active plan
+	planRegistry := plan.Build(registry)
+	if cfg.PlanID != "" {
+		if p := planRegistry.Get(cfg.PlanID); p != nil {
+			cfg.ApplyPlan(p.Zone, p.EneverSupplier)
+			slog.Info("plan applied", "plan", p.ID, "zone", p.Zone, "enever", p.HasEnever())
+		} else {
+			slog.Warn("unknown plan ID, using config defaults", "plan", cfg.PlanID)
+		}
+	} else {
+		// Resolve plan from legacy config fields for display purposes
+		cfg.PlanID = planRegistry.ResolveFromConfig(cfg.BiddingZone, cfg.EneverEnabled, cfg.EneverLeverancier)
+		slog.Info("plan resolved from config", "plan", cfg.PlanID)
+	}
 
 	// Initialize HA Supervisor client
 	var supervisor *ha.SupervisorClient
@@ -352,6 +368,12 @@ func main() {
 	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn)
 	go scheduler.Run(ctx)
 
+	// Detect addon slug for dynamic HA UI navigation
+	var addonSlug string
+	if supervisor != nil {
+		addonSlug = supervisor.GetAddonSlug(ctx)
+	}
+
 	// Create web server
 	srv := web.NewServer(web.Deps{
 		Config:              cfg,
@@ -363,6 +385,8 @@ func main() {
 		Gate:                featureGate,
 		Version:             version,
 		DetectedPowerSensor: detectedPowerSensor,
+		AddonSlug:           addonSlug,
+		PlanRegistry:        planRegistry,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
@@ -397,7 +421,7 @@ func main() {
 		slog.Error("HTTP server shutdown error", "error", err)
 	}
 
-	slog.Info("energy-addon stopped")
+	slog.Info("energy-app stopped")
 }
 
 // buildSourceChain creates the prioritized source list for a bidding zone.

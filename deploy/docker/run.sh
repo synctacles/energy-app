@@ -2,6 +2,7 @@
 # Run script for HA addon — reads options from /data/options.json via bashio.
 
 # Read addon options and export as env vars
+export ENERGY_PLAN="$(bashio::config 'plan' '')"
 export ENERGY_ZONE="$(bashio::config 'zone' 'NL')"
 export ENERGY_GO_THRESHOLD="$(bashio::config 'go_threshold' '-15')"
 export ENERGY_AVOID_THRESHOLD="$(bashio::config 'avoid_threshold' '20')"
@@ -23,6 +24,6 @@ export DEBUG_MODE="$(bashio::config 'debug_mode' 'false')"
 export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
 export INGRESS_PORT="${INGRESS_PORT:-8098}"
 
-bashio::log.info "Starting Synctacles Energy addon (zone=${ENERGY_ZONE})"
+bashio::log.info "Starting Synctacles Energy app (plan=${ENERGY_PLAN}, zone=${ENERGY_ZONE})"
 
 exec /usr/bin/energy-addon

@@ -7,17 +7,20 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-// Config holds settings for the Energy HA addon.
+// Config holds settings for the Energy HA app.
 type Config struct {
 	// HA
 	SupervisorToken string `env:"SUPERVISOR_TOKEN"`
 	IngressPort     int    `env:"INGRESS_PORT" envDefault:"8098"`
 
+	// Plan (takes precedence over zone/enever when set)
+	PlanID string `env:"ENERGY_PLAN"`
+
 	// Zone
 	BiddingZone string `env:"ENERGY_ZONE" envDefault:"NL"`
 	Currency    string `env:"ENERGY_CURRENCY" envDefault:"EUR"`
 
-	// Thresholds (user configurable via addon options)
+	// Thresholds (user configurable via app options)
 	GoThreshold    float64 `env:"ENERGY_GO_THRESHOLD" envDefault:"-15"`
 	AvoidThreshold float64 `env:"ENERGY_AVOID_THRESHOLD" envDefault:"20"`
 
@@ -98,4 +101,18 @@ func (c *Config) HasSynctaclesServer() bool {
 // HasAlerts returns true if price alerts are enabled with a valid threshold.
 func (c *Config) HasAlerts() bool {
 	return c.AlertEnabled && c.AlertThreshold > 0
+}
+
+// ApplyPlan applies plan settings to the config.
+// Plan fields override zone and Enever settings but preserve user-set thresholds.
+func (c *Config) ApplyPlan(zone string, eneverSupplier string) {
+	if zone != "" {
+		c.BiddingZone = zone
+	}
+	if eneverSupplier != "" {
+		c.EneverEnabled = true
+		c.EneverLeverancier = eneverSupplier
+	} else {
+		c.EneverEnabled = false
+	}
 }
