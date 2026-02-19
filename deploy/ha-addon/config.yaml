@@ -17,6 +17,7 @@ homeassistant_api: true
 hassio_api: true
 init: false
 options:
+  plan: "nl-default"
   zone: "NL"
   go_threshold: -15
   avoid_threshold: 20
@@ -29,6 +30,7 @@ options:
   synctacles_url: ""
   debug_mode: false
 schema:
+  plan: "str?"
   zone: str
   go_threshold: float
   avoid_threshold: float

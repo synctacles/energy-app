@@ -269,7 +269,7 @@
             </div>
             <div style="display:flex;align-items:center;gap:10px">
                 <div class="meta" id="meta">Loading...</div>
-                <button class="header-btn" id="addonInfo" title="Addon Info, Changelog & Restart">&#9881;</button>
+                <button class="header-btn" id="addonInfo" title="App Info, Changelog & Restart">&#9881;</button>
                 <button class="header-btn" id="themeToggle" title="Toggle dark mode">&#9789;</button>
             </div>
         </div>
@@ -303,7 +303,7 @@
         <div id="page-feedback" class="tab-page">
             <div class="card" style="margin-bottom:16px">
                 <div class="feedback-section">
-                    <h3>Rate this addon</h3>
+                    <h3>Rate this app</h3>
                     <div class="star-rating" id="starRating">
                         <span class="star" data-value="1">&#9733;</span>
                         <span class="star" data-value="2">&#9733;</span>
@@ -349,7 +349,8 @@
     applyTheme();
 
     document.getElementById('addonInfo').onclick = function() {
-        window.top.location.href = '/hassio/addon/local_synctacles_energy/info';
+        var slug = window._addonSlug || '308ee12f_synctacles_energy';
+        window.top.location.href = '/hassio/addon/' + slug + '/info';
     };
 
     document.getElementById('themeToggle').onclick = function() {
@@ -473,6 +474,7 @@
             if (typeof d.can_actions !== 'undefined') gateState.can_actions = d.can_actions;
             if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
             if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
+            if (d.addon_slug) window._addonSlug = d.addon_slug;
         } catch (e) { /* ignore — defaults stay */ }
     }
 
@@ -780,6 +782,7 @@
 
     async function loadSettings() {
         try {
+            await loadPlans();
             var resp = await fetch('api/config');
             currentConfig = await resp.json();
             settingsLoaded = true;
@@ -788,6 +791,47 @@
             document.getElementById('settingsContent').innerHTML =
                 '<div class="loading"><p style="color:#dc2626">Failed to load settings</p></div>';
         }
+    }
+
+    var planData = null;
+
+    async function loadPlans() {
+        try {
+            var resp = await fetch('api/plans');
+            planData = await resp.json();
+        } catch (e) { planData = null; }
+    }
+
+    function renderPlanOptions(currentPlan) {
+        if (!planData || !planData.groups) return '<option value="">Loading...</option>';
+        var html = '';
+        planData.groups.forEach(function(group) {
+            html += '<optgroup label="' + esc(group.name) + '">';
+            group.plans.forEach(function(p) {
+                html += '<option value="' + esc(p.id) + '"' + (p.id === currentPlan ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+            });
+            html += '</optgroup>';
+        });
+        return html;
+    }
+
+    function selectedPlanNeedsEnever() {
+        var sel = document.getElementById('cfg-plan');
+        if (!sel || !planData) return false;
+        var id = sel.value;
+        for (var g = 0; g < planData.groups.length; g++) {
+            for (var p = 0; p < planData.groups[g].plans.length; p++) {
+                if (planData.groups[g].plans[p].id === id) {
+                    return !!planData.groups[g].plans[p].enever_supplier;
+                }
+            }
+        }
+        return false;
+    }
+
+    function selectedPlanIsCustom() {
+        var sel = document.getElementById('cfg-plan');
+        return sel && sel.value === 'custom';
     }
 
     function renderSettings() {
@@ -813,49 +857,43 @@
             '</div>' +
 
             '<div class="settings-section">' +
-                '<h3>Enever (NL only)</h3>' +
-                '<div class="form-hint" style="margin-bottom:12px">' +
-                    '<a href="https://enever.nl" target="_blank" style="color:var(--accent)">Enever</a> is a Dutch price comparison service that provides real-time all-in consumer prices for your energy supplier. ' +
-                    'It is not an energy supplier itself &mdash; it aggregates pricing data from 24 Dutch suppliers including VAT, energy tax, ODE levy, and supplier-specific markup.' +
-                '</div>' +
+                '<h3>Plan</h3>' +
                 '<div class="form-group">' +
-                    '<div class="toggle-row">' +
-                        '<div><span class="form-label" style="margin:0">Enable Enever</span>' +
-                        '<div class="form-hint" style="margin-top:2px">Replaces calculated wholesale+tax prices with exact supplier prices from Enever</div></div>' +
-                        '<div class="toggle' + (c.enever_enabled ? ' on' : '') + '" id="cfg-enever-toggle"></div>' +
-                    '</div>' +
+                    '<label class="form-label">Energy Plan</label>' +
+                    '<select class="form-select" id="cfg-plan">' +
+                        renderPlanOptions(c.plan || '') +
+                    '</select>' +
+                    '<div class="form-hint">Select your country and energy plan. For Netherlands, choose your specific supplier for exact prices via Enever.</div>' +
                 '</div>' +
-                '<div id="enever-fields" style="' + (c.enever_enabled ? '' : 'display:none') + '">' +
+                '<div id="enever-fields" style="' + (c.enever_enabled && c.enever_token ? '' : 'display:none') + '">' +
                     '<div class="form-group">' +
                         '<label class="form-label">Enever API Token</label>' +
                         '<input class="form-input" id="cfg-enever-token" type="text" placeholder="Your Enever API key" value="' + esc(c.enever_token || '') + '">' +
-                        '<div class="form-hint">Get your free token at <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> &mdash; Free tier: max 250 API calls/month (addon uses ~3/day). ' +
-                        '<a href="https://enever.nl/supporter" target="_blank" style="color:var(--accent)">Become a supporter</a> for higher rate limits.</div>' +
+                        '<div class="form-hint">Required for supplier-specific prices. Get your free token at <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> &mdash; Free tier: max 250 API calls/month (app uses ~3/day).</div>' +
                     '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">Your Energy Supplier</label>' +
-                        '<select class="form-select" id="cfg-enever-lev">' +
-                            levOptions(c.enever_leverancier || 'frank') +
-                        '</select>' +
-                        '<div class="form-hint">Select your energy supplier &mdash; Enever will return prices specific to this supplier\'s rates and markups</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div id="custom-fields" style="' + (c.plan === 'custom' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>Custom Configuration</h3>' +
+                    '<div class="form-row">' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">Bidding Zone</label>' +
+                            '<input class="form-input" id="cfg-zone" type="text" value="' + esc(c.zone || 'NL') + '">' +
+                            '<div class="form-hint">e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT</div>' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">Coefficient</label>' +
+                            '<input class="form-input" id="cfg-coeff" type="number" step="0.01" value="' + (c.coefficient || 0) + '">' +
+                            '<div class="form-hint">0 = country default. e.g. 1.05 = 5% markup</div>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
             '<div class="settings-section">' +
-                '<h3>Zone & Thresholds</h3>' +
-                '<div class="form-row">' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">Bidding Zone</label>' +
-                        '<input class="form-input" id="cfg-zone" type="text" value="' + esc(c.zone || 'NL') + '">' +
-                        '<div class="form-hint">e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">Coefficient</label>' +
-                        '<input class="form-input" id="cfg-coeff" type="number" step="0.01" value="' + (c.coefficient || 0) + '">' +
-                        '<div class="form-hint">0 = country default. e.g. 1.05 = 5% markup</div>' +
-                    '</div>' +
-                '</div>' +
+                '<h3>Thresholds</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +
                         '<label class="form-label">GO Threshold (%)</label>' +
@@ -896,46 +934,16 @@
             '</div>';
 
         // Bind events
-        document.getElementById('cfg-enever-toggle').onclick = function() {
-            this.classList.toggle('on');
-            document.getElementById('enever-fields').style.display = this.classList.contains('on') ? '' : 'none';
+        document.getElementById('cfg-plan').onchange = function() {
+            var eneverSection = document.getElementById('enever-fields');
+            var customSection = document.getElementById('custom-fields');
+            eneverSection.style.display = selectedPlanNeedsEnever() ? '' : 'none';
+            customSection.style.display = selectedPlanIsCustom() ? '' : 'none';
         };
         document.getElementById('cfg-debug-toggle').onclick = function() {
             this.classList.toggle('on');
         };
         document.getElementById('btnSave').onclick = saveSettings;
-    }
-
-    function levOptions(current) {
-        var suppliers = [
-            ['anwb', 'ANWB Energie'],
-            ['budget', 'Budget Energie'],
-            ['coolblue', 'Coolblue Energie'],
-            ['easyenergy', 'EasyEnergy'],
-            ['energiedirect', 'Energie Direct'],
-            ['energievanons', 'Energie van Ons'],
-            ['energiek', 'Energiek'],
-            ['energyzero', 'EnergyZero'],
-            ['essent', 'Essent'],
-            ['frank', 'Frank Energie'],
-            ['groenestroom', 'Groene Stroom Lokaal'],
-            ['hegg', 'Hegg'],
-            ['innova', 'Innova Energie'],
-            ['mijndomein', 'Mijn Domein Energie'],
-            ['nextenergy', 'NextEnergy'],
-            ['pureenergie', 'Pure Energie'],
-            ['quatt', 'Quatt'],
-            ['samsam', 'SamSam'],
-            ['tibber', 'Tibber'],
-            ['vandebron', 'Vandebron'],
-            ['vattenfall', 'Vattenfall'],
-            ['vrijopnaam', 'Vrij op naam'],
-            ['wout', 'Wout Energie'],
-            ['zonneplan', 'Zonneplan']
-        ];
-        return suppliers.map(function(s) {
-            return '<option value="' + s[0] + '"' + (s[0] === current ? ' selected' : '') + '>' + s[1] + '</option>';
-        }).join('');
     }
 
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -948,18 +956,26 @@
         status.style.color = 'var(--text-muted)';
 
         var payload = {
-            zone: document.getElementById('cfg-zone').value,
+            plan: document.getElementById('cfg-plan').value,
             go_threshold: parseFloat(document.getElementById('cfg-go').value),
             avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
             best_window_hours: parseInt(document.getElementById('cfg-bw').value) || 3,
-            coefficient: parseFloat(document.getElementById('cfg-coeff').value) || 0,
             license_key: document.getElementById('cfg-license').value.trim(),
-            enever_enabled: document.getElementById('cfg-enever-toggle').classList.contains('on'),
-            enever_token: document.getElementById('cfg-enever-token') ? document.getElementById('cfg-enever-token').value.trim() : '',
-            enever_leverancier: document.getElementById('cfg-enever-lev') ? document.getElementById('cfg-enever-lev').value : 'frank',
             power_sensor: document.getElementById('cfg-power').value.trim(),
             debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
         };
+
+        // Include Enever token if visible
+        var eneverToken = document.getElementById('cfg-enever-token');
+        if (eneverToken && eneverToken.offsetParent !== null) {
+            payload.enever_token = eneverToken.value.trim();
+        }
+
+        // Include custom fields if custom plan
+        if (payload.plan === 'custom') {
+            payload.zone = document.getElementById('cfg-zone').value;
+            payload.coefficient = parseFloat(document.getElementById('cfg-coeff').value) || 0;
+        }
 
         try {
             var resp = await fetch('api/config', {
@@ -969,7 +985,7 @@
             });
             var result = await resp.json();
             if (resp.ok) {
-                status.textContent = 'Saved! Restart addon for source changes to take effect.';
+                status.textContent = 'Saved! Restart app for source changes to take effect.';
                 status.style.color = '#0d9488';
                 currentConfig = Object.assign(currentConfig, payload);
             } else {
@@ -1022,7 +1038,7 @@
             var resp = await fetch('api/feedback/sysinfo');
             var info = await resp.json();
             var html = '<dl>';
-            var labels = {addon_version:'Addon Version',zone:'Zone',tier:'Tier',ha_version:'HA Version',ha_arch:'Architecture',ha_machine:'Machine'};
+            var labels = {addon_version:'App Version',zone:'Zone',tier:'Tier',ha_version:'HA Version',ha_arch:'Architecture',ha_machine:'Machine'};
             for (var key in labels) {
                 if (info[key]) html += '<dt>' + labels[key] + ':</dt><dd>' + info[key] + '</dd>';
             }

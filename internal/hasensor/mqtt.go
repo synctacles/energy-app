@@ -127,7 +127,7 @@ func (p *MQTTPublisher) publishDiscovery(objectID, entityID string, attrs map[st
 			"identifiers":  []string{"synctacles_energy"},
 			"name":         "Synctacles Energy",
 			"manufacturer": "Synctacles",
-			"model":        "Energy Addon",
+			"model":        "Energy App",
 		},
 	}
 	if icon != "" {

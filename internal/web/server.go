@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-backend/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -40,6 +41,8 @@ type Server struct {
 	featureGate         *gate.Gate
 	version             string
 	detectedPowerSensor string
+	addonSlug           string
+	planRegistry        *plan.Registry
 }
 
 // Deps holds dependencies for the web server.
@@ -53,6 +56,8 @@ type Deps struct {
 	Gate                *gate.Gate
 	Version             string
 	DetectedPowerSensor string
+	AddonSlug           string
+	PlanRegistry        *plan.Registry
 }
 
 // NewServer creates a new energy addon web server.
@@ -67,6 +72,8 @@ func NewServer(deps Deps) *Server {
 		featureGate:         deps.Gate,
 		version:             deps.Version,
 		detectedPowerSensor: deps.DetectedPowerSensor,
+		addonSlug:           deps.AddonSlug,
+		planRegistry:        deps.PlanRegistry,
 	}
 
 	r := chi.NewRouter()
@@ -91,9 +98,10 @@ func NewServer(deps Deps) *Server {
 		// Dashboard (bundled response)
 		r.Get("/dashboard", s.handleDashboard)
 
-		// Config
+		// Config & Plans
 		r.Get("/config", s.handleConfig)
 		r.Post("/config", s.handleConfigSave)
+		r.Get("/plans", s.handlePlans)
 
 		// Sources health
 		r.Get("/sources", s.handleSources)
@@ -146,6 +154,9 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	if s.license.IsTrial() {
 		resp["trial"] = true
 		resp["trial_days_left"] = s.license.TrialDaysLeft()
+	}
+	if s.addonSlug != "" {
+		resp["addon_slug"] = s.addonSlug
 	}
 	writeJSON(w, resp)
 }
@@ -328,6 +339,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
+		"plan":                    s.cfg.PlanID,
 		"zone":                    s.cfg.BiddingZone,
 		"currency":                s.cfg.Currency,
 		"go_threshold":            s.cfg.GoThreshold,
@@ -355,7 +367,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if s.supervisor == nil {
-		writeError(w, http.StatusServiceUnavailable, "not running inside HA addon")
+		writeError(w, http.StatusServiceUnavailable, "not running inside HA app")
 		return
 	}
 
@@ -373,7 +385,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Merge allowed fields
-	allowed := []string{"zone", "go_threshold", "avoid_threshold", "best_window_hours",
+	allowed := []string{"plan", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
 		"license_key", "enever_enabled", "enever_token", "enever_leverancier",
 		"coefficient", "power_sensor", "debug_mode"}
 	for _, key := range allowed {
@@ -404,8 +416,22 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["enever_leverancier"].(string); ok {
 		s.cfg.EneverLeverancier = v
 	}
+	if v, ok := incoming["plan"].(string); ok {
+		s.cfg.PlanID = v
+		// Apply plan settings to config immediately
+		if p := s.planRegistry.Get(v); p != nil {
+			s.cfg.ApplyPlan(p.Zone, p.EneverSupplier)
+		}
+	}
 
-	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Some changes require addon restart."})
+	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Some changes require app restart."})
+}
+
+func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]any{
+		"groups":  s.planRegistry.Grouped(),
+		"current": s.cfg.PlanID,
+	})
 }
 
 func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
