@@ -450,7 +450,7 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 
 // --- Feedback Handlers ---
 
-const feedbackBaseURL = "https://api.synctacles.com"
+const feedbackBaseURL = "https://energy.synctacles.com"
 
 // feedbackSystemInfo collects system information for feedback submissions.
 func (s *Server) feedbackSystemInfo() map[string]any {
