@@ -173,4 +173,4 @@ MIT — See [LICENSE](LICENSE)
 
 ---
 
-**Built by [Synctacles](https://www.synctacles.com/) (DATADIO)**
+**Built with ❤️ by Synctacles**
