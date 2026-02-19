@@ -15,7 +15,7 @@ import (
 
 // LeasePublicKey is the Ed25519 public key for verifying fallback leases.
 // This is compiled into the binary — the matching private key is on the energy-server.
-const LeasePublicKey = "qVXQZowCyCDPV/2q+cGY3IhBc+BYJvhX7lbkuKfiDFg="
+const LeasePublicKey = "i7kSvrX2E3m2B/5AsUEn/mV9OhWdZvku0APYlvZMQ1o="
 
 // Gate controls which features are available based on heartbeat and lease status.
 type Gate struct {
