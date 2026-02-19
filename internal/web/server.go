@@ -394,37 +394,41 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Write back to Supervisor
+	// Derive zone + Enever settings from plan (so HA Supervisor has correct state on restart)
+	if planID, ok := incoming["plan"].(string); ok {
+		if p := s.planRegistry.Get(planID); p != nil {
+			current["zone"] = p.Zone
+			current["enever_enabled"] = p.HasEnever()
+			if p.HasEnever() {
+				current["enever_leverancier"] = p.EneverSupplier
+			}
+		}
+	}
+
+	// Write back to Supervisor (single call with all fields + derived)
 	if err := s.supervisor.SetAddonOptions(r.Context(), current); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save options")
 		return
 	}
 
-	// Update in-memory config for immediate effect on select fields
+	// Update in-memory config for immediate effect
 	if v, ok := incoming["best_window_hours"].(float64); ok {
 		s.cfg.BestWindowHours = int(v)
 	}
 	if v, ok := incoming["license_key"].(string); ok {
 		s.cfg.LicenseKey = v
 	}
-	if v, ok := incoming["enever_enabled"].(bool); ok {
-		s.cfg.EneverEnabled = v
-	}
 	if v, ok := incoming["enever_token"].(string); ok {
 		s.cfg.EneverToken = v
 	}
-	if v, ok := incoming["enever_leverancier"].(string); ok {
-		s.cfg.EneverLeverancier = v
-	}
 	if v, ok := incoming["plan"].(string); ok {
 		s.cfg.PlanID = v
-		// Apply plan settings to config immediately
 		if p := s.planRegistry.Get(v); p != nil {
 			s.cfg.ApplyPlan(p.Zone, p.EneverSupplier)
 		}
 	}
 
-	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Some changes require app restart."})
+	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
 }
 
 func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {

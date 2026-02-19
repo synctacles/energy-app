@@ -802,31 +802,31 @@
         } catch (e) { planData = null; }
     }
 
-    function renderPlanOptions(currentPlan) {
+    function renderPlanOptions(currentPlan, hasEneverToken) {
         if (!planData || !planData.groups) return '<option value="">Loading...</option>';
         var html = '';
         planData.groups.forEach(function(group) {
+            var plans = group.plans.filter(function(p) {
+                // Hide Enever plans when no token is configured
+                if (!hasEneverToken && p.enever_supplier) return false;
+                return true;
+            });
+            if (plans.length === 0) return;
             html += '<optgroup label="' + esc(group.name) + '">';
-            group.plans.forEach(function(p) {
-                html += '<option value="' + esc(p.id) + '"' + (p.id === currentPlan ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+            plans.forEach(function(p) {
+                var label = p.name;
+                if (p.enever_supplier) label += ' (via Enever)';
+                html += '<option value="' + esc(p.id) + '"' + (p.id === currentPlan ? ' selected' : '') + '>' + esc(label) + '</option>';
             });
             html += '</optgroup>';
         });
         return html;
     }
 
-    function selectedPlanNeedsEnever() {
+    function selectedPlanIsNL() {
         var sel = document.getElementById('cfg-plan');
-        if (!sel || !planData) return false;
-        var id = sel.value;
-        for (var g = 0; g < planData.groups.length; g++) {
-            for (var p = 0; p < planData.groups[g].plans.length; p++) {
-                if (planData.groups[g].plans[p].id === id) {
-                    return !!planData.groups[g].plans[p].enever_supplier;
-                }
-            }
-        }
-        return false;
+        if (!sel) return false;
+        return sel.value.indexOf('nl') === 0;
     }
 
     function selectedPlanIsCustom() {
@@ -834,8 +834,26 @@
         return sel && sel.value === 'custom';
     }
 
+    function getEneverTokenValue() {
+        var el = document.getElementById('cfg-enever-token');
+        return el ? el.value.trim() : '';
+    }
+
+    function refreshPlanDropdown() {
+        var sel = document.getElementById('cfg-plan');
+        if (!sel) return;
+        var currentVal = sel.value;
+        var hasToken = getEneverTokenValue().length > 0;
+        sel.innerHTML = renderPlanOptions(currentVal, hasToken);
+        // If current selection was filtered out, fall back to nl-default
+        if (sel.value !== currentVal && currentVal.indexOf('nl-enever-') === 0) {
+            sel.value = 'nl-default';
+        }
+    }
+
     function renderSettings() {
         var c = currentConfig;
+        var isNLPlan = (c.plan || '').indexOf('nl') === 0 || (c.zone || '') === 'NL';
         var licenseBadge, licenseHint;
         if (c.has_license) {
             licenseBadge = '<span class="license-badge license-pro">Registered</span>';
@@ -861,15 +879,18 @@
                 '<div class="form-group">' +
                     '<label class="form-label">Energy Plan</label>' +
                     '<select class="form-select" id="cfg-plan">' +
-                        renderPlanOptions(c.plan || '') +
+                        renderPlanOptions(c.plan || '', !!(c.enever_token)) +
                     '</select>' +
-                    '<div class="form-hint">Select your country and energy plan. For Netherlands, choose your specific supplier for exact prices via Enever.</div>' +
+                    '<div class="form-hint">Select your country and energy plan.</div>' +
                 '</div>' +
-                '<div id="enever-fields" style="' + (c.enever_enabled && c.enever_token ? '' : 'display:none') + '">' +
+                '<div id="enever-fields" style="' + (isNLPlan ? '' : 'display:none') + '">' +
                     '<div class="form-group">' +
-                        '<label class="form-label">Enever API Token</label>' +
-                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="Your Enever API key" value="' + esc(c.enever_token || '') + '">' +
-                        '<div class="form-hint">Required for supplier-specific prices. Get your free token at <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> &mdash; Free tier: max 250 API calls/month (app uses ~3/day).</div>' +
+                        '<label class="form-label">Enever API Token (Nederland)</label>' +
+                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="Vul hier je Enever API key in" value="' + esc(c.enever_token || '') + '">' +
+                        '<div class="form-hint">' + (c.enever_token ?
+                            'Token actief &mdash; selecteer je leverancier hierboven.' :
+                            'Vul een Enever API key in om 24 leverancier-specifieke prijsplannen te ontgrendelen. Gratis key via <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> (max 250 calls/maand, app gebruikt ~3/dag).') +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -937,9 +958,15 @@
         document.getElementById('cfg-plan').onchange = function() {
             var eneverSection = document.getElementById('enever-fields');
             var customSection = document.getElementById('custom-fields');
-            eneverSection.style.display = selectedPlanNeedsEnever() ? '' : 'none';
+            eneverSection.style.display = selectedPlanIsNL() ? '' : 'none';
             customSection.style.display = selectedPlanIsCustom() ? '' : 'none';
         };
+        var eneverTokenEl = document.getElementById('cfg-enever-token');
+        if (eneverTokenEl) {
+            eneverTokenEl.oninput = function() {
+                refreshPlanDropdown();
+            };
+        }
         document.getElementById('cfg-debug-toggle').onclick = function() {
             this.classList.toggle('on');
         };
@@ -965,10 +992,10 @@
             debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
         };
 
-        // Include Enever token if visible
-        var eneverToken = document.getElementById('cfg-enever-token');
-        if (eneverToken && eneverToken.offsetParent !== null) {
-            payload.enever_token = eneverToken.value.trim();
+        // Always include Enever token for NL plans
+        var eneverTokenEl = document.getElementById('cfg-enever-token');
+        if (eneverTokenEl) {
+            payload.enever_token = eneverTokenEl.value.trim();
         }
 
         // Include custom fields if custom plan

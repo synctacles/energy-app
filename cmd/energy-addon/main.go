@@ -439,25 +439,28 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, install
 	var chain []collector.PriceSource
 	var synctaclesSource *collector.SynctaclesAPI
 
-	// Tier 0: Synctacles central server (primary source for all zones)
+	// When user explicitly chose an Enever supplier, use it as primary source.
+	// Enever provides exact consumer prices for the user's contract.
+	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
+		chain = append(chain, &collector.Enever{
+			Token:       cfg.EneverToken,
+			Leverancier: cfg.EneverLeverancier,
+		})
+		slog.Info("Enever enabled as primary source", "leverancier", cfg.EneverLeverancier)
+	}
+
+	// Synctacles central server (primary for non-Enever, fallback for Enever users)
 	if cfg.HasSynctaclesServer() {
 		synctaclesSource = &collector.SynctaclesAPI{
 			BaseURL:     cfg.SynctaclesURL,
 			InstallUUID: installUUID,
 		}
 		chain = append(chain, synctaclesSource)
-		slog.Info("Synctacles API enabled as primary source", "url", cfg.SynctaclesURL)
-	}
-
-	// Tier 1+: Direct sources (emergency fallback when server is unreachable)
-
-	// Enever as optional high priority fallback (NL only, user BYO key)
-	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
-		chain = append(chain, &collector.Enever{
-			Token:       cfg.EneverToken,
-			Leverancier: cfg.EneverLeverancier,
-		})
-		slog.Info("Enever enabled as fallback", "leverancier", cfg.EneverLeverancier)
+		if cfg.HasEnever() {
+			slog.Info("Synctacles API enabled as fallback", "url", cfg.SynctaclesURL)
+		} else {
+			slog.Info("Synctacles API enabled as primary source", "url", cfg.SynctaclesURL)
+		}
 	}
 
 	cc, ok := registry.GetCountryForZone(cfg.BiddingZone)
