@@ -18,6 +18,8 @@ type MQTTPublisher struct {
 	host       string
 	port       int
 	clientID   string
+	username   string
+	password   string
 	conn       net.Conn
 	mu         sync.Mutex
 	discovered map[string]bool // track which entities have been discovered
@@ -25,11 +27,13 @@ type MQTTPublisher struct {
 
 // NewMQTTPublisher creates an MQTT publisher.
 // Uses raw TCP + minimal MQTT protocol — no external dependency needed.
-func NewMQTTPublisher(host string, port int) *MQTTPublisher {
+func NewMQTTPublisher(host string, port int, username, password string) *MQTTPublisher {
 	return &MQTTPublisher{
 		host:       host,
 		port:       port,
 		clientID:   "synctacles-energy",
+		username:   username,
+		password:   password,
 		discovered: make(map[string]bool),
 	}
 }
@@ -170,10 +174,24 @@ func (p *MQTTPublisher) publish(topic string, payload []byte, retain bool) error
 	return err
 }
 
-// sendConnect sends MQTT CONNECT packet.
+// sendConnect sends MQTT CONNECT packet with optional authentication.
 func (p *MQTTPublisher) sendConnect() error {
 	clientIDBytes := []byte(p.clientID)
-	remainingLen := 10 + 2 + len(clientIDBytes) // Variable header(10) + client ID length(2) + client ID
+	usernameBytes := []byte(p.username)
+	passwordBytes := []byte(p.password)
+
+	// Connect flags: Clean Session (0x02)
+	var connectFlags byte = 0x02
+	remainingLen := 10 + 2 + len(clientIDBytes)
+
+	if p.username != "" {
+		connectFlags |= 0x80 // Username flag
+		remainingLen += 2 + len(usernameBytes)
+	}
+	if p.password != "" {
+		connectFlags |= 0x40 // Password flag
+		remainingLen += 2 + len(passwordBytes)
+	}
 
 	var packet []byte
 	packet = append(packet, 0x10) // CONNECT
@@ -182,13 +200,25 @@ func (p *MQTTPublisher) sendConnect() error {
 	// Variable header
 	packet = append(packet, 0x00, 0x04) // Protocol name length
 	packet = append(packet, []byte("MQTT")...)
-	packet = append(packet, 0x04)       // Protocol level (4 = MQTT 3.1.1)
-	packet = append(packet, 0x02)       // Connect flags (Clean Session)
-	packet = append(packet, 0x00, 0x3C) // Keep alive (60s)
+	packet = append(packet, 0x04)         // Protocol level (4 = MQTT 3.1.1)
+	packet = append(packet, connectFlags) // Connect flags
+	packet = append(packet, 0x00, 0x3C)  // Keep alive (60s)
 
 	// Payload: client ID
 	packet = append(packet, byte(len(clientIDBytes)>>8), byte(len(clientIDBytes)))
 	packet = append(packet, clientIDBytes...)
+
+	// Payload: username (if set)
+	if p.username != "" {
+		packet = append(packet, byte(len(usernameBytes)>>8), byte(len(usernameBytes)))
+		packet = append(packet, usernameBytes...)
+	}
+
+	// Payload: password (if set)
+	if p.password != "" {
+		packet = append(packet, byte(len(passwordBytes)>>8), byte(len(passwordBytes)))
+		packet = append(packet, passwordBytes...)
+	}
 
 	_ = p.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	_, err := p.conn.Write(packet)

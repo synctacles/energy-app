@@ -282,6 +282,47 @@ func (c *SupervisorClient) CreateNotification(ctx context.Context, title, messag
 	return err
 }
 
+// MQTTServiceInfo holds MQTT broker connection details from Supervisor.
+type MQTTServiceInfo struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Protocol string `json:"protocol"`
+}
+
+// GetMQTTService returns MQTT broker connection details from the Supervisor services API.
+// Requires the addon to declare mqtt in its services config.
+func (c *SupervisorClient) GetMQTTService(ctx context.Context) (*MQTTServiceInfo, error) {
+	data, err := c.requestWithRetry(ctx, "GET", "/services/mqtt", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Addons []struct {
+			Slug string `json:"slug"`
+		} `json:"addons"`
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Protocol string `json:"protocol"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("parse mqtt service: %w", err)
+	}
+	if result.Host == "" {
+		return nil, fmt.Errorf("no mqtt service available")
+	}
+	return &MQTTServiceInfo{
+		Host:     result.Host,
+		Port:     result.Port,
+		Username: result.Username,
+		Password: result.Password,
+		Protocol: result.Protocol,
+	}, nil
+}
+
 // GetHostInfo returns host-level information (OS, chassis, etc.).
 func (c *SupervisorClient) GetHostInfo(ctx context.Context) (*HostInfo, error) {
 	data, err := c.requestWithRetry(ctx, "GET", "/host/info", nil)

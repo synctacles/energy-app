@@ -181,9 +181,9 @@ func main() {
 		publishers = append(publishers, hasensor.NewRESTPublisher(supervisor))
 
 		// Detect MQTT broker
-		mqttHost, found := hasensor.DetectMQTTBroker(context.Background(), supervisor)
+		mqttCreds, found := hasensor.DetectMQTTBroker(context.Background(), supervisor)
 		if found {
-			mqttPub = hasensor.NewMQTTPublisher(mqttHost, 1883)
+			mqttPub = hasensor.NewMQTTPublisher(mqttCreds.Host, mqttCreds.Port, mqttCreds.Username, mqttCreds.Password)
 			if err := mqttPub.Connect(); err != nil {
 				slog.Warn("MQTT connection failed, using REST only", "error", err)
 				mqttPub = nil
