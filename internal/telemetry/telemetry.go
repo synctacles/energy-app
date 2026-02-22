@@ -182,7 +182,7 @@ func (s *Sender) sendOnce(ctx context.Context) {
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/auth/telemetry", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/telemetry", bytes.NewReader(body))
 	if err != nil {
 		slog.Debug("telemetry request failed", "error", err)
 		return

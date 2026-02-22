@@ -16,14 +16,12 @@ import (
 
 	"github.com/synctacles/energy-backend/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
-	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
 	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-backend/pkg/countries"
 	"github.com/synctacles/energy-backend/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
 	"github.com/synctacles/energy-app/internal/hasensor"
-	"github.com/synctacles/energy-app/internal/license"
 	"github.com/synctacles/energy-backend/pkg/models"
 	"github.com/synctacles/energy-app/internal/state"
 	"github.com/synctacles/energy-backend/pkg/store"
@@ -128,26 +126,13 @@ func main() {
 		}
 	}
 
-	// Initialize license validator (all features free)
-	licenseValidator := license.NewValidator(cfg.LicenseKey, dataPath)
-	slog.Info("license status", "tier", licenseValidator.Tier(), "pro", licenseValidator.IsPro())
-
-	// Load persistent install UUID (shared by heartbeat, telemetry, and lease)
+	// Load persistent install UUID (shared by heartbeat and telemetry)
 	installUUID := telemetry.LoadInstallUUID(dataPath)
 	osArch := telemetry.OSArch()
 	slog.Info("install identity", "uuid", installUUID, "arch", osArch)
 
-	// Initialize feature gate (controls what's available based on registration + heartbeat)
-	featureGate := gate.New(cfg.BiddingZone, cfg.HasEnever(), cfg.LicenseKey)
-	slog.Info("feature gate initialized",
-		"heartbeat_enabled", cfg.HeartbeatEnabled,
-		"zone", cfg.BiddingZone,
-		"enever", cfg.HasEnever(),
-		"registered", cfg.HasLicense(),
-	)
-
-	// Build price source chain for the configured zone
-	sources, synctaclesSource := buildSourceChain(cfg, registry, installUUID)
+	// Build price source chain for the configured zone (local sources only)
+	sources := buildSourceChain(cfg, registry)
 	slog.Info("source chain configured", "zone", cfg.BiddingZone, "sources", len(sources))
 
 	// Initialize engine components
@@ -199,18 +184,6 @@ func main() {
 
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
-		// Update lease from Synctacles server response (for fallback authorization)
-		if synctaclesSource != nil {
-			if l := synctaclesSource.LastLease(); l != nil {
-				featureGate.UpdateLease(l)
-			}
-		}
-
-		// Feature gate: check if actions are allowed (logged for diagnostics)
-		if !featureGate.CanUseActions() {
-			slog.Debug("actions disabled (registration required)")
-		}
-
 		// Split into today/tomorrow
 		now := time.Now().UTC()
 		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -278,23 +251,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Start background license re-validation (monthly)
-	licenseValidator.RunBackground(ctx)
-
-	// Start heartbeat sender (always-on when enabled, controls feature gate)
+	// Start heartbeat sender (anonymous install counting — no feature gating)
 	if cfg.HeartbeatEnabled {
 		hb := heartbeat.NewSender(heartbeat.Config{
 			InstallUUID:  installUUID,
 			Product:      "energy",
 			AddonVersion: version,
 			OSArch:       osArch,
-			OnSuccess:    func() { featureGate.SetHeartbeatOK(true) },
-			OnFailure:    func() { featureGate.SetHeartbeatOK(false) },
 		})
 		go hb.Run(ctx)
 		slog.Info("heartbeat sender started")
-	} else {
-		slog.Warn("heartbeat disabled — remote features will be limited")
 	}
 
 	// Start telemetry sender (daily, first send after 2 min)
@@ -381,8 +347,6 @@ func main() {
 		SensorData:          sensorData,
 		Supervisor:          supervisor,
 		Fallback:            fallbackMgr,
-		License:             licenseValidator,
-		Gate:                featureGate,
 		Version:             version,
 		DetectedPowerSensor: detectedPowerSensor,
 		AddonSlug:           addonSlug,
@@ -398,7 +362,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("listening", "addr", addr, "zone", cfg.BiddingZone, "pro", licenseValidator.IsPro())
+		slog.Info("listening", "addr", addr, "zone", cfg.BiddingZone)
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
@@ -425,19 +389,15 @@ func main() {
 }
 
 // buildSourceChain creates the prioritized source list for a bidding zone.
-// Returns the source chain and a reference to the SynctaclesAPI source (for lease access).
+// All sources are direct — no central server dependency.
 //
-// Hybrid architecture:
+// Architecture:
 //
-//	Tier 0: Synctacles API (central server, pre-computed consumer prices)
-//	Tier 1+: Direct sources (only activated when Synctacles server is unreachable)
+//	Enever (NL only, if configured) → Country-specific sources → Energy-Charts (fallback)
 //
-// When the Synctacles server is healthy, the addon makes exactly 1 API call.
-// When it's down, the circuit breaker opens and the full fallback chain takes over,
-// including Enever (NL), EasyEnergy, Energy-Charts, etc.
-func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, installUUID string) ([]collector.PriceSource, *collector.SynctaclesAPI) {
+// The Smart Persistent Cache (SQLite) handles reboot resilience.
+func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []collector.PriceSource {
 	var chain []collector.PriceSource
-	var synctaclesSource *collector.SynctaclesAPI
 
 	// When user explicitly chose an Enever supplier, use it as primary source.
 	// Enever provides exact consumer prices for the user's contract.
@@ -449,25 +409,11 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, install
 		slog.Info("Enever enabled as primary source", "leverancier", cfg.EneverLeverancier)
 	}
 
-	// Synctacles central server (primary for non-Enever, fallback for Enever users)
-	if cfg.HasSynctaclesServer() {
-		synctaclesSource = &collector.SynctaclesAPI{
-			BaseURL:     cfg.SynctaclesURL,
-			InstallUUID: installUUID,
-		}
-		chain = append(chain, synctaclesSource)
-		if cfg.HasEnever() {
-			slog.Info("Synctacles API enabled as fallback", "url", cfg.SynctaclesURL)
-		} else {
-			slog.Info("Synctacles API enabled as primary source", "url", cfg.SynctaclesURL)
-		}
-	}
-
 	cc, ok := registry.GetCountryForZone(cfg.BiddingZone)
 	if !ok {
 		slog.Warn("no country config for zone, using Energy-Charts only", "zone", cfg.BiddingZone)
 		chain = append(chain, &collector.EnergyCharts{})
-		return chain, synctaclesSource
+		return chain
 	}
 
 	sourceMap := map[string]collector.PriceSource{
@@ -486,7 +432,7 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, install
 		}
 	}
 
-	// Always add Energy-Charts as final direct fallback if not already in chain
+	// Always add Energy-Charts as final fallback if not already in chain
 	hasEC := false
 	for _, src := range chain {
 		if src.Name() == "energycharts" {
@@ -498,5 +444,5 @@ func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry, install
 		chain = append(chain, &collector.EnergyCharts{})
 	}
 
-	return chain, synctaclesSource
+	return chain
 }
