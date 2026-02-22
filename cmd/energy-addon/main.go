@@ -17,6 +17,7 @@ import (
 	"github.com/synctacles/energy-backend/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
 	"github.com/synctacles/energy-app/internal/heartbeat"
+	"github.com/synctacles/energy-app/internal/sourcehealth"
 	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-backend/pkg/countries"
 	"github.com/synctacles/energy-backend/pkg/engine"
@@ -140,6 +141,17 @@ func main() {
 	actionEngine := engine.NewActionEngine(cfg.GoThreshold, cfg.AvoidThreshold)
 	fallbackMgr := engine.NewFallbackManager(sources, priceCache)
 
+	// Initialize source health tracker
+	var sourceNames []string
+	for _, src := range sources {
+		sourceNames = append(sourceNames, src.Name())
+	}
+	sourceTracker := sourcehealth.NewTracker(sourcehealth.Config{
+		InstallUUID: installUUID,
+		Zone:        cfg.BiddingZone,
+		SourceNames: sourceNames,
+	})
+
 	// Initialize shared sensor data (for web dashboard)
 	sensorData := web.NewSensorData()
 
@@ -184,6 +196,9 @@ func main() {
 
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
+		// Record source usage for health tracking
+		sourceTracker.Record(result)
+
 		// Split into today/tomorrow
 		now := time.Now().UTC()
 		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -262,6 +277,10 @@ func main() {
 		go hb.Run(ctx)
 		slog.Info("heartbeat sender started")
 	}
+
+	// Start source health tracker (sends every 6h, first after 5 min)
+	go sourceTracker.Run(ctx)
+	slog.Info("source health tracker started", "zone", cfg.BiddingZone)
 
 	// Start telemetry sender (daily, first send after 2 min)
 	telemetrySender := telemetry.NewSender(telemetry.Deps{
