@@ -259,9 +259,39 @@
         .sysinfo-box dt::after { content: ' '; }
         .sysinfo-box dd { display: inline; margin: 0; }
         .sysinfo-box dd::after { content: '\A'; white-space: pre; }
+
+        /* Privacy modal */
+        .privacy-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .privacy-modal {
+            background: var(--bg-card); color: var(--text); border-radius: 12px;
+            padding: 28px; max-width: 480px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .privacy-modal h2 { font-size: 1.1em; margin-bottom: 12px; }
+        .privacy-modal p { font-size: 0.9em; line-height: 1.5; margin-bottom: 10px; color: var(--text-muted); }
+        .privacy-modal a { color: var(--accent); text-decoration: none; }
+        .privacy-modal .btn-ok {
+            display: block; width: 100%; margin-top: 16px; padding: 10px;
+            background: var(--accent); color: #fff; border: none; border-radius: 8px;
+            font-size: 0.95em; cursor: pointer;
+        }
+        .privacy-link { font-size: 0.75em; color: var(--text-faint); text-decoration: none; }
+        .privacy-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+    <div class="privacy-overlay" id="privacyModal" style="display:none">
+        <div class="privacy-modal">
+            <h2 id="privTitle"></h2>
+            <p id="privBody1"></p>
+            <p id="privBody2"></p>
+            <p id="privBody3"></p>
+            <button class="btn-ok" id="privOk" onclick="dismissPrivacy()"></button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <div class="header-left">
@@ -333,9 +363,99 @@
                 </div>
             </div>
         </div>
+        <div style="text-align:center;margin-top:12px">
+            <a class="privacy-link" href="https://synctacles.com/privacy" target="_blank" id="privFooter">Privacy</a>
+        </div>
     </div>
 
     <script>
+    // --- Privacy notice (first-run) ---
+    var privacyTexts = {
+        en: {
+            title: 'Privacy first \u2014 as it should be.',
+            b1: 'SYNCTACLES does not collect personal data. No account, no email, no tracking.',
+            b2: 'To improve our product, your app sends anonymous technical data to our servers \u2014 such as your Home Assistant version, system architecture, and error patterns. This data cannot be traced back to you or your household.',
+            b3: 'You can review our full privacy policy at <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Understood',
+            link: 'Privacy'
+        },
+        nl: {
+            title: 'Privacy voorop \u2014 zoals het hoort.',
+            b1: 'SYNCTACLES verzamelt geen persoonsgegevens. Geen account, geen e-mail, geen tracking.',
+            b2: 'Om ons product te verbeteren stuurt de app anonieme technische gegevens naar onze servers \u2014 zoals je Home Assistant-versie, systeemarchitectuur en foutpatronen. Deze data is niet herleidbaar naar jou of je huishouden.',
+            b3: 'Bekijk ons volledige privacybeleid op <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Begrepen',
+            link: 'Privacy'
+        },
+        de: {
+            title: 'Datenschutz zuerst \u2014 wie es sein sollte.',
+            b1: 'SYNCTACLES sammelt keine personenbezogenen Daten. Kein Konto, keine E-Mail, kein Tracking.',
+            b2: 'Um unser Produkt zu verbessern, sendet die App anonyme technische Daten an unsere Server \u2014 wie Ihre Home Assistant-Version, Systemarchitektur und Fehlermuster. Diese Daten k\u00f6nnen nicht auf Sie oder Ihren Haushalt zur\u00fcckgef\u00fchrt werden.',
+            b3: 'Unsere vollst\u00e4ndige Datenschutzerkl\u00e4rung finden Sie unter <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Verstanden',
+            link: 'Datenschutz'
+        },
+        es: {
+            title: 'Privacidad primero \u2014 como debe ser.',
+            b1: 'SYNCTACLES no recopila datos personales. Sin cuenta, sin correo electr\u00f3nico, sin seguimiento.',
+            b2: 'Para mejorar nuestro producto, la aplicaci\u00f3n env\u00eda datos t\u00e9cnicos an\u00f3nimos a nuestros servidores \u2014 como la versi\u00f3n de Home Assistant, la arquitectura del sistema y los patrones de errores. Estos datos no pueden rastrearse hasta usted o su hogar.',
+            b3: 'Puede consultar nuestra pol\u00edtica de privacidad completa en <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Entendido',
+            link: 'Privacidad'
+        },
+        da: {
+            title: 'Privatliv f\u00f8rst \u2014 som det b\u00f8r v\u00e6re.',
+            b1: 'SYNCTACLES indsamler ingen personlige data. Ingen konto, ingen e-mail, ingen sporing.',
+            b2: 'For at forbedre vores produkt sender appen anonyme tekniske data til vores servere \u2014 som din Home Assistant-version, systemarkitektur og fejlm\u00f8nstre. Disse data kan ikke spores tilbage til dig eller din husstand.',
+            b3: 'Du kan l\u00e6se vores fulde privatlivspolitik p\u00e5 <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Forst\u00e5et',
+            link: 'Privatliv'
+        },
+        fi: {
+            title: 'Yksityisyys ensin \u2014 niin kuin pit\u00e4\u00e4kin.',
+            b1: 'SYNCTACLES ei ker\u00e4\u00e4 henkil\u00f6tietoja. Ei tili\u00e4, ei s\u00e4hk\u00f6postia, ei seurantaa.',
+            b2: 'Tuotteemme parantamiseksi sovellus l\u00e4hett\u00e4\u00e4 anonyymi\u00e4 teknist\u00e4 tietoa palvelimillemme \u2014 kuten Home Assistant -versiosi, j\u00e4rjestelm\u00e4arkkitehtuuri ja virhemallit. N\u00e4it\u00e4 tietoja ei voida j\u00e4ljitt\u00e4\u00e4 sinuun tai kotitalouteesi.',
+            b3: 'Voit lukea t\u00e4ydellisen tietosuojak\u00e4yt\u00e4nt\u00f6mme osoitteessa <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Ymm\u00e4rretty',
+            link: 'Tietosuoja'
+        },
+        pt: {
+            title: 'Privacidade em primeiro lugar \u2014 como deve ser.',
+            b1: 'A SYNCTACLES n\u00e3o recolhe dados pessoais. Sem conta, sem e-mail, sem rastreamento.',
+            b2: 'Para melhorar o nosso produto, a aplica\u00e7\u00e3o envia dados t\u00e9cnicos an\u00f3nimos para os nossos servidores \u2014 como a vers\u00e3o do Home Assistant, arquitetura do sistema e padr\u00f5es de erros. Estes dados n\u00e3o podem ser rastreados at\u00e9 si ou ao seu lar.',
+            b3: 'Pode consultar a nossa pol\u00edtica de privacidade completa em <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Entendido',
+            link: 'Privacidade'
+        },
+        fr: {
+            title: 'Confidentialit\u00e9 d\'abord \u2014 comme il se doit.',
+            b1: 'SYNCTACLES ne collecte aucune donn\u00e9e personnelle. Pas de compte, pas d\'e-mail, pas de suivi.',
+            b2: 'Pour am\u00e9liorer notre produit, l\'application envoie des donn\u00e9es techniques anonymes \u00e0 nos serveurs \u2014 telles que votre version de Home Assistant, l\'architecture du syst\u00e8me et les sch\u00e9mas d\'erreurs. Ces donn\u00e9es ne peuvent pas \u00eatre rattach\u00e9es \u00e0 vous ou \u00e0 votre foyer.',
+            b3: 'Consultez notre politique de confidentialit\u00e9 compl\u00e8te sur <a href="https://synctacles.com/privacy" target="_blank">synctacles.com/privacy</a>.',
+            ok: 'Compris',
+            link: 'Confidentialit\u00e9'
+        }
+    };
+
+    var privLocale = 'en';
+    function showPrivacy(locale) {
+        if (localStorage.getItem('privacy_seen')) return;
+        privLocale = locale || 'en';
+        var lang = privLocale.split('-')[0].toLowerCase();
+        var t = privacyTexts[lang] || privacyTexts.en;
+        document.getElementById('privTitle').textContent = t.title;
+        document.getElementById('privBody1').textContent = t.b1;
+        document.getElementById('privBody2').textContent = t.b2;
+        document.getElementById('privBody3').innerHTML = t.b3;
+        document.getElementById('privOk').textContent = t.ok;
+        document.getElementById('privFooter').textContent = t.link;
+        document.getElementById('privacyModal').style.display = 'flex';
+    }
+    function dismissPrivacy() {
+        localStorage.setItem('privacy_seen', '1');
+        document.getElementById('privacyModal').style.display = 'none';
+    }
+
     // --- Theme ---
     var isDark = localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -479,6 +599,7 @@
             if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
             if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
             if (d.addon_slug) window._addonSlug = d.addon_slug;
+            showPrivacy(d.locale);
         } catch (e) { /* ignore — defaults stay */ }
     }
 

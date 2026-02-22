@@ -144,6 +144,13 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	if s.addonSlug != "" {
 		resp["addon_slug"] = s.addonSlug
 	}
+	if s.supervisor != nil {
+		if haConfig, err := s.supervisor.GetConfig(r.Context()); err == nil {
+			if lang, ok := haConfig["language"].(string); ok {
+				resp["locale"] = lang
+			}
+		}
+	}
 	writeJSON(w, resp)
 }
 
