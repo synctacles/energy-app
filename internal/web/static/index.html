@@ -412,11 +412,14 @@
                 var srcLabel = sourceLabel(ai.source, d.leverancier);
                 var qualLabel = ai.quality;
                 var qualCls = ai.quality;
-                if (ai.from_mem_cache && ai.quality === 'live') {
+                if (ai.from_disk_cache && ai.quality === 'live') {
+                    // Data from persistent disk cache (e.g. after reboot) — still live quality
+                    qualLabel = 'live (stored)';
+                } else if (ai.from_mem_cache && ai.quality === 'live') {
                     // Data from memory cache — still live quality but show age
                     var age = timeAgo(ai.fetched_at);
                     qualLabel = 'live';
-                    if (age && age !== 'just now') qualLabel += ' (cached)';
+                    if (age && age !== 'just now') qualLabel += ' (memory)';
                 }
                 html += '<div class="source-summary">' +
                     '<span class="source-label">Prices from:</span> ' +
@@ -436,7 +439,8 @@
                 if (s.primary) nameCls += ' primary';
                 var label = s.tier + '. ' + sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '');
                 var extra = '';
-                if (s.active) extra = ' <span class="source-serving">[serving]</span>';
+                if (s.active && ai && ai.from_disk_cache) extra = ' <span class="source-serving">[stored]</span>';
+                else if (s.active) extra = ' <span class="source-serving">[serving]</span>';
                 else if (s.last_success) extra = ' <span class="source-age">' + timeAgo(s.last_success) + '</span>';
                 html += '<span class="source-chain-item">' +
                     '<span class="source-dot ' + dotCls + '"></span>' +

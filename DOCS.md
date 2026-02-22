@@ -1,16 +1,45 @@
 # Synctacles Energy — Home Assistant Addon
 
-Synctacles Energy is a fully local Home Assistant addon that provides real-time EU electricity prices with intelligent GO/WAIT/AVOID recommendations. All price data is fetched directly from free, public European energy APIs — no cloud dependency.
+Synctacles Energy is a fully local Home Assistant addon that provides EU day-ahead electricity prices with intelligent GO/WAIT/AVOID recommendations. All price data is fetched directly from free, public European energy APIs — no cloud dependency.
 
-## How It Works
+## How Energy Prices Work
+
+Energy prices in Europe are determined **one day in advance** through the EPEX Spot day-ahead auction. This is what that means for you:
+
+### Prices are static — not real-time
+
+- **Today's prices** were determined yesterday at 13:00 CET. They will not change.
+- **Tomorrow's prices** are published today at 13:00 CET. After that, they're fixed.
+- There is nothing "real-time" about day-ahead energy prices. All 24 hourly prices for a given day are known in advance and are immutable once published.
+
+### What the addon does
 
 The addon fetches day-ahead electricity prices from multiple European data sources, normalizes them to consumer prices (including VAT, energy tax, and supplier markup where applicable), and publishes the results as Home Assistant sensors.
 
-Every 15 minutes, the addon:
-1. Fetches prices from the highest-priority source for your bidding zone
-2. Falls back to alternative sources if the primary is unavailable
-3. Calculates the current price, daily statistics, and action recommendation
-4. Publishes all sensor values to Home Assistant
+1. Fetches today's 24 hourly prices from your configured source
+2. At 13:00 CET, fetches tomorrow's 24 hourly prices
+3. Stores all prices locally in a **persistent cache that survives reboots**
+4. Shows GO/WAIT/AVOID recommendations based on the current hour's price
+
+### Why you see "stored" in the source bar
+
+After a reboot, the addon uses locally stored prices instead of making new API calls. This is safe because the prices never change after publication. The "stored" label indicates prices are served from the local cache — they are identical to what the API would return.
+
+### Source health vs. data quality
+
+The source bar separates two independent concepts:
+
+- **Green/red dot**: Whether the API source is currently reachable (circuit breaker status)
+- **[serving]/[stored]**: Where your current price data comes from
+
+A source can show a red dot (API temporarily down) while still serving valid stored data. The prices are correct regardless — only the source's reachability changed.
+
+| Badge | Meaning |
+|-------|---------|
+| `live` | Prices just fetched from a live API source |
+| `live (memory)` | Same live prices, served from in-memory cache |
+| `live (stored)` | Same live prices, restored from persistent disk cache (e.g. after reboot) |
+| `cached` | Fallback prices from disk cache (no live source available) — GO recommendations disabled |
 
 ### Price Source Fallback Chain
 
@@ -19,7 +48,8 @@ Each bidding zone has a prioritized list of price sources. If the highest-priori
 | Tier | Description | GO Allowed |
 |------|-------------|------------|
 | 1-3 | Live API sources (zone-specific priority) | Yes |
-| 4 | SQLite cache (48h retention) | No |
+| Disk warm | Persistent cache with live-quality data (after reboot) | Yes |
+| 4 | SQLite cache fallback (48h retention) | No |
 
 ### GO/WAIT/AVOID Recommendations
 

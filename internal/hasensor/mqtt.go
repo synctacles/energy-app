@@ -14,6 +14,7 @@ import (
 // MQTTPublisher publishes sensor state via MQTT with HA auto-discovery.
 // When MQTT discovery messages are published, HA automatically groups sensors
 // under a "Synctacles Energy" device in the UI.
+// Includes automatic reconnection on broken pipe or connection loss.
 type MQTTPublisher struct {
 	host       string
 	port       int
@@ -23,6 +24,7 @@ type MQTTPublisher struct {
 	conn       net.Conn
 	mu         sync.Mutex
 	discovered map[string]bool // track which entities have been discovered
+	connected  bool
 }
 
 // NewMQTTPublisher creates an MQTT publisher.
@@ -42,6 +44,17 @@ func NewMQTTPublisher(host string, port int, username, password string) *MQTTPub
 func (p *MQTTPublisher) Connect() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.connectLocked()
+}
+
+// connectLocked performs the actual connection (must hold p.mu).
+func (p *MQTTPublisher) connectLocked() error {
+	// Close any existing connection
+	if p.conn != nil {
+		p.conn.Close()
+		p.conn = nil
+	}
+	p.connected = false
 
 	addr := fmt.Sprintf("%s:%d", p.host, p.port)
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
@@ -50,19 +63,33 @@ func (p *MQTTPublisher) Connect() error {
 	}
 	p.conn = conn
 
-	// Send MQTT CONNECT packet
 	if err := p.sendConnect(); err != nil {
 		conn.Close()
+		p.conn = nil
 		return fmt.Errorf("mqtt handshake: %w", err)
 	}
 
-	// Read CONNACK
 	if err := p.readConnack(); err != nil {
 		conn.Close()
+		p.conn = nil
 		return fmt.Errorf("mqtt connack: %w", err)
 	}
 
+	p.connected = true
+	// Reset discovery state so sensors are re-registered after reconnect
+	p.discovered = make(map[string]bool)
 	slog.Info("MQTT connected", "broker", addr)
+	return nil
+}
+
+// reconnect attempts to re-establish the MQTT connection (must hold p.mu).
+func (p *MQTTPublisher) reconnect() error {
+	slog.Warn("MQTT reconnecting...")
+	if err := p.connectLocked(); err != nil {
+		slog.Error("MQTT reconnect failed", "error", err)
+		return err
+	}
+	slog.Info("MQTT reconnected successfully")
 	return nil
 }
 
@@ -70,8 +97,8 @@ func (p *MQTTPublisher) Connect() error {
 func (p *MQTTPublisher) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.connected = false
 	if p.conn != nil {
-		// Send DISCONNECT packet
 		_, _ = p.conn.Write([]byte{0xE0, 0x00})
 		p.conn.Close()
 		p.conn = nil
@@ -80,33 +107,53 @@ func (p *MQTTPublisher) Close() {
 
 // UpdateSensor publishes sensor state to MQTT.
 // On first call per entity, sends auto-discovery config.
+// Automatically reconnects on broken pipe or connection loss.
 func (p *MQTTPublisher) UpdateSensor(ctx context.Context, entityID, state string, attrs map[string]any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.conn == nil {
-		return fmt.Errorf("mqtt not connected")
+	if p.conn == nil || !p.connected {
+		if err := p.reconnect(); err != nil {
+			return fmt.Errorf("mqtt not connected: %w", err)
+		}
 	}
 
-	// Entity ID format: sensor.synctacles_energy_price → object_id = energy_price
 	objectID := strings.TrimPrefix(entityID, "sensor.synctacles_")
 
-	// Send discovery config if not yet done
 	if !p.discovered[entityID] {
 		if err := p.publishDiscovery(objectID, entityID, attrs); err != nil {
-			return fmt.Errorf("mqtt discovery for %s: %w", entityID, err)
+			// Try reconnect once on discovery failure
+			if reconnErr := p.reconnect(); reconnErr != nil {
+				return fmt.Errorf("mqtt discovery for %s: %w", entityID, err)
+			}
+			if err := p.publishDiscovery(objectID, entityID, attrs); err != nil {
+				return fmt.Errorf("mqtt discovery for %s after reconnect: %w", entityID, err)
+			}
 		}
 		p.discovered[entityID] = true
 	}
 
-	// Publish state
 	stateTopic := fmt.Sprintf("synctacles/energy/%s/state", objectID)
 	payload := map[string]any{
 		"state":      state,
 		"attributes": attrs,
 	}
 	data, _ := json.Marshal(payload)
-	return p.publish(stateTopic, data, true)
+
+	if err := p.publish(stateTopic, data, true); err != nil {
+		// Broken pipe or write error — reconnect and retry once
+		slog.Warn("MQTT publish failed, reconnecting", "error", err, "topic", stateTopic)
+		if reconnErr := p.reconnect(); reconnErr != nil {
+			return fmt.Errorf("mqtt publish %s: %w (reconnect also failed: %v)", stateTopic, err, reconnErr)
+		}
+		// Re-send discovery after reconnect
+		if err := p.publishDiscovery(objectID, entityID, attrs); err != nil {
+			return fmt.Errorf("mqtt re-discovery after reconnect: %w", err)
+		}
+		p.discovered[entityID] = true
+		return p.publish(stateTopic, data, true)
+	}
+	return nil
 }
 
 // publishDiscovery sends an HA MQTT discovery config message.
