@@ -253,7 +253,9 @@ func main() {
 		st.Quality = result.Quality
 		st.PriceSource = result.Source
 		st.LastFetch = now.Format(time.RFC3339)
-		_ = stateStore.Save(st)
+		if err := stateStore.Save(st); err != nil {
+			slog.Error("failed to save state", "error", err)
+		}
 
 		// Publish to all publishers
 		for _, pub := range publishers {

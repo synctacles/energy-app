@@ -141,7 +141,7 @@ func (v *Validator) ValidateOnce(ctx context.Context) error {
 
 	v.saveCache(result)
 
-	slog.Info("license validated", "tier", stats.Tier, "is_pro", result.IsPro, "email", stats.Email)
+	slog.Info("license validated", "tier", stats.Tier, "is_pro", result.IsPro)
 	return nil
 }
 

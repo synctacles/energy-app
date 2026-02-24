@@ -445,7 +445,7 @@
             html += '</div>';
 
             document.getElementById('sourceBar').innerHTML = html;
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn('source health load failed:', e.message); }
     }
     loadSources();
     setInterval(loadSources, 60000);
@@ -475,7 +475,7 @@
             if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
             if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
             if (d.addon_slug) window._addonSlug = d.addon_slug;
-        } catch (e) { /* ignore — defaults stay */ }
+        } catch (e) { console.warn('version/locale load failed:', e.message); }
     }
 
     // --- Dashboard ---
@@ -680,7 +680,7 @@
         } catch (err) {
             document.getElementById('content').innerHTML =
                 '<div class="loading">' +
-                '<p style="color:#dc2626">Connection error</p>' +
+                '<p style="color:#dc2626">Connection lost. Retrying automatically...</p>' +
                 '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">Retrying in 10s...</p></div>';
             setTimeout(loadDashboard, 10000);
         }
@@ -799,7 +799,7 @@
         try {
             var resp = await fetch('api/plans');
             planData = await resp.json();
-        } catch (e) { planData = null; }
+        } catch (e) { console.warn('plan data load failed:', e.message); planData = null; }
     }
 
     function renderPlanOptions(currentPlan, hasEneverToken) {
@@ -1016,7 +1016,7 @@
                 status.style.color = '#0d9488';
                 currentConfig = Object.assign(currentConfig, payload);
             } else {
-                status.textContent = 'Error: ' + (result.error || 'unknown');
+                status.textContent = 'Could not save settings. Please check your configuration and try again.';
                 status.style.color = '#dc2626';
             }
         } catch (err) {
@@ -1095,7 +1095,7 @@
                 document.getElementById('ratingComment').value = '';
             } else {
                 msg.className = 'feedback-msg error';
-                msg.textContent = result.message || result.error || 'Failed to submit';
+                msg.textContent = result.message || result.error || 'Could not submit feedback. Please check your connection and try again.';
                 btnRating.disabled = false;
             }
         } catch (e) {
@@ -1136,11 +1136,11 @@
                 document.getElementById('bugDescription').value = '';
             } else {
                 msg.className = 'feedback-msg error';
-                msg.textContent = result.message || result.error || 'Failed to submit';
+                msg.textContent = result.message || result.error || 'Could not submit bug report. Please check your connection and try again.';
             }
         } catch (e) {
             msg.className = 'feedback-msg error';
-            msg.textContent = 'Connection error';
+            msg.textContent = 'Connection error. Please check your connection and try again.';
         }
         btn.disabled = false;
     };
