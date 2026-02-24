@@ -1,0 +1,21 @@
+country: BE
+name: Belgium
+currency: EUR
+zones:
+  - code: "BE"
+    eic: "10YBE----------2"
+    name: "Belgium"
+    country: "BE"
+    timezone: "Europe/Brussels"
+tax_profile:
+  vat_rate: 0.06
+  coefficient: 1.0
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.04588  # Bijzondere accijns 2024 (incl. federal)
+    - from: "2026-01-01"
+      rate: 0.02360  # Accijns ~23.6 EUR/MWh (reformed, federal contribution abolished)
+  surcharges: 0.0
+sources:
+  - name: energycharts
+    priority: 1

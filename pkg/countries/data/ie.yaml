@@ -1,0 +1,26 @@
+country: IE
+name: Ireland
+currency: EUR
+zones:
+  - code: "IE"
+    name: "Ireland"
+    timezone: "Europe/Dublin"
+tax_profile:
+  vat_rate: 0.135  # 13.5% reduced rate for residential electricity
+  coefficient: 1.0
+  energy_tax:
+    - from: "2024-05-01"
+      rate: 0.056  # EUR/kWh excl. VAT (€56.00/MWh)
+    - from: "2025-05-01"
+      rate: 0.0635  # EUR/kWh excl. VAT (€63.50/MWh)
+    - from: "2026-05-01"
+      rate: 0.071  # EUR/kWh excl. VAT (€71.00/MWh)
+  surcharges: 0.0
+sources:
+  - name: energycharts
+    priority: 1
+
+# Manually verified 2026-02-13 from:
+# https://www.revenue.ie/en/tax-professionals/tdm/excise/excise-duty-rates/energy-excise-duty-rates.pdf
+# Electricity tax for non-business (household) use: €71.00/MWh from 1 May 2026
+# VAT: Ireland applies reduced 13.5% rate to residential electricity

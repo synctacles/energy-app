@@ -19,7 +19,7 @@ import (
 
 	"github.com/synctacles/energy-app/internal/config"
 	"github.com/synctacles/energy-app/internal/plan"
-	"github.com/synctacles/energy-backend/pkg/engine"
+	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
 	"github.com/synctacles/energy-app/internal/license"

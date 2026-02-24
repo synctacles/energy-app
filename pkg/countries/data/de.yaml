@@ -1,0 +1,21 @@
+country: DE
+name: Germany
+currency: EUR
+zones:
+  - code: "DE-LU"
+    eic: "10Y1001A1001A82H"
+    name: "Germany/Luxembourg"
+    country: "DE"
+    timezone: "Europe/Berlin"
+tax_profile:
+  vat_rate: 0.19
+  coefficient: 1.0  # Tibber/aWATTar pass-through model
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.02050  # Stromsteuer EUR/kWh
+  surcharges: 0.02946  # KWKG 0.00446 + Offshore 0.00941 + §19 StromNEV 0.01559 EUR/kWh
+sources:
+  - name: awattar
+    priority: 1
+  - name: energycharts
+    priority: 2

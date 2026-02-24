@@ -1,0 +1,28 @@
+country: DK
+name: Denmark
+currency: DKK
+zones:
+  - code: "DK1"
+    eic: "10YDK-1--------W"
+    name: "West Denmark (Jutland)"
+    country: "DK"
+    timezone: "Europe/Copenhagen"
+  - code: "DK2"
+    eic: "10YDK-2--------M"
+    name: "East Denmark (Zealand)"
+    country: "DK"
+    timezone: "Europe/Copenhagen"
+tax_profile:
+  vat_rate: 0.25
+  coefficient: 1.0  # Barry/Vindstød pass-through model
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.00975  # Elafgift 72.7 øre/kWh (DKK) ÷ 7.46
+    - from: "2026-01-01"
+      rate: 0.00107  # Elafgift 0.8 øre/kWh (DKK) ÷ 7.46 — slashed to EU minimum 2026-2027
+  surcharges: 0.0
+sources:
+  - name: energidataservice
+    priority: 1
+  - name: energycharts
+    priority: 2

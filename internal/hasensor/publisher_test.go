@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/synctacles/energy-backend/pkg/engine"
-	"github.com/synctacles/energy-backend/pkg/models"
+	"github.com/synctacles/energy-app/pkg/engine"
+	"github.com/synctacles/energy-app/pkg/models"
 )
 
 // mockPublisher records all sensor updates.

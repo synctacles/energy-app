@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/synctacles/energy-backend/pkg/collector"
-	"github.com/synctacles/energy-backend/pkg/models"
+	"github.com/synctacles/energy-app/pkg/collector"
+	"github.com/synctacles/energy-app/pkg/models"
 )
 
 // Plan represents a selectable energy price configuration.

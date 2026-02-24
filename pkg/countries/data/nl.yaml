@@ -1,0 +1,27 @@
+country: NL
+name: Netherlands
+currency: EUR
+zones:
+  - code: "NL"
+    eic: "10YNL----------L"
+    name: "Netherlands"
+    country: "NL"
+    timezone: "Europe/Amsterdam"
+tax_profile:
+  vat_rate: 0.21
+  coefficient: 1.0  # Dynamic tariffs pass through at cost (monthly fee model)
+  energy_tax:
+    - from: "2024-01-01"
+      rate: 0.10880  # Energiebelasting 2024 excl. BTW (Belastingdienst)
+    - from: "2025-01-01"
+      rate: 0.10154  # Energiebelasting 2025 excl. BTW (Belastingdienst)
+    - from: "2026-01-01"
+      rate: 0.09161  # Energiebelasting 2026 excl. BTW (Belastingdienst)
+  surcharges: 0.0
+sources:
+  - name: easyenergy
+    priority: 1
+  - name: frank
+    priority: 2
+  - name: energycharts
+    priority: 3

@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/synctacles/energy-backend/pkg/lease"
+	"github.com/synctacles/energy-app/pkg/lease"
 )
 
 // LeasePublicKey is the Ed25519 public key for verifying fallback leases.

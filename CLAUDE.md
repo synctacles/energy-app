@@ -76,6 +76,5 @@ make docker-addon          # Docker build
 ```
 
 ## Related Repos
-- **energy-backend**: `synctacles/energy-backend` — Energy API server, shared pkg/
 - **care-app**: `synctacles/care-app` — Care HA addon (Go)
-- **platform**: `synctacles/platform` — Auth service, licensing
+- **platform**: `synctacles/platform` — Cloudflare Worker + D1, shared infrastructure
