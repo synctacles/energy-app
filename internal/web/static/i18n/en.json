@@ -1,0 +1,140 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "feedback": "Feedback"
+  },
+  "source": {
+    "prices_from": "Prices from:",
+    "chain": "Chain:",
+    "serving": "[serving]",
+    "just_now": "just now",
+    "m_ago": "{n}m ago",
+    "h_ago": "{n}h ago",
+    "d_ago": "{n}d ago"
+  },
+  "dashboard": {
+    "current_price": "Current Price",
+    "action": "Action",
+    "cheapest": "Cheapest",
+    "expensive": "Expensive",
+    "best_window": "Best Window",
+    "tomorrow": "Tomorrow",
+    "todays_prices": "Today's Prices",
+    "avg": "Avg",
+    "min": "Min",
+    "max": "Max",
+    "ct_kwh": "ct/kWh",
+    "ct_kwh_avg": "ct/kWh avg",
+    "ct_avg": "ct avg",
+    "hours": "hours",
+    "pending": "pending",
+    "waiting_first_update": "Waiting for first price update...",
+    "fetching_prices": "Fetching energy prices...",
+    "zone": "Zone",
+    "vs_avg": "vs avg",
+    "registered": "Registered",
+    "anonymous": "Anonymous"
+  },
+  "actions": {
+    "go": "GO",
+    "wait": "WAIT",
+    "avoid": "AVOID"
+  },
+  "tax": {
+    "title": "Tax Breakdown",
+    "how_calculated": "How your price is calculated",
+    "wholesale_price": "Wholesale price",
+    "energy_tax": "Energy tax (excl. VAT)",
+    "energy_tax_free": "Energy tax (FREE for households!)",
+    "surcharges": "Surcharges (levies)",
+    "subtotal": "Subtotal (before VAT)",
+    "vat": "VAT ({pct}%)",
+    "commodity_price": "Energy commodity price",
+    "note": "Your actual electricity bill includes additional fixed costs not shown here: network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). This breakdown shows only the hour-variable energy commodity price."
+  },
+  "settings": {
+    "account": "Account",
+    "api_key": "API Key",
+    "api_key_hint_registered": "Account actief. GO/WAIT/AVOID actions en tomorrow preview zijn ontgrendeld voor HA automations.",
+    "api_key_hint_anonymous": "Register a free Synctacles account at synctacles.com and paste your API key here to use GO/WAIT/AVOID actions and tomorrow prices in HA automations.",
+    "plan": "Plan",
+    "energy_plan": "Energy Plan",
+    "energy_plan_hint": "Select your country and energy plan.",
+    "enever_token": "Enever API Token (Nederland)",
+    "enever_token_active": "Token active — select your supplier above.",
+    "enever_token_hint": "Enter an Enever API key to unlock 24 supplier-specific price plans. Free key via enever.nl (max 250 calls/month, app uses ~3/day).",
+    "custom_config": "Custom Configuration",
+    "bidding_zone": "Bidding Zone",
+    "bidding_zone_hint": "e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT",
+    "coefficient": "Coefficient",
+    "coefficient_hint": "0 = country default. e.g. 1.05 = 5% markup",
+    "thresholds": "Thresholds",
+    "go_threshold": "GO Threshold (%)",
+    "go_threshold_hint": "Below average % to recommend GO",
+    "avoid_threshold": "AVOID Threshold (%)",
+    "avoid_threshold_hint": "Above average % to recommend AVOID",
+    "best_window_duration": "Best Window Duration (hours)",
+    "best_window_hint": "Duration of the cheapest contiguous window (1-8 hours, default 3)",
+    "advanced": "Advanced",
+    "power_sensor": "Power Sensor Entity",
+    "power_sensor_auto": "Auto: {sensor}",
+    "power_sensor_auto_hint": "Auto-detected: {sensor} (leave empty to keep)",
+    "power_sensor_hint": "HA entity for live cost (auto-detected if empty)",
+    "debug_mode": "Debug Mode",
+    "save_settings": "Save Settings",
+    "saving": "Saving...",
+    "saved": "Saved! Restart app for source changes to take effect.",
+    "save_error": "Could not save settings. Please check your configuration and try again.",
+    "connection_error": "Connection error",
+    "loading_settings": "Loading settings...",
+    "failed_to_load": "Failed to load settings"
+  },
+  "feedback": {
+    "rate_app": "Rate this app",
+    "optional_comment": "Optional comment...",
+    "submit_rating": "Submit Rating",
+    "report_bug": "Report a Bug",
+    "bug_title_placeholder": "Short summary of the issue",
+    "bug_desc_placeholder": "Describe what happened and what you expected...",
+    "submit_bug": "Submit Bug Report",
+    "system_info": "System Info",
+    "submitting": "Submitting...",
+    "thanks_rating": "Thank you for your rating!",
+    "thanks_bug": "Bug report submitted!",
+    "view_issue": "View issue",
+    "fill_both": "Please fill in both title and description",
+    "submit_error": "Could not submit feedback. Please check your connection and try again.",
+    "bug_submit_error": "Could not submit bug report. Please check your connection and try again.",
+    "sysinfo_error": "Could not load system info",
+    "stars": {
+      "1": "Poor",
+      "2": "Fair",
+      "3": "Good",
+      "4": "Very Good",
+      "5": "Excellent"
+    },
+    "sysinfo_labels": {
+      "addon_version": "App Version",
+      "zone": "Zone",
+      "tier": "Tier",
+      "ha_version": "HA Version",
+      "ha_arch": "Architecture",
+      "ha_machine": "Machine"
+    }
+  },
+  "errors": {
+    "connection_lost": "Connection lost. Retrying automatically...",
+    "retrying_in": "Retrying in {n}s...",
+    "connection_error": "Connection error"
+  },
+  "common": {
+    "loading": "Loading..."
+  },
+  "nudge": {
+    "text": "Actions & tomorrow preview are shown, but to use in HA automations you need a free Synctacles account.",
+    "link": "Register free",
+    "lock_actions": "Register free to enable in HA automations",
+    "lock_tomorrow": "Register free to use in HA automations"
+  }
+}

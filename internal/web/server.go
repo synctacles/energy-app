@@ -158,6 +158,16 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	if s.addonSlug != "" {
 		resp["addon_slug"] = s.addonSlug
 	}
+
+	// Detect locale from HA supervisor config
+	if s.supervisor != nil {
+		if cfg, err := s.supervisor.GetConfig(r.Context()); err == nil {
+			if lang, ok := cfg["language"].(string); ok {
+				resp["locale"] = lang
+			}
+		}
+	}
+
 	writeJSON(w, resp)
 }
 

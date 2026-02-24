@@ -268,7 +268,7 @@
                 <img class="header-logo" id="headerLogo" src="static/logo-full-light.png" alt="Synctacles Energy">
             </div>
             <div style="display:flex;align-items:center;gap:10px">
-                <div class="meta" id="meta">Loading...</div>
+                <div class="meta" id="meta" data-i18n="common.loading">Loading...</div>
                 <button class="header-btn" id="addonInfo" title="App Info, Changelog & Restart">&#9881;</button>
                 <button class="header-btn" id="themeToggle" title="Toggle dark mode">&#9789;</button>
             </div>
@@ -277,16 +277,16 @@
         <div class="source-bar" id="sourceBar"></div>
 
         <div class="tabs">
-            <div class="tab active" data-tab="dashboard">Dashboard</div>
-            <div class="tab" data-tab="settings">Settings</div>
-            <div class="tab" data-tab="feedback">Feedback</div>
+            <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
+            <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
+            <div class="tab" data-tab="feedback" data-i18n="nav.feedback">Feedback</div>
         </div>
 
         <div id="page-dashboard" class="tab-page active">
             <div id="content">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Fetching energy prices...</p>
+                    <p data-i18n="dashboard.fetching_prices">Fetching energy prices...</p>
                 </div>
             </div>
         </div>
@@ -295,7 +295,7 @@
             <div id="settingsContent">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Loading settings...</p>
+                    <p data-i18n="settings.loading_settings">Loading settings...</p>
                 </div>
             </div>
         </div>
@@ -303,7 +303,7 @@
         <div id="page-feedback" class="tab-page">
             <div class="card" style="margin-bottom:16px">
                 <div class="feedback-section">
-                    <h3>Rate this app</h3>
+                    <h3 data-i18n="feedback.rate_app">Rate this app</h3>
                     <div class="star-rating" id="starRating">
                         <span class="star" data-value="1">&#9733;</span>
                         <span class="star" data-value="2">&#9733;</span>
@@ -312,30 +312,82 @@
                         <span class="star" data-value="5">&#9733;</span>
                     </div>
                     <div class="star-label" id="starLabel"></div>
-                    <textarea class="feedback-textarea" id="ratingComment" placeholder="Optional comment..." rows="3"></textarea>
+                    <textarea class="feedback-textarea" id="ratingComment" data-i18n-placeholder="feedback.optional_comment" placeholder="Optional comment..." rows="3"></textarea>
                     <br>
-                    <button class="btn-submit" id="btnRating" disabled>Submit Rating</button>
+                    <button class="btn-submit" id="btnRating" disabled data-i18n="feedback.submit_rating">Submit Rating</button>
                     <div class="feedback-msg" id="ratingMsg"></div>
                 </div>
 
                 <div class="feedback-section">
-                    <h3>Report a Bug</h3>
-                    <input class="feedback-input" id="bugTitle" placeholder="Short summary of the issue" maxlength="200">
-                    <textarea class="feedback-textarea" id="bugDescription" placeholder="Describe what happened and what you expected..." rows="5"></textarea>
+                    <h3 data-i18n="feedback.report_bug">Report a Bug</h3>
+                    <input class="feedback-input" id="bugTitle" data-i18n-placeholder="feedback.bug_title_placeholder" placeholder="Short summary of the issue" maxlength="200">
+                    <textarea class="feedback-textarea" id="bugDescription" data-i18n-placeholder="feedback.bug_desc_placeholder" placeholder="Describe what happened and what you expected..." rows="5"></textarea>
                     <br>
-                    <button class="btn-submit" id="btnBug">Submit Bug Report</button>
+                    <button class="btn-submit" id="btnBug" data-i18n="feedback.submit_bug">Submit Bug Report</button>
                     <div class="feedback-msg" id="bugMsg"></div>
                 </div>
 
                 <div class="feedback-section">
-                    <h3>System Info</h3>
-                    <div class="sysinfo-box" id="sysInfoBox">Loading...</div>
+                    <h3 data-i18n="feedback.system_info">System Info</h3>
+                    <div class="sysinfo-box" id="sysInfoBox" data-i18n="common.loading">Loading...</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+    // --- i18n ---
+    var _i18n = {};
+    var _lang = 'en';
+    var _detectedLocale = 'en';
+
+    function t(key, fallback) {
+        var keys = key.split('.');
+        var val = _i18n;
+        for (var i = 0; i < keys.length; i++) {
+            if (val && typeof val === 'object' && keys[i] in val) {
+                val = val[keys[i]];
+            } else {
+                return fallback || key;
+            }
+        }
+        return typeof val === 'string' ? val : (fallback || key);
+    }
+
+    function tReplace(key, replacements, fallback) {
+        var str = t(key, fallback);
+        for (var k in replacements) {
+            str = str.replace('{' + k + '}', replacements[k]);
+        }
+        return str;
+    }
+
+    async function initI18n(lang) {
+        _lang = lang || 'en';
+        try {
+            var resp = await fetch('static/i18n/' + _lang + '.json');
+            if (resp.ok) {
+                _i18n = await resp.json();
+            } else {
+                // Fallback to English
+                if (_lang !== 'en') {
+                    resp = await fetch('static/i18n/en.json');
+                    if (resp.ok) _i18n = await resp.json();
+                }
+            }
+        } catch (e) {
+            console.warn('i18n load failed:', e.message);
+        }
+        // Apply to data-i18n elements
+        document.querySelectorAll('[data-i18n]').forEach(function(el) {
+            el.textContent = t(el.getAttribute('data-i18n'));
+        });
+        // Apply to data-i18n-placeholder elements
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+            el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+        });
+    }
+
     // --- Theme ---
     var isDark = localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -388,11 +440,11 @@
     function timeAgo(isoStr) {
         if (!isoStr) return '';
         var ms = Date.now() - new Date(isoStr).getTime();
-        if (ms < 60000) return 'just now';
-        if (ms < 3600000) return Math.floor(ms / 60000) + 'm ago';
+        if (ms < 60000) return t('source.just_now', 'just now');
+        if (ms < 3600000) return tReplace('source.m_ago', {n: Math.floor(ms / 60000)}, Math.floor(ms / 60000) + 'm ago');
         var h = Math.floor(ms / 3600000);
-        if (h < 24) return h + 'h ago';
-        return Math.floor(h / 24) + 'd ago';
+        if (h < 24) return tReplace('source.h_ago', {n: h}, h + 'h ago');
+        return tReplace('source.d_ago', {n: Math.floor(h / 24)}, Math.floor(h / 24) + 'd ago');
     }
 
     async function loadSources() {
@@ -416,10 +468,10 @@
                     // Data from memory cache — still live quality but show age
                     var age = timeAgo(ai.fetched_at);
                     qualLabel = 'live';
-                    if (age && age !== 'just now') qualLabel += ' (cached)';
+                    if (age && age !== t('source.just_now', 'just now')) qualLabel += ' (cached)';
                 }
                 html += '<div class="source-summary">' +
-                    '<span class="source-label">Prices from:</span> ' +
+                    '<span class="source-label">' + t('source.prices_from', 'Prices from:') + '</span> ' +
                     '<span class="source-active-name">' + srcLabel + '</span> ' +
                     '<span class="source-quality ' + qualCls + '">' + qualLabel + '</span>' +
                     (ai.fetched_at ? '<span class="source-age">' + timeAgo(ai.fetched_at) + '</span>' : '') +
@@ -428,7 +480,7 @@
 
             // Line 2: Source chain — all sources with health and tier
             html += '<div class="source-chain">';
-            html += '<span class="source-label">Chain:</span>';
+            html += '<span class="source-label">' + t('source.chain', 'Chain:') + '</span>';
             d.sources.forEach(function(s) {
                 var dotCls = s.healthy ? 'healthy' : 'unhealthy';
                 var nameCls = 'source-chain-name';
@@ -436,7 +488,7 @@
                 if (s.primary) nameCls += ' primary';
                 var label = s.tier + '. ' + sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '');
                 var extra = '';
-                if (s.active) extra = ' <span class="source-serving">[serving]</span>';
+                if (s.active) extra = ' <span class="source-serving">' + t('source.serving', '[serving]') + '</span>';
                 else if (s.last_success) extra = ' <span class="source-age">' + timeAgo(s.last_success) + '</span>';
                 html += '<span class="source-chain-item">' +
                     '<span class="source-dot ' + dotCls + '"></span>' +
@@ -454,7 +506,7 @@
     var tabs = document.querySelectorAll('.tab');
     tabs.forEach(function(tab) {
         tab.onclick = function() {
-            tabs.forEach(function(t) { t.classList.remove('active'); });
+            tabs.forEach(function(tb) { tb.classList.remove('active'); });
             tab.classList.add('active');
             document.querySelectorAll('.tab-page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
@@ -475,6 +527,7 @@
             if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
             if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
             if (d.addon_slug) window._addonSlug = d.addon_slug;
+            if (d.locale) _detectedLocale = d.locale;
         } catch (e) { console.warn('version/locale load failed:', e.message); }
     }
 
@@ -518,47 +571,45 @@
         var totCent = formatPrice(consumerPriceEUR);
 
         var html = '<div class="card" style="grid-column: 1 / -1;">' +
-            '<div class="card-label">💰 Tax Breakdown (' + profile.name + ')' +
-                '<span style="font-weight:normal;color:var(--text-faint);margin-left:8px">How your price is calculated</span>' +
+            '<div class="card-label">' + t('tax.title', 'Tax Breakdown') + ' (' + profile.name + ')' +
+                '<span style="font-weight:normal;color:var(--text-faint);margin-left:8px">' + t('tax.how_calculated', 'How your price is calculated') + '</span>' +
             '</div>' +
             '<div style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:0.85em;">';
 
         // Wholesale
-        html += '<div style="color:var(--text-muted)">💵 Wholesale price</div>' +
-                '<div style="text-align:right;font-weight:600">' + wCent + ' ct/kWh</div>';
+        html += '<div style="color:var(--text-muted)">' + t('tax.wholesale_price', 'Wholesale price') + '</div>' +
+                '<div style="text-align:right;font-weight:600">' + wCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
 
         // Energy tax
         if (profile.energy_tax > 0) {
-            html += '<div style="color:var(--text-muted)">🏛️ Energy tax (excl. VAT)</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + eCent + ' ct/kWh</div>';
+            html += '<div style="color:var(--text-muted)">' + t('tax.energy_tax', 'Energy tax (excl. VAT)') + '</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + eCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
         } else {
-            html += '<div style="color:#0d9488">🎁 Energy tax (FREE for households!)</div>' +
+            html += '<div style="color:#0d9488">' + t('tax.energy_tax_free', 'Energy tax (FREE for households!)') + '</div>' +
                     '<div style="text-align:right;font-weight:600;color:#0d9488">€0.00</div>';
         }
 
         // Surcharges
         if (profile.surcharges > 0) {
-            html += '<div style="color:var(--text-muted)">📊 Surcharges (levies)</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + sCent + ' ct/kWh</div>';
+            html += '<div style="color:var(--text-muted)">' + t('tax.surcharges', 'Surcharges (levies)') + '</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + sCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
         }
 
         // Subtotal line
-        html += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-weight:500">Subtotal (before VAT)</div>' +
-                '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + subCent + ' ct/kWh</div>';
+        html += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-weight:500">' + t('tax.subtotal', 'Subtotal (before VAT)') + '</div>' +
+                '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + subCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
 
         // VAT
-        html += '<div style="color:var(--text-muted)">💸 VAT (' + (profile.vat * 100).toFixed(0) + '%)</div>' +
-                '<div style="text-align:right;font-weight:600">+ ' + vCent + ' ct/kWh</div>';
+        html += '<div style="color:var(--text-muted)">' + tReplace('tax.vat', {pct: (profile.vat * 100).toFixed(0)}, 'VAT (' + (profile.vat * 100).toFixed(0) + '%)') + '</div>' +
+                '<div style="text-align:right;font-weight:600">+ ' + vCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
 
         // Total line (commodity only - excludes network and supplier costs)
-        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">💡 Energy commodity price</div>' +
-                '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + totCent + ' ct/kWh</div>';
+        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.commodity_price', 'Energy commodity price') + '</div>' +
+                '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + totCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
 
         // Disclaimer about excluded costs
         html += '<div style="grid-column:1 / -1;margin-top:12px;padding:8px;background:rgba(251,191,36,0.1);border-left:3px solid #f59e0b;border-radius:4px;font-size:0.75em;color:var(--text-muted)">' +
-                '⚠️ <strong>Note:</strong> Your actual electricity bill includes additional fixed costs not shown here: ' +
-                'network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). ' +
-                'This breakdown shows only the <em>hour-variable</em> energy commodity price.</div>';
+                t('tax.note', 'Your actual electricity bill includes additional fixed costs not shown here: network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). This breakdown shows only the hour-variable energy commodity price.') + '</div>';
 
         html += '</div></div>';
         return html;
@@ -572,8 +623,8 @@
             if (d.status === 'waiting') {
                 document.getElementById('content').innerHTML =
                     '<div class="loading"><div class="spinner"></div>' +
-                    '<p>Waiting for first price update...</p>' +
-                    '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">Zone: ' + d.zone + ' | ' + d.version + '</p></div>';
+                    '<p>' + t('dashboard.waiting_first_update', 'Waiting for first price update...') + '</p>' +
+                    '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('dashboard.zone', 'Zone') + ': ' + d.zone + ' | ' + d.version + '</p></div>';
                 setTimeout(loadDashboard, 5000);
                 return;
             }
@@ -582,16 +633,16 @@
             var actionClass = action.toLowerCase();
             var price = (d.current_price && d.current_price.price) || '0';
             var priceCent = formatPrice(price);
-            var tierLabel = gateState.has_license ? 'Registered' : 'Anonymous';
+            var tierLabel = gateState.has_license ? t('dashboard.registered', 'Registered') : t('dashboard.anonymous', 'Anonymous');
             document.getElementById('meta').textContent =
                 d.zone + ' | ' + tierLabel + ' | v' + d.version;
 
             var bwHtml = '';
             if (d.best_window) {
                 bwHtml = '<div class="card">' +
-                    '<div class="card-label">Best Window</div>' +
+                    '<div class="card-label">' + t('dashboard.best_window', 'Best Window') + '</div>' +
                     '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
-                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ct/kWh avg | ' + d.best_window.duration + 'h</div></div>';
+                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
             }
 
             var tomorrowHtml = '';
@@ -599,74 +650,73 @@
             if (ts && ts !== 'PENDING') {
                 var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
                 var tNote = !gateState.can_tomorrow
-                    ? '<div class="locked-note">⚠ Register free to use in HA automations</div>'
+                    ? '<div class="locked-note">' + t('nudge.lock_tomorrow', 'Register free to use in HA automations') + '</div>'
                     : '';
                 tomorrowHtml = '<div class="card">' +
-                    '<div class="card-label">Tomorrow</div>' +
+                    '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
                     '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + ts + '</div>' +
-                    '<div class="card-sub">' + d.tomorrow.hours + ' hours | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ct avg' : 'pending') + '</div>' +
+                    '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
                     tNote + '</div>';
             }
 
             var deviationText = '';
             if (d.action && d.action.deviation) {
                 var dev = d.action.deviation;
-                deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% vs avg';
+                deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
             }
 
             var nudgeHtml = '';
             if (!gateState.has_license) {
                 nudgeHtml = '<div class="reg-nudge">' +
-                    '<div class="reg-nudge-text">⚡ <strong>Actions &amp; tomorrow preview</strong> worden getoond, ' +
-                    'maar voor gebruik in HA automations heb je een gratis Synctacles account nodig.</div>' +
-                    '<a class="reg-nudge-link" href="https://synctacles.com" target="_blank">Registreer gratis &rarr;</a>' +
+                    '<div class="reg-nudge-text">' + t('nudge.text', 'Actions & tomorrow preview are shown, but to use in HA automations you need a free Synctacles account.') + '</div>' +
+                    '<a class="reg-nudge-link" href="https://synctacles.com" target="_blank">' + t('nudge.link', 'Register free') + ' &rarr;</a>' +
                     '</div>';
             }
 
             var actionNote = !gateState.can_actions
-                ? '<div class="locked-note">⚠ Register free to enable in HA automations</div>'
+                ? '<div class="locked-note">' + t('nudge.lock_actions', 'Register free to enable in HA automations') + '</div>'
                 : '';
 
             document.getElementById('content').innerHTML =
                 nudgeHtml +
                 '<div class="grid">' +
                     '<div class="card">' +
-                        '<div class="card-label">Current Price</div>' +
-                        '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ct/kWh</span></div>' +
-                        '<div class="card-sub">Avg: ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
+                        '<div class="card-label">' + t('dashboard.current_price', 'Current Price') + '</div>' +
+                        '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
+                        '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
                     '</div>' +
                     buildTaxBreakdownCard(price, d.zone) +
                     '<div class="card">' +
-                        '<div class="card-label">Action</div>' +
+                        '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
                         '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
                         '<div class="card-sub">' + ((d.action && d.action.reason) || '') + '</div>' +
                         '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
                         actionNote +
                     '</div>' +
                     '<div class="card">' +
-                        '<div class="card-label">Cheapest</div>' +
+                        '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
                         '<div class="card-value" style="font-size:1.3em;color:#0d9488">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ct/kWh</div>' +
+                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
                     '</div>' +
                     '<div class="card">' +
-                        '<div class="card-label">Expensive</div>' +
+                        '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
                         '<div class="card-value" style="font-size:1.3em;color:#dc2626">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ct/kWh</div>' +
+                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
                     '</div>' +
                     bwHtml +
                     tomorrowHtml +
                 '</div>' +
                 '<div class="card chart-card">' +
-                    '<div class="card-label">Today\'s Prices (ct/kWh)' +
+                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' +
                         (d.source_info ? ' <span class="chart-source">&mdash; ' +
                             sourceLabel(d.source_info.source, d.source_info.leverancier) +
                             ' &middot; ' + (d.source_info.quality || 'live') + '</span>' : '') +
                     '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
-                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">Min</div></div>' +
-                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.average) || 0) + '</div><div class="stat-label">Avg</div></div>' +
-                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.max) || 0) + '</div><div class="stat-label">Max</div></div>' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.average) || 0) + '</div><div class="stat-label">' + t('dashboard.avg', 'Avg') + '</div></div>' +
+                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.max) || 0) + '</div><div class="stat-label">' + t('dashboard.max', 'Max') + '</div></div>' +
                     '</div>' +
                 '</div>';
 
@@ -680,8 +730,8 @@
         } catch (err) {
             document.getElementById('content').innerHTML =
                 '<div class="loading">' +
-                '<p style="color:#dc2626">Connection lost. Retrying automatically...</p>' +
-                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">Retrying in 10s...</p></div>';
+                '<p style="color:#dc2626">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
+                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + tReplace('errors.retrying_in', {n: 10}, 'Retrying in 10s...') + '</p></div>';
             setTimeout(loadDashboard, 10000);
         }
     }
@@ -735,7 +785,7 @@
         ctx.setLineDash([]);
         ctx.fillStyle = avgLineColor;
         ctx.font = '10px sans-serif';
-        ctx.fillText('avg', pad.left + 2, avgY - 3);
+        ctx.fillText(t('dashboard.avg', 'avg').toLowerCase(), pad.left + 2, avgY - 3);
 
         // Bars
         for (var i = 0; i < vals.length; i++) {
@@ -789,7 +839,7 @@
             renderSettings();
         } catch (err) {
             document.getElementById('settingsContent').innerHTML =
-                '<div class="loading"><p style="color:#dc2626">Failed to load settings</p></div>';
+                '<div class="loading"><p style="color:#dc2626">' + t('settings.failed_to_load', 'Failed to load settings') + '</p></div>';
         }
     }
 
@@ -803,7 +853,7 @@
     }
 
     function renderPlanOptions(currentPlan, hasEneverToken) {
-        if (!planData || !planData.groups) return '<option value="">Loading...</option>';
+        if (!planData || !planData.groups) return '<option value="">' + t('common.loading', 'Loading...') + '</option>';
         var html = '';
         planData.groups.forEach(function(group) {
             var plans = group.plans.filter(function(p) {
@@ -856,40 +906,48 @@
         var isNLPlan = (c.plan || '').indexOf('nl') === 0 || (c.zone || '') === 'NL';
         var licenseBadge, licenseHint;
         if (c.has_license) {
-            licenseBadge = '<span class="license-badge license-pro">Registered</span>';
-            licenseHint = 'Account actief. GO/WAIT/AVOID actions en tomorrow preview zijn ontgrendeld voor HA automations.';
+            licenseBadge = '<span class="license-badge license-pro">' + t('dashboard.registered', 'Registered') + '</span>';
+            licenseHint = t('settings.api_key_hint_registered');
         } else {
-            licenseBadge = '<span class="license-badge license-free">Anonymous</span>';
-            licenseHint = 'Registreer een gratis Synctacles account op <a href="https://synctacles.com" target="_blank" style="color:var(--accent)">synctacles.com</a> ' +
-                'en plak hier je API key om GO/WAIT/AVOID actions en tomorrow prices te gebruiken in HA automations.';
+            licenseBadge = '<span class="license-badge license-free">' + t('dashboard.anonymous', 'Anonymous') + '</span>';
+            licenseHint = t('settings.api_key_hint_anonymous') +
+                ' <a href="https://synctacles.com" target="_blank" style="color:var(--accent)">synctacles.com</a>';
         }
+
+        var powerPlaceholder = c.detected_power_sensor
+            ? tReplace('settings.power_sensor_auto', {sensor: esc(c.detected_power_sensor)}, 'Auto: ' + esc(c.detected_power_sensor))
+            : 'sensor.power_consumption';
+        var powerHint = c.detected_power_sensor && !c.power_sensor
+            ? tReplace('settings.power_sensor_auto_hint', {sensor: esc(c.detected_power_sensor)}, 'Auto-detected: ' + esc(c.detected_power_sensor) + ' (leave empty to keep)')
+            : t('settings.power_sensor_hint', 'HA entity for live cost (auto-detected if empty)');
 
         document.getElementById('settingsContent').innerHTML =
             '<div class="settings-section">' +
-                '<h3>Account ' + licenseBadge + '</h3>' +
+                '<h3>' + t('settings.account', 'Account') + ' ' + licenseBadge + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">API Key</label>' +
+                    '<label class="form-label">' + t('settings.api_key', 'API Key') + '</label>' +
                     '<input class="form-input" id="cfg-license" type="text" placeholder="sk_pro_..." value="' + esc(c.license_key || '') + '">' +
                     '<div class="form-hint">' + licenseHint + '</div>' +
                 '</div>' +
             '</div>' +
 
             '<div class="settings-section">' +
-                '<h3>Plan</h3>' +
+                '<h3>' + t('settings.plan', 'Plan') + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">Energy Plan</label>' +
+                    '<label class="form-label">' + t('settings.energy_plan', 'Energy Plan') + '</label>' +
                     '<select class="form-select" id="cfg-plan">' +
                         renderPlanOptions(c.plan || '', !!(c.enever_token)) +
                     '</select>' +
-                    '<div class="form-hint">Select your country and energy plan.</div>' +
+                    '<div class="form-hint">' + t('settings.energy_plan_hint', 'Select your country and energy plan.') + '</div>' +
                 '</div>' +
                 '<div id="enever-fields" style="' + (isNLPlan ? '' : 'display:none') + '">' +
                     '<div class="form-group">' +
-                        '<label class="form-label">Enever API Token (Nederland)</label>' +
-                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="Vul hier je Enever API key in" value="' + esc(c.enever_token || '') + '">' +
+                        '<label class="form-label">' + t('settings.enever_token', 'Enever API Token (Nederland)') + '</label>' +
+                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="" value="' + esc(c.enever_token || '') + '">' +
                         '<div class="form-hint">' + (c.enever_token ?
-                            'Token actief &mdash; selecteer je leverancier hierboven.' :
-                            'Vul een Enever API key in om 24 leverancier-specifieke prijsplannen te ontgrendelen. Gratis key via <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a> (max 250 calls/maand, app gebruikt ~3/dag).') +
+                            t('settings.enever_token_active', 'Token active — select your supplier above.') :
+                            t('settings.enever_token_hint', 'Enter an Enever API key to unlock 24 supplier-specific price plans. Free key via enever.nl (max 250 calls/month, app uses ~3/day).') +
+                            ' <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a>') +
                         '</div>' +
                     '</div>' +
                 '</div>' +
@@ -897,60 +955,60 @@
 
             '<div id="custom-fields" style="' + (c.plan === 'custom' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
-                    '<h3>Custom Configuration</h3>' +
+                    '<h3>' + t('settings.custom_config', 'Custom Configuration') + '</h3>' +
                     '<div class="form-row">' +
                         '<div class="form-group">' +
-                            '<label class="form-label">Bidding Zone</label>' +
+                            '<label class="form-label">' + t('settings.bidding_zone', 'Bidding Zone') + '</label>' +
                             '<input class="form-input" id="cfg-zone" type="text" value="' + esc(c.zone || 'NL') + '">' +
-                            '<div class="form-hint">e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT</div>' +
+                            '<div class="form-hint">' + t('settings.bidding_zone_hint', 'e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT') + '</div>' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">Coefficient</label>' +
+                            '<label class="form-label">' + t('settings.coefficient', 'Coefficient') + '</label>' +
                             '<input class="form-input" id="cfg-coeff" type="number" step="0.01" value="' + (c.coefficient || 0) + '">' +
-                            '<div class="form-hint">0 = country default. e.g. 1.05 = 5% markup</div>' +
+                            '<div class="form-hint">' + t('settings.coefficient_hint', '0 = country default. e.g. 1.05 = 5% markup') + '</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
             '<div class="settings-section">' +
-                '<h3>Thresholds</h3>' +
+                '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +
-                        '<label class="form-label">GO Threshold (%)</label>' +
+                        '<label class="form-label">' + t('settings.go_threshold', 'GO Threshold (%)') + '</label>' +
                         '<input class="form-input" id="cfg-go" type="number" step="1" value="' + (c.go_threshold || -15) + '">' +
-                        '<div class="form-hint">Below average % to recommend GO</div>' +
+                        '<div class="form-hint">' + t('settings.go_threshold_hint', 'Below average % to recommend GO') + '</div>' +
                     '</div>' +
                     '<div class="form-group">' +
-                        '<label class="form-label">AVOID Threshold (%)</label>' +
+                        '<label class="form-label">' + t('settings.avoid_threshold', 'AVOID Threshold (%)') + '</label>' +
                         '<input class="form-input" id="cfg-avoid" type="number" step="1" value="' + (c.avoid_threshold || 20) + '">' +
-                        '<div class="form-hint">Above average % to recommend AVOID</div>' +
+                        '<div class="form-hint">' + t('settings.avoid_threshold_hint', 'Above average % to recommend AVOID') + '</div>' +
                     '</div>' +
                 '</div>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">Best Window Duration (hours)</label>' +
+                    '<label class="form-label">' + t('settings.best_window_duration', 'Best Window Duration (hours)') + '</label>' +
                     '<input class="form-input" id="cfg-bw" type="number" min="1" max="8" step="1" value="' + (c.best_window_hours || 3) + '">' +
-                    '<div class="form-hint">Duration of the cheapest contiguous window (1-8 hours, default 3)</div>' +
+                    '<div class="form-hint">' + t('settings.best_window_hint', 'Duration of the cheapest contiguous window (1-8 hours, default 3)') + '</div>' +
                 '</div>' +
             '</div>' +
 
             '<div class="settings-section">' +
-                '<h3>Advanced</h3>' +
+                '<h3>' + t('settings.advanced', 'Advanced') + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">Power Sensor Entity</label>' +
-                    '<input class="form-input" id="cfg-power" type="text" placeholder="' + (c.detected_power_sensor ? 'Auto: ' + esc(c.detected_power_sensor) : 'sensor.power_consumption') + '" value="' + esc(c.power_sensor || '') + '">' +
-                    '<div class="form-hint">' + (c.detected_power_sensor && !c.power_sensor ? 'Auto-detected: ' + esc(c.detected_power_sensor) + ' (leave empty to keep)' : 'HA entity for live cost (auto-detected if empty)') + '</div>' +
+                    '<label class="form-label">' + t('settings.power_sensor', 'Power Sensor Entity') + '</label>' +
+                    '<input class="form-input" id="cfg-power" type="text" placeholder="' + powerPlaceholder + '" value="' + esc(c.power_sensor || '') + '">' +
+                    '<div class="form-hint">' + powerHint + '</div>' +
                 '</div>' +
                 '<div class="form-group">' +
                     '<div class="toggle-row">' +
-                        '<span class="form-label" style="margin:0">Debug Mode</span>' +
+                        '<span class="form-label" style="margin:0">' + t('settings.debug_mode', 'Debug Mode') + '</span>' +
                         '<div class="toggle' + (c.debug_mode ? ' on' : '') + '" id="cfg-debug-toggle"></div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
             '<div class="save-row">' +
-                '<button class="btn-save" id="btnSave">Save Settings</button>' +
+                '<button class="btn-save" id="btnSave">' + t('settings.save_settings', 'Save Settings') + '</button>' +
                 '<span class="save-status" id="saveStatus"></span>' +
             '</div>';
 
@@ -979,7 +1037,7 @@
         var btn = document.getElementById('btnSave');
         var status = document.getElementById('saveStatus');
         btn.disabled = true;
-        status.textContent = 'Saving...';
+        status.textContent = t('settings.saving', 'Saving...');
         status.style.color = 'var(--text-muted)';
 
         var payload = {
@@ -1012,15 +1070,15 @@
             });
             var result = await resp.json();
             if (resp.ok) {
-                status.textContent = 'Saved! Restart app for source changes to take effect.';
+                status.textContent = t('settings.saved', 'Saved! Restart app for source changes to take effect.');
                 status.style.color = '#0d9488';
                 currentConfig = Object.assign(currentConfig, payload);
             } else {
-                status.textContent = 'Could not save settings. Please check your configuration and try again.';
+                status.textContent = t('settings.save_error', 'Could not save settings. Please check your configuration and try again.');
                 status.style.color = '#dc2626';
             }
         } catch (err) {
-            status.textContent = 'Connection error';
+            status.textContent = t('settings.connection_error', 'Connection error');
             status.style.color = '#dc2626';
         }
         btn.disabled = false;
@@ -1029,7 +1087,10 @@
     // --- Feedback ---
     var feedbackLoaded = false;
     var selectedRating = 0;
-    var starLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+    function getStarLabel(n) {
+        if (n < 1 || n > 5) return '';
+        return t('feedback.stars.' + n, ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][n]);
+    }
     var stars = document.querySelectorAll('#starRating .star');
     var starLabel = document.getElementById('starLabel');
     var btnRating = document.getElementById('btnRating');
@@ -1038,7 +1099,7 @@
         stars.forEach(function(s) {
             s.classList.toggle('hovered', parseInt(s.getAttribute('data-value')) <= n);
         });
-        starLabel.textContent = n > 0 ? starLabels[n] : (selectedRating > 0 ? starLabels[selectedRating] : '');
+        starLabel.textContent = n > 0 ? getStarLabel(n) : (selectedRating > 0 ? getStarLabel(selectedRating) : '');
     }
 
     stars.forEach(function(star) {
@@ -1056,7 +1117,7 @@
             s.classList.toggle('selected', parseInt(s.getAttribute('data-value')) <= selectedRating);
             s.classList.remove('hovered');
         });
-        starLabel.textContent = selectedRating > 0 ? starLabels[selectedRating] : '';
+        starLabel.textContent = selectedRating > 0 ? getStarLabel(selectedRating) : '';
     }
 
     async function loadFeedbackSysInfo() {
@@ -1065,14 +1126,15 @@
             var resp = await fetch('api/feedback/sysinfo');
             var info = await resp.json();
             var html = '<dl>';
-            var labels = {addon_version:'App Version',zone:'Zone',tier:'Tier',ha_version:'HA Version',ha_arch:'Architecture',ha_machine:'Machine'};
-            for (var key in labels) {
-                if (info[key]) html += '<dt>' + labels[key] + ':</dt><dd>' + info[key] + '</dd>';
+            var labelKeys = ['addon_version','zone','tier','ha_version','ha_arch','ha_machine'];
+            for (var i = 0; i < labelKeys.length; i++) {
+                var key = labelKeys[i];
+                if (info[key]) html += '<dt>' + t('feedback.sysinfo_labels.' + key, key) + ':</dt><dd>' + info[key] + '</dd>';
             }
             html += '</dl>';
             document.getElementById('sysInfoBox').innerHTML = html;
         } catch (e) {
-            document.getElementById('sysInfoBox').textContent = 'Could not load system info';
+            document.getElementById('sysInfoBox').textContent = t('feedback.sysinfo_error', 'Could not load system info');
         }
     }
 
@@ -1080,7 +1142,7 @@
         var msg = document.getElementById('ratingMsg');
         btnRating.disabled = true;
         msg.className = 'feedback-msg';
-        msg.textContent = 'Submitting...';
+        msg.textContent = t('feedback.submitting', 'Submitting...');
         try {
             var resp = await fetch('api/feedback/rating', {
                 method: 'POST',
@@ -1090,17 +1152,17 @@
             var result = await resp.json();
             if (resp.ok) {
                 msg.className = 'feedback-msg success';
-                msg.textContent = result.message || 'Thank you for your rating!';
+                msg.textContent = result.message || t('feedback.thanks_rating', 'Thank you for your rating!');
                 selectedRating = 0; updateStarDisplay();
                 document.getElementById('ratingComment').value = '';
             } else {
                 msg.className = 'feedback-msg error';
-                msg.textContent = result.message || result.error || 'Could not submit feedback. Please check your connection and try again.';
+                msg.textContent = result.message || result.error || t('feedback.submit_error', 'Could not submit feedback. Please check your connection and try again.');
                 btnRating.disabled = false;
             }
         } catch (e) {
             msg.className = 'feedback-msg error';
-            msg.textContent = 'Connection error';
+            msg.textContent = t('errors.connection_error', 'Connection error');
             btnRating.disabled = false;
         }
     };
@@ -1113,13 +1175,13 @@
 
         if (!title || !desc) {
             msg.className = 'feedback-msg error';
-            msg.textContent = 'Please fill in both title and description';
+            msg.textContent = t('feedback.fill_both', 'Please fill in both title and description');
             return;
         }
 
         btn.disabled = true;
         msg.className = 'feedback-msg';
-        msg.textContent = 'Submitting...';
+        msg.textContent = t('feedback.submitting', 'Submitting...');
         try {
             var resp = await fetch('api/feedback/bug', {
                 method: 'POST',
@@ -1129,23 +1191,25 @@
             var result = await resp.json();
             if (resp.ok) {
                 msg.className = 'feedback-msg success';
-                var text = result.message || 'Bug report submitted!';
-                if (result.issue_url) text += ' <a href="' + result.issue_url + '" target="_blank" style="color:var(--accent)">View issue</a>';
+                var text = result.message || t('feedback.thanks_bug', 'Bug report submitted!');
+                if (result.issue_url) text += ' <a href="' + result.issue_url + '" target="_blank" style="color:var(--accent)">' + t('feedback.view_issue', 'View issue') + '</a>';
                 msg.innerHTML = text;
                 document.getElementById('bugTitle').value = '';
                 document.getElementById('bugDescription').value = '';
             } else {
                 msg.className = 'feedback-msg error';
-                msg.textContent = result.message || result.error || 'Could not submit bug report. Please check your connection and try again.';
+                msg.textContent = result.message || result.error || t('feedback.bug_submit_error', 'Could not submit bug report. Please check your connection and try again.');
             }
         } catch (e) {
             msg.className = 'feedback-msg error';
-            msg.textContent = 'Connection error. Please check your connection and try again.';
+            msg.textContent = t('feedback.bug_submit_error', 'Could not submit bug report. Please check your connection and try again.');
         }
         btn.disabled = false;
     };
 
-    loadVersion().then(loadDashboard);
+    loadVersion().then(function() {
+        return initI18n(_detectedLocale);
+    }).then(loadDashboard);
     </script>
 </body>
 </html>

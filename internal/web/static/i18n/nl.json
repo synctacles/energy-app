@@ -1,0 +1,140 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "settings": "Instellingen",
+    "feedback": "Feedback"
+  },
+  "source": {
+    "prices_from": "Prijzen van:",
+    "chain": "Keten:",
+    "serving": "[actief]",
+    "just_now": "zojuist",
+    "m_ago": "{n}m geleden",
+    "h_ago": "{n}u geleden",
+    "d_ago": "{n}d geleden"
+  },
+  "dashboard": {
+    "current_price": "Huidige Prijs",
+    "action": "Actie",
+    "cheapest": "Goedkoopst",
+    "expensive": "Duurst",
+    "best_window": "Beste Venster",
+    "tomorrow": "Morgen",
+    "todays_prices": "Prijzen Vandaag",
+    "avg": "Gem",
+    "min": "Min",
+    "max": "Max",
+    "ct_kwh": "ct/kWh",
+    "ct_kwh_avg": "ct/kWh gem",
+    "ct_avg": "ct gem",
+    "hours": "uur",
+    "pending": "in afwachting",
+    "waiting_first_update": "Wachten op eerste prijsupdate...",
+    "fetching_prices": "Energieprijzen ophalen...",
+    "zone": "Zone",
+    "vs_avg": "vs gem",
+    "registered": "Geregistreerd",
+    "anonymous": "Anoniem"
+  },
+  "actions": {
+    "go": "GA",
+    "wait": "WACHT",
+    "avoid": "VERMIJD"
+  },
+  "tax": {
+    "title": "Belastingoverzicht",
+    "how_calculated": "Hoe je prijs is opgebouwd",
+    "wholesale_price": "Inkoopprijs",
+    "energy_tax": "Energiebelasting (excl. BTW)",
+    "energy_tax_free": "Energiebelasting (GRATIS voor huishoudens!)",
+    "surcharges": "Toeslagen (heffingen)",
+    "subtotal": "Subtotaal (voor BTW)",
+    "vat": "BTW ({pct}%)",
+    "commodity_price": "Energieprijs (commodity)",
+    "note": "Je werkelijke energierekening bevat extra vaste kosten die hier niet getoond worden: netlevering (~5-10 ct/kWh) en leveranciersmarge (~1-2 ct/kWh). Dit overzicht toont alleen de uur-variabele energieprijs."
+  },
+  "settings": {
+    "account": "Account",
+    "api_key": "API Key",
+    "api_key_hint_registered": "Account actief. GO/WAIT/AVOID acties en morgen-vooruitblik zijn ontgrendeld voor HA automations.",
+    "api_key_hint_anonymous": "Registreer een gratis Synctacles account op synctacles.com en plak hier je API key om GO/WAIT/AVOID acties en morgen-prijzen te gebruiken in HA automations.",
+    "plan": "Plan",
+    "energy_plan": "Energieplan",
+    "energy_plan_hint": "Selecteer je land en energieplan.",
+    "enever_token": "Enever API Token (Nederland)",
+    "enever_token_active": "Token actief \u2014 selecteer je leverancier hierboven.",
+    "enever_token_hint": "Vul een Enever API key in om 24 leverancier-specifieke prijsplannen te ontgrendelen. Gratis key via enever.nl (max 250 calls/maand, app gebruikt ~3/dag).",
+    "custom_config": "Aangepaste Configuratie",
+    "bidding_zone": "Biedzone",
+    "bidding_zone_hint": "bijv. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT",
+    "coefficient": "Coefficient",
+    "coefficient_hint": "0 = standaard land. bijv. 1.05 = 5% opslag",
+    "thresholds": "Drempelwaarden",
+    "go_threshold": "GA Drempel (%)",
+    "go_threshold_hint": "Onder gemiddelde % om GA aan te bevelen",
+    "avoid_threshold": "VERMIJD Drempel (%)",
+    "avoid_threshold_hint": "Boven gemiddelde % om VERMIJD aan te bevelen",
+    "best_window_duration": "Beste Venster Duur (uren)",
+    "best_window_hint": "Duur van het goedkoopste aaneengesloten venster (1-8 uur, standaard 3)",
+    "advanced": "Geavanceerd",
+    "power_sensor": "Vermogenssensor Entiteit",
+    "power_sensor_auto": "Auto: {sensor}",
+    "power_sensor_auto_hint": "Automatisch gedetecteerd: {sensor} (laat leeg om te behouden)",
+    "power_sensor_hint": "HA entiteit voor live kosten (automatisch gedetecteerd indien leeg)",
+    "debug_mode": "Debug Modus",
+    "save_settings": "Instellingen Opslaan",
+    "saving": "Opslaan...",
+    "saved": "Opgeslagen! Herstart de app voor wijzigingen in bronketen.",
+    "save_error": "Kon instellingen niet opslaan. Controleer je configuratie en probeer opnieuw.",
+    "connection_error": "Verbindingsfout",
+    "loading_settings": "Instellingen laden...",
+    "failed_to_load": "Kon instellingen niet laden"
+  },
+  "feedback": {
+    "rate_app": "Beoordeel deze app",
+    "optional_comment": "Optioneel commentaar...",
+    "submit_rating": "Beoordeling Versturen",
+    "report_bug": "Bug Melden",
+    "bug_title_placeholder": "Korte samenvatting van het probleem",
+    "bug_desc_placeholder": "Beschrijf wat er gebeurde en wat je verwachtte...",
+    "submit_bug": "Bugmelding Versturen",
+    "system_info": "Systeeminformatie",
+    "submitting": "Versturen...",
+    "thanks_rating": "Bedankt voor je beoordeling!",
+    "thanks_bug": "Bugmelding verstuurd!",
+    "view_issue": "Bekijk issue",
+    "fill_both": "Vul zowel titel als beschrijving in",
+    "submit_error": "Kon feedback niet versturen. Controleer je verbinding en probeer opnieuw.",
+    "bug_submit_error": "Kon bugmelding niet versturen. Controleer je verbinding en probeer opnieuw.",
+    "sysinfo_error": "Kon systeeminformatie niet laden",
+    "stars": {
+      "1": "Slecht",
+      "2": "Matig",
+      "3": "Goed",
+      "4": "Zeer Goed",
+      "5": "Uitstekend"
+    },
+    "sysinfo_labels": {
+      "addon_version": "App Versie",
+      "zone": "Zone",
+      "tier": "Tier",
+      "ha_version": "HA Versie",
+      "ha_arch": "Architectuur",
+      "ha_machine": "Machine"
+    }
+  },
+  "errors": {
+    "connection_lost": "Verbinding verloren. Automatisch opnieuw proberen...",
+    "retrying_in": "Opnieuw proberen over {n}s...",
+    "connection_error": "Verbindingsfout"
+  },
+  "common": {
+    "loading": "Laden..."
+  },
+  "nudge": {
+    "text": "Acties & morgen-vooruitblik worden getoond, maar voor gebruik in HA automations heb je een gratis Synctacles account nodig.",
+    "link": "Registreer gratis",
+    "lock_actions": "Registreer gratis om te gebruiken in HA automations",
+    "lock_tomorrow": "Registreer gratis om te gebruiken in HA automations"
+  }
+}
