@@ -42,6 +42,15 @@ func NewMQTTPublisher(host string, port int, username, password string) *MQTTPub
 func (p *MQTTPublisher) Connect() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.connectLocked()
+}
+
+// connectLocked dials and performs the MQTT handshake. Must be called with p.mu held.
+func (p *MQTTPublisher) connectLocked() error {
+	if p.conn != nil {
+		p.conn.Close()
+		p.conn = nil
+	}
 
 	addr := fmt.Sprintf("%s:%d", p.host, p.port)
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
@@ -53,12 +62,14 @@ func (p *MQTTPublisher) Connect() error {
 	// Send MQTT CONNECT packet
 	if err := p.sendConnect(); err != nil {
 		conn.Close()
+		p.conn = nil
 		return fmt.Errorf("mqtt handshake: %w", err)
 	}
 
 	// Read CONNACK
 	if err := p.readConnack(); err != nil {
 		conn.Close()
+		p.conn = nil
 		return fmt.Errorf("mqtt connack: %w", err)
 	}
 
@@ -162,8 +173,27 @@ func (p *MQTTPublisher) publishDiscovery(component, objectID, entityID string, a
 }
 
 // publish sends an MQTT PUBLISH packet (QoS 0).
+// On write failure it reconnects once and retries.
 func (p *MQTTPublisher) publish(topic string, payload []byte, retain bool) error {
-	// MQTT PUBLISH packet (QoS 0)
+	if err := p.doPublish(topic, payload, retain); err == nil {
+		return nil
+	}
+	// Connection lost — reconnect and retry once.
+	slog.Warn("MQTT publish failed, reconnecting...", "topic", topic)
+	if err := p.connectLocked(); err != nil {
+		return fmt.Errorf("mqtt reconnect: %w", err)
+	}
+	// Reset discovery state so all entities are re-announced after reconnect.
+	p.discovered = make(map[string]bool)
+	return p.doPublish(topic, payload, retain)
+}
+
+// doPublish writes a single PUBLISH packet to the current connection.
+func (p *MQTTPublisher) doPublish(topic string, payload []byte, retain bool) error {
+	if p.conn == nil {
+		return fmt.Errorf("mqtt not connected")
+	}
+
 	var flags byte = 0x30 // PUBLISH, QoS 0
 	if retain {
 		flags |= 0x01
@@ -212,7 +242,7 @@ func (p *MQTTPublisher) sendConnect() error {
 	packet = append(packet, []byte("MQTT")...)
 	packet = append(packet, 0x04)         // Protocol level (4 = MQTT 3.1.1)
 	packet = append(packet, connectFlags) // Connect flags
-	packet = append(packet, 0x00, 0x3C)  // Keep alive (60s)
+	packet = append(packet, 0x00, 0x00)  // Keep alive (0 = disabled)
 
 	// Payload: client ID
 	packet = append(packet, byte(len(clientIDBytes)>>8), byte(len(clientIDBytes)))
