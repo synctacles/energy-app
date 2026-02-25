@@ -173,4 +173,4 @@ MIT — See [LICENSE](LICENSE)
 
 ---
 
-**Built with ❤️ by Synctacles**
+**Gemaakt met ❤️ op Madeira**
