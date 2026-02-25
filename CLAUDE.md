@@ -1,5 +1,20 @@
 # CLAUDE.md - Energy Go Addon
 
+## ⚠️ Principle #1: Always Think Like the End User
+
+**Before shipping any feature or fix, CC must stand in the shoes of every end user — both technical and non-technical — and verify the result is actually usable.**
+
+Ask yourself:
+- Can a non-technical HA user understand what this does?
+- Is the UI clear without documentation?
+- Does clicking a button produce visible, understandable feedback?
+- Can the user recover from errors without reading logs?
+- If a feature requires user action (API key, settings, etc.), is the path to that action obvious?
+
+**If the answer to any of these is "maybe" or "no": stop and fix it first.**
+
+---
+
 ## Project Overview
 Synctacles Energy — a fully local Go-based HA addon for EU electricity price monitoring with GO/WAIT/AVOID recommendations.
 
