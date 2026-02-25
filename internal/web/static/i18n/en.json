@@ -136,5 +136,23 @@
     "link": "Register free",
     "lock_actions": "Register free to enable in HA automations",
     "lock_tomorrow": "Register free to use in HA automations"
+  },
+  "privacy_notice": {
+    "title": "Privacy first — by design.",
+    "intro_1": "SYNCTACLES does not collect personal data.",
+    "intro_2": "No account, no email, no tracking.",
+    "explanation": "To keep this free product stable and improve it for everyone, your app sends anonymous technical data to our servers. This data is used exclusively for product improvement and cannot be traced back to you or your household.",
+    "collect_title": "What we collect:",
+    "collect_1": "Home Assistant version and system architecture",
+    "collect_2": "App version and error patterns",
+    "collect_3": "Anonymous installation identifier (random, not linked to you)",
+    "never_title": "What we never collect:",
+    "never_1": "Entity names, sensor values, or states",
+    "never_2": "Automations, scripts, or scenes",
+    "never_3": "Configuration files or log contents",
+    "never_4": "IP addresses, location, or any personal information",
+    "link": "Full details: synctacles.com/privacy",
+    "ok": "OK",
+    "settings_button": "Privacy"
   }
 }

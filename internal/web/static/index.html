@@ -259,6 +259,48 @@
         .sysinfo-box dt::after { content: ' '; }
         .sysinfo-box dd { display: inline; margin: 0; }
         .sysinfo-box dd::after { content: '\A'; white-space: pre; }
+
+        /* Privacy modal */
+        .privacy-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            align-items: center; justify-content: center; padding: 16px;
+        }
+        .privacy-overlay.visible { display: flex; }
+        .privacy-modal {
+            background: var(--bg-card); border-radius: 12px; padding: 24px;
+            max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .privacy-modal h2 { font-size: 1.1em; margin-bottom: 12px; color: var(--accent); }
+        .privacy-modal p { font-size: 0.85em; color: var(--text); line-height: 1.5; margin-bottom: 10px; }
+        .privacy-modal .privacy-list { list-style: none; padding: 0; margin: 0 0 12px 0; }
+        .privacy-modal .privacy-list li {
+            font-size: 0.82em; color: var(--text-muted); padding: 2px 0; padding-left: 16px;
+            position: relative; line-height: 1.4;
+        }
+        .privacy-modal .privacy-list li::before {
+            content: '\2022'; position: absolute; left: 0; color: var(--accent);
+        }
+        .privacy-modal .privacy-section-title {
+            font-size: 0.82em; font-weight: 600; color: var(--text); margin-bottom: 4px;
+        }
+        .privacy-modal .privacy-link {
+            font-size: 0.82em; color: var(--accent); text-decoration: none;
+        }
+        .privacy-modal .privacy-link:hover { text-decoration: underline; }
+        .privacy-modal .btn-ok {
+            display: block; width: 100%; margin-top: 16px; padding: 10px;
+            background: var(--accent); color: white; border: none; border-radius: 8px;
+            font-size: 0.9em; font-weight: 600; cursor: pointer;
+        }
+        .privacy-modal .btn-ok:hover { opacity: 0.9; }
+        .privacy-settings-btn {
+            background: none; border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 16px; color: var(--accent); font-size: 0.85em; font-weight: 500;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .privacy-settings-btn:hover { background: var(--input-bg); }
     </style>
 </head>
 <body>
@@ -332,6 +374,22 @@
                     <div class="sysinfo-box" id="sysInfoBox" data-i18n="common.loading">Loading...</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Privacy notice modal -->
+    <div class="privacy-overlay" id="privacyOverlay">
+        <div class="privacy-modal" id="privacyModal">
+            <h2 id="privacyTitle">Privacy first — by design.</h2>
+            <p id="privacyIntro1"></p>
+            <p id="privacyIntro2"></p>
+            <p id="privacyExplanation"></p>
+            <div class="privacy-section-title" id="privacyCollectTitle"></div>
+            <ul class="privacy-list" id="privacyCollectList"></ul>
+            <div class="privacy-section-title" id="privacyNeverTitle"></div>
+            <ul class="privacy-list" id="privacyNeverList"></ul>
+            <a class="privacy-link" id="privacyLink" href="https://synctacles.com/privacy" target="_blank"></a>
+            <button class="btn-ok" id="privacyOkBtn">OK</button>
         </div>
     </div>
 
@@ -1007,6 +1065,11 @@
                 '</div>' +
             '</div>' +
 
+            '<div class="settings-section">' +
+                '<h3>' + t('privacy_notice.settings_button', 'Privacy') + '</h3>' +
+                '<button class="privacy-settings-btn" id="btnPrivacy">' + t('privacy_notice.settings_button', 'Privacy') + '</button>' +
+            '</div>' +
+
             '<div class="save-row">' +
                 '<button class="btn-save" id="btnSave">' + t('settings.save_settings', 'Save Settings') + '</button>' +
                 '<span class="save-status" id="saveStatus"></span>' +
@@ -1029,6 +1092,7 @@
             this.classList.toggle('on');
         };
         document.getElementById('btnSave').onclick = saveSettings;
+        document.getElementById('btnPrivacy').onclick = showPrivacyModal;
     }
 
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -1207,9 +1271,69 @@
         btn.disabled = false;
     };
 
+    // --- Privacy notice ---
+    function populatePrivacyModal() {
+        document.getElementById('privacyTitle').textContent = t('privacy_notice.title', 'Privacy first — by design.');
+        document.getElementById('privacyIntro1').textContent = t('privacy_notice.intro_1');
+        document.getElementById('privacyIntro2').textContent = t('privacy_notice.intro_2');
+        document.getElementById('privacyExplanation').textContent = t('privacy_notice.explanation');
+        document.getElementById('privacyCollectTitle').textContent = t('privacy_notice.collect_title');
+        document.getElementById('privacyNeverTitle').textContent = t('privacy_notice.never_title');
+        document.getElementById('privacyLink').textContent = t('privacy_notice.link');
+        document.getElementById('privacyOkBtn').textContent = t('privacy_notice.ok', 'OK');
+
+        var collectList = document.getElementById('privacyCollectList');
+        collectList.innerHTML = '';
+        ['collect_1', 'collect_2', 'collect_3'].forEach(function(k) {
+            var li = document.createElement('li');
+            li.textContent = t('privacy_notice.' + k);
+            collectList.appendChild(li);
+        });
+
+        var neverList = document.getElementById('privacyNeverList');
+        neverList.innerHTML = '';
+        ['never_1', 'never_2', 'never_3', 'never_4'].forEach(function(k) {
+            var li = document.createElement('li');
+            li.textContent = t('privacy_notice.' + k);
+            neverList.appendChild(li);
+        });
+    }
+
+    function showPrivacyModal() {
+        populatePrivacyModal();
+        document.getElementById('privacyOverlay').classList.add('visible');
+    }
+
+    function hidePrivacyModal() {
+        document.getElementById('privacyOverlay').classList.remove('visible');
+    }
+
+    document.getElementById('privacyOkBtn').onclick = function() {
+        localStorage.setItem('privacy_shown', 'true');
+        hidePrivacyModal();
+    };
+
+    document.getElementById('privacyOverlay').onclick = function(e) {
+        if (e.target === this) {
+            // Click on overlay background — do nothing (must click OK)
+        }
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.getElementById('privacyOverlay').classList.contains('visible')) {
+            localStorage.setItem('privacy_shown', 'true');
+            hidePrivacyModal();
+        }
+    });
+
     loadVersion().then(function() {
         return initI18n(_detectedLocale);
-    }).then(loadDashboard);
+    }).then(function() {
+        if (localStorage.getItem('privacy_shown') !== 'true') {
+            showPrivacyModal();
+        }
+        loadDashboard();
+    });
     </script>
 </body>
 </html>
