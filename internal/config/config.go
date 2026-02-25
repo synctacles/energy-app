@@ -24,9 +24,6 @@ type Config struct {
 	GoThreshold    float64 `env:"ENERGY_GO_THRESHOLD" envDefault:"-15"`
 	AvoidThreshold float64 `env:"ENERGY_AVOID_THRESHOLD" envDefault:"20"`
 
-	// License
-	LicenseKey string `env:"SYNCTACLES_LICENSE_KEY"`
-
 	// Optional: Enever BYO keys (NL only, consumer prices)
 	EneverEnabled     bool   `env:"ENEVER_ENABLED" envDefault:"false"`
 	EneverToken       string `env:"ENEVER_TOKEN"`
@@ -40,14 +37,6 @@ type Config struct {
 
 	// Optional: P1 power sensor for Live Cost calculation
 	PowerSensorEntity string `env:"POWER_SENSOR_ENTITY"`
-
-	// Synctacles central price server (primary source, Tier 0).
-	// When set, the addon fetches pre-computed consumer prices from this server.
-	// All other collectors (Energy-Charts, etc.) become emergency fallback only.
-	SynctaclesURL string `env:"SYNCTACLES_URL" envDefault:"https://energy.synctacles.com"`
-
-	// Heartbeat (anonymous install counting — enables registered features)
-	HeartbeatEnabled bool `env:"HEARTBEAT_ENABLED" envDefault:"true"`
 
 	// Price alerts — HA persistent notification when price drops below threshold
 	AlertEnabled   bool    `env:"ENERGY_ALERTS_ENABLED" envDefault:"false"`
@@ -72,12 +61,6 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// HasLicense returns true if a license key (API key) is configured.
-// Actual tier validation is done by the license.Validator.
-func (c *Config) HasLicense() bool {
-	return c.LicenseKey != ""
-}
-
 // HasSupervisor returns true if running inside HA with Supervisor access.
 func (c *Config) HasSupervisor() bool {
 	return c.SupervisorToken != ""
@@ -91,11 +74,6 @@ func (c *Config) HasEnever() bool {
 // HasPowerSensor returns true if a power sensor is configured for live cost.
 func (c *Config) HasPowerSensor() bool {
 	return c.PowerSensorEntity != ""
-}
-
-// HasSynctaclesServer returns true if a Synctacles server URL is configured.
-func (c *Config) HasSynctaclesServer() bool {
-	return c.SynctaclesURL != ""
 }
 
 // HasAlerts returns true if price alerts are enabled with a valid threshold.

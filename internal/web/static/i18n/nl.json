@@ -32,9 +32,7 @@
     "waiting_first_update": "Wachten op eerste prijsupdate...",
     "fetching_prices": "Energieprijzen ophalen...",
     "zone": "Zone",
-    "vs_avg": "vs gem",
-    "registered": "Geregistreerd",
-    "anonymous": "Anoniem"
+    "vs_avg": "vs gem"
   },
   "actions": {
     "go": "GA",
@@ -54,10 +52,6 @@
     "note": "Je werkelijke energierekening bevat extra vaste kosten die hier niet getoond worden: netlevering (~5-10 ct/kWh) en leveranciersmarge (~1-2 ct/kWh). Dit overzicht toont alleen de uur-variabele energieprijs."
   },
   "settings": {
-    "account": "Account",
-    "api_key": "API Key",
-    "api_key_hint_registered": "Account actief. GO/WAIT/AVOID acties en morgen-vooruitblik zijn ontgrendeld voor HA automations.",
-    "api_key_hint_anonymous": "Registreer een gratis Synctacles account op synctacles.com en plak hier je API key om GO/WAIT/AVOID acties en morgen-prijzen te gebruiken in HA automations.",
     "plan": "Plan",
     "energy_plan": "Energieplan",
     "energy_plan_hint": "Selecteer je land en energieplan.",
@@ -117,7 +111,6 @@
     "sysinfo_labels": {
       "addon_version": "App Versie",
       "zone": "Zone",
-      "tier": "Tier",
       "ha_version": "HA Versie",
       "ha_arch": "Architectuur",
       "ha_machine": "Machine"
@@ -130,12 +123,6 @@
   },
   "common": {
     "loading": "Laden..."
-  },
-  "nudge": {
-    "text": "Acties & morgen-vooruitblik worden getoond, maar voor gebruik in HA automations heb je een gratis Synctacles account nodig.",
-    "link": "Registreer gratis",
-    "lock_actions": "Registreer gratis om te gebruiken in HA automations",
-    "lock_tomorrow": "Registreer gratis om te gebruiken in HA automations"
   },
   "privacy_notice": {
     "title": "Privacy first — by design.",

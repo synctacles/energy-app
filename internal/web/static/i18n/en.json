@@ -32,9 +32,7 @@
     "waiting_first_update": "Waiting for first price update...",
     "fetching_prices": "Fetching energy prices...",
     "zone": "Zone",
-    "vs_avg": "vs avg",
-    "registered": "Registered",
-    "anonymous": "Anonymous"
+    "vs_avg": "vs avg"
   },
   "actions": {
     "go": "GO",
@@ -54,10 +52,6 @@
     "note": "Your actual electricity bill includes additional fixed costs not shown here: network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). This breakdown shows only the hour-variable energy commodity price."
   },
   "settings": {
-    "account": "Account",
-    "api_key": "API Key",
-    "api_key_hint_registered": "Account actief. GO/WAIT/AVOID actions en tomorrow preview zijn ontgrendeld voor HA automations.",
-    "api_key_hint_anonymous": "Register a free Synctacles account at synctacles.com and paste your API key here to use GO/WAIT/AVOID actions and tomorrow prices in HA automations.",
     "plan": "Plan",
     "energy_plan": "Energy Plan",
     "energy_plan_hint": "Select your country and energy plan.",
@@ -117,7 +111,6 @@
     "sysinfo_labels": {
       "addon_version": "App Version",
       "zone": "Zone",
-      "tier": "Tier",
       "ha_version": "HA Version",
       "ha_arch": "Architecture",
       "ha_machine": "Machine"
@@ -130,12 +123,6 @@
   },
   "common": {
     "loading": "Loading..."
-  },
-  "nudge": {
-    "text": "Actions & tomorrow preview are shown, but to use in HA automations you need a free Synctacles account.",
-    "link": "Register free",
-    "lock_actions": "Register free to enable in HA automations",
-    "lock_tomorrow": "Register free to use in HA automations"
   },
   "privacy_notice": {
     "title": "Privacy first — by design.",

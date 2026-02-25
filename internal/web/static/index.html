@@ -172,35 +172,6 @@
         .save-status { font-size: 0.8em; color: #0d9488; margin-left: 12px; }
         .save-row { display: flex; align-items: center; margin-top: 16px; }
 
-        /* License / registration badge */
-        .license-badge {
-            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 600;
-        }
-        .license-free { background: #e5e7eb; color: #374151; }
-        .license-pro { background: #dbeafe; color: #1d4ed8; }
-        .dark .license-free { background: #374151; color: #d1d5db; }
-        .dark .license-pro { background: #1e3a5f; color: #93c5fd; }
-
-        /* Registration nudge banner */
-        .reg-nudge {
-            background: linear-gradient(135deg, #eff6ff, #dbeafe);
-            border: 1px solid #93c5fd; border-radius: 10px;
-            padding: 12px 16px; margin-bottom: 12px;
-            display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            font-size: 0.82em;
-        }
-        .dark .reg-nudge { background: linear-gradient(135deg, #1e3a5f22, #1e2a4a44); border-color: #3b82f6; }
-        .reg-nudge-text { color: var(--text); line-height: 1.4; }
-        .reg-nudge-text strong { color: var(--accent); }
-        .reg-nudge-link {
-            flex-shrink: 0; padding: 6px 14px; background: var(--accent); color: white;
-            text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.9em;
-            white-space: nowrap;
-        }
-        .locked-note {
-            font-size: 0.72em; color: var(--text-faint); margin-top: 4px;
-        }
-
         .loading { text-align: center; padding: 40px; color: var(--text-faint); }
         .loading .spinner {
             width: 32px; height: 32px; border: 3px solid var(--spinner-track);
@@ -573,17 +544,10 @@
         };
     });
 
-    // --- Gate state (fetched once at startup from /api/version) ---
-    var gateState = { status: 'prices_only', can_actions: false, can_tomorrow: false, has_license: false };
-
     async function loadVersion() {
         try {
             var resp = await fetch('api/version');
             var d = await resp.json();
-            if (d.gate_status) gateState.status = d.gate_status;
-            if (typeof d.can_actions !== 'undefined') gateState.can_actions = d.can_actions;
-            if (typeof d.can_tomorrow !== 'undefined') gateState.can_tomorrow = d.can_tomorrow;
-            if (typeof d.has_license !== 'undefined') gateState.has_license = d.has_license;
             if (d.addon_slug) window._addonSlug = d.addon_slug;
             if (d.locale) _detectedLocale = d.locale;
         } catch (e) { console.warn('version/locale load failed:', e.message); }
@@ -691,9 +655,8 @@
             var actionClass = action.toLowerCase();
             var price = (d.current_price && d.current_price.price) || '0';
             var priceCent = formatPrice(price);
-            var tierLabel = gateState.has_license ? t('dashboard.registered', 'Registered') : t('dashboard.anonymous', 'Anonymous');
             document.getElementById('meta').textContent =
-                d.zone + ' | ' + tierLabel + ' | v' + d.version;
+                d.zone + ' | v' + d.version;
 
             var bwHtml = '';
             if (d.best_window) {
@@ -707,14 +670,11 @@
             var ts = d.tomorrow && d.tomorrow.status;
             if (ts && ts !== 'PENDING') {
                 var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
-                var tNote = !gateState.can_tomorrow
-                    ? '<div class="locked-note">' + t('nudge.lock_tomorrow', 'Register free to use in HA automations') + '</div>'
-                    : '';
                 tomorrowHtml = '<div class="card">' +
                     '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
                     '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + ts + '</div>' +
                     '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
-                    tNote + '</div>';
+                    '</div>';
             }
 
             var deviationText = '';
@@ -723,20 +683,7 @@
                 deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
             }
 
-            var nudgeHtml = '';
-            if (!gateState.has_license) {
-                nudgeHtml = '<div class="reg-nudge">' +
-                    '<div class="reg-nudge-text">' + t('nudge.text', 'Actions & tomorrow preview are shown, but to use in HA automations you need a free Synctacles account.') + '</div>' +
-                    '<a class="reg-nudge-link" href="https://synctacles.com" target="_blank">' + t('nudge.link', 'Register free') + ' &rarr;</a>' +
-                    '</div>';
-            }
-
-            var actionNote = !gateState.can_actions
-                ? '<div class="locked-note">' + t('nudge.lock_actions', 'Register free to enable in HA automations') + '</div>'
-                : '';
-
             document.getElementById('content').innerHTML =
-                nudgeHtml +
                 '<div class="grid">' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.current_price', 'Current Price') + '</div>' +
@@ -749,7 +696,6 @@
                         '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
                         '<div class="card-sub">' + ((d.action && d.action.reason) || '') + '</div>' +
                         '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
-                        actionNote +
                     '</div>' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
@@ -962,15 +908,6 @@
     function renderSettings() {
         var c = currentConfig;
         var isNLPlan = (c.plan || '').indexOf('nl') === 0 || (c.zone || '') === 'NL';
-        var licenseBadge, licenseHint;
-        if (c.has_license) {
-            licenseBadge = '<span class="license-badge license-pro">' + t('dashboard.registered', 'Registered') + '</span>';
-            licenseHint = t('settings.api_key_hint_registered');
-        } else {
-            licenseBadge = '<span class="license-badge license-free">' + t('dashboard.anonymous', 'Anonymous') + '</span>';
-            licenseHint = t('settings.api_key_hint_anonymous') +
-                ' <a href="https://synctacles.com" target="_blank" style="color:var(--accent)">synctacles.com</a>';
-        }
 
         var powerPlaceholder = c.detected_power_sensor
             ? tReplace('settings.power_sensor_auto', {sensor: esc(c.detected_power_sensor)}, 'Auto: ' + esc(c.detected_power_sensor))
@@ -980,15 +917,6 @@
             : t('settings.power_sensor_hint', 'HA entity for live cost (auto-detected if empty)');
 
         document.getElementById('settingsContent').innerHTML =
-            '<div class="settings-section">' +
-                '<h3>' + t('settings.account', 'Account') + ' ' + licenseBadge + '</h3>' +
-                '<div class="form-group">' +
-                    '<label class="form-label">' + t('settings.api_key', 'API Key') + '</label>' +
-                    '<input class="form-input" id="cfg-license" type="text" placeholder="sk_pro_..." value="' + esc(c.license_key || '') + '">' +
-                    '<div class="form-hint">' + licenseHint + '</div>' +
-                '</div>' +
-            '</div>' +
-
             '<div class="settings-section">' +
                 '<h3>' + t('settings.plan', 'Plan') + '</h3>' +
                 '<div class="form-group">' +
@@ -1109,7 +1037,6 @@
             go_threshold: parseFloat(document.getElementById('cfg-go').value),
             avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
             best_window_hours: parseInt(document.getElementById('cfg-bw').value) || 3,
-            license_key: document.getElementById('cfg-license').value.trim(),
             power_sensor: document.getElementById('cfg-power').value.trim(),
             debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
         };

@@ -22,7 +22,6 @@ import (
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
-	"github.com/synctacles/energy-app/internal/license"
 	"github.com/synctacles/energy-app/internal/state"
 )
 
@@ -37,7 +36,6 @@ type Server struct {
 	sensorData          *SensorData
 	supervisor          *ha.SupervisorClient
 	fallback            *engine.FallbackManager
-	license             *license.Validator
 	featureGate         *gate.Gate
 	version             string
 	detectedPowerSensor string
@@ -52,7 +50,6 @@ type Deps struct {
 	SensorData          *SensorData
 	Supervisor          *ha.SupervisorClient
 	Fallback            *engine.FallbackManager
-	License             *license.Validator
 	Gate                *gate.Gate
 	Version             string
 	DetectedPowerSensor string
@@ -68,7 +65,6 @@ func NewServer(deps Deps) *Server {
 		sensorData:          deps.SensorData,
 		supervisor:          deps.Supervisor,
 		fallback:            deps.Fallback,
-		license:             deps.License,
 		featureGate:         deps.Gate,
 		version:             deps.Version,
 		detectedPowerSensor: deps.DetectedPowerSensor,
@@ -139,21 +135,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
-		"version":     s.version,
-		"zone":        s.cfg.BiddingZone,
-		"has_license": s.cfg.HasLicense(),
-		"is_pro":      s.license.IsPro(),
-		"tier":        s.license.Tier(),
-	}
-	if s.featureGate != nil {
-		resp["gate_status"] = s.featureGate.Status()
-		resp["can_actions"] = s.featureGate.CanUseActions()
-		resp["can_tomorrow"] = s.featureGate.CanUseTomorrow()
-		resp["alerts_enabled"] = s.cfg.HasAlerts()
-	}
-	if s.license.IsTrial() {
-		resp["trial"] = true
-		resp["trial_days_left"] = s.license.TrialDaysLeft()
+		"version":       s.version,
+		"zone":          s.cfg.BiddingZone,
+		"alerts_enabled": s.cfg.HasAlerts(),
 	}
 	if s.addonSlug != "" {
 		resp["addon_slug"] = s.addonSlug
@@ -207,16 +191,6 @@ func (s *Server) handlePricesToday(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePricesTomorrow(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate != nil && !s.featureGate.CanUseTomorrow() {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"error":   "registration_required",
-			"message": "Tomorrow prices require a free Synctacles account. Register at synctacles.com.",
-		})
-		return
-	}
-
 	data := s.sensorData.Get()
 	if data == nil {
 		writeJSON(w, map[string]any{"prices": []any{}, "status": "waiting"})
@@ -239,16 +213,6 @@ func (s *Server) handlePricesTomorrow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate != nil && !s.featureGate.CanUseActions() {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"error":   "registration_required",
-			"message": "Actions (GO/WAIT/AVOID) require a free Synctacles account. Register at synctacles.com.",
-		})
-		return
-	}
-
 	data := s.sensorData.Get()
 	if data == nil {
 		writeJSON(w, map[string]any{"action": "WAIT", "reason": "waiting for data"})
@@ -336,14 +300,6 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"leverancier": data.Leverancier,
 	}
 
-	// License/trial info
-	dashboard["is_pro"] = s.license.IsPro()
-	dashboard["tier"] = s.license.Tier()
-	if s.license.IsTrial() {
-		dashboard["trial"] = true
-		dashboard["trial_days_left"] = s.license.TrialDaysLeft()
-	}
-
 	writeJSON(w, dashboard)
 }
 
@@ -355,8 +311,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"go_threshold":            s.cfg.GoThreshold,
 		"avoid_threshold":         s.cfg.AvoidThreshold,
 		"best_window_hours":       s.cfg.BestWindowHours,
-		"has_license":             s.cfg.HasLicense(),
-		"license_key":             s.cfg.LicenseKey,
 		"has_power_sensor":        s.cfg.HasPowerSensor(),
 		"power_sensor":            s.cfg.PowerSensorEntity,
 		"enever_enabled":          s.cfg.EneverEnabled,
@@ -365,12 +319,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"coefficient":             s.cfg.Coefficient,
 		"debug_mode":              s.cfg.DebugMode,
 		"detected_power_sensor":   s.detectedPowerSensor,
-		"is_pro":                  s.license.IsPro(),
-		"tier":                    s.license.Tier(),
-	}
-	if s.license.IsTrial() {
-		resp["trial"] = true
-		resp["trial_days_left"] = s.license.TrialDaysLeft()
 	}
 	writeJSON(w, resp)
 }
@@ -396,7 +344,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 
 	// Merge allowed fields
 	allowed := []string{"plan", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
-		"license_key", "enever_enabled", "enever_token", "enever_leverancier",
+		"enever_enabled", "enever_token", "enever_leverancier",
 		"coefficient", "power_sensor", "debug_mode"}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -424,9 +372,6 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	// Update in-memory config for immediate effect
 	if v, ok := incoming["best_window_hours"].(float64); ok {
 		s.cfg.BestWindowHours = int(v)
-	}
-	if v, ok := incoming["license_key"].(string); ok {
-		s.cfg.LicenseKey = v
 	}
 	if v, ok := incoming["enever_token"].(string); ok {
 		s.cfg.EneverToken = v
@@ -490,14 +435,13 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 
 // --- Feedback Handlers ---
 
-const feedbackBaseURL = "https://energy.synctacles.com"
+const feedbackBaseURL = "https://api.synctacles.com"
 
 // feedbackSystemInfo collects system information for feedback submissions.
 func (s *Server) feedbackSystemInfo() map[string]any {
 	info := map[string]any{
 		"addon_version": s.version,
 		"zone":          s.cfg.BiddingZone,
-		"tier":          s.license.Tier(),
 	}
 
 	if s.supervisor != nil {
@@ -591,7 +535,7 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", feedbackBaseURL+"/auth/feedback", bytes.NewReader(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", feedbackBaseURL+"/api/v1/feedback", bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
