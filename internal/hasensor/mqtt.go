@@ -89,11 +89,17 @@ func (p *MQTTPublisher) UpdateSensor(ctx context.Context, entityID, state string
 	}
 
 	// Entity ID format: sensor.synctacles_energy_price → object_id = energy_price
+	// binary_sensor.synctacles_cheap_hour → component = binary_sensor, object_id = cheap_hour
+	component := "sensor"
 	objectID := strings.TrimPrefix(entityID, "sensor.synctacles_")
+	if strings.HasPrefix(entityID, "binary_sensor.") {
+		component = "binary_sensor"
+		objectID = strings.TrimPrefix(entityID, "binary_sensor.synctacles_")
+	}
 
 	// Send discovery config if not yet done
 	if !p.discovered[entityID] {
-		if err := p.publishDiscovery(objectID, entityID, attrs); err != nil {
+		if err := p.publishDiscovery(component, objectID, entityID, attrs); err != nil {
 			return fmt.Errorf("mqtt discovery for %s: %w", entityID, err)
 		}
 		p.discovered[entityID] = true
@@ -110,8 +116,8 @@ func (p *MQTTPublisher) UpdateSensor(ctx context.Context, entityID, state string
 }
 
 // publishDiscovery sends an HA MQTT discovery config message.
-func (p *MQTTPublisher) publishDiscovery(objectID, entityID string, attrs map[string]any) error {
-	discoveryTopic := fmt.Sprintf("homeassistant/sensor/synctacles_energy/%s/config", objectID)
+func (p *MQTTPublisher) publishDiscovery(component, objectID, entityID string, attrs map[string]any) error {
+	discoveryTopic := fmt.Sprintf("homeassistant/%s/synctacles_energy/%s/config", component, objectID)
 
 	friendlyName, _ := attrs["friendly_name"].(string)
 	icon, _ := attrs["icon"].(string)
@@ -145,6 +151,10 @@ func (p *MQTTPublisher) publishDiscovery(objectID, entityID string, attrs map[st
 	}
 	if stateClass != "" {
 		config["state_class"] = stateClass
+	}
+	if component == "binary_sensor" {
+		config["payload_on"] = "on"
+		config["payload_off"] = "off"
 	}
 
 	data, _ := json.Marshal(config)
