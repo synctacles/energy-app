@@ -139,7 +139,7 @@ func (p *MQTTPublisher) publishDiscovery(component, objectID, entityID string, a
 	config := map[string]any{
 		"name":                friendlyName,
 		"unique_id":          fmt.Sprintf("synctacles_energy_%s", objectID),
-		"object_id":          fmt.Sprintf("synctacles_%s", objectID),
+		"default_entity_id":  fmt.Sprintf("synctacles_%s", objectID),
 		"state_topic":        fmt.Sprintf("synctacles/energy/%s/state", objectID),
 		"value_template":     "{{ value_json.state }}",
 		"json_attributes_topic": fmt.Sprintf("synctacles/energy/%s/state", objectID),
