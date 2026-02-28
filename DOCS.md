@@ -98,14 +98,14 @@ Live Cost, Savings, Usage Score, and Daily Cost require a power sensor entity to
 | `go_threshold` | -15 | % below average to recommend GO |
 | `avoid_threshold` | 20 | % above average to recommend AVOID |
 | `best_window_hours` | 3 | Duration of the best consecutive window in hours (1-8) |
-| `coefficient` | 0 | Price coefficient override (0 = use country default tax profile) |
+| `supplier_markup` | 0 | Fixed supplier markup in EUR/kWh (0 = use default from Worker) |
 | `license_key` | — | Pro license key for premium sensors |
 | `power_sensor` | — | HA entity ID for power consumption (e.g. `sensor.power_consumption`) |
 | `debug_mode` | false | Enable verbose logging |
 
-### Price Coefficient
+### Supplier Markup
 
-The coefficient adjusts the final consumer price. A value of `0` uses the country's default tax profile (VAT, energy tax, ODE levy). Set a custom value to override — for example, `1.05` adds a 5% markup on top of the wholesale price.
+The supplier markup is a fixed amount in EUR/kWh added to the wholesale price before taxes. A value of `0` uses the default from the Synctacles Worker (calibrated per country). Set a custom value to match your supplier's specific markup — for example, `0.005` adds €0.005/kWh.
 
 ## Enever Integration (Netherlands Only)
 

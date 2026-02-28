@@ -1,7 +1,7 @@
-// Package collector — SynctaclesAPI is the primary price source for the addon.
-// It fetches pre-computed consumer prices from the Synctacles central server.
-// All other collectors (Energy-Charts, aWATTar, etc.) serve as emergency fallback
-// and are only used when the Synctacles server is unreachable.
+// Package collector — SynctaclesAPI is the primary price source (Tier 0).
+// It fetches wholesale + consumer prices from the Synctacles Energy Data Worker
+// at energy-data.synctacles.com. Consumer prices include taxes, surcharges,
+// and network tariff averages per country.
 package collector
 
 import (
@@ -12,67 +12,112 @@ import (
 	"sync"
 	"time"
 
-	"github.com/synctacles/energy-app/pkg/lease"
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
-// SynctaclesAPI fetches prices from the Synctacles central price server.
-// This is the addon's primary source (Tier 0). It returns pre-computed
-// consumer prices including taxes and surcharges for all 30 EU zones.
-type SynctaclesAPI struct {
-	BaseURL     string // e.g. "https://energy.synctacles.com"
-	InstallUUID string // sent as X-Install-UUID header to receive a fallback lease
+const defaultBaseURL = "https://energy-data.synctacles.com"
 
-	mu        sync.RWMutex
-	lastLease *lease.Lease
+// SynctaclesAPI fetches prices from the Synctacles Energy Data Worker.
+// Primary source (Tier 0) — returns wholesale + consumer prices for all active zones.
+type SynctaclesAPI struct {
+	BaseURL string // defaults to energy-data.synctacles.com
+
+	mu             sync.RWMutex
+	lastTaxProfile *CachedTaxProfile
+	lastStatus     string // day_ahead_status from last response
+}
+
+// CachedTaxProfile holds the tax profile returned by the Worker for version-based caching.
+type CachedTaxProfile struct {
+	Version          string  `json:"version"`
+	VATRate          float64 `json:"vat_rate"`
+	EnergyTax        float64 `json:"energy_tax"`
+	Surcharges       float64 `json:"surcharges"`
+	NetworkTariffAvg float64 `json:"network_tariff_avg"`
+	ValidFrom        string  `json:"valid_from"`
 }
 
 func (s *SynctaclesAPI) Name() string     { return "synctacles" }
 func (s *SynctaclesAPI) RequiresKey() bool { return false }
 
-// LastLease returns the most recent lease received from the server.
-func (s *SynctaclesAPI) LastLease() *lease.Lease {
+func (s *SynctaclesAPI) baseURL() string {
+	if s.BaseURL != "" {
+		return s.BaseURL
+	}
+	return defaultBaseURL
+}
+
+// LastTaxProfile returns the most recent tax profile from the Worker.
+func (s *SynctaclesAPI) LastTaxProfile() *CachedTaxProfile {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.lastLease == nil {
+	if s.lastTaxProfile == nil {
 		return nil
 	}
-	l := *s.lastLease
-	return &l
+	cp := *s.lastTaxProfile
+	return &cp
 }
 
-// Zones returns all supported zones. The Synctacles server covers all 30 EU zones.
+// LastDayAheadStatus returns the day_ahead_status from the last /prices response.
+func (s *SynctaclesAPI) LastDayAheadStatus() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastStatus
+}
+
+// Zones returns all supported zones. The Worker dynamically controls this via
+// the is_active flag, but the collector accepts any zone and lets the Worker
+// return 404/empty if the zone is inactive.
 func (s *SynctaclesAPI) Zones() []string {
 	return []string{
-		"NL", "DE-LU", "AT", "BE", "CH", "CZ", "FR", "HU", "PL", "SI",
+		"NL", "DE-LU", "AT", "BE", "FR", "GB",
+		"CH", "CZ", "HU", "PL", "SI",
 		"DK1", "DK2", "ES", "PT", "FI",
-		"IT-North", "IT-Centre-North", "IT-Centre-South", "IT-South", "IT-Sicily", "IT-Sardinia",
+		"IT-NORTH",
 		"NO1", "NO2", "NO3", "NO4", "NO5",
 		"SE1", "SE2", "SE3", "SE4",
+		"EE", "LT", "LV", "GR", "HR", "RO", "SK", "BG",
+		"IE-SEM", "ME", "MK", "RS",
 	}
 }
 
-// synctaclesPriceResponse is the wire format from the Synctacles price API.
-type synctaclesPriceResponse struct {
-	Zone    string                  `json:"zone"`
-	Source  string                  `json:"source"`
-	Quality string                 `json:"quality"`
-	Prices  []synctaclesPriceEntry `json:"prices"`
-	Lease   *lease.Lease           `json:"lease,omitempty"`
+// Wire format matching the Worker /prices response (ADR_008)
+type workerPriceResponse struct {
+	Zone              string             `json:"zone"`
+	Resolution        string             `json:"resolution"`
+	Currency          string             `json:"currency"`
+	Source            string             `json:"source"`
+	DayAheadStatus    string             `json:"day_ahead_status"`
+	Prices            []workerPriceEntry `json:"prices"`
+	TaxProfileVersion string             `json:"tax_profile_version,omitempty"`
+	TaxProfile        *workerTaxProfile  `json:"tax_profile,omitempty"`
 }
 
-type synctaclesPriceEntry struct {
-	Timestamp  string  `json:"timestamp"`
-	PriceEUR   float64 `json:"price_eur"`
-	Unit       string  `json:"unit"`
-	IsConsumer bool    `json:"is_consumer"`
+type workerPriceEntry struct {
+	Timestamp     string   `json:"timestamp"`
+	Price         float64  `json:"price"`          // EUR/MWh (wholesale)
+	ConsumerPrice *float64 `json:"consumer_price"` // EUR/kWh (with taxes)
 }
 
-// FetchDayAhead fetches pre-computed consumer prices from the Synctacles server.
-// If InstallUUID is set, it sends X-Install-UUID and stores any returned lease.
+type workerTaxProfile struct {
+	VATRate          float64 `json:"vat_rate"`
+	EnergyTax        float64 `json:"energy_tax"`
+	Surcharges       float64 `json:"surcharges"`
+	NetworkTariffAvg float64 `json:"network_tariff_avg"`
+	ValidFrom        string  `json:"valid_from"`
+}
+
+// FetchDayAhead fetches prices from the Worker for a single date.
+// Returns consumer prices (IsConsumer=true) when the Worker provides them,
+// otherwise falls back to wholesale prices (IsConsumer=false).
 func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date time.Time) ([]models.HourlyPrice, error) {
-	url := fmt.Sprintf("%s/api/v1/prices?zone=%s&date=%s",
-		s.BaseURL, zone, date.Format("2006-01-02"))
+	dateStr := date.Format("2006-01-02")
+	resolution := "PT60M"
+	if zone == "GB" {
+		resolution = "PT30M"
+	}
+	url := fmt.Sprintf("%s/prices?zone=%s&from=%s&to=%s&resolution=%s",
+		s.baseURL(), zone, dateStr, dateStr, resolution)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -80,9 +125,6 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
-	if s.InstallUUID != "" {
-		req.Header.Set("X-Install-UUID", s.InstallUUID)
-	}
 
 	httpResp, err := defaultClient.Do(req)
 	if err != nil {
@@ -94,17 +136,27 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 		return nil, fmt.Errorf("synctacles: HTTP %d for zone %s", httpResp.StatusCode, zone)
 	}
 
-	var resp synctaclesPriceResponse
+	var resp workerPriceResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("synctacles parse: %w", err)
 	}
 
-	// Store lease if returned
-	if resp.Lease != nil {
-		s.mu.Lock()
-		s.lastLease = resp.Lease
-		s.mu.Unlock()
+	// Cache tax profile (version-based — only update if version changed)
+	s.mu.Lock()
+	s.lastStatus = resp.DayAheadStatus
+	if resp.TaxProfile != nil && resp.TaxProfileVersion != "" {
+		if s.lastTaxProfile == nil || s.lastTaxProfile.Version != resp.TaxProfileVersion {
+			s.lastTaxProfile = &CachedTaxProfile{
+				Version:          resp.TaxProfileVersion,
+				VATRate:          resp.TaxProfile.VATRate,
+				EnergyTax:        resp.TaxProfile.EnergyTax,
+				Surcharges:       resp.TaxProfile.Surcharges,
+				NetworkTariffAvg: resp.TaxProfile.NetworkTariffAvg,
+				ValidFrom:        resp.TaxProfile.ValidFrom,
+			}
+		}
 	}
+	s.mu.Unlock()
 
 	prices := make([]models.HourlyPrice, 0, len(resp.Prices))
 	for _, p := range resp.Prices {
@@ -112,23 +164,32 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 		if err != nil {
 			continue
 		}
-		unit := models.UnitKWh
-		if p.Unit == "EUR/MWh" {
-			unit = models.UnitMWh
+
+		hp := models.HourlyPrice{
+			Timestamp: ts.UTC(),
+			Source:    "synctacles",
+			Quality:   "live",
+			Zone:      zone,
 		}
-		prices = append(prices, models.HourlyPrice{
-			Timestamp:  ts.UTC(),
-			PriceEUR:   p.PriceEUR,
-			Unit:       unit,
-			Source:     "synctacles",
-			Quality:    resp.Quality,
-			Zone:       zone,
-			IsConsumer: p.IsConsumer,
-		})
+
+		// Prefer consumer price from Worker (includes taxes + network tariff).
+		// Always store wholesale for manual mode to recompute with user-defined components.
+		if p.ConsumerPrice != nil {
+			hp.PriceEUR = *p.ConsumerPrice
+			hp.Unit = models.UnitKWh
+			hp.IsConsumer = true
+			hp.WholesaleKWh = p.Price / 1000.0 // MWh → kWh
+		} else {
+			hp.PriceEUR = p.Price
+			hp.Unit = models.UnitMWh
+			hp.IsConsumer = false
+		}
+
+		prices = append(prices, hp)
 	}
 
 	if len(prices) == 0 {
-		return nil, fmt.Errorf("synctacles: no prices for zone %s on %s", zone, date.Format("2006-01-02"))
+		return nil, fmt.Errorf("synctacles: no prices for zone %s on %s", zone, dateStr)
 	}
 	return prices, nil
 }

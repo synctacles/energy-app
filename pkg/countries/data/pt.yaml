@@ -2,20 +2,8 @@ country: PT
 name: Portugal
 currency: EUR
 zones:
-  - code: "PT"
-    eic: "10YPT-REN------W"
-    name: "Portugal"
-    country: "PT"
-    timezone: "Europe/Lisbon"
-tax_profile:
-  vat_rate: 0.06
-  coefficient: 1.0
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.001
-  surcharges: 0.0
-sources:
-  - name: omie
-    priority: 1
-  - name: energycharts
-    priority: 2
+- code: PT
+  eic: 10YPT-REN------W
+  name: Portugal
+  country: PT
+  timezone: Europe/Lisbon

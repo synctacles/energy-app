@@ -7,20 +7,37 @@ import (
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
-// Normalizer converts wholesale prices to consumer prices using country tax profiles.
+// Normalizer converts wholesale prices to consumer prices.
+// Behavior depends on PricingMode:
+//   - "auto":     Worker consumer prices pass through; wholesale normalized via tax cache
+//   - "manual":   All prices normalized using user-defined ManualTaxProfile
+//   - "p1_meter": All prices pass through (consumer price comes from HA sensor, not here)
+//   - "enever":   Same as auto (Enever prices are already consumer)
 type Normalizer struct {
-	registry         *models.ZoneRegistry
-	coeffOverride    float64 // If > 0, overrides the YAML coefficient for all zones
+	taxCache              *TaxProfileCache    // Worker-provided tax profiles (keyed by zone)
+	supplierMarkupOverride float64            // User calibration override (EUR/kWh)
+	pricingMode           string              // "auto", "manual", "p1_meter", "enever"
+	manualTaxProfile      *models.TaxProfile  // User-defined components for manual mode
 }
 
-// NewNormalizer creates a normalizer with zone registry for tax lookups.
-// coeffOverride overrides the per-country coefficient if > 0 (0 = use YAML default).
-func NewNormalizer(registry *models.ZoneRegistry, coeffOverride ...float64) *Normalizer {
-	n := &Normalizer{registry: registry}
-	if len(coeffOverride) > 0 && coeffOverride[0] > 0 {
-		n.coeffOverride = coeffOverride[0]
+// NewNormalizer creates a normalizer backed by the Worker tax profile cache.
+// supplierMarkupOverride overrides the per-zone supplier_markup if > 0 (0 = use Worker default).
+func NewNormalizer(taxCache *TaxProfileCache, supplierMarkupOverride ...float64) *Normalizer {
+	n := &Normalizer{taxCache: taxCache, pricingMode: "auto"}
+	if len(supplierMarkupOverride) > 0 && supplierMarkupOverride[0] > 0 {
+		n.supplierMarkupOverride = supplierMarkupOverride[0]
 	}
 	return n
+}
+
+// SetPricingMode sets the active pricing mode.
+func (n *Normalizer) SetPricingMode(mode string) {
+	n.pricingMode = mode
+}
+
+// SetManualTaxProfile sets user-defined tax components for manual mode.
+func (n *Normalizer) SetManualTaxProfile(tp *models.TaxProfile) {
+	n.manualTaxProfile = tp
 }
 
 // ToConsumer converts a slice of wholesale prices to consumer prices using the zone's tax profile.
@@ -38,26 +55,62 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 	// First convert to EUR/kWh
 	p = p.ToKWh()
 
-	// Consumer prices (e.g. EasyEnergy, Frank, Enever) already include
-	// VAT, energy tax, and supplier markup — no normalization needed.
+	switch n.pricingMode {
+	case "manual":
+		return n.normalizeManual(p)
+	case "p1_meter":
+		// P1 mode: consumer price comes from HA sensor, not normalizer.
+		// Wholesale prices pass through for GO/WAIT/AVOID relative calculations.
+		return p
+	default:
+		// "auto" and "enever": consumer prices pass through, wholesale normalized via tax cache.
+		return n.normalizeAuto(p)
+	}
+}
+
+// normalizeAuto handles auto/enever mode: consumer prices pass through, wholesale → tax cache.
+func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 	if p.IsConsumer {
 		return p
 	}
 
-	// Look up tax profile for this zone
-	cc, ok := n.registry.GetCountryForZone(p.Zone)
-	if !ok {
-		return p // No tax profile — return wholesale in kWh
+	if n.taxCache == nil {
+		return p
+	}
+	override := n.taxCache.Get(p.Zone)
+	if override == nil {
+		return p
 	}
 
-	// Apply coefficient override if set
-	tp := cc.TaxProfile
-	if n.coeffOverride > 0 {
-		tp.Coefficient = n.coeffOverride
+	tp := models.TaxProfile{
+		VATRate:          override.VATRate,
+		SupplierMarkup:   override.SupplierMarkup,
+		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: override.EnergyTax}},
+		Surcharges:       override.Surcharges,
+		NetworkTariffAvg: override.NetworkTariffAvg,
+	}
+	if n.supplierMarkupOverride > 0 {
+		tp.SupplierMarkup = n.supplierMarkupOverride
 	}
 
-	// Apply tax profile: wholesale → consumer
 	p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
+	p.IsConsumer = true
+	return p
+}
+
+// normalizeManual handles manual mode: always use wholesale + user-defined tax components.
+func (n *Normalizer) normalizeManual(p models.HourlyPrice) models.HourlyPrice {
+	if n.manualTaxProfile == nil {
+		return p
+	}
+
+	// Get wholesale price: prefer stored wholesale, else use current price (already kWh)
+	wholesale := p.PriceEUR
+	if p.IsConsumer && p.WholesaleKWh > 0 {
+		wholesale = p.WholesaleKWh
+	}
+
+	p.PriceEUR = n.manualTaxProfile.WholesaleToConsumer(wholesale, p.Timestamp)
 	p.IsConsumer = true
 	return p
 }

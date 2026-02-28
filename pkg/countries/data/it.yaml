@@ -2,43 +2,33 @@ country: IT
 name: Italy
 currency: EUR
 zones:
-  - code: "IT-North"
-    eic: "10Y1001A1001A73I"
-    name: "Northern Italy"
-    country: "IT"
-    timezone: "Europe/Rome"
-  - code: "IT-Centre-North"
-    eic: "10Y1001A1001A70O"
-    name: "Central North Italy"
-    country: "IT"
-    timezone: "Europe/Rome"
-  - code: "IT-Centre-South"
-    eic: "10Y1001A1001A71M"
-    name: "Central South Italy"
-    country: "IT"
-    timezone: "Europe/Rome"
-  - code: "IT-South"
-    eic: "10Y1001A1001A788"
-    name: "Southern Italy"
-    country: "IT"
-    timezone: "Europe/Rome"
-  - code: "IT-Sicily"
-    eic: "10Y1001A1001A74G"
-    name: "Sicily"
-    country: "IT"
-    timezone: "Europe/Rome"
-  - code: "IT-Sardinia"
-    eic: "10Y1001A1001A75E"
-    name: "Sardinia"
-    country: "IT"
-    timezone: "Europe/Rome"
-tax_profile:
-  vat_rate: 0.22
-  coefficient: 1.0
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.02270
-  surcharges: 0.0
-sources:
-  - name: energycharts
-    priority: 1
+- code: IT-North
+  eic: 10Y1001A1001A73I
+  name: Northern Italy
+  country: IT
+  timezone: Europe/Rome
+- code: IT-Centre-North
+  eic: 10Y1001A1001A70O
+  name: Central North Italy
+  country: IT
+  timezone: Europe/Rome
+- code: IT-Centre-South
+  eic: 10Y1001A1001A71M
+  name: Central South Italy
+  country: IT
+  timezone: Europe/Rome
+- code: IT-South
+  eic: 10Y1001A1001A788
+  name: Southern Italy
+  country: IT
+  timezone: Europe/Rome
+- code: IT-Sicily
+  eic: 10Y1001A1001A74G
+  name: Sicily
+  country: IT
+  timezone: Europe/Rome
+- code: IT-Sardinia
+  eic: 10Y1001A1001A75E
+  name: Sardinia
+  country: IT
+  timezone: Europe/Rome

@@ -2,21 +2,6 @@ country: GR
 name: Greece
 currency: EUR
 zones:
-  - code: "GR"
-    name: "Greece"
-    timezone: "Europe/Athens"
-tax_profile:
-  vat_rate: 0.13  # 13% reduced VAT rate for electricity (super-reduced rate)
-  coefficient: 1.0
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.00100  # EUR/kWh excl. VAT (€1.00/MWh - EU minimum)
-  surcharges: 0.0
-sources:
-  - name: energycharts
-    priority: 1
-
-# Manually verified 2026-02-13 from:
-# https://taxfoundation.org/data/all/eu/excise-duties-electricity-europe-2024/
-# Greece applies EU minimum rate: €1.00/MWh for household use
-# Greece uses super-reduced 13% VAT rate for electricity
+- code: GR
+  name: Greece
+  timezone: Europe/Athens

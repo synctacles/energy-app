@@ -2,22 +2,6 @@ country: CY
 name: Cyprus
 currency: EUR
 zones:
-  - code: "CY"
-    name: "Cyprus"
-    timezone: "Asia/Nicosia"
-tax_profile:
-  vat_rate: 0.09  # 9% reduced VAT rate for households (until March 2027)
-  coefficient: 1.0
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.00100  # EUR/kWh excl. VAT (€1.00/MWh - EU minimum)
-  surcharges: 0.00500  # RES & Energy Conservation Fund: 0.5 ct/kWh
-sources:
-  - name: energycharts
-    priority: 1
-
-# Manually verified 2026-02-13 from:
-# https://cyprus-mail.com/2026/02/04/reduced-vat-on-electricity-bills-extended-for-another-year
-# Cyprus: Reduced 9% VAT on households (extended until March 2027)
-# RES surcharge: 0.5 euro-cent/kWh for renewable energy fund
-# Excise tax: Using EU minimum in absence of specific data
+- code: CY
+  name: Cyprus
+  timezone: Asia/Nicosia

@@ -46,7 +46,7 @@ func TestTaxProfile_ActiveEnergyTax(t *testing.T) {
 }
 
 func TestTaxProfile_WholesaleToConsumer_NL(t *testing.T) {
-	// NL tax profile: VAT 21%, energy tax €0.09161/kWh excl BTW (2026), coefficient 1.0
+	// NL tax profile: VAT 21%, energy tax €0.09161/kWh excl BTW (2026)
 	tp := TaxProfile{
 		VATRate: 0.21,
 		EnergyTax: []EnergyTaxEntry{
@@ -60,35 +60,47 @@ func TestTaxProfile_WholesaleToConsumer_NL(t *testing.T) {
 	wholesale := 0.08 // EUR/kWh wholesale
 
 	consumer := tp.WholesaleToConsumer(wholesale, at)
-	// Expected: (0.08 * 1.0 + 0.09161 + 0.0) * 1.21 = 0.17161 * 1.21 ≈ 0.2076
+	// Expected: (0.08 + 0 + 0.09161 + 0 + 0) × 1.21 = 0.17161 × 1.21 ≈ 0.2076
 	assert.InDelta(t, 0.2076, consumer, 0.002)
 }
 
-func TestTaxProfile_WholesaleToConsumer_WithCoefficient(t *testing.T) {
-	// DE profile with 5% supplier markup
+func TestTaxProfile_WholesaleToConsumer_WithSupplierMarkup(t *testing.T) {
+	// DE profile with €0.005/kWh supplier markup
 	tp := TaxProfile{
-		VATRate:     0.19,
-		Coefficient: 1.05,
+		VATRate:        0.19,
+		SupplierMarkup: 0.005,
 		EnergyTax: []EnergyTaxEntry{
 			{From: "2024-01-01", Rate: 0.02050},
 		},
-		Surcharges: 0.0,
+		Surcharges: 0.02946,
 	}
 
 	at := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
 	wholesale := 0.08
 
 	consumer := tp.WholesaleToConsumer(wholesale, at)
-	// Expected: (0.08 * 1.05 + 0.02050) * 1.19 = (0.084 + 0.02050) * 1.19 = 0.12436
-	assert.InDelta(t, 0.12436, consumer, 0.001)
+	// Expected: (0.08 + 0.005 + 0.02050 + 0.02946 + 0) × 1.19 = 0.13496 × 1.19 ≈ 0.16060
+	assert.InDelta(t, 0.16060, consumer, 0.001)
 }
 
-func TestTaxProfile_EffectiveCoefficient(t *testing.T) {
-	// Zero value (not set in YAML) defaults to 1.0
-	tp := TaxProfile{}
-	assert.Equal(t, 1.0, tp.EffectiveCoefficient())
+func TestTaxProfile_CalculateBreakdown(t *testing.T) {
+	tp := TaxProfile{
+		VATRate:          0.21,
+		SupplierMarkup:   0.003,
+		EnergyTax:        []EnergyTaxEntry{{From: "2024-01-01", Rate: 0.09161}},
+		Surcharges:       0.0,
+		NetworkTariffAvg: 0.095,
+	}
 
-	// Explicit value is used
-	tp.Coefficient = 1.05
-	assert.Equal(t, 1.05, tp.EffectiveCoefficient())
+	at := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
+	bd := tp.CalculateBreakdown(0.08, at)
+
+	assert.InDelta(t, 0.08, bd.Wholesale, 0.0001)
+	assert.InDelta(t, 0.003, bd.SupplierMarkup, 0.0001)
+	assert.InDelta(t, 0.09161, bd.EnergyTax, 0.0001)
+	assert.InDelta(t, 0.095, bd.NetworkTariff, 0.0001)
+	// Subtotal: 0.08 + 0.003 + 0.09161 + 0 + 0.095 = 0.26961
+	assert.InDelta(t, 0.26961, bd.Subtotal, 0.001)
+	// Consumer: 0.26961 × 1.21 ≈ 0.32623
+	assert.InDelta(t, 0.32623, bd.ConsumerTotal, 0.002)
 }

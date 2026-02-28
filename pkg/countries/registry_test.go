@@ -12,12 +12,11 @@ func TestLoadAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(configs), 14, "should have at least 14 country configs")
 
-	// Verify all have required fields
+	// Verify all have required fields (zone metadata only — tax data comes from Worker)
 	for _, cc := range configs {
 		assert.NotEmpty(t, cc.Country, "country code required")
 		assert.NotEmpty(t, cc.Zones, "at least one zone required for %s", cc.Country)
 		assert.NotEmpty(t, cc.Currency, "currency required for %s", cc.Country)
-		assert.NotEmpty(t, cc.Sources, "at least one source required for %s", cc.Country)
 
 		for _, z := range cc.Zones {
 			assert.NotEmpty(t, z.Code, "zone code required in %s", cc.Country)
@@ -39,9 +38,9 @@ func TestLoadRegistry(t *testing.T) {
 		assert.True(t, ok, "zone %s should be in registry", zone)
 	}
 
-	// Verify NL sources
+	// Verify NL zone metadata
 	cc, ok := registry.GetCountryForZone("NL")
 	require.True(t, ok)
 	assert.Equal(t, "NL", cc.Country)
-	assert.Len(t, cc.Sources, 3) // easyenergy, frank, energycharts
+	assert.Equal(t, "Netherlands", cc.Name)
 }

@@ -33,20 +33,25 @@ func TestCalcStats_Empty(t *testing.T) {
 	assert.Equal(t, 0.0, stats.Average)
 }
 
-func TestNormalizer_MWhToConsumer(t *testing.T) {
-	// NL tax profile
-	nlConfig := &models.CountryConfig{
-		Country: "NL",
-		Zones: []models.ZoneInfo{{Code: "NL", Country: "NL"}},
-		TaxProfile: models.TaxProfile{
-			VATRate:    0.21,
-			EnergyTax:  []models.EnergyTaxEntry{{From: "2024-01-01", Rate: 0.09161}},
-			Surcharges: 0.0,
+// testTaxCache creates an in-memory TaxProfileCache with a NL zone profile.
+func testTaxCache() *TaxProfileCache {
+	cache := &TaxProfileCache{
+		profiles: map[string]*WorkerTaxOverride{
+			"NL": {
+				VATRate:          0.21,
+				EnergyTax:        0.09161,
+				Surcharges:       0.0,
+				NetworkTariffAvg: 0.0,
+				Version:          "test-v1",
+			},
 		},
 	}
+	return cache
+}
 
-	registry := models.NewZoneRegistry([]*models.CountryConfig{nlConfig})
-	norm := NewNormalizer(registry)
+func TestNormalizer_MWhToConsumer(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
 
 	// 80 EUR/MWh = 0.08 EUR/kWh wholesale
 	prices := []models.HourlyPrice{{
@@ -60,32 +65,21 @@ func TestNormalizer_MWhToConsumer(t *testing.T) {
 	consumer := norm.ToConsumer(prices)
 	assert.Len(t, consumer, 1)
 	assert.Equal(t, models.UnitKWh, consumer[0].Unit)
-	// Expected: (0.08 + 0.09161) * 1.21 = 0.17161 * 1.21 ≈ 0.2076
+	// Expected: (0.08 + 0 + 0.09161 + 0 + 0) × 1.21 = 0.17161 × 1.21 ≈ 0.2076
 	assert.InDelta(t, 0.2076, consumer[0].PriceEUR, 0.002)
 }
 
 func TestNormalizer_SkipsConsumerPrices(t *testing.T) {
-	// NL tax profile — would change price if applied
-	nlConfig := &models.CountryConfig{
-		Country: "NL",
-		Zones:   []models.ZoneInfo{{Code: "NL", Country: "NL"}},
-		TaxProfile: models.TaxProfile{
-			VATRate:    0.21,
-			EnergyTax:  []models.EnergyTaxEntry{{From: "2024-01-01", Rate: 0.09161}},
-			Surcharges: 0.0,
-		},
-	}
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
 
-	registry := models.NewZoneRegistry([]*models.CountryConfig{nlConfig})
-	norm := NewNormalizer(registry)
-
-	// Consumer price from EasyEnergy (already incl. VAT + taxes)
+	// Consumer price from Worker (already incl. VAT + taxes)
 	consumerPrice := 0.2134
 	prices := []models.HourlyPrice{{
 		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
 		PriceEUR:   consumerPrice,
 		Unit:       models.UnitKWh,
-		Source:     "easyenergy",
+		Source:     "synctacles",
 		Zone:       "NL",
 		IsConsumer: true,
 	}}
@@ -98,27 +92,17 @@ func TestNormalizer_SkipsConsumerPrices(t *testing.T) {
 	assert.True(t, result[0].IsConsumer)
 }
 
-func TestNormalizer_ConsumerPriceIgnoresCoeffOverride(t *testing.T) {
-	nlConfig := &models.CountryConfig{
-		Country: "NL",
-		Zones:   []models.ZoneInfo{{Code: "NL", Country: "NL"}},
-		TaxProfile: models.TaxProfile{
-			VATRate:    0.21,
-			EnergyTax:  []models.EnergyTaxEntry{{From: "2024-01-01", Rate: 0.09161}},
-			Surcharges: 0.0,
-		},
-	}
-
-	registry := models.NewZoneRegistry([]*models.CountryConfig{nlConfig})
-	// Even with a coefficient override, consumer prices should not be touched
-	norm := NewNormalizer(registry, 1.10)
+func TestNormalizer_ConsumerPriceIgnoresSupplierMarkupOverride(t *testing.T) {
+	cache := testTaxCache()
+	// Even with a supplier markup override, consumer prices should not be touched
+	norm := NewNormalizer(cache, 0.005)
 
 	consumerPrice := 0.2134
 	prices := []models.HourlyPrice{{
 		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
 		PriceEUR:   consumerPrice,
 		Unit:       models.UnitKWh,
-		Source:     "frank",
+		Source:     "synctacles",
 		Zone:       "NL",
 		IsConsumer: true,
 	}}
@@ -128,22 +112,12 @@ func TestNormalizer_ConsumerPriceIgnoresCoeffOverride(t *testing.T) {
 }
 
 func TestNormalizer_MixedConsumerAndWholesale(t *testing.T) {
-	nlConfig := &models.CountryConfig{
-		Country: "NL",
-		Zones:   []models.ZoneInfo{{Code: "NL", Country: "NL"}},
-		TaxProfile: models.TaxProfile{
-			VATRate:    0.21,
-			EnergyTax:  []models.EnergyTaxEntry{{From: "2024-01-01", Rate: 0.09161}},
-			Surcharges: 0.0,
-		},
-	}
-
-	registry := models.NewZoneRegistry([]*models.CountryConfig{nlConfig})
-	norm := NewNormalizer(registry)
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
 
 	ts := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
 	prices := []models.HourlyPrice{
-		{Timestamp: ts, PriceEUR: 0.2134, Unit: models.UnitKWh, Source: "easyenergy", Zone: "NL", IsConsumer: true},
+		{Timestamp: ts, PriceEUR: 0.2134, Unit: models.UnitKWh, Source: "synctacles", Zone: "NL", IsConsumer: true},
 		{Timestamp: ts, PriceEUR: 80.0, Unit: models.UnitMWh, Source: "energycharts", Zone: "NL", IsConsumer: false},
 	}
 
@@ -153,6 +127,141 @@ func TestNormalizer_MixedConsumerAndWholesale(t *testing.T) {
 	// First: consumer price unchanged
 	assert.Equal(t, 0.2134, result[0].PriceEUR)
 
-	// Second: wholesale normalized: (0.08 + 0.09161) * 1.21 ≈ 0.2076
+	// Second: wholesale normalized: (0.08 + 0.09161) × 1.21 ≈ 0.2076
 	assert.InDelta(t, 0.2076, result[1].PriceEUR, 0.002)
+}
+
+func TestNormalizer_NoCacheFallsThrough(t *testing.T) {
+	// No cache — wholesale prices should pass through as kWh
+	norm := NewNormalizer(nil)
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	// Converted to kWh but NOT to consumer (no tax data)
+	assert.InDelta(t, 0.08, result[0].PriceEUR, 0.0001)
+	assert.False(t, result[0].IsConsumer)
+}
+
+func TestNormalizer_UnknownZoneFallsThrough(t *testing.T) {
+	cache := testTaxCache() // Only has "NL"
+	norm := NewNormalizer(cache)
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  50.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "XX", // Not in cache
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	// Converted to kWh but NOT to consumer
+	assert.InDelta(t, 0.05, result[0].PriceEUR, 0.0001)
+	assert.False(t, result[0].IsConsumer)
+}
+
+func TestNormalizer_ManualMode(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+	norm.SetPricingMode("manual")
+	norm.SetManualTaxProfile(&models.TaxProfile{
+		VATRate:          0.21,
+		SupplierMarkup:   0.01,
+		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: 0.05}},
+		Surcharges:       0.0,
+		NetworkTariffAvg: 0.08,
+	})
+
+	// Worker consumer price (80 EUR/MWh wholesale stored alongside)
+	prices := []models.HourlyPrice{{
+		Timestamp:    time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:     0.2076, // Worker consumer price (should be ignored in manual mode)
+		WholesaleKWh: 0.08,   // 80 EUR/MWh = 0.08 EUR/kWh
+		Unit:         models.UnitKWh,
+		Source:       "synctacles",
+		Zone:         "NL",
+		IsConsumer:   true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.True(t, result[0].IsConsumer)
+	// Expected: (0.08 + 0.01 + 0.05 + 0.0 + 0.08) × 1.21 = 0.22 × 1.21 = 0.2662
+	assert.InDelta(t, 0.2662, result[0].PriceEUR, 0.001)
+}
+
+func TestNormalizer_ManualMode_WholesaleInput(t *testing.T) {
+	norm := NewNormalizer(nil) // No tax cache needed for manual
+	norm.SetPricingMode("manual")
+	norm.SetManualTaxProfile(&models.TaxProfile{
+		VATRate:          0.19,
+		SupplierMarkup:   0.0,
+		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: 0.02}},
+		Surcharges:       0.03,
+		NetworkTariffAvg: 0.09,
+	})
+
+	// Energy-Charts wholesale (no WholesaleKWh — PriceEUR IS the wholesale)
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  60.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "DE-LU",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.True(t, result[0].IsConsumer)
+	// wholesale = 0.06, total = (0.06 + 0.0 + 0.02 + 0.03 + 0.09) × 1.19 = 0.20 × 1.19 = 0.238
+	assert.InDelta(t, 0.238, result[0].PriceEUR, 0.001)
+}
+
+func TestNormalizer_P1Mode_PassThrough(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+	norm.SetPricingMode("p1_meter")
+
+	// Wholesale prices should pass through in P1 mode (no consumer conversion)
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "synctacles",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	// Converted to kWh but NOT consumer-normalized
+	assert.InDelta(t, 0.08, result[0].PriceEUR, 0.0001)
+	assert.False(t, result[0].IsConsumer)
+}
+
+func TestNormalizer_ManualMode_NoProfile(t *testing.T) {
+	norm := NewNormalizer(nil)
+	norm.SetPricingMode("manual")
+	// No manual tax profile set — should pass through
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.InDelta(t, 0.08, result[0].PriceEUR, 0.0001)
+	assert.False(t, result[0].IsConsumer)
 }

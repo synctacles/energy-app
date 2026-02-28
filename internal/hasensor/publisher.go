@@ -27,6 +27,7 @@ type SensorSet struct {
 	TodayPrices    []models.HourlyPrice
 	TomorrowPrices []models.HourlyPrice
 	Source         string
+	SourceTier     string // "worker", "enever", "energy_charts", "cache"
 	Quality        string
 	Leverancier    string // Enever supplier name (e.g. "zonneplan"), empty when not using Enever
 	UpdatedAt      time.Time
@@ -41,6 +42,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 	priceAttrs := map[string]any{
 		"unit_of_measurement": "EUR/kWh",
 		"source":              s.Source,
+		"source_tier":         s.SourceTier,
 		"quality":             s.Quality,
 		"zone":                s.Zone,
 		"friendly_name":       "Synctacles Energy Price",
@@ -343,6 +345,17 @@ func ComputeSensorSet(
 		lev = leverancier
 	}
 
+	// Map source tier to human-readable label for HA sensor attribute
+	sourceTier := fetchResult.Source
+	switch {
+	case fetchResult.Tier == 4:
+		sourceTier = "cache"
+	case fetchResult.Source == "synctacles":
+		sourceTier = "worker"
+	case fetchResult.Source == "energycharts":
+		sourceTier = "energy_charts"
+	}
+
 	return &SensorSet{
 		Zone:           zone,
 		CurrentPrice:   currentPrice,
@@ -353,6 +366,7 @@ func ComputeSensorSet(
 		TodayPrices:    todayPrices,
 		TomorrowPrices: tomorrowPrices,
 		Source:         fetchResult.Source,
+		SourceTier:     sourceTier,
 		Quality:        fetchResult.Quality,
 		Leverancier:    lev,
 		UpdatedAt:      now,

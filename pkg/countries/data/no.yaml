@@ -1,45 +1,29 @@
-country: "NO"
+country: 'NO'
 name: Norway
 currency: NOK
 zones:
-  - code: "NO1"
-    eic: "10YNO-1--------2"
-    name: "Oslo / East Norway"
-    country: "NO"
-    timezone: "Europe/Oslo"
-  - code: "NO2"
-    eic: "10YNO-2--------T"
-    name: "Kristiansand / South Norway"
-    country: "NO"
-    timezone: "Europe/Oslo"
-  - code: "NO3"
-    eic: "10YNO-3--------J"
-    name: "Trondheim / Central Norway"
-    country: "NO"
-    timezone: "Europe/Oslo"
-  - code: "NO4"
-    eic: "10YNO-4--------9"
-    name: "Tromsoe / North Norway"
-    country: "NO"
-    timezone: "Europe/Oslo"
-  - code: "NO5"
-    eic: "10Y1001A1001A48H"
-    name: "Bergen / West Norway"
-    country: "NO"
-    timezone: "Europe/Oslo"
-tax_profile:
-  vat_rate: 0.25
-  coefficient: 1.01  # Tibber/Fjordkraft ~1% markup typical
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.01090  # Elavgift 12.53 øre/kWh (NOK) ÷ 11.5
-    - from: "2026-01-01"
-      rate: 0.00620  # Elavgift 7.13 øre/kWh (NOK) ÷ 11.5 — reduced for 2026
-  surcharges: 0.0
-sources:
-  - name: energidataservice
-    priority: 1
-  - name: energycharts
-    priority: 2
-  - name: spothinta
-    priority: 3
+- code: NO1
+  eic: 10YNO-1--------2
+  name: Oslo / East Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+- code: NO2
+  eic: 10YNO-2--------T
+  name: Kristiansand / South Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+- code: NO3
+  eic: 10YNO-3--------J
+  name: Trondheim / Central Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+- code: NO4
+  eic: 10YNO-4--------9
+  name: Tromsoe / North Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+- code: NO5
+  eic: 10Y1001A1001A48H
+  name: Bergen / West Norway
+  country: 'NO'
+  timezone: Europe/Oslo

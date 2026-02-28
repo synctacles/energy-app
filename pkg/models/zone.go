@@ -10,19 +10,12 @@ type ZoneInfo struct {
 }
 
 // CountryConfig defines the full configuration for a country.
+// Tax data comes from the Worker (not embedded) — see TaxProfileCache.
 type CountryConfig struct {
-	Country    string           `yaml:"country" json:"country"`
-	Name       string           `yaml:"name" json:"name"`
-	Currency   string           `yaml:"currency" json:"currency"`
-	Zones      []ZoneInfo       `yaml:"zones" json:"zones"`
-	TaxProfile TaxProfile       `yaml:"tax_profile" json:"tax_profile"`
-	Sources    []SourcePriority `yaml:"sources" json:"sources"`
-}
-
-// SourcePriority maps a price source to its priority for this country.
-type SourcePriority struct {
-	Name     string `yaml:"name" json:"name"`
-	Priority int    `yaml:"priority" json:"priority"`
+	Country  string     `yaml:"country" json:"country"`
+	Name     string     `yaml:"name" json:"name"`
+	Currency string     `yaml:"currency" json:"currency"`
+	Zones    []ZoneInfo `yaml:"zones" json:"zones"`
 }
 
 // ZoneRegistry provides lookup for bidding zones.

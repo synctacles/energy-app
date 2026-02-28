@@ -2,18 +2,8 @@ country: CH
 name: Switzerland
 currency: CHF
 zones:
-  - code: "CH"
-    eic: "10YCH-SWISSGRIDZ"
-    name: "Switzerland"
-    country: "CH"
-    timezone: "Europe/Zurich"
-tax_profile:
-  vat_rate: 0.081
-  coefficient: 1.0
-  energy_tax:
-    - from: "2024-01-01"
-      rate: 0.02300  # Netzzuschlag (KEV) 2.3 Rp/kWh (excl. MwSt)
-  surcharges: 0.00460  # Winterreserve 0.41 Rp + SDL 0.05 Rp = 0.46 Rp/kWh
-sources:
-  - name: energycharts
-    priority: 1
+- code: CH
+  eic: 10YCH-SWISSGRIDZ
+  name: Switzerland
+  country: CH
+  timezone: Europe/Zurich
