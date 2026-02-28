@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,10 +19,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/synctacles/energy-app/internal/config"
-	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
+	"github.com/synctacles/energy-app/pkg/models"
 	"github.com/synctacles/energy-app/internal/state"
 )
 
@@ -40,7 +41,8 @@ type Server struct {
 	version             string
 	detectedPowerSensor string
 	addonSlug           string
-	planRegistry        *plan.Registry
+	zoneRegistry        *models.ZoneRegistry
+	taxCache            *engine.TaxProfileCache
 }
 
 // Deps holds dependencies for the web server.
@@ -54,7 +56,8 @@ type Deps struct {
 	Version             string
 	DetectedPowerSensor string
 	AddonSlug           string
-	PlanRegistry        *plan.Registry
+	ZoneRegistry        *models.ZoneRegistry
+	TaxCache            *engine.TaxProfileCache
 }
 
 // NewServer creates a new energy addon web server.
@@ -69,7 +72,8 @@ func NewServer(deps Deps) *Server {
 		version:             deps.Version,
 		detectedPowerSensor: deps.DetectedPowerSensor,
 		addonSlug:           deps.AddonSlug,
-		planRegistry:        deps.PlanRegistry,
+		zoneRegistry:        deps.ZoneRegistry,
+		taxCache:            deps.TaxCache,
 	}
 
 	r := chi.NewRouter()
@@ -94,10 +98,13 @@ func NewServer(deps Deps) *Server {
 		// Dashboard (bundled response)
 		r.Get("/dashboard", s.handleDashboard)
 
-		// Config & Plans
+		// Config & Zones
 		r.Get("/config", s.handleConfig)
 		r.Post("/config", s.handleConfigSave)
-		r.Get("/plans", s.handlePlans)
+		r.Get("/zones", s.handleZones)
+		r.Get("/tax-breakdown", s.handleTaxBreakdown)
+		r.Post("/calibrate", s.handleCalibrate)
+		r.Get("/sensors/tariff", s.handleTariffSensors)
 
 		// Sources health
 		r.Get("/sources", s.handleSources)
@@ -305,7 +312,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
-		"plan":                    s.cfg.PlanID,
+		"pricing_mode":            s.cfg.PricingMode,
 		"zone":                    s.cfg.BiddingZone,
 		"currency":                s.cfg.Currency,
 		"go_threshold":            s.cfg.GoThreshold,
@@ -313,10 +320,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"best_window_hours":       s.cfg.BestWindowHours,
 		"has_power_sensor":        s.cfg.HasPowerSensor(),
 		"power_sensor":            s.cfg.PowerSensorEntity,
-		"enever_enabled":          s.cfg.EneverEnabled,
 		"enever_token":            s.cfg.EneverToken,
 		"enever_leverancier":      s.cfg.EneverLeverancier,
-		"coefficient":             s.cfg.Coefficient,
+		"supplier_markup":         s.cfg.SupplierMarkup,
+		"manual_vat_rate":         s.cfg.ManualVATRate,
+		"manual_energy_tax":       s.cfg.ManualEnergyTax,
+		"manual_surcharges":       s.cfg.ManualSurcharges,
+		"manual_network_tariff":   s.cfg.ManualNetworkTariff,
+		"p1_sensor_entity":        s.cfg.P1SensorEntity,
 		"debug_mode":              s.cfg.DebugMode,
 		"detected_power_sensor":   s.detectedPowerSensor,
 	}
@@ -343,54 +354,283 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Merge allowed fields
-	allowed := []string{"plan", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
-		"enever_enabled", "enever_token", "enever_leverancier",
-		"coefficient", "power_sensor", "debug_mode"}
+	allowed := []string{
+		"pricing_mode", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
+		"enever_token", "enever_leverancier", "supplier_markup",
+		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
+		"p1_sensor_entity", "power_sensor", "debug_mode",
+	}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
 			current[key] = val
 		}
 	}
 
-	// Derive zone + Enever settings from plan (so HA Supervisor has correct state on restart)
-	if planID, ok := incoming["plan"].(string); ok {
-		if p := s.planRegistry.Get(planID); p != nil {
-			current["zone"] = p.Zone
-			current["enever_enabled"] = p.HasEnever()
-			if p.HasEnever() {
-				current["enever_leverancier"] = p.EneverSupplier
-			}
-		}
+	// Derive enever_enabled from pricing_mode
+	if mode, ok := incoming["pricing_mode"].(string); ok {
+		current["enever_enabled"] = (mode == config.ModeEnever)
 	}
 
-	// Write back to Supervisor (single call with all fields + derived)
+	// Write back to Supervisor
 	if err := s.supervisor.SetAddonOptions(r.Context(), current); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save options")
 		return
 	}
 
 	// Update in-memory config for immediate effect
+	if v, ok := incoming["pricing_mode"].(string); ok {
+		s.cfg.PricingMode = v
+	}
+	if v, ok := incoming["zone"].(string); ok {
+		s.cfg.BiddingZone = v
+	}
 	if v, ok := incoming["best_window_hours"].(float64); ok {
 		s.cfg.BestWindowHours = int(v)
 	}
 	if v, ok := incoming["enever_token"].(string); ok {
 		s.cfg.EneverToken = v
 	}
-	if v, ok := incoming["plan"].(string); ok {
-		s.cfg.PlanID = v
-		if p := s.planRegistry.Get(v); p != nil {
-			s.cfg.ApplyPlan(p.Zone, p.EneverSupplier)
-		}
+	if v, ok := incoming["enever_leverancier"].(string); ok {
+		s.cfg.EneverLeverancier = v
+	}
+	if v, ok := incoming["supplier_markup"].(float64); ok {
+		s.cfg.SupplierMarkup = v
+	}
+	if v, ok := incoming["manual_vat_rate"].(float64); ok {
+		s.cfg.ManualVATRate = v
+	}
+	if v, ok := incoming["manual_energy_tax"].(float64); ok {
+		s.cfg.ManualEnergyTax = v
+	}
+	if v, ok := incoming["manual_surcharges"].(float64); ok {
+		s.cfg.ManualSurcharges = v
+	}
+	if v, ok := incoming["manual_network_tariff"].(float64); ok {
+		s.cfg.ManualNetworkTariff = v
+	}
+	if v, ok := incoming["p1_sensor_entity"].(string); ok {
+		s.cfg.P1SensorEntity = v
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
 }
 
-func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleZones(w http.ResponseWriter, r *http.Request) {
+	// Build zone list grouped by country from zone registry
+	type zoneEntry struct {
+		Code    string `json:"code"`
+		Name    string `json:"name"`
+		Country string `json:"country"`
+	}
+	type zoneGroup struct {
+		Name  string      `json:"name"`
+		Zones []zoneEntry `json:"zones"`
+	}
+
+	// Group zones by country
+	countryZones := make(map[string][]zoneEntry)
+	countryNames := make(map[string]string)
+	for _, code := range s.zoneRegistry.AllZones() {
+		z, ok := s.zoneRegistry.GetZone(code)
+		if !ok {
+			continue
+		}
+		cc, ok := s.zoneRegistry.GetCountry(z.Country)
+		if !ok {
+			continue
+		}
+		countryZones[z.Country] = append(countryZones[z.Country], zoneEntry{
+			Code:    z.Code,
+			Name:    z.Name,
+			Country: z.Country,
+		})
+		countryNames[z.Country] = cc.Name
+	}
+
+	// Sort country codes for deterministic output
+	var countryCodes []string
+	for cc := range countryZones {
+		countryCodes = append(countryCodes, cc)
+	}
+	sort.Strings(countryCodes)
+
+	var groups []zoneGroup
+	for _, cc := range countryCodes {
+		groups = append(groups, zoneGroup{
+			Name:  countryNames[cc],
+			Zones: countryZones[cc],
+		})
+	}
+
 	writeJSON(w, map[string]any{
-		"groups":  s.planRegistry.Grouped(),
-		"current": s.cfg.PlanID,
+		"groups":  groups,
+		"current": s.cfg.BiddingZone,
 	})
+}
+
+func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
+	zone := r.URL.Query().Get("zone")
+	if zone == "" {
+		zone = s.cfg.BiddingZone
+	}
+
+	if s.taxCache == nil {
+		writeError(w, http.StatusServiceUnavailable, "tax cache not available")
+		return
+	}
+	override := s.taxCache.Get(zone)
+	if override == nil {
+		writeError(w, http.StatusNotFound, "no tax profile for zone "+zone)
+		return
+	}
+
+	// Get current price for breakdown calculation
+	var wholesaleKWh float64
+	if data := s.sensorData.Get(); data != nil && data.CurrentPrice > 0 {
+		// Reverse: consumer / (1 + VAT) - taxes = wholesale
+		subtotal := data.CurrentPrice / (1 + override.VATRate)
+		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.NetworkTariffAvg - override.SupplierMarkup
+		if wholesaleKWh < 0 {
+			wholesaleKWh = 0
+		}
+	}
+
+	tp := models.TaxProfile{
+		VATRate:          override.VATRate,
+		SupplierMarkup:   override.SupplierMarkup,
+		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: override.EnergyTax}},
+		Surcharges:       override.Surcharges,
+		NetworkTariffAvg: override.NetworkTariffAvg,
+	}
+	breakdown := tp.CalculateBreakdown(wholesaleKWh, time.Now())
+
+	writeJSON(w, map[string]any{
+		"zone":      zone,
+		"breakdown": breakdown,
+		"version":   override.Version,
+	})
+}
+
+func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {
+	if s.supervisor == nil {
+		writeError(w, http.StatusServiceUnavailable, "not running inside HA app")
+		return
+	}
+
+	var req struct {
+		UserPrice float64 `json:"user_price"` // EUR/kWh incl VAT
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	// Validate input range
+	if req.UserPrice < 0.01 || req.UserPrice > 2.0 {
+		writeError(w, http.StatusBadRequest, "price must be between 0.01 and 2.00 EUR/kWh")
+		return
+	}
+
+	// Get current Synctacles-computed price
+	data := s.sensorData.Get()
+	if data == nil || data.CurrentPrice <= 0 {
+		writeError(w, http.StatusServiceUnavailable, "no current price available for calibration")
+		return
+	}
+
+	// Calculate margin
+	margin := req.UserPrice - data.CurrentPrice
+
+	// Warn if margin is outside normal range but allow it
+	warning := ""
+	if margin < -0.05 || margin > 0.10 {
+		warning = "Margin is outside the normal range (-0.05 to 0.10). Double-check your input."
+	}
+
+	// Save as supplier_markup via Supervisor options
+	current, err := s.supervisor.GetAddonOptions(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read current options")
+		return
+	}
+	current["supplier_markup"] = margin
+	if err := s.supervisor.SetAddonOptions(r.Context(), current); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save calibration")
+		return
+	}
+	s.cfg.SupplierMarkup = margin
+
+	writeJSON(w, map[string]any{
+		"status":           "calibrated",
+		"synctacles_price": data.CurrentPrice,
+		"user_price":       req.UserPrice,
+		"margin":           margin,
+		"warning":          warning,
+	})
+}
+
+func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
+	if s.supervisor == nil {
+		writeJSON(w, map[string]any{"sensors": []any{}})
+		return
+	}
+
+	states, err := s.supervisor.GetAllStates(r.Context())
+	if err != nil {
+		writeJSON(w, map[string]any{"sensors": []any{}})
+		return
+	}
+
+	type sensorEntry struct {
+		EntityID string `json:"entity_id"`
+		Name     string `json:"name"`
+		State    string `json:"state"`
+		Unit     string `json:"unit"`
+	}
+
+	var sensors []sensorEntry
+	for _, state := range states {
+		entityID, _ := state["entity_id"].(string)
+		if entityID == "" {
+			continue
+		}
+		// Look for tariff-like sensors
+		lower := strings.ToLower(entityID)
+		isTariff := strings.Contains(lower, "tariff") ||
+			strings.Contains(lower, "electricity_price") ||
+			strings.Contains(lower, "energy_price") ||
+			strings.Contains(lower, "tarief")
+		if !isTariff {
+			continue
+		}
+		// Must be a sensor (not binary_sensor, etc.)
+		if !strings.HasPrefix(entityID, "sensor.") {
+			continue
+		}
+
+		name := entityID
+		if attrs, ok := state["attributes"].(map[string]any); ok {
+			if fn, ok := attrs["friendly_name"].(string); ok {
+				name = fn
+			}
+		}
+		stateVal, _ := state["state"].(string)
+		unit := ""
+		if attrs, ok := state["attributes"].(map[string]any); ok {
+			if u, ok := attrs["unit_of_measurement"].(string); ok {
+				unit = u
+			}
+		}
+
+		sensors = append(sensors, sensorEntry{
+			EntityID: entityID,
+			Name:     name,
+			State:    stateVal,
+			Unit:     unit,
+		})
+	}
+
+	writeJSON(w, map[string]any{"sensors": sensors})
 }
 
 func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {

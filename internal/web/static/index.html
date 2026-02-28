@@ -272,6 +272,14 @@
             cursor: pointer; transition: background 0.2s;
         }
         .privacy-settings-btn:hover { background: var(--input-bg); }
+
+        /* Pricing mode radio cards */
+        label[for^="mode-"]:has(input:checked) {
+            border-color: var(--accent); background: rgba(26,115,232,0.06);
+        }
+        .dark label[for^="mode-"]:has(input:checked) {
+            background: rgba(74,158,255,0.08);
+        }
     </style>
 </head>
 <body>
@@ -557,81 +565,72 @@
     var lastPrices = null, lastAvg = 0;
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
 
-    // Tax profiles per zone (subset - expand as needed)
-    var taxProfiles = {
-        'NL': { energy_tax: 0.09161, vat: 0.21, surcharges: 0, name: 'Netherlands' },
-        'DE-LU': { energy_tax: 0.02050, vat: 0.19, surcharges: 0.02946, name: 'Germany' },
-        'IE': { energy_tax: 0.071, vat: 0.135, surcharges: 0, name: 'Ireland' },
-        'EE': { energy_tax: 0.00307, vat: 0.22, surcharges: 0, name: 'Estonia' },
-        'BE': { energy_tax: 0.02360, vat: 0.06, surcharges: 0, name: 'Belgium' },
-        'FR': { energy_tax: 0.03085, vat: 0.20, surcharges: 0, name: 'France' },
-        'BG': { energy_tax: 0, vat: 0.20, surcharges: 0, name: 'Bulgaria' }, // Zero for households!
-        'CY': { energy_tax: 0.001, vat: 0.09, surcharges: 0.005, name: 'Cyprus' },
-        'GR': { energy_tax: 0.001, vat: 0.13, surcharges: 0, name: 'Greece' },
-    };
+    // Tax breakdown — loaded from API, cached per zone
+    var _taxBreakdownCache = {};
 
-    function buildTaxBreakdownCard(consumerPriceEUR, zone) {
-        var profile = taxProfiles[zone];
-        if (!profile) {
-            // No tax profile - skip breakdown card
-            return '';
-        }
+    async function loadTaxBreakdown(zone) {
+        if (_taxBreakdownCache[zone]) return _taxBreakdownCache[zone];
+        try {
+            var resp = await fetch('api/tax-breakdown?zone=' + encodeURIComponent(zone));
+            if (!resp.ok) return null;
+            var data = await resp.json();
+            _taxBreakdownCache[zone] = data.breakdown;
+            return data.breakdown;
+        } catch (e) { return null; }
+    }
 
-        // Reverse-calculate wholesale from consumer price
-        // consumer = (wholesale * 1.0 + energy_tax + surcharges) * (1 + VAT)
-        // wholesale = (consumer / (1 + VAT)) - energy_tax - surcharges
-        var subtotal = consumerPriceEUR / (1 + profile.vat);
-        var wholesale = subtotal - profile.energy_tax - profile.surcharges;
-        var vatAmount = consumerPriceEUR - subtotal;
-
-        // Format in cents for display
-        var wCent = formatPrice(wholesale);
-        var eCent = formatPrice(profile.energy_tax);
-        var sCent = formatPrice(profile.surcharges);
-        var subCent = formatPrice(subtotal);
-        var vCent = formatPrice(vatAmount);
-        var totCent = formatPrice(consumerPriceEUR);
+    function buildTaxBreakdownCard(bd) {
+        if (!bd) return '';
+        var ct = t('dashboard.ct_kwh', 'ct/kWh');
 
         var html = '<div class="card" style="grid-column: 1 / -1;">' +
-            '<div class="card-label">' + t('tax.title', 'Tax Breakdown') + ' (' + profile.name + ')' +
+            '<div class="card-label">' + t('tax.title', 'Price Breakdown') +
                 '<span style="font-weight:normal;color:var(--text-faint);margin-left:8px">' + t('tax.how_calculated', 'How your price is calculated') + '</span>' +
             '</div>' +
             '<div style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:0.85em;">';
 
         // Wholesale
         html += '<div style="color:var(--text-muted)">' + t('tax.wholesale_price', 'Wholesale price') + '</div>' +
-                '<div style="text-align:right;font-weight:600">' + wCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
+                '<div style="text-align:right;font-weight:600">' + formatPrice(bd.wholesale) + ' ' + ct + '</div>';
+
+        // Supplier markup
+        if (bd.supplier_markup > 0.0001) {
+            html += '<div style="color:var(--text-muted)">' + t('tax.supplier_markup', 'Supplier markup') + '</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.supplier_markup) + ' ' + ct + '</div>';
+        }
 
         // Energy tax
-        if (profile.energy_tax > 0) {
+        if (bd.energy_tax > 0.0001) {
             html += '<div style="color:var(--text-muted)">' + t('tax.energy_tax', 'Energy tax (excl. VAT)') + '</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + eCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
+                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.energy_tax) + ' ' + ct + '</div>';
         } else {
             html += '<div style="color:#0d9488">' + t('tax.energy_tax_free', 'Energy tax (FREE for households!)') + '</div>' +
-                    '<div style="text-align:right;font-weight:600;color:#0d9488">€0.00</div>';
+                    '<div style="text-align:right;font-weight:600;color:#0d9488">0.0 ' + ct + '</div>';
         }
 
         // Surcharges
-        if (profile.surcharges > 0) {
+        if (bd.surcharges > 0.0001) {
             html += '<div style="color:var(--text-muted)">' + t('tax.surcharges', 'Surcharges (levies)') + '</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + sCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
+                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.surcharges) + ' ' + ct + '</div>';
         }
 
-        // Subtotal line
+        // Network tariff
+        if (bd.network_tariff > 0.0001) {
+            html += '<div style="color:var(--text-muted)">' + t('tax.network_tariff', 'Network tariff (avg)') + '</div>' +
+                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.network_tariff) + ' ' + ct + '</div>';
+        }
+
+        // Subtotal
         html += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-weight:500">' + t('tax.subtotal', 'Subtotal (before VAT)') + '</div>' +
-                '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + subCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
+                '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + formatPrice(bd.subtotal) + ' ' + ct + '</div>';
 
         // VAT
-        html += '<div style="color:var(--text-muted)">' + tReplace('tax.vat', {pct: (profile.vat * 100).toFixed(0)}, 'VAT (' + (profile.vat * 100).toFixed(0) + '%)') + '</div>' +
-                '<div style="text-align:right;font-weight:600">+ ' + vCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
+        html += '<div style="color:var(--text-muted)">' + tReplace('tax.vat', {pct: (bd.vat_rate * 100).toFixed(0)}, 'VAT (' + (bd.vat_rate * 100).toFixed(0) + '%)') + '</div>' +
+                '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.vat_amount) + ' ' + ct + '</div>';
 
-        // Total line (commodity only - excludes network and supplier costs)
-        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.commodity_price', 'Energy commodity price') + '</div>' +
-                '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + totCent + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>';
-
-        // Disclaimer about excluded costs
-        html += '<div style="grid-column:1 / -1;margin-top:12px;padding:8px;background:rgba(251,191,36,0.1);border-left:3px solid #f59e0b;border-radius:4px;font-size:0.75em;color:var(--text-muted)">' +
-                t('tax.note', 'Your actual electricity bill includes additional fixed costs not shown here: network delivery (~5-10 ct/kWh) and supplier margin (~1-2 ct/kWh). This breakdown shows only the hour-variable energy commodity price.') + '</div>';
+        // Consumer total
+        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.consumer_price', 'Consumer price') + '</div>' +
+                '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + formatPrice(bd.consumer_total) + ' ' + ct + '</div>';
 
         html += '</div></div>';
         return html;
@@ -690,7 +689,7 @@
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
                     '</div>' +
-                    buildTaxBreakdownCard(price, d.zone) +
+                    '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
                         '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
@@ -729,6 +728,12 @@
                 lastAvg = (d.stats && d.stats.average) || 0;
                 drawChart(lastPrices, lastAvg);
             }
+
+            // Load tax breakdown from API (async, fills slot when ready)
+            loadTaxBreakdown(d.zone).then(function(bd) {
+                var slot = document.getElementById('taxBreakdownSlot');
+                if (slot && bd) slot.innerHTML = buildTaxBreakdownCard(bd);
+            });
 
             setTimeout(loadDashboard, 60000);
         } catch (err) {
@@ -833,12 +838,19 @@
     // --- Settings ---
     var settingsLoaded = false;
     var currentConfig = {};
+    var zoneData = null;
+    var tariffSensors = null;
 
     async function loadSettings() {
         try {
-            await loadPlans();
-            var resp = await fetch('api/config');
-            currentConfig = await resp.json();
+            var results = await Promise.all([
+                fetch('api/config').then(function(r) { return r.json(); }),
+                fetch('api/zones').then(function(r) { return r.json(); }),
+                fetch('api/sensors/tariff').then(function(r) { return r.json(); }).catch(function() { return {sensors:[]}; })
+            ]);
+            currentConfig = results[0];
+            zoneData = results[1];
+            tariffSensors = results[2].sensors || [];
             settingsLoaded = true;
             renderSettings();
         } catch (err) {
@@ -847,67 +859,49 @@
         }
     }
 
-    var planData = null;
-
-    async function loadPlans() {
-        try {
-            var resp = await fetch('api/plans');
-            planData = await resp.json();
-        } catch (e) { console.warn('plan data load failed:', e.message); planData = null; }
-    }
-
-    function renderPlanOptions(currentPlan, hasEneverToken) {
-        if (!planData || !planData.groups) return '<option value="">' + t('common.loading', 'Loading...') + '</option>';
+    function renderZoneOptions(currentZone) {
+        if (!zoneData || !zoneData.groups) return '<option value="">' + t('common.loading', 'Loading...') + '</option>';
         var html = '';
-        planData.groups.forEach(function(group) {
-            var plans = group.plans.filter(function(p) {
-                // Hide Enever plans when no token is configured
-                if (!hasEneverToken && p.enever_supplier) return false;
-                return true;
-            });
-            if (plans.length === 0) return;
+        zoneData.groups.forEach(function(group) {
             html += '<optgroup label="' + esc(group.name) + '">';
-            plans.forEach(function(p) {
-                var label = p.name;
-                if (p.enever_supplier) label += ' (via Enever)';
-                html += '<option value="' + esc(p.id) + '"' + (p.id === currentPlan ? ' selected' : '') + '>' + esc(label) + '</option>';
+            group.zones.forEach(function(z) {
+                html += '<option value="' + esc(z.code) + '"' + (z.code === currentZone ? ' selected' : '') + '>' + esc(z.code + ' — ' + z.name) + '</option>';
             });
             html += '</optgroup>';
         });
         return html;
     }
 
-    function selectedPlanIsNL() {
-        var sel = document.getElementById('cfg-plan');
-        if (!sel) return false;
-        return sel.value.indexOf('nl') === 0;
+    function selectedZoneIsNL() {
+        var sel = document.getElementById('cfg-zone');
+        return sel && sel.value === 'NL';
     }
 
-    function selectedPlanIsCustom() {
-        var sel = document.getElementById('cfg-plan');
-        return sel && sel.value === 'custom';
-    }
-
-    function getEneverTokenValue() {
-        var el = document.getElementById('cfg-enever-token');
-        return el ? el.value.trim() : '';
-    }
-
-    function refreshPlanDropdown() {
-        var sel = document.getElementById('cfg-plan');
-        if (!sel) return;
-        var currentVal = sel.value;
-        var hasToken = getEneverTokenValue().length > 0;
-        sel.innerHTML = renderPlanOptions(currentVal, hasToken);
-        // If current selection was filtered out, fall back to nl-default
-        if (sel.value !== currentVal && currentVal.indexOf('nl-enever-') === 0) {
-            sel.value = 'nl-default';
+    function updateModeVisibility() {
+        var mode = document.querySelector('input[name="pricing-mode"]:checked');
+        if (!mode) return;
+        var m = mode.value;
+        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-p1-section', 'mode-enever-section'];
+        sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        var target = document.getElementById('mode-' + m + '-section');
+        if (target) target.style.display = '';
+        // Enever radio: only enabled when zone=NL
+        var eneverRadio = document.getElementById('mode-enever');
+        var eneverLabel = document.querySelector('label[for="mode-enever"]');
+        if (eneverRadio) {
+            var isNL = selectedZoneIsNL();
+            eneverRadio.disabled = !isNL;
+            if (eneverLabel) eneverLabel.style.opacity = isNL ? '1' : '0.4';
+            if (!isNL && eneverRadio.checked) {
+                document.getElementById('mode-auto').checked = true;
+                updateModeVisibility();
+            }
         }
     }
 
     function renderSettings() {
         var c = currentConfig;
-        var isNLPlan = (c.plan || '').indexOf('nl') === 0 || (c.zone || '') === 'NL';
+        var mode = c.pricing_mode || 'auto';
 
         var powerPlaceholder = c.detected_power_sensor
             ? tReplace('settings.power_sensor_auto', {sensor: esc(c.detected_power_sensor)}, 'Auto: ' + esc(c.detected_power_sensor))
@@ -916,47 +910,136 @@
             ? tReplace('settings.power_sensor_auto_hint', {sensor: esc(c.detected_power_sensor)}, 'Auto-detected: ' + esc(c.detected_power_sensor) + ' (leave empty to keep)')
             : t('settings.power_sensor_hint', 'HA entity for live cost (auto-detected if empty)');
 
+        // P1 sensor options
+        var p1Options = '<option value="">' + t('settings.p1_no_sensors', 'No tariff sensors detected.') + '</option>';
+        if (tariffSensors && tariffSensors.length > 0) {
+            p1Options = '<option value="">— ' + t('settings.p1_sensor', 'Tariff Sensor') + ' —</option>';
+            tariffSensors.forEach(function(s) {
+                p1Options += '<option value="' + esc(s.entity_id) + '"' +
+                    (s.entity_id === c.p1_sensor_entity ? ' selected' : '') + '>' +
+                    esc(s.name) + ' (' + esc(s.state) + ' ' + esc(s.unit || '') + ')</option>';
+            });
+        }
+
         document.getElementById('settingsContent').innerHTML =
+            // Zone selector
             '<div class="settings-section">' +
-                '<h3>' + t('settings.plan', 'Plan') + '</h3>' +
+                '<h3>' + t('settings.zone', 'Zone') + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">' + t('settings.energy_plan', 'Energy Plan') + '</label>' +
-                    '<select class="form-select" id="cfg-plan">' +
-                        renderPlanOptions(c.plan || '', !!(c.enever_token)) +
+                    '<label class="form-label">' + t('settings.zone', 'Zone') + '</label>' +
+                    '<select class="form-select" id="cfg-zone">' +
+                        renderZoneOptions(c.zone || 'NL') +
                     '</select>' +
-                    '<div class="form-hint">' + t('settings.energy_plan_hint', 'Select your country and energy plan.') + '</div>' +
-                '</div>' +
-                '<div id="enever-fields" style="' + (isNLPlan ? '' : 'display:none') + '">' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.enever_token', 'Enever API Token (Nederland)') + '</label>' +
-                        '<input class="form-input" id="cfg-enever-token" type="text" placeholder="" value="' + esc(c.enever_token || '') + '">' +
-                        '<div class="form-hint">' + (c.enever_token ?
-                            t('settings.enever_token_active', 'Token active — select your supplier above.') :
-                            t('settings.enever_token_hint', 'Enter an Enever API key to unlock 24 supplier-specific price plans. Free key via enever.nl (max 250 calls/month, app uses ~3/day).') +
-                            ' <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a>') +
-                        '</div>' +
-                    '</div>' +
+                    '<div class="form-hint">' + t('settings.zone_hint', 'Select your bidding zone.') + '</div>' +
                 '</div>' +
             '</div>' +
 
-            '<div id="custom-fields" style="' + (c.plan === 'custom' ? '' : 'display:none') + '">' +
+            // Pricing mode radio
+            '<div class="settings-section">' +
+                '<h3>' + t('settings.pricing_mode', 'Pricing Mode') + '</h3>' +
+                '<div class="form-hint" style="margin-bottom:12px">' + t('settings.pricing_mode_hint', 'How your consumer price is determined.') + '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:8px">' +
+                    renderModeRadio('auto', t('settings.mode_auto', 'Synctacles Auto'), t('settings.mode_auto_hint'), mode) +
+                    renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
+                    renderModeRadio('p1_meter', t('settings.mode_p1', 'Smart Meter (P1)'), t('settings.mode_p1_hint'), mode) +
+                    renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) +
+                '</div>' +
+            '</div>' +
+
+            // Auto mode section — calibration
+            '<div id="mode-auto-section" style="' + (mode === 'auto' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
-                    '<h3>' + t('settings.custom_config', 'Custom Configuration') + '</h3>' +
+                    '<h3>' + t('settings.calibration', 'Calibration') + '</h3>' +
+                    '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_hint', 'Optional: fine-tune the calculated price to match your supplier.') + '</div>' +
                     '<div class="form-row">' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.bidding_zone', 'Bidding Zone') + '</label>' +
-                            '<input class="form-input" id="cfg-zone" type="text" value="' + esc(c.zone || 'NL') + '">' +
-                            '<div class="form-hint">' + t('settings.bidding_zone_hint', 'e.g. NL, DE-LU, BE, FR, NO1, SE3, DK1, FI, ES, PT, AT') + '</div>' +
+                            '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
+                            '<input class="form-input" id="cfg-cal-price" type="number" step="0.001" min="0.01" max="2.00" placeholder="0.350">' +
+                            '<div class="form-hint">' + t('settings.calibration_input_hint', 'Check your supplier app for the current price.') + '</div>' +
+                        '</div>' +
+                        '<div class="form-group" style="display:flex;align-items:flex-end">' +
+                            '<button class="btn-save" id="btnCalibrate" style="white-space:nowrap">' + t('settings.calibrate_btn', 'Calibrate') + '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div id="calibrateResult" style="font-size:0.82em;margin-top:8px;min-height:1.2em"></div>' +
+                    '<div class="form-hint" style="margin-top:8px;font-style:italic">' + t('settings.calibration_note', 'Re-calibrate when you switch suppliers.') + '</div>' +
+                    (c.supplier_markup ? '<div class="form-hint" style="margin-top:4px">' + t('settings.supplier_markup', 'Supplier Markup') + ': ' + (c.supplier_markup * 100).toFixed(2) + ' ct/kWh</div>' : '') +
+                '</div>' +
+            '</div>' +
+
+            // Manual mode section
+            '<div id="mode-manual-section" style="' + (mode === 'manual' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>' + t('settings.mode_manual', 'Manual') + '</h3>' +
+                    '<div class="form-row">' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">' + t('settings.manual_vat_rate', 'VAT Rate') + '</label>' +
+                            '<input class="form-input" id="cfg-manual-vat" type="number" step="0.01" value="' + (c.manual_vat_rate || 0) + '">' +
+                            '<div class="form-hint">' + t('settings.manual_vat_rate_hint', 'e.g. 0.21 for 21%') + '</div>' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.coefficient', 'Coefficient') + '</label>' +
-                            '<input class="form-input" id="cfg-coeff" type="number" step="0.01" value="' + (c.coefficient || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.coefficient_hint', '0 = country default. e.g. 1.05 = 5% markup') + '</div>' +
+                            '<label class="form-label">' + t('settings.manual_energy_tax', 'Energy Tax (EUR/kWh)') + '</label>' +
+                            '<input class="form-input" id="cfg-manual-etax" type="number" step="0.00001" value="' + (c.manual_energy_tax || 0) + '">' +
+                            '<div class="form-hint">' + t('settings.manual_energy_tax_hint', 'Excise tax on energy consumption') + '</div>' +
                         '</div>' +
+                    '</div>' +
+                    '<div class="form-row">' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">' + t('settings.manual_surcharges', 'Surcharges (EUR/kWh)') + '</label>' +
+                            '<input class="form-input" id="cfg-manual-surcharges" type="number" step="0.00001" value="' + (c.manual_surcharges || 0) + '">' +
+                            '<div class="form-hint">' + t('settings.manual_surcharges_hint', 'Additional levies on energy') + '</div>' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">' + t('settings.manual_network_tariff', 'Network Tariff (EUR/kWh)') + '</label>' +
+                            '<input class="form-input" id="cfg-manual-network" type="number" step="0.00001" value="' + (c.manual_network_tariff || 0) + '">' +
+                            '<div class="form-hint">' + t('settings.manual_network_tariff_hint', 'Average network transport cost') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.supplier_markup', 'Supplier Markup (EUR/kWh)') + '</label>' +
+                        '<input class="form-input" id="cfg-manual-markup" type="number" step="0.001" value="' + (c.supplier_markup || 0) + '">' +
+                        '<div class="form-hint">' + t('settings.supplier_markup_hint', 'Fixed markup added by your supplier (0 = none)') + '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
+            // P1 mode section
+            '<div id="mode-p1_meter-section" style="' + (mode === 'p1_meter' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>' + t('settings.mode_p1', 'Smart Meter (P1)') + '</h3>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
+                        '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
+                        '<div class="form-hint">' + t('settings.p1_sensor_hint', 'Select the HA sensor that provides your current electricity tariff.') + '</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.p1_manual_input', 'Or enter entity ID manually:') + '</label>' +
+                        '<input class="form-input" id="cfg-p1-manual" type="text" placeholder="sensor.your_tariff" value="' + esc(c.p1_sensor_entity || '') + '">' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            // Enever mode section
+            '<div id="mode-enever-section" style="' + (mode === 'enever' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>' + t('settings.mode_enever', 'Enever') + '</h3>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.enever_token', 'Enever API Token') + '</label>' +
+                        '<input class="form-input" id="cfg-enever-token" type="text" value="' + esc(c.enever_token || '') + '">' +
+                        '<div class="form-hint">' + t('settings.enever_token_hint', 'Free API key from enever.nl.') +
+                            ' <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a></div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.enever_leverancier', 'Supplier') + '</label>' +
+                        '<select class="form-select" id="cfg-enever-lev">' +
+                            renderEneverSupplierOptions(c.enever_leverancier || 'frank') +
+                        '</select>' +
+                        '<div class="form-hint">' + t('settings.enever_leverancier_hint', 'Select your energy supplier.') + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            // Thresholds
             '<div class="settings-section">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
@@ -978,6 +1061,7 @@
                 '</div>' +
             '</div>' +
 
+            // Advanced
             '<div class="settings-section">' +
                 '<h3>' + t('settings.advanced', 'Advanced') + '</h3>' +
                 '<div class="form-group">' +
@@ -1004,23 +1088,98 @@
             '</div>';
 
         // Bind events
-        document.getElementById('cfg-plan').onchange = function() {
-            var eneverSection = document.getElementById('enever-fields');
-            var customSection = document.getElementById('custom-fields');
-            eneverSection.style.display = selectedPlanIsNL() ? '' : 'none';
-            customSection.style.display = selectedPlanIsCustom() ? '' : 'none';
-        };
-        var eneverTokenEl = document.getElementById('cfg-enever-token');
-        if (eneverTokenEl) {
-            eneverTokenEl.oninput = function() {
-                refreshPlanDropdown();
-            };
-        }
-        document.getElementById('cfg-debug-toggle').onclick = function() {
-            this.classList.toggle('on');
-        };
+        var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
+        modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
+        document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); };
+        document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
         document.getElementById('btnSave').onclick = saveSettings;
         document.getElementById('btnPrivacy').onclick = showPrivacyModal;
+
+        // Calibrate button
+        var calBtn = document.getElementById('btnCalibrate');
+        if (calBtn) calBtn.onclick = doCalibrate;
+
+        // P1 sensor dropdown → fill manual input
+        var p1Select = document.getElementById('cfg-p1-sensor');
+        if (p1Select) {
+            p1Select.onchange = function() {
+                if (p1Select.value) document.getElementById('cfg-p1-manual').value = p1Select.value;
+            };
+        }
+
+        // Initial Enever visibility
+        updateModeVisibility();
+    }
+
+    function renderModeRadio(value, label, hint, current) {
+        var checked = value === current ? ' checked' : '';
+        return '<label for="mode-' + value + '" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg)">' +
+            '<input type="radio" name="pricing-mode" id="mode-' + value + '" value="' + value + '"' + checked + ' style="margin-top:3px">' +
+            '<div><div style="font-weight:500;font-size:0.85em">' + label + '</div>' +
+            '<div style="font-size:0.72em;color:var(--text-faint)">' + hint + '</div></div>' +
+        '</label>';
+    }
+
+    function renderEneverSupplierOptions(current) {
+        var suppliers = [
+            ['anwb','ANWB'],['budget','Budget'],['coolblue','Coolblue'],['easyenergy','EasyEnergy'],
+            ['energiedirect','Energie Direct'],['energievanons','Energie van Ons'],['energiek','Energiek'],
+            ['energyzero','EnergyZero'],['essent','Essent'],['frank','Frank'],['groenestroom','Groene Stroom'],
+            ['hegg','Hegg'],['innova','Innova'],['mijndomein','Mijn Domein'],['nextenergy','NextEnergy'],
+            ['pureenergie','Pure Energie'],['quatt','Quatt'],['samsam','SamSam'],['tibber','Tibber'],
+            ['vandebron','Vandebron'],['vattenfall','Vattenfall'],['vrijopnaam','Vrij op naam'],
+            ['wout','Wout'],['zonneplan','Zonneplan']
+        ];
+        var html = '';
+        suppliers.forEach(function(s) {
+            html += '<option value="' + s[0] + '"' + (s[0] === current ? ' selected' : '') + '>' + s[1] + '</option>';
+        });
+        return html;
+    }
+
+    async function doCalibrate() {
+        var btn = document.getElementById('btnCalibrate');
+        var result = document.getElementById('calibrateResult');
+        var priceInput = document.getElementById('cfg-cal-price');
+        var userPrice = parseFloat(priceInput.value);
+
+        if (!userPrice || userPrice < 0.01 || userPrice > 2.0) {
+            result.innerHTML = '<span style="color:#dc2626">Enter a price between 0.01 and 2.00 EUR/kWh</span>';
+            return;
+        }
+
+        btn.disabled = true;
+        result.textContent = t('settings.calibrating', 'Calibrating...');
+
+        try {
+            var resp = await fetch('api/calibrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_price: userPrice })
+            });
+            var data = await resp.json();
+            if (!resp.ok) {
+                result.innerHTML = '<span style="color:#dc2626">' + (data.error || t('settings.calibration_no_price')) + '</span>';
+                btn.disabled = false;
+                return;
+            }
+
+            var html = '<span style="color:#0d9488">' +
+                tReplace('settings.calibration_result', {
+                    synctacles: formatPrice(data.synctacles_price),
+                    user: formatPrice(data.user_price),
+                    margin: (data.margin >= 0 ? '+' : '') + formatPrice(data.margin)
+                }) + '</span><br>' +
+                '<span style="color:#0d9488;font-weight:500">' + t('settings.calibration_saved') + '</span>';
+            if (data.warning) {
+                html += '<br><span style="color:#d97706">' + t('settings.calibration_warning') + '</span>';
+            }
+            result.innerHTML = html;
+            currentConfig.supplier_markup = data.margin;
+        } catch (e) {
+            result.innerHTML = '<span style="color:#dc2626">' + t('settings.connection_error') + '</span>';
+        }
+        btn.disabled = false;
     }
 
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -1032,8 +1191,13 @@
         status.textContent = t('settings.saving', 'Saving...');
         status.style.color = 'var(--text-muted)';
 
+        var mode = 'auto';
+        var modeEl = document.querySelector('input[name="pricing-mode"]:checked');
+        if (modeEl) mode = modeEl.value;
+
         var payload = {
-            plan: document.getElementById('cfg-plan').value,
+            pricing_mode: mode,
+            zone: document.getElementById('cfg-zone').value,
             go_threshold: parseFloat(document.getElementById('cfg-go').value),
             avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
             best_window_hours: parseInt(document.getElementById('cfg-bw').value) || 3,
@@ -1041,16 +1205,21 @@
             debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
         };
 
-        // Always include Enever token for NL plans
-        var eneverTokenEl = document.getElementById('cfg-enever-token');
-        if (eneverTokenEl) {
-            payload.enever_token = eneverTokenEl.value.trim();
-        }
-
-        // Include custom fields if custom plan
-        if (payload.plan === 'custom') {
-            payload.zone = document.getElementById('cfg-zone').value;
-            payload.coefficient = parseFloat(document.getElementById('cfg-coeff').value) || 0;
+        // Mode-specific fields
+        if (mode === 'manual') {
+            payload.manual_vat_rate = parseFloat(document.getElementById('cfg-manual-vat').value) || 0;
+            payload.manual_energy_tax = parseFloat(document.getElementById('cfg-manual-etax').value) || 0;
+            payload.manual_surcharges = parseFloat(document.getElementById('cfg-manual-surcharges').value) || 0;
+            payload.manual_network_tariff = parseFloat(document.getElementById('cfg-manual-network').value) || 0;
+            payload.supplier_markup = parseFloat(document.getElementById('cfg-manual-markup').value) || 0;
+        } else if (mode === 'p1_meter') {
+            var p1Manual = document.getElementById('cfg-p1-manual');
+            payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
+        } else if (mode === 'enever') {
+            var tokenEl = document.getElementById('cfg-enever-token');
+            var levEl = document.getElementById('cfg-enever-lev');
+            payload.enever_token = tokenEl ? tokenEl.value.trim() : '';
+            payload.enever_leverancier = levEl ? levEl.value : 'frank';
         }
 
         try {
@@ -1061,11 +1230,11 @@
             });
             var result = await resp.json();
             if (resp.ok) {
-                status.textContent = t('settings.saved', 'Saved! Restart app for source changes to take effect.');
+                status.textContent = t('settings.saved', 'Saved! Restart app for changes to take effect.');
                 status.style.color = '#0d9488';
                 currentConfig = Object.assign(currentConfig, payload);
             } else {
-                status.textContent = t('settings.save_error', 'Could not save settings. Please check your configuration and try again.');
+                status.textContent = t('settings.save_error', 'Could not save settings.');
                 status.style.color = '#dc2626';
             }
         } catch (err) {

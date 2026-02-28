@@ -16,7 +16,6 @@ import (
 
 	"github.com/synctacles/energy-app/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
-	"github.com/synctacles/energy-app/internal/plan"
 	"github.com/synctacles/energy-app/pkg/countries"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -88,20 +87,12 @@ func main() {
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
 
-	// Build plan registry and resolve active plan
-	planRegistry := plan.Build(registry)
-	if cfg.PlanID != "" {
-		if p := planRegistry.Get(cfg.PlanID); p != nil {
-			cfg.ApplyPlan(p.Zone, p.EneverSupplier)
-			slog.Info("plan applied", "plan", p.ID, "zone", p.Zone, "enever", p.HasEnever())
-		} else {
-			slog.Warn("unknown plan ID, using config defaults", "plan", cfg.PlanID)
-		}
-	} else {
-		// Resolve plan from legacy config fields for display purposes
-		cfg.PlanID = planRegistry.ResolveFromConfig(cfg.BiddingZone, cfg.EneverEnabled, cfg.EneverLeverancier)
-		slog.Info("plan resolved from config", "plan", cfg.PlanID)
+	// Derive Enever settings from pricing mode
+	if cfg.PricingMode == config.ModeEnever && cfg.EneverToken != "" && cfg.BiddingZone == "NL" {
+		cfg.EneverEnabled = true
 	}
+
+	slog.Info("pricing mode", "mode", cfg.PricingMode, "zone", cfg.BiddingZone)
 
 	// Initialize HA Supervisor client
 	var supervisor *ha.SupervisorClient
@@ -131,11 +122,26 @@ func main() {
 	slog.Info("install identity", "uuid", installUUID, "arch", osArch)
 
 	// Build price source chain for the configured zone
-	sources := buildSourceChain(cfg, registry)
+	synctaclesAPI := &collector.SynctaclesAPI{}
+	sources := buildSourceChain(cfg, synctaclesAPI)
 	slog.Info("source chain configured", "zone", cfg.BiddingZone, "sources", len(sources))
 
 	// Initialize engine components
-	normalizer := engine.NewNormalizer(registry, cfg.Coefficient)
+	taxCache := engine.NewTaxProfileCache(dataPath)
+	normalizer := engine.NewNormalizer(taxCache, cfg.SupplierMarkup)
+	normalizer.SetPricingMode(cfg.PricingMode)
+
+	// Manual mode: build tax profile from user-defined components
+	if cfg.PricingMode == config.ModeManual {
+		normalizer.SetManualTaxProfile(&models.TaxProfile{
+			VATRate:          cfg.ManualVATRate,
+			SupplierMarkup:   cfg.SupplierMarkup,
+			EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: cfg.ManualEnergyTax}},
+			Surcharges:       cfg.ManualSurcharges,
+			NetworkTariffAvg: cfg.ManualNetworkTariff,
+		})
+	}
+
 	actionEngine := engine.NewActionEngine(cfg.GoThreshold, cfg.AvoidThreshold)
 	fallbackMgr := engine.NewFallbackManager(sources, priceCache)
 
@@ -204,6 +210,15 @@ func main() {
 			cfg.BestWindowHours,
 		)
 
+		// P1 mode: override consumer price with HA sensor reading
+		if cfg.IsP1Mode() && supervisor != nil {
+			if p1Price, err := readP1Price(ctx, supervisor, cfg.P1SensorEntity); err == nil {
+				sensorSet.CurrentPrice = p1Price
+			} else {
+				slog.Warn("P1 sensor read failed, using calculated price", "entity", cfg.P1SensorEntity, "error", err)
+			}
+		}
+
 		// Update shared sensor data for web dashboard
 		sensorData.Update(sensorSet)
 
@@ -215,6 +230,19 @@ func main() {
 		// Read power sensor (if configured)
 		if powerTracker != nil {
 			powerTracker.ReadPower(ctx, sensorSet.CurrentPrice)
+		}
+
+		// Update Worker tax profile cache (for fallback normalization, keyed per zone)
+		if result.Source == "synctacles" {
+			if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
+				taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
+					VATRate:          tp.VATRate,
+					EnergyTax:        tp.EnergyTax,
+					Surcharges:       tp.Surcharges,
+					NetworkTariffAvg: tp.NetworkTariffAvg,
+					Version:          tp.Version,
+				})
+			}
 		}
 
 		// Update state store
@@ -319,6 +347,38 @@ func main() {
 	})
 	telemetrySender.RunBackground(ctx)
 
+	// Startup: fetch from Worker to warm tax profile cache.
+	// If this is a first boot (no cached tax data) and the Worker is unreachable,
+	// retry every 5 minutes — no degraded mode without tax data.
+	if !taxCache.HasData() {
+		slog.Info("first boot — fetching tax profile from Worker")
+		for {
+			prices, err := synctaclesAPI.FetchDayAhead(ctx, cfg.BiddingZone, time.Now().UTC())
+			if err == nil && len(prices) > 0 {
+				if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
+					taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
+						VATRate:          tp.VATRate,
+						EnergyTax:        tp.EnergyTax,
+						Surcharges:       tp.Surcharges,
+						NetworkTariffAvg: tp.NetworkTariffAvg,
+						Version:          tp.Version,
+					})
+					slog.Info("tax profile cached from Worker", "zone", cfg.BiddingZone, "version", tp.Version)
+				}
+				break
+			}
+			slog.Warn("Worker unreachable — retrying in 5 minutes", "error", err)
+			select {
+			case <-ctx.Done():
+				slog.Info("shutdown during startup retry")
+				return
+			case <-time.After(5 * time.Minute):
+			}
+		}
+	} else {
+		slog.Info("tax profile cache loaded from disk", "zone", cfg.BiddingZone)
+	}
+
 	// Start scheduler
 	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn)
 	go scheduler.Run(ctx)
@@ -339,7 +399,8 @@ func main() {
 		Version:             version,
 		DetectedPowerSensor: detectedPowerSensor,
 		AddonSlug:           addonSlug,
-		PlanRegistry:        planRegistry,
+		ZoneRegistry:        registry,
+		TaxCache:            taxCache,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
@@ -378,60 +439,49 @@ func main() {
 }
 
 // buildSourceChain creates the prioritized source list for a bidding zone.
-// The app is fully stand-alone — no Synctacles central server involved.
 //
-// Source priority:
+// Fallback chain (ADR_008):
 //
-//	1. Enever (NL only, when configured — provides exact consumer prices for user's contract)
-//	2. Country-specific sources (EasyEnergy, Frank Energie, etc.)
-//	3. Energy-Charts (always present as final fallback)
-func buildSourceChain(cfg *config.Config, registry *models.ZoneRegistry) []collector.PriceSource {
+//	Tier 0: Synctacles Worker (primary — wholesale + consumer prices for all zones)
+//	Tier 1: Enever (NL only, when configured — exact supplier prices)
+//	Tier 2: Energy-Charts (fallback if Worker offline)
+//	Tier 3: SQLite cache (offline safety net — handled by FallbackManager)
+func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI) []collector.PriceSource {
 	var chain []collector.PriceSource
 
-	// When user explicitly chose an Enever supplier, use it as primary source.
-	// Enever provides exact consumer prices for the user's contract.
+	// Tier 0: Synctacles Worker — always first
+	chain = append(chain, synctaclesAPI)
+	slog.Info("SynctaclesAPI enabled as primary source (Tier 0)")
+
+	// Tier 1: Enever (NL only, optional — exact supplier prices)
 	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
 		chain = append(chain, &collector.Enever{
 			Token:       cfg.EneverToken,
 			Leverancier: cfg.EneverLeverancier,
 		})
-		slog.Info("Enever enabled as primary source", "leverancier", cfg.EneverLeverancier)
+		slog.Info("Enever enabled as Tier 1 source", "leverancier", cfg.EneverLeverancier)
 	}
 
-	cc, ok := registry.GetCountryForZone(cfg.BiddingZone)
-	if !ok {
-		slog.Warn("no country config for zone, using Energy-Charts only", "zone", cfg.BiddingZone)
-		chain = append(chain, &collector.EnergyCharts{})
-		return chain
-	}
-
-	sourceMap := map[string]collector.PriceSource{
-		"easyenergy":        &collector.EasyEnergy{},
-		"frank":             &collector.FrankEnergie{},
-		"energycharts":      &collector.EnergyCharts{},
-		"energidataservice": &collector.EnergiDataService{},
-		"awattar":           &collector.AWATTar{},
-		"omie":              &collector.OMIE{},
-		"spothinta":         &collector.SpotHinta{},
-	}
-
-	for _, sp := range cc.Sources {
-		if src, ok := sourceMap[sp.Name]; ok {
-			chain = append(chain, src)
-		}
-	}
-
-	// Always add Energy-Charts as final direct fallback if not already in chain
-	hasEC := false
-	for _, src := range chain {
-		if src.Name() == "energycharts" {
-			hasEC = true
-			break
-		}
-	}
-	if !hasEC {
-		chain = append(chain, &collector.EnergyCharts{})
-	}
+	// Tier 2: Energy-Charts — always present as fallback
+	chain = append(chain, &collector.EnergyCharts{})
 
 	return chain
+}
+
+// readP1Price reads the current electricity tariff from an HA sensor entity.
+// Returns the price in EUR/kWh. The sensor state must be a numeric string.
+func readP1Price(ctx context.Context, sv *ha.SupervisorClient, entityID string) (float64, error) {
+	state, err := sv.GetState(ctx, entityID)
+	if err != nil {
+		return 0, fmt.Errorf("read P1 sensor: %w", err)
+	}
+	stateStr, ok := state["state"].(string)
+	if !ok {
+		return 0, fmt.Errorf("P1 sensor state is not a string")
+	}
+	price, err := strconv.ParseFloat(stateStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("P1 sensor value %q is not numeric: %w", stateStr, err)
+	}
+	return price, nil
 }

@@ -17,7 +17,7 @@ homeassistant_api: true
 hassio_api: true
 init: false
 options:
-  plan: "nl-default"
+  pricing_mode: "auto"
   zone: "NL"
   go_threshold: -15
   avoid_threshold: 20
@@ -25,20 +25,30 @@ options:
   enever_enabled: false
   enever_token: ""
   enever_leverancier: "frank"
-  coefficient: 0
+  supplier_markup: 0
+  manual_vat_rate: 0
+  manual_energy_tax: 0
+  manual_surcharges: 0
+  manual_network_tariff: 0
+  p1_sensor_entity: ""
   power_sensor: ""
   synctacles_url: ""
   debug_mode: false
 schema:
-  plan: "str?"
+  pricing_mode: "str?"
   zone: str
   go_threshold: float
   avoid_threshold: float
   best_window_hours: "int(1,8)"
-  coefficient: "float?"
+  supplier_markup: "float?"
   enever_enabled: bool
   enever_token: "str?"
   enever_leverancier: "str?"
+  manual_vat_rate: "float?"
+  manual_energy_tax: "float?"
+  manual_surcharges: "float?"
+  manual_network_tariff: "float?"
+  p1_sensor_entity: "str?"
   power_sensor: "str?"
   synctacles_url: "str?"
   debug_mode: bool

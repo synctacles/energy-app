@@ -13,8 +13,8 @@ type Config struct {
 	SupervisorToken string `env:"SUPERVISOR_TOKEN"`
 	IngressPort     int    `env:"INGRESS_PORT" envDefault:"8098"`
 
-	// Plan (takes precedence over zone/enever when set)
-	PlanID string `env:"ENERGY_PLAN"`
+	// Pricing mode: "auto", "manual", "p1_meter", "enever"
+	PricingMode string `env:"PRICING_MODE" envDefault:"auto"`
 
 	// Zone
 	BiddingZone string `env:"ENERGY_ZONE" envDefault:"NL"`
@@ -24,18 +24,27 @@ type Config struct {
 	GoThreshold    float64 `env:"ENERGY_GO_THRESHOLD" envDefault:"-15"`
 	AvoidThreshold float64 `env:"ENERGY_AVOID_THRESHOLD" envDefault:"20"`
 
-	// Optional: Enever BYO keys (NL only, consumer prices)
+	// Enever (pricing mode "enever", NL only)
 	EneverEnabled     bool   `env:"ENEVER_ENABLED" envDefault:"false"`
 	EneverToken       string `env:"ENEVER_TOKEN"`
 	EneverLeverancier string `env:"ENEVER_LEVERANCIER" envDefault:"frank"`
 
-	// Optional: price coefficient override (0 = use country default, e.g. 1.05 = 5% markup)
-	Coefficient float64 `env:"ENERGY_COEFFICIENT" envDefault:"0"`
+	// Supplier markup in EUR/kWh (used in auto + manual modes)
+	SupplierMarkup float64 `env:"ENERGY_SUPPLIER_MARKUP" envDefault:"0"`
+
+	// Manual mode: user-defined tax components
+	ManualVATRate       float64 `env:"MANUAL_VAT_RATE" envDefault:"0"`
+	ManualEnergyTax     float64 `env:"MANUAL_ENERGY_TAX" envDefault:"0"`
+	ManualSurcharges    float64 `env:"MANUAL_SURCHARGES" envDefault:"0"`
+	ManualNetworkTariff float64 `env:"MANUAL_NETWORK_TARIFF" envDefault:"0"`
+
+	// P1 mode: HA sensor entity for consumer tariff
+	P1SensorEntity string `env:"P1_SENSOR_ENTITY"`
 
 	// Best window duration in hours (1-8, default 3)
 	BestWindowHours int `env:"BEST_WINDOW_HOURS" envDefault:"3"`
 
-	// Optional: P1 power sensor for Live Cost calculation
+	// Power sensor for Live Cost calculation
 	PowerSensorEntity string `env:"POWER_SENSOR_ENTITY"`
 
 	// Price alerts — HA persistent notification when price drops below threshold
@@ -45,6 +54,14 @@ type Config struct {
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`
 }
+
+// Valid pricing modes.
+const (
+	ModeAuto    = "auto"
+	ModeManual  = "manual"
+	ModeP1Meter = "p1_meter"
+	ModeEnever  = "enever"
+)
 
 // Load loads configuration from environment variables.
 func Load() (*Config, error) {
@@ -57,6 +74,13 @@ func Load() (*Config, error) {
 		cfg.BestWindowHours = 1
 	} else if cfg.BestWindowHours > 8 {
 		cfg.BestWindowHours = 8
+	}
+	// Validate pricing mode
+	switch cfg.PricingMode {
+	case ModeAuto, ModeManual, ModeP1Meter, ModeEnever:
+		// OK
+	default:
+		cfg.PricingMode = ModeAuto
 	}
 	return cfg, nil
 }
@@ -81,16 +105,12 @@ func (c *Config) HasAlerts() bool {
 	return c.AlertEnabled && c.AlertThreshold > 0
 }
 
-// ApplyPlan applies plan settings to the config.
-// Plan fields override zone and Enever settings but preserve user-set thresholds.
-func (c *Config) ApplyPlan(zone string, eneverSupplier string) {
-	if zone != "" {
-		c.BiddingZone = zone
-	}
-	if eneverSupplier != "" {
-		c.EneverEnabled = true
-		c.EneverLeverancier = eneverSupplier
-	} else {
-		c.EneverEnabled = false
-	}
+// IsEneverMode returns true if pricing mode is Enever with valid credentials.
+func (c *Config) IsEneverMode() bool {
+	return c.PricingMode == ModeEnever && c.EneverToken != ""
+}
+
+// IsP1Mode returns true if pricing mode is P1 with a configured sensor.
+func (c *Config) IsP1Mode() bool {
+	return c.PricingMode == ModeP1Meter && c.P1SensorEntity != ""
 }
