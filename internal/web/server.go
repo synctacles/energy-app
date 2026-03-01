@@ -39,7 +39,8 @@ type Server struct {
 	fallback            *engine.FallbackManager
 	featureGate         *gate.Gate
 	version             string
-	detectedPowerSensor string
+	detectedPowerSensor  string
+	detectedTariffSensor string
 	addonSlug           string
 	zoneRegistry        *models.ZoneRegistry
 	taxCache            *engine.TaxProfileCache
@@ -54,7 +55,8 @@ type Deps struct {
 	Fallback            *engine.FallbackManager
 	Gate                *gate.Gate
 	Version             string
-	DetectedPowerSensor string
+	DetectedPowerSensor  string
+	DetectedTariffSensor string
 	AddonSlug           string
 	ZoneRegistry        *models.ZoneRegistry
 	TaxCache            *engine.TaxProfileCache
@@ -70,7 +72,8 @@ func NewServer(deps Deps) *Server {
 		fallback:            deps.Fallback,
 		featureGate:         deps.Gate,
 		version:             deps.Version,
-		detectedPowerSensor: deps.DetectedPowerSensor,
+		detectedPowerSensor:  deps.DetectedPowerSensor,
+		detectedTariffSensor: deps.DetectedTariffSensor,
 		addonSlug:           deps.AddonSlug,
 		zoneRegistry:        deps.ZoneRegistry,
 		taxCache:            deps.TaxCache,
@@ -330,6 +333,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"p1_sensor_entity":        s.cfg.P1SensorEntity,
 		"debug_mode":              s.cfg.DebugMode,
 		"detected_power_sensor":   s.detectedPowerSensor,
+		"detected_tariff_sensor":  s.detectedTariffSensor,
 	}
 	writeJSON(w, resp)
 }
@@ -594,13 +598,24 @@ func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
 		if entityID == "" {
 			continue
 		}
-		// Look for tariff-like sensors
+		// Look for tariff/price sensors from known integrations
 		lower := strings.ToLower(entityID)
 		isTariff := strings.Contains(lower, "tariff") ||
+			strings.Contains(lower, "tarief") ||
 			strings.Contains(lower, "electricity_price") ||
 			strings.Contains(lower, "energy_price") ||
-			strings.Contains(lower, "tarief")
+			strings.Contains(lower, "unit_rate") ||       // UK Glow CAD
+			strings.Contains(lower, "current_rate") ||    // UK Octopus
+			strings.Contains(lower, "current_price") ||   // Nord Pool
+			strings.Contains(lower, "net_price") ||       // EPEX Spot
+			strings.Contains(lower, "current_hour_price") || // easyEnergy
+			strings.Contains(lower, "consumption_price") || // P1 Monitor
+			strings.Contains(lower, "energidataservice")    // DK
 		if !isTariff {
+			continue
+		}
+		// Exclude non-electricity sensors
+		if strings.Contains(lower, "gas") || strings.Contains(lower, "standing") {
 			continue
 		}
 		// Must be a sensor (not binary_sensor, etc.)

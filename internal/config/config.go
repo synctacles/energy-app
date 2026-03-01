@@ -57,10 +57,11 @@ type Config struct {
 
 // Valid pricing modes.
 const (
-	ModeAuto    = "auto"
-	ModeManual  = "manual"
-	ModeP1Meter = "p1_meter"
-	ModeEnever  = "enever"
+	ModeAuto         = "auto"
+	ModeManual       = "manual"
+	ModeP1Meter      = "p1_meter"      // Legacy name, kept for backward compat
+	ModeMeterTariff  = "meter_tariff"   // New canonical name for smart meter mode
+	ModeEnever       = "enever"
 )
 
 // Load loads configuration from environment variables.
@@ -77,7 +78,7 @@ func Load() (*Config, error) {
 	}
 	// Validate pricing mode
 	switch cfg.PricingMode {
-	case ModeAuto, ModeManual, ModeP1Meter, ModeEnever:
+	case ModeAuto, ModeManual, ModeP1Meter, ModeMeterTariff, ModeEnever:
 		// OK
 	default:
 		cfg.PricingMode = ModeAuto
@@ -110,7 +111,8 @@ func (c *Config) IsEneverMode() bool {
 	return c.PricingMode == ModeEnever && c.EneverToken != ""
 }
 
-// IsP1Mode returns true if pricing mode is P1 with a configured sensor.
-func (c *Config) IsP1Mode() bool {
-	return c.PricingMode == ModeP1Meter && c.P1SensorEntity != ""
+// IsMeterTariffMode returns true if pricing mode is meter tariff (smart meter)
+// with a configured sensor. Accepts both legacy "p1_meter" and new "meter_tariff".
+func (c *Config) IsMeterTariffMode() bool {
+	return (c.PricingMode == ModeP1Meter || c.PricingMode == ModeMeterTariff) && c.P1SensorEntity != ""
 }

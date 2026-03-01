@@ -148,7 +148,6 @@ func main() {
 	// Initialize shared sensor data (for web dashboard)
 	sensorData := web.NewSensorData()
 
-	// Initialize power tracker (for Live Cost, Savings, Usage Score)
 	// Auto-detect power sensor if not explicitly configured
 	var detectedPowerSensor string
 	if !cfg.HasPowerSensor() && supervisor != nil {
@@ -156,6 +155,15 @@ func main() {
 			detectedPowerSensor = detected
 			cfg.PowerSensorEntity = detected
 			slog.Info("power sensor auto-detected", "entity", detected)
+		}
+	}
+
+	// Auto-detect tariff sensor (UK Glow, Octopus, Tibber, P1 Monitor, etc.)
+	var detectedTariffSensor string
+	if cfg.P1SensorEntity == "" && supervisor != nil {
+		if detected := hasensor.DetectTariffSensor(context.Background(), supervisor); detected != "" {
+			detectedTariffSensor = detected
+			slog.Info("tariff sensor auto-detected", "entity", detected)
 		}
 	}
 	var powerTracker *hasensor.PowerTracker
@@ -211,7 +219,7 @@ func main() {
 		)
 
 		// P1 mode: override consumer price with HA sensor reading
-		if cfg.IsP1Mode() && supervisor != nil {
+		if cfg.IsMeterTariffMode() && supervisor != nil {
 			if p1Price, err := readP1Price(ctx, supervisor, cfg.P1SensorEntity); err == nil {
 				sensorSet.CurrentPrice = p1Price
 			} else {
@@ -397,7 +405,8 @@ func main() {
 		Supervisor:          supervisor,
 		Fallback:            fallbackMgr,
 		Version:             version,
-		DetectedPowerSensor: detectedPowerSensor,
+		DetectedPowerSensor:  detectedPowerSensor,
+		DetectedTariffSensor: detectedTariffSensor,
 		AddonSlug:           addonSlug,
 		ZoneRegistry:        registry,
 		TaxCache:            taxCache,

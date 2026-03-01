@@ -58,8 +58,8 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 	switch n.pricingMode {
 	case "manual":
 		return n.normalizeManual(p)
-	case "p1_meter":
-		// P1 mode: consumer price comes from HA sensor, not normalizer.
+	case "p1_meter", "meter_tariff":
+		// Meter tariff mode: consumer price comes from HA sensor, not normalizer.
 		// Wholesale prices pass through for GO/WAIT/AVOID relative calculations.
 		return p
 	default:
