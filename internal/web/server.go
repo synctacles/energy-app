@@ -105,6 +105,7 @@ func NewServer(deps Deps) *Server {
 		r.Get("/config", s.handleConfig)
 		r.Post("/config", s.handleConfigSave)
 		r.Get("/zones", s.handleZones)
+		r.Get("/zone-detect", s.handleZoneDetect)
 		r.Get("/tax-breakdown", s.handleTaxBreakdown)
 		r.Post("/calibrate", s.handleCalibrate)
 		r.Get("/sensors/tariff", s.handleTariffSensors)
@@ -331,6 +332,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"manual_surcharges":       s.cfg.ManualSurcharges,
 		"manual_network_tariff":   s.cfg.ManualNetworkTariff,
 		"p1_sensor_entity":        s.cfg.P1SensorEntity,
+		"fixed_rate_price":        s.cfg.FixedRatePrice,
 		"debug_mode":              s.cfg.DebugMode,
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
@@ -362,7 +364,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		"pricing_mode", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
 		"enever_token", "enever_leverancier", "supplier_markup",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
-		"p1_sensor_entity", "power_sensor", "debug_mode",
+		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
 	}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -375,10 +377,27 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		current["enever_enabled"] = (mode == config.ModeEnever)
 	}
 
+	// Validate manual tax inputs (CC_INSTRUCTION §10 ranges)
+	vatRate, _ := toFloat64(current["manual_vat_rate"])
+	energyTax, _ := toFloat64(current["manual_energy_tax"])
+	surcharges, _ := toFloat64(current["manual_surcharges"])
+	networkTariff, _ := toFloat64(current["manual_network_tariff"])
+	if err := config.ValidateTaxInputs(vatRate, energyTax, surcharges, networkTariff); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// Write back to Supervisor
 	if err := s.supervisor.SetAddonOptions(r.Context(), current); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save options")
 		return
+	}
+
+	// Invalidate tax cache when zone changes (forces Worker re-fetch for new zone)
+	if v, ok := incoming["zone"].(string); ok && v != s.cfg.BiddingZone {
+		if s.taxCache != nil {
+			s.taxCache.Invalidate(s.cfg.BiddingZone)
+		}
 	}
 
 	// Update in-memory config for immediate effect
@@ -414,6 +433,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := incoming["p1_sensor_entity"].(string); ok {
 		s.cfg.P1SensorEntity = v
+	}
+	if v, ok := incoming["fixed_rate_price"].(float64); ok {
+		s.cfg.FixedRatePrice = v
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
@@ -470,6 +492,41 @@ func (s *Server) handleZones(w http.ResponseWriter, r *http.Request) {
 		"groups":  groups,
 		"current": s.cfg.BiddingZone,
 	})
+}
+
+func (s *Server) handleZoneDetect(w http.ResponseWriter, r *http.Request) {
+	if s.supervisor == nil {
+		writeJSON(w, map[string]any{"detected": false, "reason": "not running inside HA"})
+		return
+	}
+	haConfig, err := s.supervisor.GetConfig(r.Context())
+	if err != nil {
+		writeJSON(w, map[string]any{"detected": false, "reason": "could not read HA config"})
+		return
+	}
+	tz, _ := haConfig["time_zone"].(string)
+	if tz == "" {
+		writeJSON(w, map[string]any{"detected": false, "reason": "no timezone in HA config"})
+		return
+	}
+	// Match timezone to a zone
+	for _, code := range s.zoneRegistry.AllZones() {
+		z, ok := s.zoneRegistry.GetZone(code)
+		if !ok {
+			continue
+		}
+		if z.Timezone == tz {
+			writeJSON(w, map[string]any{
+				"detected": true,
+				"zone":     z.Code,
+				"name":     z.Name,
+				"timezone": tz,
+			})
+			return
+		}
+	}
+	// No exact match — try country from timezone (Europe/Berlin → DE)
+	writeJSON(w, map[string]any{"detected": false, "timezone": tz, "reason": "no zone matches timezone " + tz})
 }
 
 func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
@@ -827,4 +884,19 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// toFloat64 extracts a float64 from a map value (handles both float64 and json.Number).
+func toFloat64(v any) (float64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return val, true
+	case int:
+		return float64(val), true
+	case json.Number:
+		f, err := val.Float64()
+		return f, err == nil
+	default:
+		return 0, false
+	}
 }

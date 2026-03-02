@@ -77,6 +77,17 @@ func (c *TaxProfileCache) Put(zone string, override *WorkerTaxOverride) {
 	c.saveToDisk()
 }
 
+// Invalidate removes the cached tax profile for a zone, forcing a re-fetch from Worker.
+// Used when the user changes their bidding zone.
+func (c *TaxProfileCache) Invalidate(zone string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.profiles[zone]; ok {
+		delete(c.profiles, zone)
+		c.saveToDisk()
+	}
+}
+
 // HasData returns true if the cache has at least one zone profile.
 func (c *TaxProfileCache) HasData() bool {
 	c.mu.RLock()

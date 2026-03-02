@@ -38,6 +38,9 @@ type Config struct {
 	ManualSurcharges    float64 `env:"MANUAL_SURCHARGES" envDefault:"0"`
 	ManualNetworkTariff float64 `env:"MANUAL_NETWORK_TARIFF" envDefault:"0"`
 
+	// Fixed-rate mode: user-defined flat rate (no dynamic pricing)
+	FixedRatePrice float64 `env:"FIXED_RATE_PRICE" envDefault:"0"`
+
 	// P1 mode: HA sensor entity for consumer tariff
 	P1SensorEntity string `env:"P1_SENSOR_ENTITY"`
 
@@ -62,6 +65,7 @@ const (
 	ModeP1Meter      = "p1_meter"      // Legacy name, kept for backward compat
 	ModeMeterTariff  = "meter_tariff"   // New canonical name for smart meter mode
 	ModeEnever       = "enever"
+	ModeFixed        = "fixed"          // User-defined flat rate, no dynamic pricing
 )
 
 // Load loads configuration from environment variables.
@@ -78,7 +82,7 @@ func Load() (*Config, error) {
 	}
 	// Validate pricing mode
 	switch cfg.PricingMode {
-	case ModeAuto, ModeManual, ModeP1Meter, ModeMeterTariff, ModeEnever:
+	case ModeAuto, ModeManual, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed:
 		// OK
 	default:
 		cfg.PricingMode = ModeAuto
@@ -106,6 +110,11 @@ func (c *Config) HasAlerts() bool {
 	return c.AlertEnabled && c.AlertThreshold > 0
 }
 
+// IsFixedMode returns true if pricing mode is fixed-rate with a configured price.
+func (c *Config) IsFixedMode() bool {
+	return c.PricingMode == ModeFixed && c.FixedRatePrice > 0
+}
+
 // IsEneverMode returns true if pricing mode is Enever with valid credentials.
 func (c *Config) IsEneverMode() bool {
 	return c.PricingMode == ModeEnever && c.EneverToken != ""
@@ -115,4 +124,22 @@ func (c *Config) IsEneverMode() bool {
 // with a configured sensor. Accepts both legacy "p1_meter" and new "meter_tariff".
 func (c *Config) IsMeterTariffMode() bool {
 	return (c.PricingMode == ModeP1Meter || c.PricingMode == ModeMeterTariff) && c.P1SensorEntity != ""
+}
+
+// ValidateTaxInputs validates user-entered tax components against CC_INSTRUCTION §10 ranges.
+// Returns an error describing the first invalid value, or nil if all values are valid.
+func ValidateTaxInputs(vatRate, energyTax, surcharges, networkTariff float64) error {
+	if vatRate < 0 || vatRate > 0.50 {
+		return fmt.Errorf("VAT rate must be between 0%% and 50%%")
+	}
+	if energyTax < 0 || energyTax > 0.50 {
+		return fmt.Errorf("energy tax must be between 0 and 0.50 EUR/kWh")
+	}
+	if surcharges < 0 || surcharges > 0.50 {
+		return fmt.Errorf("surcharges must be between 0 and 0.50 EUR/kWh")
+	}
+	if networkTariff < 0 || networkTariff > 0.50 {
+		return fmt.Errorf("network tariff must be between 0 and 0.50 EUR/kWh")
+	}
+	return nil
 }

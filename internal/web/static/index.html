@@ -299,6 +299,7 @@
 
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
+            <div class="tab" data-tab="automations" data-i18n="nav.automations">Automations</div>
             <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
             <div class="tab" data-tab="feedback" data-i18n="nav.feedback">Feedback</div>
         </div>
@@ -309,6 +310,28 @@
                     <div class="spinner"></div>
                     <p data-i18n="dashboard.fetching_prices">Fetching energy prices...</p>
                 </div>
+            </div>
+        </div>
+
+        <div id="page-automations" class="tab-page">
+            <div class="card" style="margin-bottom:16px">
+                <h3 data-i18n="automations.title">Set Up Automations</h3>
+                <p style="font-size:0.82em;color:var(--text-muted);margin-bottom:16px" data-i18n="automations.description">Import ready-made blueprints into Home Assistant. Each blueprint creates an automation that you can customize with your own devices.</p>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fgo_signal_switch_on.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
+                        &#x26A1; <span data-i18n="automations.go_signal">GO Signal — Switch on devices when energy is cheap</span>
+                    </a>
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Favoid_signal_switch_off.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
+                        &#x1F6D1; <span data-i18n="automations.avoid_signal">AVOID Signal — Switch off devices when energy is expensive</span>
+                    </a>
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fprice_alert_notification.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block;background:var(--input-bg);color:var(--text);border:1px solid var(--border)">
+                        &#x1F514; <span data-i18n="automations.price_alert">Price Alert — Get notified at cheap or expensive prices</span>
+                    </a>
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fbest_window_schedule.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block;background:var(--input-bg);color:var(--text);border:1px solid var(--border)">
+                        &#x23F0; <span data-i18n="automations.best_window">Best Window — Smart scheduling during cheapest hours</span>
+                    </a>
+                </div>
+                <p style="font-size:0.75em;color:var(--text-faint);margin-top:12px" data-i18n="automations.help">Click a button to import the blueprint into Home Assistant. You can then configure which devices to control.</p>
             </div>
         </div>
 
@@ -353,6 +376,17 @@
                     <div class="sysinfo-box" id="sysInfoBox" data-i18n="common.loading">Loading...</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Disclaimer modal (shown once on first install) -->
+    <div class="privacy-overlay" id="disclaimerOverlay">
+        <div class="privacy-modal" id="disclaimerModal">
+            <h2 id="disclaimerTitle">Important Notice</h2>
+            <p id="disclaimerIntro"></p>
+            <ul class="privacy-list" id="disclaimerList"></ul>
+            <p id="disclaimerFooter" style="font-size:0.78em;color:var(--text-faint);margin-top:8px"></p>
+            <button class="btn-ok" id="disclaimerOkBtn">I Understand</button>
         </div>
     </div>
 
@@ -881,7 +915,7 @@
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
         var m = mode.value;
-        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-p1-section', 'mode-enever-section'];
+        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-p1-section', 'mode-fixed-section', 'mode-enever-section'];
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
@@ -931,6 +965,8 @@
                         renderZoneOptions(c.zone || 'NL') +
                     '</select>' +
                     '<div class="form-hint">' + t('settings.zone_hint', 'Select your bidding zone.') + '</div>' +
+                    '<button type="button" class="privacy-settings-btn" id="btnDetectZone" style="margin-top:6px;font-size:0.78em">' + t('settings.detect_zone', 'Auto-detect from HA location') + '</button>' +
+                    '<span id="detectZoneResult" style="font-size:0.78em;margin-left:8px;color:var(--text-faint)"></span>' +
                 '</div>' +
             '</div>' +
 
@@ -942,6 +978,7 @@
                     renderModeRadio('auto', t('settings.mode_auto', 'Synctacles Auto'), t('settings.mode_auto_hint'), mode) +
                     renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
                     renderModeRadio('meter_tariff', t('settings.mode_meter_tariff', 'Smart Meter'), t('settings.mode_meter_tariff_hint', 'Use tariff from your smart meter or energy provider integration (P1, Glow, Octopus, Tibber, etc.)'), mode) +
+                    renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
                     renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) +
                 '</div>' +
             '</div>' +
@@ -1039,6 +1076,18 @@
                 '</div>' +
             '</div>' +
 
+            // Fixed rate section
+            '<div id="mode-fixed-section" style="' + (mode === 'fixed' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>' + t('settings.mode_fixed', 'Fixed Rate') + '</h3>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.fixed_rate_price', 'Your all-in price (EUR/kWh incl. VAT)') + '</label>' +
+                        '<input class="form-input" id="cfg-fixed-price" type="number" step="0.001" min="0.01" max="2.00" value="' + (c.fixed_rate_price || 0) + '">' +
+                        '<div class="form-hint">' + t('settings.fixed_rate_hint', 'The fixed consumer price from your contract. GO/WAIT/AVOID signals are disabled in fixed-rate mode.') + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
             // Thresholds
             '<div class="settings-section">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
@@ -1094,6 +1143,26 @@
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
         document.getElementById('btnSave').onclick = saveSettings;
         document.getElementById('btnPrivacy').onclick = showPrivacyModal;
+        document.getElementById('btnDetectZone').onclick = async function() {
+            var result = document.getElementById('detectZoneResult');
+            result.textContent = '...';
+            try {
+                var resp = await fetch('api/zone-detect');
+                var data = await resp.json();
+                if (data.detected) {
+                    document.getElementById('cfg-zone').value = data.zone;
+                    result.style.color = '#0d9488';
+                    result.textContent = data.name + ' (' + data.zone + ')';
+                    updateModeVisibility();
+                } else {
+                    result.style.color = '#d97706';
+                    result.textContent = t('settings.detect_zone_fail', 'Could not detect zone') + (data.timezone ? ' (' + data.timezone + ')' : '');
+                }
+            } catch (e) {
+                result.style.color = '#dc2626';
+                result.textContent = t('settings.connection_error', 'Connection error');
+            }
+        };
 
         // Calibrate button
         var calBtn = document.getElementById('btnCalibrate');
@@ -1215,6 +1284,8 @@
         } else if (mode === 'p1_meter') {
             var p1Manual = document.getElementById('cfg-p1-manual');
             payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
+        } else if (mode === 'fixed') {
+            payload.fixed_rate_price = parseFloat(document.getElementById('cfg-fixed-price').value) || 0;
         } else if (mode === 'enever') {
             var tokenEl = document.getElementById('cfg-enever-token');
             var levEl = document.getElementById('cfg-enever-lev');
@@ -1367,6 +1438,38 @@
         btn.disabled = false;
     };
 
+    // --- Disclaimer notice ---
+    function populateDisclaimerModal() {
+        document.getElementById('disclaimerTitle').textContent = t('disclaimer.title', 'Important Notice');
+        document.getElementById('disclaimerIntro').textContent = t('disclaimer.intro', 'Please read before using this app.');
+        document.getElementById('disclaimerFooter').textContent = t('disclaimer.footer', 'By clicking "I Understand" you acknowledge that you have read and accept these terms.');
+        document.getElementById('disclaimerOkBtn').textContent = t('disclaimer.accept', 'I Understand');
+
+        var list = document.getElementById('disclaimerList');
+        list.innerHTML = '';
+        ['item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6'].forEach(function(k) {
+            var txt = t('disclaimer.' + k);
+            if (txt && txt !== 'disclaimer.' + k) {
+                var li = document.createElement('li');
+                li.textContent = txt;
+                list.appendChild(li);
+            }
+        });
+    }
+
+    function showDisclaimerModal() {
+        populateDisclaimerModal();
+        document.getElementById('disclaimerOverlay').classList.add('visible');
+    }
+
+    document.getElementById('disclaimerOkBtn').onclick = function() {
+        localStorage.setItem('disclaimer_accepted', 'true');
+        document.getElementById('disclaimerOverlay').classList.remove('visible');
+        if (localStorage.getItem('privacy_shown') !== 'true') {
+            showPrivacyModal();
+        }
+    };
+
     // --- Privacy notice ---
     function populatePrivacyModal() {
         document.getElementById('privacyTitle').textContent = t('privacy_notice.title', 'Privacy first — by design.');
@@ -1425,7 +1528,9 @@
     loadVersion().then(function() {
         return initI18n(_detectedLocale);
     }).then(function() {
-        if (localStorage.getItem('privacy_shown') !== 'true') {
+        if (localStorage.getItem('disclaimer_accepted') !== 'true') {
+            showDisclaimerModal();
+        } else if (localStorage.getItem('privacy_shown') !== 'true') {
             showPrivacyModal();
         }
         loadDashboard();

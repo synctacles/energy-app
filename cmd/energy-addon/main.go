@@ -243,11 +243,15 @@ func main() {
 		// Update Worker tax profile cache (for fallback normalization, keyed per zone)
 		if result.Source == "synctacles" {
 			if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
+				var networkCost float64
+				if tp.NetworkCostKWh != nil {
+					networkCost = *tp.NetworkCostKWh
+				}
 				taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
-					VATRate:          tp.VATRate,
-					EnergyTax:        tp.EnergyTax,
-					Surcharges:       tp.Surcharges,
-					NetworkTariffAvg: tp.NetworkTariffAvg,
+					VATRate:          tp.VatPct,
+					EnergyTax:        tp.EnergyTaxKWh,
+					Surcharges:       tp.SurchargesKWh,
+					NetworkTariffAvg: networkCost,
 					Version:          tp.Version,
 				})
 			}
@@ -364,11 +368,15 @@ func main() {
 			prices, err := synctaclesAPI.FetchDayAhead(ctx, cfg.BiddingZone, time.Now().UTC())
 			if err == nil && len(prices) > 0 {
 				if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
+					var networkCost float64
+					if tp.NetworkCostKWh != nil {
+						networkCost = *tp.NetworkCostKWh
+					}
 					taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
-						VATRate:          tp.VATRate,
-						EnergyTax:        tp.EnergyTax,
-						Surcharges:       tp.Surcharges,
-						NetworkTariffAvg: tp.NetworkTariffAvg,
+						VATRate:          tp.VatPct,
+						EnergyTax:        tp.EnergyTaxKWh,
+						Surcharges:       tp.SurchargesKWh,
+						NetworkTariffAvg: networkCost,
 						Version:          tp.Version,
 					})
 					slog.Info("tax profile cached from Worker", "zone", cfg.BiddingZone, "version", tp.Version)

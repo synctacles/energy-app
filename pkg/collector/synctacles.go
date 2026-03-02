@@ -28,13 +28,14 @@ type SynctaclesAPI struct {
 }
 
 // CachedTaxProfile holds the tax profile returned by the Worker for version-based caching.
+// Field names match the Worker /api/v1/energy/prices response (CC_INSTRUCTION §3).
 type CachedTaxProfile struct {
-	Version          string  `json:"version"`
-	VATRate          float64 `json:"vat_rate"`
-	EnergyTax        float64 `json:"energy_tax"`
-	Surcharges       float64 `json:"surcharges"`
-	NetworkTariffAvg float64 `json:"network_tariff_avg"`
-	ValidFrom        string  `json:"valid_from"`
+	Version        string   `json:"version"`
+	VatPct         float64  `json:"vat_pct"`
+	EnergyTaxKWh   float64  `json:"energy_tax_kwh"`
+	SurchargesKWh  float64  `json:"surcharges_kwh"`
+	NetworkCostKWh *float64 `json:"network_cost_kwh"` // nil = unknown (consumer_price_estimated)
+	ValidFrom      string   `json:"valid_from"`
 }
 
 func (s *SynctaclesAPI) Name() string     { return "synctacles" }
@@ -94,17 +95,18 @@ type workerPriceResponse struct {
 }
 
 type workerPriceEntry struct {
-	Timestamp     string   `json:"timestamp"`
-	Price         float64  `json:"price"`          // EUR/MWh (wholesale)
-	ConsumerPrice *float64 `json:"consumer_price"` // EUR/kWh (with taxes)
+	Timestamp              string   `json:"timestamp"`
+	Price                  float64  `json:"price"`                             // EUR/MWh (wholesale)
+	ConsumerPrice          *float64 `json:"consumer_price"`                    // EUR/kWh (with taxes)
+	ConsumerPriceEstimated bool     `json:"consumer_price_estimated,omitempty"` // true when network_cost_kwh unknown
 }
 
 type workerTaxProfile struct {
-	VATRate          float64 `json:"vat_rate"`
-	EnergyTax        float64 `json:"energy_tax"`
-	Surcharges       float64 `json:"surcharges"`
-	NetworkTariffAvg float64 `json:"network_tariff_avg"`
-	ValidFrom        string  `json:"valid_from"`
+	VatPct         float64  `json:"vat_pct"`
+	EnergyTaxKWh   float64  `json:"energy_tax_kwh"`
+	SurchargesKWh  float64  `json:"surcharges_kwh"`
+	NetworkCostKWh *float64 `json:"network_cost_kwh"` // nil = unknown
+	ValidFrom      string   `json:"valid_from"`
 }
 
 // FetchDayAhead fetches prices from the Worker for a single date.
@@ -116,7 +118,7 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	if zone == "GB" {
 		resolution = "PT30M"
 	}
-	url := fmt.Sprintf("%s/prices?zone=%s&from=%s&to=%s&resolution=%s",
+	url := fmt.Sprintf("%s/api/v1/energy/prices?zone=%s&from=%s&to=%s&resolution=%s",
 		s.baseURL(), zone, dateStr, dateStr, resolution)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -147,12 +149,12 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	if resp.TaxProfile != nil && resp.TaxProfileVersion != "" {
 		if s.lastTaxProfile == nil || s.lastTaxProfile.Version != resp.TaxProfileVersion {
 			s.lastTaxProfile = &CachedTaxProfile{
-				Version:          resp.TaxProfileVersion,
-				VATRate:          resp.TaxProfile.VATRate,
-				EnergyTax:        resp.TaxProfile.EnergyTax,
-				Surcharges:       resp.TaxProfile.Surcharges,
-				NetworkTariffAvg: resp.TaxProfile.NetworkTariffAvg,
-				ValidFrom:        resp.TaxProfile.ValidFrom,
+				Version:        resp.TaxProfileVersion,
+				VatPct:         resp.TaxProfile.VatPct,
+				EnergyTaxKWh:   resp.TaxProfile.EnergyTaxKWh,
+				SurchargesKWh:  resp.TaxProfile.SurchargesKWh,
+				NetworkCostKWh: resp.TaxProfile.NetworkCostKWh,
+				ValidFrom:      resp.TaxProfile.ValidFrom,
 			}
 		}
 	}
@@ -192,4 +194,55 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 		return nil, fmt.Errorf("synctacles: no prices for zone %s on %s", zone, dateStr)
 	}
 	return prices, nil
+}
+
+// TaxSeedResponse is the response from the Worker /api/v1/energy/tax endpoint.
+type TaxSeedResponse struct {
+	Zone        string   `json:"zone"`
+	CountryCode string   `json:"country_code"`
+	CountryName string   `json:"country_name"`
+	Currency    string   `json:"currency"`
+	SeedNeeded  int      `json:"seed_needed"`
+	TaxSeed     *TaxSeed `json:"tax_seed"`
+}
+
+// TaxSeed holds a single active tax seed entry from the Worker.
+type TaxSeed struct {
+	CountryCode    string   `json:"country_code"`
+	VatPct         float64  `json:"vat_pct"`
+	EnergyTaxKWh   float64  `json:"energy_tax_kwh"`
+	SurchargesKWh  float64  `json:"surcharges_kwh"`
+	NetworkCostKWh *float64 `json:"network_cost_kwh"`
+	ValidFrom      string   `json:"valid_from"`
+	ValidTo        *string  `json:"valid_to"`
+	Notes          string   `json:"notes"`
+}
+
+// FetchTaxSeed fetches the active tax seed for a zone from the Worker.
+// Used to refresh tax data when the user changes their zone.
+func (s *SynctaclesAPI) FetchTaxSeed(ctx context.Context, zone string) (*TaxSeedResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/energy/tax?zone=%s", s.baseURL(), zone)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("synctacles tax seed request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	httpResp, err := defaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("synctacles tax seed fetch: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("synctacles tax seed: HTTP %d for zone %s", httpResp.StatusCode, zone)
+	}
+
+	var resp TaxSeedResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+		return nil, fmt.Errorf("synctacles tax seed parse: %w", err)
+	}
+	return &resp, nil
 }

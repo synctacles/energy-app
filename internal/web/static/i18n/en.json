@@ -1,8 +1,18 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "automations": "Automations",
     "settings": "Settings",
     "feedback": "Feedback"
+  },
+  "automations": {
+    "title": "Set Up Automations",
+    "description": "Import ready-made blueprints into Home Assistant. Each blueprint creates an automation that you can customize with your own devices.",
+    "go_signal": "GO Signal — Switch on devices when energy is cheap",
+    "avoid_signal": "AVOID Signal — Switch off devices when energy is expensive",
+    "price_alert": "Price Alert — Get notified at cheap or expensive prices",
+    "best_window": "Best Window — Smart scheduling during cheapest hours",
+    "help": "Click a button to import the blueprint into Home Assistant. You can then configure which devices to control."
   },
   "source": {
     "prices_from": "Prices from:",
@@ -67,6 +77,12 @@
     "mode_p1_hint": "Consumer price read from a tariff sensor on your smart meter.",
     "mode_enever": "Enever",
     "mode_enever_hint": "Supplier-specific prices via Enever API (Netherlands only).",
+    "mode_fixed": "Fixed Rate",
+    "mode_fixed_hint": "Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.",
+    "fixed_rate_price": "Your all-in price (EUR/kWh incl. VAT)",
+    "fixed_rate_hint": "The fixed consumer price from your contract. GO/WAIT/AVOID signals are disabled in fixed-rate mode.",
+    "detect_zone": "Auto-detect from HA location",
+    "detect_zone_fail": "Could not detect zone",
     "calibration": "Calibration",
     "calibration_hint": "Optional: fine-tune the calculated price to match your supplier.",
     "calibration_input": "Your current all-in price (EUR/kWh incl. VAT)",
@@ -156,6 +172,18 @@
   },
   "common": {
     "loading": "Loading..."
+  },
+  "disclaimer": {
+    "title": "Important Notice",
+    "intro": "This software is provided free of charge. Please read the following before using Synctacles Energy.",
+    "item_1": "This software is provided \"as is\" without warranty of any kind, express or implied.",
+    "item_2": "Energy price data is provided for informational purposes only. We do not guarantee accuracy, completeness, or timeliness.",
+    "item_3": "You are solely responsible for any financial decisions based on the information displayed by this app.",
+    "item_4": "Synctacles is not liable for any damages arising from the use of this software or the data it provides.",
+    "item_5": "Synctacles is not affiliated with or endorsed by Home Assistant, Nabu Casa, ENTSO-E, or any energy data provider.",
+    "item_6": "By using this app you accept these terms. You may uninstall the app at any time.",
+    "footer": "By clicking \"I Understand\" you acknowledge that you have read and accept these terms.",
+    "accept": "I Understand"
   },
   "privacy_notice": {
     "title": "Privacy first — by design.",
