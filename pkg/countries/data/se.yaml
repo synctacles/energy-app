@@ -1,6 +1,12 @@
 country: SE
 name: Sweden
 currency: SEK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.0313
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
 zones:
 - code: SE1
   eic: 10Y1001A1001A44P

@@ -74,7 +74,11 @@ func DetectTariffSensor(ctx context.Context, supervisor *ha.SupervisorClient) st
 		slog.Warn("auto-detect tariff sensor: failed to get states", "error", err)
 		return ""
 	}
+	return matchTariffSensor(states)
+}
 
+// matchTariffSensor finds the best tariff sensor from a list of HA entity states.
+func matchTariffSensor(states []map[string]any) string {
 	type candidate struct {
 		entityID string
 		priority int // lower = better
@@ -160,6 +164,19 @@ func DetectTariffSensor(ctx context.Context, supervisor *ha.SupervisorClient) st
 			continue // Not a known tariff pattern
 		}
 
+		// Adjust priority based on last_changed — dynamic sensors update every 1-2h,
+		// fixed-rate sensors rarely change. This helps deprioritize fixed tariffs.
+		if lc, ok := s["last_changed"].(string); ok && lc != "" {
+			if lastChanged, err := time.Parse(time.RFC3339, lc); err == nil {
+				hoursSince := time.Since(lastChanged).Hours()
+				if hoursSince > 24 {
+					prio += 15 // likely fixed rate — deprioritize
+				} else if hoursSince < 4 {
+					prio -= 5 // recently changed — likely dynamic
+				}
+			}
+		}
+
 		candidates = append(candidates, candidate{eid, prio})
 	}
 
@@ -175,5 +192,6 @@ func DetectTariffSensor(ctx context.Context, supervisor *ha.SupervisorClient) st
 		}
 	}
 
+	slog.Debug("tariff sensor detection", "best", best.entityID, "priority", best.priority, "candidates", len(candidates))
 	return best.entityID
 }

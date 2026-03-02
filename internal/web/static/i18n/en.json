@@ -42,7 +42,9 @@
     "waiting_first_update": "Waiting for first price update...",
     "fetching_prices": "Fetching energy prices...",
     "zone": "Zone",
-    "vs_avg": "vs avg"
+    "vs_avg": "vs avg",
+    "degraded_no_tax": "Limited price calculation — tax data not yet available. Price shown is wholesale excl. taxes.",
+    "degraded_embedded": "Using estimated tax data. Prices may differ slightly from your actual tariff."
   },
   "actions": {
     "go": "GO",

@@ -129,6 +129,7 @@ func main() {
 	// Initialize engine components
 	taxCache := engine.NewTaxProfileCache(dataPath)
 	normalizer := engine.NewNormalizer(taxCache, cfg.SupplierMarkup)
+	normalizer.SetZoneRegistry(registry)
 	normalizer.SetPricingMode(cfg.PricingMode)
 
 	// Manual mode: build tax profile from user-defined components
@@ -356,6 +357,9 @@ func main() {
 		CheapestHoursOn: func() bool {
 			return cfg.BestWindowHours > 0
 		},
+		GetTaxSource: func() string {
+			return normalizer.TaxSource()
+		},
 	})
 	telemetrySender.RunBackground(ctx)
 
@@ -424,6 +428,7 @@ func main() {
 		AddonSlug:           addonSlug,
 		ZoneRegistry:        registry,
 		TaxCache:            taxCache,
+		Normalizer:          normalizer,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)

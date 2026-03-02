@@ -42,7 +42,9 @@
     "waiting_first_update": "Aguardando primeira atualização de preços...",
     "fetching_prices": "Obtendo preços de energia...",
     "zone": "Zona",
-    "vs_avg": "vs média"
+    "vs_avg": "vs média",
+    "degraded_no_tax": "Cálculo de preço limitado — dados fiscais ainda não disponíveis. O preço exibido é o preço grossista sem impostos.",
+    "degraded_embedded": "Dados fiscais estimados em uso. Os preços podem diferir ligeiramente da sua tarifa real."
   },
   "actions": {
     "go": "GO",

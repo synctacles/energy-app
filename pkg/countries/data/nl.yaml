@@ -1,6 +1,12 @@
 country: NL
 name: Netherlands
 currency: EUR
+tax_defaults:
+  vat_rate: 0.21
+  energy_tax: 0.09161
+  surcharges: 0
+  network_tariff_avg: 0.095
+  valid_from: "2026-01-01"
 zones:
 - code: NL
   eic: 10YNL----------L

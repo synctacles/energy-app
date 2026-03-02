@@ -1,6 +1,12 @@
 country: ES
 name: Spain
 currency: EUR
+tax_defaults:
+  vat_rate: 0.21
+  energy_tax: 0.0075
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2024-01-01"
 zones:
 - code: ES
   eic: 10YES-REE------0

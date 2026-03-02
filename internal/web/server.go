@@ -44,6 +44,7 @@ type Server struct {
 	addonSlug           string
 	zoneRegistry        *models.ZoneRegistry
 	taxCache            *engine.TaxProfileCache
+	normalizer          *engine.Normalizer
 }
 
 // Deps holds dependencies for the web server.
@@ -60,6 +61,7 @@ type Deps struct {
 	AddonSlug           string
 	ZoneRegistry        *models.ZoneRegistry
 	TaxCache            *engine.TaxProfileCache
+	Normalizer          *engine.Normalizer
 }
 
 // NewServer creates a new energy addon web server.
@@ -77,6 +79,7 @@ func NewServer(deps Deps) *Server {
 		addonSlug:           deps.AddonSlug,
 		zoneRegistry:        deps.ZoneRegistry,
 		taxCache:            deps.TaxCache,
+		normalizer:          deps.Normalizer,
 	}
 
 	r := chi.NewRouter()
@@ -309,6 +312,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"source":      data.Source,
 		"quality":     data.Quality,
 		"leverancier": data.Leverancier,
+	}
+
+	// Tax data source: "worker" (live), "embedded" (fallback), "none" (no tax data)
+	if s.normalizer != nil {
+		taxSource := s.normalizer.TaxSource()
+		dashboard["tax_source"] = taxSource
+		if taxSource == "embedded" || taxSource == "none" {
+			dashboard["degraded"] = true
+			dashboard["degraded_reason"] = "no_tax_data"
+		}
 	}
 
 	writeJSON(w, dashboard)

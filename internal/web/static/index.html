@@ -716,7 +716,16 @@
                 deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
             }
 
+            var degradedBanner = '';
+            if (d.degraded) {
+                var degradedMsg = d.tax_source === 'none'
+                    ? t('dashboard.degraded_no_tax', 'Limited price calculation — tax data not yet available. Price shown is wholesale excl. taxes.')
+                    : t('dashboard.degraded_embedded', 'Using estimated tax data. Prices may differ slightly from your actual tariff.');
+                degradedBanner = '<div style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:0.85em;line-height:1.4">' + degradedMsg + '</div>';
+            }
+
             document.getElementById('content').innerHTML =
+                degradedBanner +
                 '<div class="grid">' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.current_price', 'Current Price') + '</div>' +

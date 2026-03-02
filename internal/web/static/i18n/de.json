@@ -42,7 +42,9 @@
     "waiting_first_update": "Warte auf erste Preisaktualiserung...",
     "fetching_prices": "Energiepreise werden abgerufen...",
     "zone": "Zone",
-    "vs_avg": "vs Durchschn."
+    "vs_avg": "vs Durchschn.",
+    "degraded_no_tax": "Eingeschränkte Preisberechnung — Steuerdaten noch nicht verfügbar. Der angezeigte Preis ist der Großhandelspreis exkl. Steuern.",
+    "degraded_embedded": "Geschätzte Steuerdaten werden verwendet. Preise können leicht von Ihrem tatsächlichen Tarif abweichen."
   },
   "actions": {
     "go": "GO",

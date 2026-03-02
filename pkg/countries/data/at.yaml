@@ -1,6 +1,12 @@
 country: AT
 name: Austria
 currency: EUR
+tax_defaults:
+  vat_rate: 0.2
+  energy_tax: 0.001
+  surcharges: 0
+  network_tariff_avg: 0.065
+  valid_from: "2026-01-01"
 zones:
 - code: AT
   eic: 10YAT-APG------L

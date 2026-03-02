@@ -42,7 +42,9 @@
     "waiting_first_update": "Wachten op eerste prijsupdate...",
     "fetching_prices": "Energieprijzen ophalen...",
     "zone": "Zone",
-    "vs_avg": "vs gem"
+    "vs_avg": "vs gem",
+    "degraded_no_tax": "Beperkte prijsberekening — belastingdata nog niet beschikbaar. Getoonde prijs is de groothandelsprijs excl. belastingen.",
+    "degraded_embedded": "Geschatte belastingdata wordt gebruikt. Prijzen kunnen iets afwijken van je werkelijke tarief."
   },
   "actions": {
     "go": "GA",

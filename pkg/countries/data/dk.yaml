@@ -1,6 +1,12 @@
 country: DK
 name: Denmark
 currency: DKK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.00107
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
 zones:
 - code: DK1
   eic: 10YDK-1--------W

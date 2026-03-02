@@ -42,7 +42,9 @@
     "waiting_first_update": "En attente de la première mise à jour des prix...",
     "fetching_prices": "Récupération des prix de l'électricité...",
     "zone": "Zone",
-    "vs_avg": "vs moy"
+    "vs_avg": "vs moy",
+    "degraded_no_tax": "Calcul de prix limité — données fiscales pas encore disponibles. Le prix affiché est le prix de gros hors taxes.",
+    "degraded_embedded": "Données fiscales estimées utilisées. Les prix peuvent différer légèrement de votre tarif réel."
   },
   "actions": {
     "go": "GO",

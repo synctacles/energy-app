@@ -1,6 +1,12 @@
 country: 'NO'
 name: Norway
 currency: NOK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.0062
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
 zones:
 - code: NO1
   eic: 10YNO-1--------2

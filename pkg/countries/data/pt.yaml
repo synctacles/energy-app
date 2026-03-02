@@ -1,6 +1,12 @@
 country: PT
 name: Portugal
 currency: EUR
+tax_defaults:
+  vat_rate: 0.06
+  energy_tax: 0.001
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2024-01-01"
 zones:
 - code: PT
   eic: 10YPT-REN------W

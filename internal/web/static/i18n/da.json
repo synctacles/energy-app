@@ -42,7 +42,9 @@
     "waiting_first_update": "Venter på første prisuppdatering...",
     "fetching_prices": "Henter elpriser...",
     "zone": "Zone",
-    "vs_avg": "vs gns"
+    "vs_avg": "vs gns",
+    "degraded_no_tax": "Begrænset prisberegning — skattedata endnu ikke tilgængelig. Den viste pris er engrosprisen ekskl. afgifter.",
+    "degraded_embedded": "Estimerede skattedata bruges. Priserne kan afvige lidt fra din faktiske tarif."
   },
   "actions": {
     "go": "GO",

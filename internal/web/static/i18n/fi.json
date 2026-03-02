@@ -42,7 +42,9 @@
     "waiting_first_update": "Odotetaan ensimmäistä hintapäivitystä...",
     "fetching_prices": "Haetaan sähköhintoja...",
     "zone": "Alue",
-    "vs_avg": "vs ka."
+    "vs_avg": "vs ka.",
+    "degraded_no_tax": "Rajoitettu hintalaskenta — verotietoja ei vielä saatavilla. Näytetty hinta on tukkuhinta ilman veroja.",
+    "degraded_embedded": "Arvioituja verotietoja käytetään. Hinnat voivat poiketa hieman todellisesta tariffistasi."
   },
   "actions": {
     "go": "GO",

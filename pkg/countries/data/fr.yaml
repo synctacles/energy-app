@@ -1,6 +1,12 @@
 country: FR
 name: France
 currency: EUR
+tax_defaults:
+  vat_rate: 0.2
+  energy_tax: 0.03085
+  surcharges: 0
+  network_tariff_avg: 0.055
+  valid_from: "2026-01-01"
 zones:
 - code: FR
   eic: 10YFR-RTE------C

@@ -14,20 +14,27 @@ import (
 //   - "p1_meter": All prices pass through (consumer price comes from HA sensor, not here)
 //   - "enever":   Same as auto (Enever prices are already consumer)
 type Normalizer struct {
-	taxCache              *TaxProfileCache    // Worker-provided tax profiles (keyed by zone)
-	supplierMarkupOverride float64            // User calibration override (EUR/kWh)
-	pricingMode           string              // "auto", "manual", "p1_meter", "enever"
-	manualTaxProfile      *models.TaxProfile  // User-defined components for manual mode
+	taxCache              *TaxProfileCache       // Worker-provided tax profiles (keyed by zone)
+	zoneRegistry          *models.ZoneRegistry   // Embedded fallback tax defaults
+	supplierMarkupOverride float64               // User calibration override (EUR/kWh)
+	pricingMode           string                 // "auto", "manual", "p1_meter", "enever"
+	manualTaxProfile      *models.TaxProfile     // User-defined components for manual mode
+	lastTaxSource         string                 // "worker", "embedded", "none" — for degraded banner
 }
 
 // NewNormalizer creates a normalizer backed by the Worker tax profile cache.
 // supplierMarkupOverride overrides the per-zone supplier_markup if > 0 (0 = use Worker default).
 func NewNormalizer(taxCache *TaxProfileCache, supplierMarkupOverride ...float64) *Normalizer {
-	n := &Normalizer{taxCache: taxCache, pricingMode: "auto"}
+	n := &Normalizer{taxCache: taxCache, pricingMode: "auto", lastTaxSource: "none"}
 	if len(supplierMarkupOverride) > 0 && supplierMarkupOverride[0] > 0 {
 		n.supplierMarkupOverride = supplierMarkupOverride[0]
 	}
 	return n
+}
+
+// SetZoneRegistry sets the zone registry for embedded tax fallback.
+func (n *Normalizer) SetZoneRegistry(reg *models.ZoneRegistry) {
+	n.zoneRegistry = reg
 }
 
 // SetPricingMode sets the active pricing mode.
@@ -38,6 +45,12 @@ func (n *Normalizer) SetPricingMode(mode string) {
 // SetManualTaxProfile sets user-defined tax components for manual mode.
 func (n *Normalizer) SetManualTaxProfile(tp *models.TaxProfile) {
 	n.manualTaxProfile = tp
+}
+
+// TaxSource returns the tax data source used for the last normalization.
+// "worker" = live Worker data, "embedded" = fallback defaults, "none" = no tax data.
+func (n *Normalizer) TaxSource() string {
+	return n.lastTaxSource
 }
 
 // ToConsumer converts a slice of wholesale prices to consumer prices using the zone's tax profile.
@@ -74,27 +87,50 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		return p
 	}
 
-	if n.taxCache == nil {
-		return p
+	// Try Worker tax cache first (live data)
+	var override *WorkerTaxOverride
+	if n.taxCache != nil {
+		override = n.taxCache.Get(p.Zone)
 	}
-	override := n.taxCache.Get(p.Zone)
-	if override == nil {
+
+	if override != nil {
+		n.lastTaxSource = "worker"
+		tp := models.TaxProfile{
+			VATRate:          override.VATRate,
+			SupplierMarkup:   override.SupplierMarkup,
+			EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: override.EnergyTax}},
+			Surcharges:       override.Surcharges,
+			NetworkTariffAvg: override.NetworkTariffAvg,
+		}
+		if n.supplierMarkupOverride > 0 {
+			tp.SupplierMarkup = n.supplierMarkupOverride
+		}
+		p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
+		p.IsConsumer = true
 		return p
 	}
 
-	tp := models.TaxProfile{
-		VATRate:          override.VATRate,
-		SupplierMarkup:   override.SupplierMarkup,
-		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: override.EnergyTax}},
-		Surcharges:       override.Surcharges,
-		NetworkTariffAvg: override.NetworkTariffAvg,
-	}
-	if n.supplierMarkupOverride > 0 {
-		tp.SupplierMarkup = n.supplierMarkupOverride
+	// Fallback: embedded tax defaults from zone registry
+	if n.zoneRegistry != nil {
+		defaults := n.zoneRegistry.GetTaxDefaults(p.Zone)
+		if defaults != nil {
+			n.lastTaxSource = "embedded"
+			tp := models.TaxProfile{
+				VATRate:          defaults.VATRate,
+				EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: defaults.EnergyTax}},
+				Surcharges:       defaults.Surcharges,
+				NetworkTariffAvg: defaults.NetworkTariffAvg,
+			}
+			if n.supplierMarkupOverride > 0 {
+				tp.SupplierMarkup = n.supplierMarkupOverride
+			}
+			p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
+			p.IsConsumer = true
+			return p
+		}
 	}
 
-	p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
-	p.IsConsumer = true
+	n.lastTaxSource = "none"
 	return p
 }
 

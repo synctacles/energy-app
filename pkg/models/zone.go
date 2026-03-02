@@ -9,13 +9,26 @@ type ZoneInfo struct {
 	Timezone string `yaml:"timezone" json:"timezone"` // "Europe/Amsterdam"
 }
 
+// EmbeddedTaxDefaults provides fallback tax data for cold-start scenarios when
+// the Worker tax profile hasn't been fetched yet. These values are intentionally
+// conservative estimates that are overridden by live Worker data when available.
+type EmbeddedTaxDefaults struct {
+	VATRate          float64 `yaml:"vat_rate" json:"vat_rate"`
+	EnergyTax        float64 `yaml:"energy_tax" json:"energy_tax"`                 // EUR/kWh
+	Surcharges       float64 `yaml:"surcharges" json:"surcharges"`                 // EUR/kWh
+	NetworkTariffAvg float64 `yaml:"network_tariff_avg" json:"network_tariff_avg"` // EUR/kWh
+	ValidFrom        string  `yaml:"valid_from" json:"valid_from"`                 // "2026-01-01"
+}
+
 // CountryConfig defines the full configuration for a country.
-// Tax data comes from the Worker (not embedded) — see TaxProfileCache.
+// Live tax data comes from the Worker (see TaxProfileCache).
+// TaxDefaults provides embedded fallback for cold-start when Worker is unreachable.
 type CountryConfig struct {
-	Country  string     `yaml:"country" json:"country"`
-	Name     string     `yaml:"name" json:"name"`
-	Currency string     `yaml:"currency" json:"currency"`
-	Zones    []ZoneInfo `yaml:"zones" json:"zones"`
+	Country     string               `yaml:"country" json:"country"`
+	Name        string               `yaml:"name" json:"name"`
+	Currency    string               `yaml:"currency" json:"currency"`
+	Zones       []ZoneInfo           `yaml:"zones" json:"zones"`
+	TaxDefaults *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
 }
 
 // ZoneRegistry provides lookup for bidding zones.
@@ -74,6 +87,15 @@ func (r *ZoneRegistry) GetCountryForZone(zoneCode string) (*CountryConfig, bool)
 		return nil, false
 	}
 	return r.GetCountry(z.Country)
+}
+
+// GetTaxDefaults returns embedded fallback tax defaults for a zone, or nil if unavailable.
+func (r *ZoneRegistry) GetTaxDefaults(zoneCode string) *EmbeddedTaxDefaults {
+	cc, ok := r.GetCountryForZone(zoneCode)
+	if !ok || cc.TaxDefaults == nil {
+		return nil
+	}
+	return cc.TaxDefaults
 }
 
 // AllZones returns all registered zone codes.

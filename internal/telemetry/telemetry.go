@@ -60,6 +60,11 @@ type Deps struct {
 	GetSensorCount    func() int
 	CheapestHoursOn   func() bool
 	HasSupervisor     bool // true when running inside HA with Supervisor access
+
+	// Observability: tax/price source tracking
+	GetTaxSource      func() string // "worker", "embedded", "none"
+	GetFallbackCount  func() int    // number of fallback events since startup
+	GetCacheHitRatio  func() float64 // 0.0-1.0 cache hit ratio
 }
 
 // Sender sends telemetry to the auth service once per interval.
@@ -99,6 +104,7 @@ func (s *Sender) RunBackground(ctx context.Context) {
 		}
 
 		s.sendOnce(ctx)
+		s.sendSourceHealth(ctx)
 
 		ticker := time.NewTicker(sendInterval)
 		defer ticker.Stop()
@@ -108,6 +114,7 @@ func (s *Sender) RunBackground(ctx context.Context) {
 				return
 			case <-ticker.C:
 				s.sendOnce(ctx)
+				s.sendSourceHealth(ctx)
 			}
 		}
 	}()
@@ -163,6 +170,14 @@ func (s *Sender) sendOnce(ctx context.Context) {
 		p.ActiveSource = s.deps.GetActiveSource()
 	}
 
+	// Fallback and cache metrics
+	if s.deps.GetFallbackCount != nil {
+		p.FallbackBucket = FallbackBucket(s.deps.GetFallbackCount())
+	}
+	if s.deps.GetCacheHitRatio != nil {
+		p.CacheHitBucket = CacheHitBucket(s.deps.GetCacheHitRatio())
+	}
+
 	// Metadata
 	meta := make(map[string]any)
 	if s.deps.GetSensorCount != nil {
@@ -170,6 +185,9 @@ func (s *Sender) sendOnce(ctx context.Context) {
 	}
 	if s.deps.CheapestHoursOn != nil {
 		meta["cheapest_hours_enabled"] = s.deps.CheapestHoursOn()
+	}
+	if s.deps.GetTaxSource != nil {
+		meta["tax_source"] = s.deps.GetTaxSource()
 	}
 	if len(meta) > 0 {
 		p.Metadata = meta
@@ -201,6 +219,49 @@ func (s *Sender) sendOnce(ctx context.Context) {
 	} else {
 		slog.Debug("telemetry rejected", "status", resp.StatusCode)
 	}
+}
+
+// sendSourceHealth reports price source health to the platform API.
+// Runs after each telemetry send to piggyback on the same schedule.
+func (s *Sender) sendSourceHealth(ctx context.Context) {
+	if s.deps.GetActiveSource == nil {
+		return
+	}
+
+	report := map[string]any{
+		"install_id":     s.uuid,
+		"report_date":    time.Now().UTC().Format("2006-01-02"),
+		"country":        s.deps.Zone,
+		"active_source":  s.deps.GetActiveSource(),
+		"fallback_events": 0,
+	}
+	if s.deps.GetFallbackCount != nil {
+		report["fallback_events"] = s.deps.GetFallbackCount()
+	}
+	if s.deps.GetTaxSource != nil {
+		report["sources"] = []map[string]string{
+			{"name": "tax", "status": s.deps.GetTaxSource()},
+		}
+	}
+
+	body, err := json.Marshal(report)
+	if err != nil {
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.baseURL+"/api/v1/energy/source-health", bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		slog.Debug("source health report failed", "error", err)
+		return
+	}
+	resp.Body.Close()
+	slog.Debug("source health reported", "status", resp.StatusCode)
 }
 
 // --- UUID persistence ---
