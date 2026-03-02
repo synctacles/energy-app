@@ -406,6 +406,14 @@
         </div>
     </div>
 
+    <!-- Prevent modal flash on return visits (sync check before paint) -->
+    <script>
+    if (localStorage.getItem('disclaimer_accepted') === 'true')
+        document.getElementById('disclaimerOverlay').style.display = 'none';
+    if (localStorage.getItem('privacy_shown') === 'true')
+        document.getElementById('privacyOverlay').style.display = 'none';
+    </script>
+
     <script>
     // --- i18n ---
     var _i18n = {};
@@ -1450,15 +1458,23 @@
     // --- Disclaimer notice ---
     function populateDisclaimerModal() {
         document.getElementById('disclaimerTitle').textContent = t('disclaimer.title', 'Important Notice');
-        document.getElementById('disclaimerIntro').textContent = t('disclaimer.intro', 'Please read before using this app.');
+        document.getElementById('disclaimerIntro').textContent = t('disclaimer.intro', 'This software is provided free of charge. Please read the following before using Synctacles Energy.');
         document.getElementById('disclaimerFooter').textContent = t('disclaimer.footer', 'By clicking "I Understand" you acknowledge that you have read and accept these terms.');
         document.getElementById('disclaimerOkBtn').textContent = t('disclaimer.accept', 'I Understand');
 
+        var fallbacks = {
+            item_1: 'This software is provided "as is" without warranty of any kind, express or implied.',
+            item_2: 'Energy price data is provided for informational purposes only. We do not guarantee accuracy, completeness, or timeliness.',
+            item_3: 'You are solely responsible for any financial decisions based on the information displayed by this app.',
+            item_4: 'Synctacles is not liable for any damages arising from the use of this software or the data it provides.',
+            item_5: 'Synctacles is not affiliated with or endorsed by Home Assistant, Nabu Casa, ENTSO-E, or any energy data provider.',
+            item_6: 'By using this app you accept these terms. You may uninstall the app at any time.'
+        };
         var list = document.getElementById('disclaimerList');
         list.innerHTML = '';
         ['item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6'].forEach(function(k) {
-            var txt = t('disclaimer.' + k);
-            if (txt && txt !== 'disclaimer.' + k) {
+            var txt = t('disclaimer.' + k, fallbacks[k]);
+            if (txt) {
                 var li = document.createElement('li');
                 li.textContent = txt;
                 list.appendChild(li);

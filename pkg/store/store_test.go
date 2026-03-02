@@ -200,3 +200,44 @@ func TestSQLiteCache_LegacyRowsGetTierZero(t *testing.T) {
 	// Legacy rows have tier 0
 	assert.Equal(t, 0, entry.OriginalTier)
 }
+
+func TestSQLiteCache_IsConsumer_Roundtrip(t *testing.T) {
+	cache, err := NewSQLiteCache(t.TempDir())
+	require.NoError(t, err)
+	defer cache.Close()
+
+	date := time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC)
+
+	// Store consumer prices (IsConsumer=true, with wholesale backup)
+	prices := []models.HourlyPrice{
+		{Timestamp: date, PriceEUR: 0.35, WholesaleKWh: 0.09, Unit: models.UnitKWh, Source: "synctacles", Quality: "live", Zone: "NL", IsConsumer: true},
+		{Timestamp: date.Add(time.Hour), PriceEUR: 0.32, WholesaleKWh: 0.08, Unit: models.UnitKWh, Source: "synctacles", Quality: "live", Zone: "NL", IsConsumer: true},
+	}
+	err = cache.PutWithTier("NL", prices, 1)
+	require.NoError(t, err)
+
+	// Retrieve via Get — IsConsumer must survive the roundtrip
+	got, err := cache.Get("NL", date)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.True(t, got[0].IsConsumer, "IsConsumer must be preserved after cache roundtrip")
+	assert.True(t, got[1].IsConsumer)
+	assert.InDelta(t, 0.09, got[0].WholesaleKWh, 0.001, "WholesaleKWh must be preserved")
+	assert.InDelta(t, 0.08, got[1].WholesaleKWh, 0.001)
+
+	// Retrieve via GetWithMeta — same check
+	entry, err := cache.GetWithMeta("NL", date)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	assert.True(t, entry.Prices[0].IsConsumer, "IsConsumer must be preserved in GetWithMeta")
+	assert.InDelta(t, 0.09, entry.Prices[0].WholesaleKWh, 0.001)
+
+	// Non-consumer prices must remain false
+	err = cache.Put("DE-LU", []models.HourlyPrice{
+		{Timestamp: date, PriceEUR: 80.0, Unit: models.UnitMWh, Source: "test", Quality: "live", Zone: "DE-LU", IsConsumer: false},
+	})
+	require.NoError(t, err)
+	got2, err := cache.Get("DE-LU", date)
+	require.NoError(t, err)
+	assert.False(t, got2[0].IsConsumer, "Non-consumer prices must remain false")
+}

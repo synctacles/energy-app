@@ -191,7 +191,54 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	if len(prices) == 0 {
 		return nil, fmt.Errorf("synctacles: no prices for zone %s on %s", zone, dateStr)
 	}
+
+	// Aggregate sub-hourly prices (PT15M, PT30M) to hourly.
+	// The app engine expects 24 hourly entries. Without aggregation,
+	// PT15M zones get 96 entries which breaks best-window calculations
+	// and shows quarter-hour timestamps in cheapest/expensive displays.
+	if resp.Resolution == "PT15M" || resp.Resolution == "PT30M" {
+		prices = aggregateToHourly(prices)
+	}
+
 	return prices, nil
+}
+
+// aggregateToHourly groups sub-hourly prices (PT15M, PT30M) into hourly averages.
+// PT15M zones return 96 entries per day, PT30M returns 48 — the app expects 24.
+func aggregateToHourly(prices []models.HourlyPrice) []models.HourlyPrice {
+	type bucket struct {
+		sumPrice     float64
+		sumWholesale float64
+		count        int
+		first        models.HourlyPrice // template for metadata
+	}
+
+	buckets := make(map[time.Time]*bucket)
+	var order []time.Time // preserve chronological order
+
+	for _, p := range prices {
+		hour := p.Timestamp.Truncate(time.Hour)
+		b, ok := buckets[hour]
+		if !ok {
+			b = &bucket{first: p}
+			buckets[hour] = b
+			order = append(order, hour)
+		}
+		b.sumPrice += p.PriceEUR
+		b.sumWholesale += p.WholesaleKWh
+		b.count++
+	}
+
+	result := make([]models.HourlyPrice, 0, len(order))
+	for _, hour := range order {
+		b := buckets[hour]
+		hp := b.first
+		hp.Timestamp = hour
+		hp.PriceEUR = b.sumPrice / float64(b.count)
+		hp.WholesaleKWh = b.sumWholesale / float64(b.count)
+		result = append(result, hp)
+	}
+	return result
 }
 
 // TaxSeedResponse is the response from the Worker /api/v1/energy/tax endpoint.
