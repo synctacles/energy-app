@@ -50,6 +50,11 @@ func NewSQLiteCache(configPath string) (*SQLiteCache, error) {
 	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN is_consumer INTEGER NOT NULL DEFAULT 0")
 	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN wholesale_kwh REAL NOT NULL DEFAULT 0")
 
+	// Data fix: prices stored as kWh by synctacles/enever are consumer prices
+	// but got is_consumer=0 from the DEFAULT when the column was first added.
+	// Idempotent — no-op once all rows are already corrected.
+	_, _ = db.Exec("UPDATE prices SET is_consumer = 1 WHERE unit = 'kWh' AND is_consumer = 0 AND source IN ('synctacles', 'enever')")
+
 	// Enable WAL mode for better concurrent read performance
 	_, _ = db.Exec("PRAGMA journal_mode=WAL")
 
