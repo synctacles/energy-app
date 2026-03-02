@@ -3,7 +3,8 @@
     "dashboard": "Tableau de bord",
     "automations": "Automatisations",
     "settings": "Paramètres",
-    "feedback": "Commentaires"
+    "feedback": "Commentaires",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Configurer les automatisations",
@@ -204,5 +205,23 @@
     "link": "Tous les détails : synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Cache des prix",
+    "subtitle": "Transparence complète sur les prix en cache et leur composition",
+    "loading": "Chargement des données du cache...",
+    "empty": "Aucun prix en cache disponible",
+    "reset_btn": "Vider le cache & actualiser",
+    "reset_confirm": "Effacer tous les prix en cache et récupérer des données fraîches ?",
+    "reset_done": "Cache vidé. Nouvelles données en cours de chargement...",
+    "col_hour": "Heure",
+    "col_wholesale": "Gros",
+    "col_consumer": "Consommateur",
+    "col_source": "Source",
+    "col_fetched": "Récupéré",
+    "entries": "entrées",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "breakdown_title": "Détail du prix"
   }
 }

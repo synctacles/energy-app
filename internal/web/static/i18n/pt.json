@@ -3,7 +3,8 @@
     "dashboard": "Painel",
     "automations": "Automatizações",
     "settings": "Definições",
-    "feedback": "Comentários"
+    "feedback": "Comentários",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Configurar automatizações",
@@ -204,5 +205,23 @@
     "link": "Todos os detalhes: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Cache de preços",
+    "subtitle": "Transparência total sobre os preços em cache e a sua composição",
+    "loading": "A carregar dados da cache...",
+    "empty": "Nenhum preço em cache disponível",
+    "reset_btn": "Limpar cache e atualizar",
+    "reset_confirm": "Apagar todos os preços em cache e obter dados novos?",
+    "reset_done": "Cache limpa. A carregar novos dados...",
+    "col_hour": "Hora",
+    "col_wholesale": "Grossista",
+    "col_consumer": "Consumidor",
+    "col_source": "Fonte",
+    "col_fetched": "Obtido",
+    "entries": "entradas",
+    "today": "Hoje",
+    "tomorrow": "Amanhã",
+    "breakdown_title": "Composição do preço"
   }
 }

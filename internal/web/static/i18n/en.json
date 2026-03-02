@@ -3,7 +3,8 @@
     "dashboard": "Dashboard",
     "automations": "Automations",
     "settings": "Settings",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Set Up Automations",
@@ -204,5 +205,23 @@
     "link": "Full details: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Price Cache",
+    "subtitle": "Full transparency into cached prices and their composition",
+    "loading": "Loading cache data...",
+    "empty": "No cached prices available",
+    "reset_btn": "Clear Cache & Refresh",
+    "reset_confirm": "Clear all cached prices and fetch fresh data?",
+    "reset_done": "Cache cleared. Fresh data loading...",
+    "col_hour": "Hour",
+    "col_wholesale": "Wholesale",
+    "col_consumer": "Consumer",
+    "col_source": "Source",
+    "col_fetched": "Fetched",
+    "entries": "entries",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "breakdown_title": "Price Breakdown"
   }
 }

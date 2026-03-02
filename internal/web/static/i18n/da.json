@@ -3,7 +3,8 @@
     "dashboard": "Kontrolpanel",
     "automations": "Automatiseringer",
     "settings": "Indstillinger",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Opsæt automatiseringer",
@@ -204,5 +205,23 @@
     "link": "Fulde detaljer: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Pris-cache",
+    "subtitle": "Fuld gennemsigtighed i cachede priser og deres sammensætning",
+    "loading": "Indlæser cache-data...",
+    "empty": "Ingen cachede priser tilgængelige",
+    "reset_btn": "Ryd cache & opdater",
+    "reset_confirm": "Ryd alle cachede priser og hent nye data?",
+    "reset_done": "Cache ryddet. Nye data indlæses...",
+    "col_hour": "Time",
+    "col_wholesale": "Engros",
+    "col_consumer": "Forbruger",
+    "col_source": "Kilde",
+    "col_fetched": "Hentet",
+    "entries": "poster",
+    "today": "I dag",
+    "tomorrow": "I morgen",
+    "breakdown_title": "Prissammensætning"
   }
 }

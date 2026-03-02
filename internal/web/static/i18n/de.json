@@ -3,7 +3,8 @@
     "dashboard": "Dashboard",
     "automations": "Automatisierung",
     "settings": "Einstellungen",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Automatisierung einrichten",
@@ -204,5 +205,23 @@
     "link": "Alle Details: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Preis-Cache",
+    "subtitle": "Vollständige Transparenz über gecachte Preise und deren Zusammensetzung",
+    "loading": "Cache-Daten werden geladen...",
+    "empty": "Keine gecachten Preise verfügbar",
+    "reset_btn": "Cache leeren & aktualisieren",
+    "reset_confirm": "Alle gecachten Preise löschen und neu abrufen?",
+    "reset_done": "Cache geleert. Neue Daten werden geladen...",
+    "col_hour": "Stunde",
+    "col_wholesale": "Großhandel",
+    "col_consumer": "Verbraucher",
+    "col_source": "Quelle",
+    "col_fetched": "Abgerufen",
+    "entries": "Einträge",
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "breakdown_title": "Preisaufschlüsselung"
   }
 }

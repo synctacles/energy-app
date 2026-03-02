@@ -3,7 +3,8 @@
     "dashboard": "Dashboard",
     "automations": "Automatisering",
     "settings": "Instellingen",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "cache": "Cache"
   },
   "automations": {
     "title": "Automatisering instellen",
@@ -204,5 +205,23 @@
     "link": "Alle details: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Prijscache",
+    "subtitle": "Volledige transparantie over gecachte prijzen en hun samenstelling",
+    "loading": "Cachegegevens laden...",
+    "empty": "Geen gecachte prijzen beschikbaar",
+    "reset_btn": "Cache wissen & verversen",
+    "reset_confirm": "Alle gecachte prijzen wissen en opnieuw ophalen?",
+    "reset_done": "Cache gewist. Verse data wordt geladen...",
+    "col_hour": "Uur",
+    "col_wholesale": "Groothandel",
+    "col_consumer": "Consument",
+    "col_source": "Bron",
+    "col_fetched": "Opgehaald",
+    "entries": "items",
+    "today": "Vandaag",
+    "tomorrow": "Morgen",
+    "breakdown_title": "Prijsopbouw"
   }
 }

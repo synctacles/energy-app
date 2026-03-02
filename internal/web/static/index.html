@@ -231,6 +231,49 @@
         .sysinfo-box dd { display: inline; margin: 0; }
         .sysinfo-box dd::after { content: '\A'; white-space: pre; }
 
+        /* Cache tab */
+        .cache-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .cache-header-left { font-size: 0.8em; color: var(--text-muted); }
+        .cache-header-left strong { color: var(--text); }
+        .cache-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+        .cache-meta span { font-size: 0.75em; color: var(--text-faint); }
+        .btn-reset {
+            padding: 6px 14px; background: #dc2626; color: #fff; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: 600; font-size: 0.8em; transition: opacity 0.2s;
+        }
+        .btn-reset:hover { opacity: 0.85; }
+        .btn-reset:disabled { opacity: 0.5; cursor: not-allowed; }
+        .cache-table-wrap { overflow-x: auto; }
+        .cache-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+        .cache-table th {
+            text-align: left; padding: 8px 10px; font-weight: 600; color: var(--text-muted);
+            border-bottom: 2px solid var(--border); font-size: 0.9em; white-space: nowrap;
+        }
+        .cache-table td {
+            padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        .cache-table tr:hover td { background: var(--input-bg); }
+        .cache-table tr.cache-row-tomorrow td { opacity: 0.7; }
+        .cache-table tr.cache-breakdown td {
+            padding: 4px 10px 4px 28px; font-size: 0.9em; color: var(--text-faint);
+            border-bottom: none; background: var(--input-bg);
+        }
+        .cache-table tr.cache-breakdown.hidden { display: none; }
+        .cache-row-toggle { cursor: pointer; user-select: none; }
+        .cache-row-toggle::before { content: '\25B6'; display: inline-block; width: 14px; font-size: 0.7em; }
+        .cache-row-toggle.open::before { content: '\25BC'; }
+        .cache-day-label {
+            display: inline-block; padding: 1px 6px; border-radius: 4px;
+            font-size: 0.85em; margin-left: 6px;
+        }
+        .cache-day-today { background: #dbeafe; color: #1d4ed8; }
+        .cache-day-tomorrow { background: #fef3c7; color: #92400e; }
+        .dark .cache-day-today { background: #1e3a5f; color: #93c5fd; }
+        .dark .cache-day-tomorrow { background: #78350f; color: #fcd34d; }
+        .cache-msg { margin-top: 8px; font-size: 0.82em; min-height: 1.2em; }
+        .cache-msg.success { color: #0d9488; }
+        .cache-msg.error { color: #dc2626; }
+
         /* Privacy modal */
         .privacy-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -302,6 +345,7 @@
             <div class="tab" data-tab="automations" data-i18n="nav.automations">Automations</div>
             <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
             <div class="tab" data-tab="feedback" data-i18n="nav.feedback">Feedback</div>
+            <div class="tab" data-tab="cache" data-i18n="nav.cache">Cache</div>
         </div>
 
         <div id="page-dashboard" class="tab-page active">
@@ -374,6 +418,29 @@
                 <div class="feedback-section">
                     <h3 data-i18n="feedback.system_info">System Info</h3>
                     <div class="sysinfo-box" id="sysInfoBox" data-i18n="common.loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-cache" class="tab-page">
+            <div class="card">
+                <div class="cache-header">
+                    <div class="cache-header-left">
+                        <h3 data-i18n="cache.title">Price Cache</h3>
+                        <div class="cache-meta">
+                            <span id="cacheZone"></span>
+                            <span id="cacheMode"></span>
+                            <span id="cacheCount"></span>
+                        </div>
+                    </div>
+                    <button class="btn-reset" id="btnCacheReset" data-i18n="cache.reset_btn">Reset Cache</button>
+                </div>
+                <div class="cache-msg" id="cacheMsg"></div>
+                <div id="cacheContent">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p data-i18n="cache.loading">Loading cache...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -591,6 +658,7 @@
             document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
             if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
             if (tab.getAttribute('data-tab') === 'feedback' && !feedbackLoaded) loadFeedbackSysInfo();
+            if (tab.getAttribute('data-tab') === 'cache' && !cacheLoaded) loadCache();
         };
     });
 
@@ -1453,6 +1521,160 @@
             msg.textContent = t('feedback.bug_submit_error', 'Could not submit bug report. Please check your connection and try again.');
         }
         btn.disabled = false;
+    };
+
+    // --- Cache tab ---
+    var cacheLoaded = false;
+
+    async function loadCache() {
+        var content = document.getElementById('cacheContent');
+        var msg = document.getElementById('cacheMsg');
+        msg.textContent = '';
+        try {
+            var resp = await fetch('api/cache');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var data = await resp.json();
+            cacheLoaded = true;
+
+            // Header meta
+            document.getElementById('cacheZone').textContent = data.zone || '';
+            document.getElementById('cacheMode').textContent = data.pricing_mode ? ('Mode: ' + data.pricing_mode) : '';
+            document.getElementById('cacheCount').textContent = tReplace('cache.entries', { count: data.count || 0 }, data.count + ' entries');
+
+            if (!data.entries || data.entries.length === 0) {
+                content.innerHTML = '<p style="text-align:center;color:var(--text-faint);padding:24px">' + t('cache.empty', 'No cached prices found.') + '</p>';
+                return;
+            }
+
+            // Determine today boundary
+            var now = new Date();
+            var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+            var html = '<div class="cache-table-wrap"><table class="cache-table"><thead><tr>';
+            html += '<th>' + t('cache.col_hour', 'Hour') + '</th>';
+            html += '<th>' + t('cache.col_wholesale', 'Wholesale') + '</th>';
+            html += '<th>' + t('cache.col_consumer', 'Consumer') + '</th>';
+            html += '<th>' + t('cache.col_source', 'Source') + '</th>';
+            html += '<th>' + t('cache.col_fetched', 'Fetched') + '</th>';
+            html += '</tr></thead><tbody>';
+
+            var lastDay = '';
+            data.entries.forEach(function(e, idx) {
+                var d = new Date(e.hour);
+                var dayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                var isTomorrow = dayStr !== todayStr;
+
+                // Day separator
+                if (dayStr !== lastDay) {
+                    var label = isTomorrow ? t('cache.tomorrow', 'Tomorrow') : t('cache.today', 'Today');
+                    var cls = isTomorrow ? 'cache-day-tomorrow' : 'cache-day-today';
+                    html += '<tr><td colspan="5" style="padding:8px 10px;font-weight:600;font-size:0.9em;border-bottom:2px solid var(--border)">';
+                    html += dayStr + ' <span class="cache-day-label ' + cls + '">' + esc(label) + '</span></td></tr>';
+                    lastDay = dayStr;
+                }
+
+                var hourStr = String(d.getHours()).padStart(2, '0') + ':00';
+                var trCls = isTomorrow ? ' class="cache-row-tomorrow"' : '';
+                var hasBreakdown = e.breakdown && Object.keys(e.breakdown).length > 0;
+                var toggleCls = hasBreakdown ? ' cache-row-toggle' : '';
+
+                html += '<tr' + trCls + ' data-idx="' + idx + '">';
+                html += '<td class="' + toggleCls + '">' + hourStr + '</td>';
+                html += '<td>' + fmtCt(e.wholesale_kwh) + '</td>';
+                html += '<td><strong>' + fmtCt(e.consumer_kwh) + '</strong></td>';
+                html += '<td title="' + esc(e.source) + '">' + esc(e.source_label || e.source) + '</td>';
+                html += '<td>' + fmtAge(e.fetched_at) + '</td>';
+                html += '</tr>';
+
+                // Breakdown row (hidden by default)
+                if (hasBreakdown) {
+                    html += '<tr class="cache-breakdown hidden" data-breakdown="' + idx + '">';
+                    html += '<td colspan="5">';
+                    html += '<strong>' + t('cache.breakdown_title', 'Price breakdown') + ':</strong> ';
+                    var parts = [];
+                    var bd = e.breakdown;
+                    if (bd.wholesale !== undefined) parts.push('Wholesale: ' + fmtCt(bd.wholesale));
+                    if (bd.energy_tax !== undefined) parts.push('Energy tax: ' + fmtCt(bd.energy_tax));
+                    if (bd.surcharges !== undefined) parts.push('Surcharges: ' + fmtCt(bd.surcharges));
+                    if (bd.network_tariff !== undefined) parts.push('Network: ' + fmtCt(bd.network_tariff));
+                    if (bd.supplier_markup !== undefined) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
+                    if (bd.subtotal !== undefined) parts.push('Subtotal: ' + fmtCt(bd.subtotal));
+                    if (bd.vat_amount !== undefined) parts.push('VAT: ' + fmtCt(bd.vat_amount));
+                    if (bd.total !== undefined) parts.push('<strong>Total: ' + fmtCt(bd.total) + '</strong>');
+                    html += parts.join(' &rarr; ');
+                    html += '</td></tr>';
+                }
+            });
+
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+
+            // Toggle breakdown rows on click
+            content.querySelectorAll('tr[data-idx]').forEach(function(row) {
+                row.onclick = function() {
+                    var idx = row.getAttribute('data-idx');
+                    var bd = content.querySelector('tr[data-breakdown="' + idx + '"]');
+                    if (!bd) return;
+                    var toggle = row.querySelector('.cache-row-toggle');
+                    if (bd.classList.contains('hidden')) {
+                        bd.classList.remove('hidden');
+                        if (toggle) toggle.classList.add('open');
+                    } else {
+                        bd.classList.add('hidden');
+                        if (toggle) toggle.classList.remove('open');
+                    }
+                };
+            });
+        } catch (e) {
+            content.innerHTML = '<p style="text-align:center;color:#dc2626;padding:24px">Failed to load cache data.</p>';
+            console.warn('cache load error:', e);
+        }
+    }
+
+    function fmtCt(val) {
+        if (val === undefined || val === null) return '-';
+        return (parseFloat(val) * 100).toFixed(2) + ' ct';
+    }
+
+    function fmtAge(iso) {
+        if (!iso) return '-';
+        var d = new Date(iso);
+        var mins = Math.round((Date.now() - d.getTime()) / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + 'm ago';
+        var hrs = Math.round(mins / 60);
+        if (hrs < 24) return hrs + 'h ago';
+        return Math.round(hrs / 24) + 'd ago';
+    }
+
+    document.getElementById('btnCacheReset').onclick = async function() {
+        if (!confirm(t('cache.reset_confirm', 'Are you sure? This will clear all cached prices and fetch fresh data.'))) return;
+        var btn = this;
+        var msg = document.getElementById('cacheMsg');
+        btn.disabled = true;
+        msg.className = 'cache-msg';
+        msg.textContent = '';
+        try {
+            var resp = await fetch('api/cache/reset', { method: 'POST' });
+            var result = await resp.json();
+            if (resp.ok) {
+                msg.className = 'cache-msg success';
+                msg.textContent = t('cache.reset_done', 'Cache cleared. Fresh data will appear shortly.');
+                // Reload after short delay to show fresh data
+                setTimeout(function() {
+                    cacheLoaded = false;
+                    loadCache();
+                }, 5000);
+            } else {
+                msg.className = 'cache-msg error';
+                msg.textContent = result.error || 'Reset failed';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            msg.className = 'cache-msg error';
+            msg.textContent = 'Connection error';
+            btn.disabled = false;
+        }
     };
 
     // --- Disclaimer notice ---

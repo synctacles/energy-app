@@ -17,6 +17,7 @@ type Scheduler struct {
 	zone        string
 	updateFn    func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error
 	stopCh      chan struct{}
+	triggerCh   chan struct{}
 }
 
 // NewScheduler creates a price fetch scheduler.
@@ -34,6 +35,7 @@ func NewScheduler(
 		zone:       zone,
 		updateFn:   updateFn,
 		stopCh:     make(chan struct{}),
+		triggerCh:  make(chan struct{}, 1),
 	}
 }
 
@@ -73,6 +75,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 			slog.Info("day-ahead fetch triggered")
 			s.fetchAndUpdate(ctx)
 			dayAheadTimer = s.nextDayAheadTimer()
+		case <-s.triggerCh:
+			slog.Info("manual fetch triggered")
+			s.fetchAndUpdate(ctx)
 		}
 	}
 }
@@ -80,6 +85,14 @@ func (s *Scheduler) Run(ctx context.Context) {
 // Stop signals the scheduler to stop.
 func (s *Scheduler) Stop() {
 	close(s.stopCh)
+}
+
+// TriggerFetch requests an immediate fetch cycle. Non-blocking.
+func (s *Scheduler) TriggerFetch() {
+	select {
+	case s.triggerCh <- struct{}{}:
+	default: // trigger already pending
+	}
 }
 
 func (s *Scheduler) fetchAndUpdate(ctx context.Context) {

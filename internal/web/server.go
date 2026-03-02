@@ -23,6 +23,7 @@ import (
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
 	"github.com/synctacles/energy-app/pkg/models"
+	"github.com/synctacles/energy-app/pkg/store"
 	"github.com/synctacles/energy-app/internal/state"
 )
 
@@ -45,6 +46,8 @@ type Server struct {
 	zoneRegistry        *models.ZoneRegistry
 	taxCache            *engine.TaxProfileCache
 	normalizer          *engine.Normalizer
+	scheduler           *engine.Scheduler
+	sqliteCache         *store.SQLiteCache
 }
 
 // Deps holds dependencies for the web server.
@@ -62,6 +65,8 @@ type Deps struct {
 	ZoneRegistry        *models.ZoneRegistry
 	TaxCache            *engine.TaxProfileCache
 	Normalizer          *engine.Normalizer
+	Scheduler           *engine.Scheduler
+	SQLiteCache         *store.SQLiteCache
 }
 
 // NewServer creates a new energy addon web server.
@@ -80,6 +85,8 @@ func NewServer(deps Deps) *Server {
 		zoneRegistry:        deps.ZoneRegistry,
 		taxCache:            deps.TaxCache,
 		normalizer:          deps.Normalizer,
+		scheduler:           deps.Scheduler,
+		sqliteCache:         deps.SQLiteCache,
 	}
 
 	r := chi.NewRouter()
@@ -115,6 +122,10 @@ func NewServer(deps Deps) *Server {
 
 		// Sources health
 		r.Get("/sources", s.handleSources)
+
+		// Cache transparency
+		r.Get("/cache", s.handleCacheView)
+		r.Post("/cache/reset", s.handleCacheReset)
 
 		// Feedback
 		r.Get("/feedback/sysinfo", s.handleFeedbackSysInfo)
@@ -897,6 +908,149 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// handleCacheView returns all cached prices for the active zone with source labels.
+func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
+	if s.sqliteCache == nil {
+		writeError(w, http.StatusServiceUnavailable, "cache not available")
+		return
+	}
+
+	zone := s.cfg.BiddingZone
+	now := time.Now().UTC()
+	rows, err := s.sqliteCache.GetAllForZone(zone, now)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "cache read failed")
+		return
+	}
+
+	mode := s.cfg.PricingMode
+	taxSource := ""
+	if s.normalizer != nil {
+		taxSource = s.normalizer.TaxSource()
+	}
+
+	type cacheEntry struct {
+		Hour        string             `json:"hour"`
+		WholesaleKWh float64           `json:"wholesale_kwh"`
+		ConsumerKWh float64            `json:"consumer_kwh"`
+		Source      string             `json:"source"`
+		SourceLabel string             `json:"source_label"`
+		Quality     string             `json:"quality"`
+		Tier        int                `json:"tier"`
+		IsConsumer  bool               `json:"is_consumer"`
+		FetchedAt   string             `json:"fetched_at"`
+		Breakdown   *models.PriceBreakdown `json:"breakdown,omitempty"`
+	}
+
+	entries := make([]cacheEntry, 0, len(rows))
+	for _, row := range rows {
+		e := cacheEntry{
+			Hour:         row.Timestamp,
+			WholesaleKWh: row.WholesaleKWh,
+			ConsumerKWh:  row.PriceEUR,
+			Source:       row.Source,
+			SourceLabel:  deriveSourceLabel(mode, row.Source, taxSource, row.IsConsumer),
+			Quality:      row.Quality,
+			Tier:         row.Tier,
+			IsConsumer:   row.IsConsumer,
+			FetchedAt:    row.FetchedAt,
+		}
+
+		// Compute breakdown if we have tax data and a wholesale price
+		if row.WholesaleKWh > 0 && s.taxCache != nil {
+			if tp := s.taxCache.Get(zone); tp != nil {
+				subtotal := row.WholesaleKWh + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges + tp.NetworkTariffAvg
+				vatAmount := subtotal * tp.VATRate
+				bd := models.PriceBreakdown{
+					Wholesale:      row.WholesaleKWh,
+					SupplierMarkup: tp.SupplierMarkup,
+					EnergyTax:      tp.EnergyTax,
+					Surcharges:     tp.Surcharges,
+					NetworkTariff:  tp.NetworkTariffAvg,
+					Subtotal:       subtotal,
+					VATRate:        tp.VATRate,
+					VATAmount:      vatAmount,
+					ConsumerTotal:  subtotal + vatAmount,
+				}
+				e.Breakdown = &bd
+			}
+		}
+
+		entries = append(entries, e)
+	}
+
+	// Active source info
+	var activeInfo *engine.ActiveSourceInfo
+	if s.fallback != nil {
+		activeInfo = s.fallback.ActiveInfo(zone, now)
+	}
+
+	writeJSON(w, map[string]any{
+		"zone":         zone,
+		"pricing_mode": mode,
+		"tax_source":   taxSource,
+		"entries":      entries,
+		"count":        len(entries),
+		"active_info":  activeInfo,
+	})
+}
+
+// handleCacheReset clears the price cache for the active zone and triggers a refetch.
+func (s *Server) handleCacheReset(w http.ResponseWriter, r *http.Request) {
+	zone := s.cfg.BiddingZone
+
+	var deleted int64
+	if s.sqliteCache != nil {
+		var err error
+		deleted, err = s.sqliteCache.ClearZone(zone)
+		if err != nil {
+			slog.Error("cache reset: sqlite clear failed", "error", err)
+		}
+	}
+
+	if s.fallback != nil {
+		s.fallback.ClearMemCache()
+	}
+
+	if s.scheduler != nil {
+		s.scheduler.TriggerFetch()
+	}
+
+	slog.Info("cache reset", "zone", zone, "deleted", deleted)
+	writeJSON(w, map[string]any{
+		"status":  "ok",
+		"deleted": deleted,
+	})
+}
+
+// deriveSourceLabel returns a human-readable label describing how the price was composed.
+func deriveSourceLabel(mode, source, taxSource string, isConsumer bool) string {
+	if mode == "p1_meter" {
+		return "P1 meter tariff"
+	}
+	if mode == "manual" {
+		return "Manual tax config"
+	}
+	if isConsumer {
+		switch source {
+		case "synctacles":
+			return "Worker (wholesale + tax)"
+		case "enever":
+			return "Enever (consumer price)"
+		default:
+			return source + " (consumer)"
+		}
+	}
+	switch taxSource {
+	case "worker":
+		return "Wholesale + Worker tax"
+	case "embedded":
+		return "Wholesale + embedded tax"
+	default:
+		return "Wholesale only (no tax)"
+	}
 }
 
 // toFloat64 extracts a float64 from a map value (handles both float64 and json.Number).

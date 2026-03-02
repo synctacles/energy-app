@@ -3,7 +3,8 @@
     "dashboard": "Kojelauta",
     "automations": "Automaatiot",
     "settings": "Asetukset",
-    "feedback": "Palaute"
+    "feedback": "Palaute",
+    "cache": "Välimuisti"
   },
   "automations": {
     "title": "Aseta automaatiot",
@@ -204,5 +205,23 @@
     "link": "Kaikki tiedot: synctacles.com/privacy",
     "ok": "OK",
     "settings_button": "Privacy"
+  },
+  "cache": {
+    "title": "Hintavälimuisti",
+    "subtitle": "Täysi läpinäkyvyys välimuistissa oleviin hintoihin ja niiden koostumukseen",
+    "loading": "Ladataan välimuistitietoja...",
+    "empty": "Ei välimuistissa olevia hintoja",
+    "reset_btn": "Tyhjennä välimuisti ja päivitä",
+    "reset_confirm": "Tyhjennä kaikki välimuistissa olevat hinnat ja hae uudet tiedot?",
+    "reset_done": "Välimuisti tyhjennetty. Uusia tietoja ladataan...",
+    "col_hour": "Tunti",
+    "col_wholesale": "Tukkuhinta",
+    "col_consumer": "Kuluttaja",
+    "col_source": "Lähde",
+    "col_fetched": "Haettu",
+    "entries": "merkintää",
+    "today": "Tänään",
+    "tomorrow": "Huomenna",
+    "breakdown_title": "Hintaerittely"
   }
 }

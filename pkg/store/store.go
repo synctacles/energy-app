@@ -237,6 +237,57 @@ func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier
 	return tx.Commit()
 }
 
+// CacheRow represents a single cached price row with all metadata.
+type CacheRow struct {
+	Timestamp    string  `json:"timestamp"`
+	PriceEUR     float64 `json:"price_eur"`
+	WholesaleKWh float64 `json:"wholesale_kwh"`
+	Unit         string  `json:"unit"`
+	Source       string  `json:"source"`
+	Quality      string  `json:"quality"`
+	FetchedAt    string  `json:"fetched_at"`
+	Tier         int     `json:"tier"`
+	IsConsumer   bool    `json:"is_consumer"`
+}
+
+// GetAllForZone returns all cached price rows for a zone covering today + tomorrow.
+func (c *SQLiteCache) GetAllForZone(zone string, today time.Time) ([]CacheRow, error) {
+	dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	dayEnd := dayStart.Add(48 * time.Hour)
+
+	rows, err := c.db.Query(`
+		SELECT timestamp, price_eur, wholesale_kwh, unit, source, quality, fetched_at, original_tier, is_consumer
+		FROM prices
+		WHERE zone = ? AND timestamp >= ? AND timestamp < ?
+		ORDER BY timestamp
+	`, zone, dayStart.Format(time.RFC3339), dayEnd.Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("cache query all: %w", err)
+	}
+	defer rows.Close()
+
+	var result []CacheRow
+	for rows.Next() {
+		var r CacheRow
+		var isConsumer int
+		if err := rows.Scan(&r.Timestamp, &r.PriceEUR, &r.WholesaleKWh, &r.Unit, &r.Source, &r.Quality, &r.FetchedAt, &r.Tier, &isConsumer); err != nil {
+			continue
+		}
+		r.IsConsumer = isConsumer == 1
+		result = append(result, r)
+	}
+	return result, nil
+}
+
+// ClearZone deletes all cached prices for a zone. Returns rows deleted.
+func (c *SQLiteCache) ClearZone(zone string) (int64, error) {
+	result, err := c.db.Exec("DELETE FROM prices WHERE zone = ?", zone)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 // Cleanup removes prices whose hour timestamp is older than the given duration.
 // Uses the price timestamp (not fetched_at) because day-ahead prices are immutable —
 // a price for yesterday 15:00 is never useful regardless of when it was fetched.

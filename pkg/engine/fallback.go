@@ -297,6 +297,14 @@ func (f *FallbackManager) ActiveInfo(zone string, date time.Time) *ActiveSourceI
 	}
 }
 
+// ClearMemCache removes all in-memory cached results, forcing the next
+// Fetch call to re-query live sources or SQLite.
+func (f *FallbackManager) ClearMemCache() {
+	f.mu.Lock()
+	f.memCache = make(map[string]*memCacheEntry)
+	f.mu.Unlock()
+}
+
 func supportsZone(src collector.PriceSource, zone string) bool {
 	for _, z := range src.Zones() {
 		if z == zone {

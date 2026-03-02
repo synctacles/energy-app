@@ -429,6 +429,8 @@ func main() {
 		ZoneRegistry:        registry,
 		TaxCache:            taxCache,
 		Normalizer:          normalizer,
+		Scheduler:           scheduler,
+		SQLiteCache:         sqliteCache,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
