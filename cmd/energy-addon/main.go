@@ -359,37 +359,43 @@ func main() {
 	})
 	telemetrySender.RunBackground(ctx)
 
-	// Startup: fetch from Worker to warm tax profile cache.
-	// If this is a first boot (no cached tax data) and the Worker is unreachable,
-	// retry every 5 minutes — no degraded mode without tax data.
+	// Startup: fetch tax profile from Worker to warm cache.
+	// FetchDayAhead caches the tax profile even when prices are empty (stale/missing),
+	// so we call it once and check LastTaxProfile regardless of the price result.
+	// If the Worker is completely unreachable, retry up to 3 times then start without
+	// tax data — the fallback chain (EasyEnergy, etc.) provides its own consumer prices.
 	if !taxCache.HasData() {
 		slog.Info("first boot — fetching tax profile from Worker")
-		for {
-			prices, err := synctaclesAPI.FetchDayAhead(ctx, cfg.BiddingZone, time.Now().UTC())
-			if err == nil && len(prices) > 0 {
-				if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
-					var networkCost float64
-					if tp.NetworkCostKWh != nil {
-						networkCost = *tp.NetworkCostKWh
-					}
-					taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
-						VATRate:          tp.VatPct,
-						EnergyTax:        tp.EnergyTaxKWh,
-						Surcharges:       tp.SurchargesKWh,
-						NetworkTariffAvg: networkCost,
-						Version:          tp.Version,
-					})
-					slog.Info("tax profile cached from Worker", "zone", cfg.BiddingZone, "version", tp.Version)
+		const maxRetries = 3
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			synctaclesAPI.FetchDayAhead(ctx, cfg.BiddingZone, time.Now().UTC()) // ignore error — tax profile is cached as side effect
+			if tp := synctaclesAPI.LastTaxProfile(); tp != nil {
+				var networkCost float64
+				if tp.NetworkCostKWh != nil {
+					networkCost = *tp.NetworkCostKWh
 				}
+				taxCache.Put(cfg.BiddingZone, &engine.WorkerTaxOverride{
+					VATRate:          tp.VatPct,
+					EnergyTax:        tp.EnergyTaxKWh,
+					Surcharges:       tp.SurchargesKWh,
+					NetworkTariffAvg: networkCost,
+					Version:          tp.Version,
+				})
+				slog.Info("tax profile cached from Worker", "zone", cfg.BiddingZone, "version", tp.Version)
 				break
 			}
-			slog.Warn("Worker unreachable — retrying in 5 minutes", "error", err)
-			select {
-			case <-ctx.Done():
-				slog.Info("shutdown during startup retry")
-				return
-			case <-time.After(5 * time.Minute):
+			slog.Warn("Worker unreachable — no tax profile", "attempt", attempt, "max", maxRetries)
+			if attempt < maxRetries {
+				select {
+				case <-ctx.Done():
+					slog.Info("shutdown during startup retry")
+					return
+				case <-time.After(30 * time.Second):
+				}
 			}
+		}
+		if !taxCache.HasData() {
+			slog.Warn("starting without tax profile — fallback sources will provide consumer prices")
 		}
 	} else {
 		slog.Info("tax profile cache loaded from disk", "zone", cfg.BiddingZone)

@@ -114,12 +114,10 @@ type workerTaxProfile struct {
 // otherwise falls back to wholesale prices (IsConsumer=false).
 func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date time.Time) ([]models.HourlyPrice, error) {
 	dateStr := date.Format("2006-01-02")
-	resolution := "PT60M"
-	if zone == "GB" {
-		resolution = "PT30M"
-	}
-	url := fmt.Sprintf("%s/api/v1/energy/prices?zone=%s&from=%s&to=%s&resolution=%s",
-		s.baseURL(), zone, dateStr, dateStr, resolution)
+	// Let the Worker choose the best resolution per zone (PT15M for most EU zones,
+	// PT30M for GB, PT60M for zones without quarter-hourly data).
+	url := fmt.Sprintf("%s/api/v1/energy/prices?zone=%s&from=%s&to=%s",
+		s.baseURL(), zone, dateStr, dateStr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
