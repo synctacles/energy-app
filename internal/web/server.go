@@ -645,20 +645,28 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	// from the Worker fetch). Use it to derive the estimated markup.
 	supplierMarkup := override.SupplierMarkup
 	if data != nil && data.SourceTier == "enever" && s.sqliteCache != nil {
-		now := time.Now()
+		now := time.Now().UTC()
 		if cached, err := s.sqliteCache.Get(zone, now); err == nil {
+			// Try exact PT15 slot first, fall back to hourly
+			currentSlot := now.Truncate(15 * time.Minute)
 			currentHour := now.Truncate(time.Hour)
+			var bestWholesale float64
 			for _, p := range cached {
-				if p.Timestamp.Equal(currentHour) && p.WholesaleKWh > 0 {
-					subtotal := data.CurrentPrice / (1 + override.VATRate)
-					supplierMarkup = subtotal - p.WholesaleKWh - override.EnergyTax - override.Surcharges
-					if supplierMarkup < 0 {
-						supplierMarkup = 0
+				if p.WholesaleKWh > 0 && (p.Timestamp.Equal(currentSlot) || p.Timestamp.Equal(currentHour)) {
+					bestWholesale = p.WholesaleKWh
+					if p.Timestamp.Equal(currentSlot) {
+						break // exact PT15 match preferred
 					}
-					wholesaleKWh = p.WholesaleKWh
-					markupEstimated = true
-					break
 				}
+			}
+			if bestWholesale > 0 {
+				subtotal := data.CurrentPrice / (1 + override.VATRate)
+				supplierMarkup = subtotal - bestWholesale - override.EnergyTax - override.Surcharges
+				if supplierMarkup < 0 {
+					supplierMarkup = 0
+				}
+				wholesaleKWh = bestWholesale
+				markupEstimated = true
 			}
 		}
 	}
@@ -908,12 +916,16 @@ func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build message: "Rating: 4/5 — user comment here"
+	msg := fmt.Sprintf("Rating: %d/5", req.Rating)
+	if req.Comment != "" {
+		msg += " — " + req.Comment
+	}
+
 	payload := map[string]any{
-		"type":        "rating",
-		"product_id":  "energy",
-		"rating":      req.Rating,
-		"comment":     req.Comment,
-		"system_info": s.feedbackSystemInfo(),
+		"type":    "other",
+		"product": "energy",
+		"message": msg,
 	}
 
 	resp, err := s.forwardFeedback(payload)
@@ -940,12 +952,13 @@ func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sysInfo := s.feedbackSystemInfo()
+	msg := req.Title + "\n\n" + req.Description + "\n\nSystem: " + fmt.Sprintf("%v", sysInfo)
+
 	payload := map[string]any{
-		"type":        "bug",
-		"product_id":  "energy",
-		"title":       req.Title,
-		"description": req.Description,
-		"system_info": s.feedbackSystemInfo(),
+		"type":    "bug",
+		"product": "energy",
+		"message": msg,
 	}
 
 	resp, err := s.forwardFeedback(payload)
