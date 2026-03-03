@@ -1607,8 +1607,8 @@
             var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
             var hasWholesale = data.entries.some(function(e) { return e.wholesale_kwh > 0; });
-            var hasDelta = data.entries.some(function(e) { return e.breakdown && e.breakdown.total; });
-            var colCount = 4 + (hasWholesale ? 1 : 0) + (hasDelta ? 1 : 0);
+            var hasDelta = data.entries.some(function(e) { return e.breakdown && e.breakdown.consumer_total; });
+            var colCount = 4 + (hasWholesale ? 1 : 0) + (hasDelta ? 2 : 0);
 
             var html = '<div class="cache-table-wrap"><table class="cache-table"><thead><tr>';
             html += '<th>' + t('cache.col_hour', 'Hour') + '</th>';
@@ -1641,7 +1641,7 @@
                 var toggleCls = hasBreakdown ? ' cache-row-toggle' : '';
 
                 // Compute delta: consumer (actual) vs calculated (Worker breakdown)
-                var calcPrice = hasBreakdown && e.breakdown.total ? e.breakdown.total : null;
+                var calcPrice = hasBreakdown && e.breakdown.consumer_total ? e.breakdown.consumer_total : null;
                 var delta = (calcPrice !== null) ? (e.consumer_kwh - calcPrice) : null;
 
                 html += '<tr' + trCls + ' data-idx="' + idx + '">';
@@ -1671,7 +1671,7 @@
                     if (bd.supplier_markup !== undefined && bd.supplier_markup > 0.0001) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
                     if (bd.subtotal !== undefined) parts.push('Subtotal: ' + fmtCt(bd.subtotal));
                     if (bd.vat_amount !== undefined) parts.push('VAT: ' + fmtCt(bd.vat_amount));
-                    if (bd.total !== undefined) parts.push('<strong>Total: ' + fmtCt(bd.total) + '</strong>');
+                    if (bd.consumer_total !== undefined) parts.push('<strong>Total: ' + fmtCt(bd.consumer_total) + '</strong>');
                     html += parts.join(' &rarr; ');
                     html += '</td></tr>';
                 }
