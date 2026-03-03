@@ -123,6 +123,21 @@ func NewServer(deps Deps) *Server {
 		// Sources health
 		r.Get("/sources", s.handleSources)
 
+		// Debug: verify embedded i18n files
+		r.Get("/debug/i18n", func(w http.ResponseWriter, r *http.Request) {
+			lang := r.URL.Query().Get("lang")
+			if lang == "" {
+				lang = "en"
+			}
+			data, err := staticFS.ReadFile("static/i18n/" + lang + ".json")
+			if err != nil {
+				writeJSON(w, map[string]string{"error": err.Error()})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(data)
+		})
+
 		// Cache transparency
 		r.Get("/cache", s.handleCacheView)
 		r.Post("/cache/reset", s.handleCacheReset)
@@ -133,11 +148,14 @@ func NewServer(deps Deps) *Server {
 		r.Post("/feedback/bug", s.handleFeedbackBug)
 	})
 
-	// Static files and SPA
+	// Static files and SPA — no-cache headers to prevent stale i18n/JS across app updates
 	staticSub, err := fs.Sub(staticFS, "static")
 	if err == nil {
 		fileServer := http.FileServer(http.FS(staticSub))
-		r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
+		r.Handle("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+			http.StripPrefix("/static/", fileServer).ServeHTTP(w, r)
+		}))
 	}
 
 	// SPA fallback
@@ -770,6 +788,7 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	_, _ = w.Write(data)
 }
 
