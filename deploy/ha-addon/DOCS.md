@@ -92,6 +92,28 @@ Live Cost, Savings, and Usage Score require a power sensor entity to be configur
 | `power_sensor` | — | HA entity ID for power consumption (e.g. `sensor.power_consumption`) |
 | `debug_mode` | false | Enable verbose logging |
 
+### Pricing Modes
+
+The addon supports 5 pricing modes that determine how your electricity price is calculated:
+
+| Mode | Description | Price Source | Availability |
+|------|-------------|-------------|--------------|
+| **Synctacles Auto** | Wholesale price + automatic tax profile from Synctacles Worker | Worker API + fallback chain | All 30 zones |
+| **Manual** | Wholesale price + your own tax values (VAT, energy tax, surcharges) | Fallback chain + user input | All 30 zones |
+| **External Sensor** | Consumer price from any HA sensor that provides a €/kWh tariff | HA sensor entity | All zones |
+| **Enever** | All-in consumer price from your Dutch supplier via Enever API | Enever API | Netherlands only |
+| **Fixed Rate** | User-defined flat rate — no dynamic pricing | User input | All zones |
+
+**Synctacles Auto** is the default and recommended mode. It uses calibrated tax profiles per country that are updated regularly via the Synctacles Worker. If the Worker is unavailable, the fallback chain provides wholesale prices.
+
+**Manual** mode is useful when you know your exact tax components (VAT rate, energy tax, surcharges). Wholesale prices still come from the fallback chain — only the tax calculation uses your values.
+
+**External Sensor** mode reads the consumer price directly from any Home Assistant sensor that exposes an electricity tariff in €/kWh (or other currency/kWh). Works with Zonneplan, Tibber, Octopus Energy, P1 meters, and any other integration that provides a tariff sensor. The fallback chain still runs in the background to provide day-ahead prices for GO/WAIT/AVOID recommendations.
+
+**Enever** mode is available exclusively for the Netherlands. It provides the exact all-in price your specific Dutch supplier charges. See the Enever Integration section below for setup.
+
+**Fixed Rate** mode disables dynamic pricing entirely. Enter your contract price and the addon uses that for all calculations. GO/WAIT/AVOID recommendations are disabled in this mode.
+
 ### Supplier Markup
 
 The supplier markup is a fixed amount in EUR/kWh added to the wholesale price before taxes. A value of `0` uses the default from the Synctacles Worker (calibrated per country). Set a custom value to match your supplier's specific markup — for example, `0.005` adds €0.005/kWh.

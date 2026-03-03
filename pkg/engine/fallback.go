@@ -38,6 +38,12 @@ type memCacheEntry struct {
 // This keeps Enever at ~3 calls/day (well within 250/month free tier).
 const memCacheTTL = 2 * time.Hour
 
+// estimatedCacheTTL is used for estimated/non-live data during the retry window
+// (13:00-21:30 UTC). The backend retries non-ok zones hourly until 21:00 UTC;
+// the shorter TTL lets the client pick up recovered data within 15 minutes.
+// Outside the retry window, memCacheTTL is used (no backend retries expected).
+const estimatedCacheTTL = 15 * time.Minute
+
 // PriceCache is the interface for cached price storage.
 type PriceCache interface {
 	Get(zone string, date time.Time) ([]models.HourlyPrice, error)
@@ -82,9 +88,12 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 
 	// Check in-memory cache first (prevents hammering rate-limited APIs)
 	cacheKey := zone + ":" + date.Format("2006-01-02")
-	if entry, ok := f.memCache[cacheKey]; ok && time.Since(entry.fetchedAt) < memCacheTTL {
-		slog.Debug("using in-memory cached result", "source", entry.result.Source, "age", time.Since(entry.fetchedAt).Round(time.Second))
-		return entry.result, nil
+	if entry, ok := f.memCache[cacheKey]; ok {
+		ttl := cacheTTLFor(entry.result)
+		if time.Since(entry.fetchedAt) < ttl {
+			slog.Debug("using in-memory cached result", "source", entry.result.Source, "age", time.Since(entry.fetchedAt).Round(time.Second))
+			return entry.result, nil
+		}
 	}
 
 	// Check SQLite for complete live-quality data before hitting APIs.
@@ -303,6 +312,27 @@ func (f *FallbackManager) ClearMemCache() {
 	f.mu.Lock()
 	f.memCache = make(map[string]*memCacheEntry)
 	f.mu.Unlock()
+}
+
+// cacheTTLFor returns the appropriate cache TTL for a fetch result.
+// Estimated data uses a shorter TTL during the backend retry window (13:00-21:30 UTC)
+// so the client picks up recovered data quickly. Outside the window, the standard
+// 2-hour TTL is used since no backend retries are expected.
+func cacheTTLFor(r *FetchResult) time.Duration {
+	if r == nil {
+		return memCacheTTL
+	}
+	isEstimated := r.Source == "estimated" || r.Quality != "live"
+	if !isEstimated {
+		return memCacheTTL
+	}
+	h := time.Now().UTC().Hour()
+	m := time.Now().UTC().Minute()
+	inRetryWindow := (h >= 13 && h < 21) || (h == 21 && m <= 30)
+	if inRetryWindow {
+		return estimatedCacheTTL
+	}
+	return memCacheTTL
 }
 
 // FetchWholesaleForZone calls non-Enever sources to get wholesale prices

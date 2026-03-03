@@ -127,6 +127,7 @@
         .chart-card { grid-column: 1 / -1; }
         .chart-container { position: relative; height: 200px; margin-top: 8px; }
         canvas { width: 100% !important; height: 100% !important; }
+        .chart-tooltip { position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity 0.15s; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 10; }
 
         .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
         .stat { text-align: center; flex: 1; min-width: 80px; }
@@ -884,10 +885,13 @@
         }
     }
 
+    var chartBars = [];
+
     function drawChart(prices, avg) {
         var canvas = document.getElementById('priceChart');
         if (!canvas) return;
         var ctx = canvas.getContext('2d');
+        chartBars = [];
 
         var rect = canvas.parentElement.getBoundingClientRect();
         var dpr = window.devicePixelRatio || 1;
@@ -957,6 +961,7 @@
             }
 
             ctx.fillRect(x, y, w, h);
+            chartBars.push({ x: x, y: y, w: w, h: h, val: vals[i], hour: hours[i] });
 
             if (i % 3 === 0) {
                 ctx.fillStyle = labelColor;
@@ -973,6 +978,56 @@
         ctx.fillText(maxV.toFixed(0), pad.left - 4, pad.top + 10);
         ctx.fillText(minV.toFixed(0), pad.left - 4, H - pad.bottom);
     }
+
+    // Chart tooltip on hover
+    (function() {
+        var tooltip = null;
+        function getTooltip() {
+            if (!tooltip) {
+                tooltip = document.querySelector('.chart-tooltip');
+                if (!tooltip) {
+                    var container = document.querySelector('.chart-container');
+                    if (!container) return null;
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'chart-tooltip';
+                    container.appendChild(tooltip);
+                }
+            }
+            return tooltip;
+        }
+        document.addEventListener('mousemove', function(e) {
+            var canvas = document.getElementById('priceChart');
+            if (!canvas || !chartBars.length) return;
+            var rect = canvas.getBoundingClientRect();
+            var mx = e.clientX - rect.left;
+            var my = e.clientY - rect.top;
+            var hit = null;
+            for (var i = 0; i < chartBars.length; i++) {
+                var b = chartBars[i];
+                if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+                    hit = b; break;
+                }
+            }
+            var tip = getTooltip();
+            if (!tip) return;
+            if (hit) {
+                tip.textContent = hit.hour + ' — ' + hit.val.toFixed(1) + ' ct/kWh';
+                tip.style.opacity = '1';
+                var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
+                var ty = hit.y - 28;
+                if (ty < 0) ty = hit.y + hit.h + 4;
+                tip.style.left = tx + 'px';
+                tip.style.top = ty + 'px';
+                tip.style.transform = 'translateX(-50%)';
+            } else {
+                tip.style.opacity = '0';
+            }
+        });
+        document.addEventListener('mouseleave', function(e) {
+            var tip = getTooltip();
+            if (tip) tip.style.opacity = '0';
+        });
+    })();
 
     // --- Settings ---
     var settingsLoaded = false;
@@ -1238,11 +1293,6 @@
                 '</div>' +
             '</div>' +
 
-            '<div class="settings-section">' +
-                '<h3>' + t('privacy_notice.settings_button', 'Privacy') + '</h3>' +
-                '<button class="privacy-settings-btn" id="btnPrivacy">' + t('privacy_notice.settings_button', 'Privacy') + '</button>' +
-            '</div>' +
-
             '<div class="save-row">' +
                 '<button class="btn-save" id="btnSave">' + t('settings.save_settings', 'Save Settings') + '</button>' +
                 '<span class="save-status" id="saveStatus"></span>' +
@@ -1254,7 +1304,6 @@
         document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
         document.getElementById('btnSave').onclick = saveSettings;
-        document.getElementById('btnPrivacy').onclick = showPrivacyModal;
         document.getElementById('btnDetectZone').onclick = async function() {
             var result = document.getElementById('detectZoneResult');
             result.textContent = '...';

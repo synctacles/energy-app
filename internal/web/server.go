@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -769,11 +770,36 @@ func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
 	var sensors []sensorEntry
 	for _, state := range states {
 		entityID, _ := state["entity_id"].(string)
-		if entityID == "" {
+		if entityID == "" || !strings.HasPrefix(entityID, "sensor.") {
 			continue
 		}
-		// Look for tariff/price sensors from known integrations
 		lower := strings.ToLower(entityID)
+
+		// Exclude our own sensors (circular) and non-electricity sensors
+		if strings.Contains(lower, "synctacles") ||
+			strings.Contains(lower, "gas") || strings.Contains(lower, "standing") {
+			continue
+		}
+
+		// Must have a price-like unit (EUR/kWh, €/kWh, GBP/kWh, etc.)
+		attrs, _ := state["attributes"].(map[string]any)
+		unit := ""
+		if attrs != nil {
+			if u, ok := attrs["unit_of_measurement"].(string); ok {
+				unit = u
+			}
+		}
+		if !strings.Contains(strings.ToLower(unit), "/kwh") {
+			continue
+		}
+
+		// Must have a numeric state (skip "low", "2", "unavailable", etc.)
+		stateVal, _ := state["state"].(string)
+		if _, err := strconv.ParseFloat(stateVal, 64); err != nil {
+			continue
+		}
+
+		// Look for tariff/price sensors from known integrations
 		isTariff := strings.Contains(lower, "tariff") ||
 			strings.Contains(lower, "tarief") ||
 			strings.Contains(lower, "electricity_price") ||
@@ -788,26 +814,11 @@ func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
 		if !isTariff {
 			continue
 		}
-		// Exclude non-electricity sensors
-		if strings.Contains(lower, "gas") || strings.Contains(lower, "standing") {
-			continue
-		}
-		// Must be a sensor (not binary_sensor, etc.)
-		if !strings.HasPrefix(entityID, "sensor.") {
-			continue
-		}
 
 		name := entityID
-		if attrs, ok := state["attributes"].(map[string]any); ok {
+		if attrs != nil {
 			if fn, ok := attrs["friendly_name"].(string); ok {
 				name = fn
-			}
-		}
-		stateVal, _ := state["state"].(string)
-		unit := ""
-		if attrs, ok := state["attributes"].(map[string]any); ok {
-			if u, ok := attrs["unit_of_measurement"].(string); ok {
-				unit = u
 			}
 		}
 

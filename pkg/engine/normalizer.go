@@ -79,6 +79,7 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 	case "external_sensor", "p1_meter", "meter_tariff":
 		// External sensor mode: consumer price comes from HA sensor, not normalizer.
 		// Wholesale prices pass through for GO/WAIT/AVOID relative calculations.
+		n.lastTaxSource = "consumer"
 		return p
 	default:
 		// "auto" and "enever": consumer prices pass through, wholesale normalized via tax cache.

@@ -80,7 +80,7 @@
     "mode_external_sensor": "Ekstern sensor",
     "mode_external_sensor_hint": "Brug en HA-sensor, der leverer din eltarif (Zonneplan, Tibber, Octopus, P1-måler osv.).",
     "mode_enever": "Enever",
-    "mode_enever_hint": "Leverandørspecifikke priser via Enever API (kun Danmark og Nederlandene).",
+    "mode_enever_hint": "Leverandørspecifikke priser via Enever API (kun Nederlandene).",
     "mode_fixed": "Fast pris",
     "mode_fixed_hint": "Indtast din egen faste pris. Ingen dynamisk prissætning — velegnet til fastprisaftaler.",
     "fixed_rate_price": "Din alt-inkl. pris (EUR/kWh inkl. moms)",
