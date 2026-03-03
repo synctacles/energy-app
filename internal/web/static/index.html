@@ -1087,16 +1087,12 @@
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.calibration', 'Calibration') + '</h3>' +
                     '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_or', 'Or calibrate manually if your supplier is not listed.') + '</div>' +
-                    '<div class="form-row">' +
-                        '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
-                            '<input class="form-input" id="cfg-cal-price" type="number" step="0.001" min="0.01" max="2.00" placeholder="0.350">' +
-                            '<div class="form-hint">' + t('settings.calibration_input_hint', 'Check your supplier app for the current price.') + '</div>' +
-                        '</div>' +
-                        '<div class="form-group" style="display:flex;align-items:flex-end">' +
-                            '<button class="btn-save" id="btnCalibrate" style="white-space:nowrap">' + t('settings.calibrate_btn', 'Calibrate') + '</button>' +
-                        '</div>' +
+                    '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
+                    '<div style="display:flex;gap:8px;align-items:center">' +
+                        '<input class="form-input" id="cfg-cal-price" type="number" step="0.001" min="0.01" max="2.00" placeholder="0.350" style="flex:1">' +
+                        '<button class="btn-save" id="btnCalibrate" style="white-space:nowrap;margin:0">' + t('settings.calibrate_btn', 'Calibrate') + '</button>' +
                     '</div>' +
+                    '<div class="form-hint" style="margin-top:4px">' + t('settings.calibration_input_hint', 'Check your supplier app for the current price.') + '</div>' +
                     '<div id="calibrateResult" style="font-size:0.82em;margin-top:8px;min-height:1.2em"></div>' +
                     '<div class="form-hint" style="margin-top:8px;font-style:italic">' + t('settings.calibration_note', 'Re-calibrate when you switch suppliers.') + '</div>' +
                     (c.supplier_markup ? '<div class="form-hint" style="margin-top:4px">' + t('settings.supplier_markup', 'Supplier Markup') + ': ' + (c.supplier_markup * 100).toFixed(2) + ' ct/kWh</div>' : '') +
