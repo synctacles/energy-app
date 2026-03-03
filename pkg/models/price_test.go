@@ -98,9 +98,9 @@ func TestTaxProfile_CalculateBreakdown(t *testing.T) {
 	assert.InDelta(t, 0.08, bd.Wholesale, 0.0001)
 	assert.InDelta(t, 0.003, bd.SupplierMarkup, 0.0001)
 	assert.InDelta(t, 0.09161, bd.EnergyTax, 0.0001)
-	assert.InDelta(t, 0.095, bd.NetworkTariff, 0.0001)
-	// Subtotal: 0.08 + 0.003 + 0.09161 + 0 + 0.095 = 0.26961
-	assert.InDelta(t, 0.26961, bd.Subtotal, 0.001)
-	// Consumer: 0.26961 × 1.21 ≈ 0.32623
-	assert.InDelta(t, 0.32623, bd.ConsumerTotal, 0.002)
+	assert.InDelta(t, 0.095, bd.NetworkTariff, 0.0001) // informational only, NOT in subtotal
+	// Subtotal: 0.08 + 0.003 + 0.09161 + 0 = 0.17461 (network tariff excluded — billed separately)
+	assert.InDelta(t, 0.17461, bd.Subtotal, 0.001)
+	// Consumer: 0.17461 × 1.21 ≈ 0.21128
+	assert.InDelta(t, 0.21128, bd.ConsumerTotal, 0.002)
 }

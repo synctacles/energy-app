@@ -195,8 +195,9 @@ func TestNormalizer_ManualMode(t *testing.T) {
 	result := norm.ToConsumer(prices)
 	assert.Len(t, result, 1)
 	assert.True(t, result[0].IsConsumer)
-	// Expected: (0.08 + 0.01 + 0.05 + 0.0 + 0.08) × 1.21 = 0.22 × 1.21 = 0.2662
-	assert.InDelta(t, 0.2662, result[0].PriceEUR, 0.001)
+	// Expected: (0.08 + 0.01 + 0.05 + 0.0) × 1.21 = 0.14 × 1.21 = 0.1694
+	// Network tariff (0.08) excluded — billed separately by grid operator
+	assert.InDelta(t, 0.1694, result[0].PriceEUR, 0.001)
 }
 
 func TestNormalizer_ManualMode_WholesaleInput(t *testing.T) {
@@ -222,8 +223,9 @@ func TestNormalizer_ManualMode_WholesaleInput(t *testing.T) {
 	result := norm.ToConsumer(prices)
 	assert.Len(t, result, 1)
 	assert.True(t, result[0].IsConsumer)
-	// wholesale = 0.06, total = (0.06 + 0.0 + 0.02 + 0.03 + 0.09) × 1.19 = 0.20 × 1.19 = 0.238
-	assert.InDelta(t, 0.238, result[0].PriceEUR, 0.001)
+	// wholesale = 0.06, total = (0.06 + 0.0 + 0.02 + 0.03) × 1.19 = 0.11 × 1.19 = 0.1309
+	// Network tariff (0.09) excluded — billed separately by grid operator
+	assert.InDelta(t, 0.1309, result[0].PriceEUR, 0.001)
 }
 
 func TestNormalizer_P1Mode_PassThrough(t *testing.T) {

@@ -728,13 +728,7 @@
                     '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.surcharges) + ' ' + ct + '</div>';
         }
 
-        // Network tariff
-        if (bd.network_tariff > 0.0001) {
-            html += '<div style="color:var(--text-muted)">' + t('tax.network_tariff', 'Network tariff (avg)') + '</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.network_tariff) + ' ' + ct + '</div>';
-        }
-
-        // Subtotal
+        // Subtotal (network tariff excluded — billed separately by grid operator)
         html += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-weight:500">' + t('tax.subtotal', 'Subtotal (before VAT)') + '</div>' +
                 '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;text-align:right;font-weight:600">' + formatPrice(bd.subtotal) + ' ' + ct + '</div>';
 
@@ -745,6 +739,13 @@
         // Consumer total
         html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.consumer_price', 'Consumer price') + '</div>' +
                 '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + formatPrice(bd.consumer_total) + ' ' + ct + '</div>';
+
+        // Network tariff info (separate from price calculation)
+        if (bd.network_tariff > 0.0001) {
+            html += '<div style="grid-column:1/-1;padding-top:8px;margin-top:4px;border-top:1px dashed var(--border);color:var(--text-muted);font-size:0.85em">' +
+                    tReplace('tax.network_info', {amount: formatPrice(bd.network_tariff)}, 'Network costs (~' + formatPrice(bd.network_tariff) + ' ct/kWh) are billed separately by your grid operator.') +
+                    '</div>';
+        }
 
         html += '</div></div>';
         return html;
@@ -1118,7 +1119,7 @@
                         '<div class="form-group">' +
                             '<label class="form-label">' + t('settings.manual_network_tariff', 'Network Tariff (EUR/kWh)') + '</label>' +
                             '<input class="form-input" id="cfg-manual-network" type="number" step="0.00001" value="' + (c.manual_network_tariff || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_network_tariff_hint', 'Average network transport cost') + '</div>' +
+                            '<div class="form-hint">' + t('settings.manual_network_tariff_hint', 'For future True Cost mode. Not included in real-time price.') + '</div>' +
                         '</div>' +
                     '</div>' +
                     '<div class="form-group">' +
@@ -1599,9 +1600,8 @@
                     var bd = e.breakdown;
                     if (bd.wholesale !== undefined) parts.push('Wholesale: ' + fmtCt(bd.wholesale));
                     if (bd.energy_tax !== undefined) parts.push('Energy tax: ' + fmtCt(bd.energy_tax));
-                    if (bd.surcharges !== undefined) parts.push('Surcharges: ' + fmtCt(bd.surcharges));
-                    if (bd.network_tariff !== undefined) parts.push('Network: ' + fmtCt(bd.network_tariff));
-                    if (bd.supplier_markup !== undefined) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
+                    if (bd.surcharges !== undefined && bd.surcharges > 0.0001) parts.push('Surcharges: ' + fmtCt(bd.surcharges));
+                    if (bd.supplier_markup !== undefined && bd.supplier_markup > 0.0001) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
                     if (bd.subtotal !== undefined) parts.push('Subtotal: ' + fmtCt(bd.subtotal));
                     if (bd.vat_amount !== undefined) parts.push('VAT: ' + fmtCt(bd.vat_amount));
                     if (bd.total !== undefined) parts.push('<strong>Total: ' + fmtCt(bd.total) + '</strong>');

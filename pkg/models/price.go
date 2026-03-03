@@ -92,11 +92,13 @@ type PriceBreakdown struct {
 }
 
 // CalculateBreakdown returns detailed price breakdown showing all tax components.
-// Formula: (wholesale + supplier_markup + energy_tax + surcharges + network_tariff) × (1 + VAT)
+// Formula: (wholesale + supplier_markup + energy_tax + surcharges) × (1 + VAT)
+// Network tariff is excluded from the consumer price — it's a fixed cost billed separately
+// by the grid operator (TSO/DSO). The NetworkTariff field is populated for informational display.
 func (tp *TaxProfile) CalculateBreakdown(wholesaleKWh float64, at time.Time) PriceBreakdown {
 	energyTax := tp.ActiveEnergyTax(at)
 
-	subtotal := wholesaleKWh + tp.SupplierMarkup + energyTax + tp.Surcharges + tp.NetworkTariffAvg
+	subtotal := wholesaleKWh + tp.SupplierMarkup + energyTax + tp.Surcharges
 	vatAmount := subtotal * tp.VATRate
 	consumerTotal := subtotal * (1 + tp.VATRate)
 
@@ -105,7 +107,7 @@ func (tp *TaxProfile) CalculateBreakdown(wholesaleKWh float64, at time.Time) Pri
 		SupplierMarkup: tp.SupplierMarkup,
 		EnergyTax:      energyTax,
 		Surcharges:     tp.Surcharges,
-		NetworkTariff:  tp.NetworkTariffAvg,
+		NetworkTariff:  tp.NetworkTariffAvg, // informational only — not in subtotal
 		Subtotal:       subtotal,
 		VATRate:        tp.VATRate,
 		VATAmount:      vatAmount,
@@ -114,10 +116,11 @@ func (tp *TaxProfile) CalculateBreakdown(wholesaleKWh float64, at time.Time) Pri
 }
 
 // WholesaleToConsumer converts a wholesale EUR/kWh price to consumer price.
-// Formula: consumer = (wholesale + supplier_markup + energy_tax + surcharges + network_tariff) × (1 + VAT)
+// Formula: consumer = (wholesale + supplier_markup + energy_tax + surcharges) × (1 + VAT)
+// Network tariff excluded — billed separately by grid operator.
 func (tp *TaxProfile) WholesaleToConsumer(wholesaleKWh float64, at time.Time) float64 {
 	energyTax := tp.ActiveEnergyTax(at)
-	return (wholesaleKWh + tp.SupplierMarkup + energyTax + tp.Surcharges + tp.NetworkTariffAvg) * (1 + tp.VATRate)
+	return (wholesaleKWh + tp.SupplierMarkup + energyTax + tp.Surcharges) * (1 + tp.VATRate)
 }
 
 // CacheEntry holds cached prices with provenance metadata.

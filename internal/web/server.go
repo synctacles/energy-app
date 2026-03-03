@@ -596,7 +596,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	if data := s.sensorData.Get(); data != nil && data.CurrentPrice > 0 {
 		// Reverse: consumer / (1 + VAT) - taxes = wholesale
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
-		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.NetworkTariffAvg - override.SupplierMarkup
+		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
 		if wholesaleKWh < 0 {
 			wholesaleKWh = 0
 		}
@@ -992,7 +992,7 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 		// Compute breakdown if we have tax data and a wholesale price
 		if row.WholesaleKWh > 0 && s.taxCache != nil {
 			if tp := s.taxCache.Get(zone); tp != nil {
-				subtotal := row.WholesaleKWh + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges + tp.NetworkTariffAvg
+				subtotal := row.WholesaleKWh + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges
 				vatAmount := subtotal * tp.VATRate
 				bd := models.PriceBreakdown{
 					Wholesale:      row.WholesaleKWh,
