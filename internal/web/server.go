@@ -650,6 +650,11 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 			// Try exact PT15 slot first, fall back to hourly
 			currentSlot := now.Truncate(15 * time.Minute)
 			currentHour := now.Truncate(time.Hour)
+			slog.Debug("markup estimation: searching cache",
+				"source_tier", data.SourceTier,
+				"cached_count", len(cached),
+				"current_slot", currentSlot.Format(time.RFC3339),
+				"current_hour", currentHour.Format(time.RFC3339))
 			var bestWholesale float64
 			for _, p := range cached {
 				if p.WholesaleKWh > 0 && (p.Timestamp.Equal(currentSlot) || p.Timestamp.Equal(currentHour)) {
@@ -667,8 +672,15 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 				}
 				wholesaleKWh = bestWholesale
 				markupEstimated = true
+				slog.Debug("markup estimation: found", "wholesale", bestWholesale, "markup", supplierMarkup)
+			} else {
+				slog.Debug("markup estimation: no wholesale found for current slot")
 			}
+		} else {
+			slog.Debug("markup estimation: cache get failed", "error", err)
 		}
+	} else if data != nil {
+		slog.Debug("markup estimation: skipped", "source_tier", data.SourceTier, "has_cache", s.sqliteCache != nil)
 	}
 
 	tp := models.TaxProfile{
