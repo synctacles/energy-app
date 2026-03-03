@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
@@ -98,13 +99,23 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 			continue
 		}
 
-		// Extract price from the leverancier-specific field
+		// Extract price from the leverancier-specific field.
+		// Enever returns prices as strings (e.g. "0.238174") or floats.
 		priceVal, ok := item[priceField]
 		if !ok {
 			continue
 		}
-		price, ok := priceVal.(float64)
-		if !ok {
+		var price float64
+		switch v := priceVal.(type) {
+		case float64:
+			price = v
+		case string:
+			if p, err := strconv.ParseFloat(v, 64); err == nil {
+				price = p
+			} else {
+				continue
+			}
+		default:
 			continue
 		}
 
