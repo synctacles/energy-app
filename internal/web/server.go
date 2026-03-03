@@ -650,7 +650,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 			// Try exact PT15 slot first, fall back to hourly
 			currentSlot := now.Truncate(15 * time.Minute)
 			currentHour := now.Truncate(time.Hour)
-			slog.Debug("markup estimation: searching cache",
+			slog.Info("markup estimation: searching cache",
 				"source_tier", data.SourceTier,
 				"cached_count", len(cached),
 				"current_slot", currentSlot.Format(time.RFC3339),
@@ -672,15 +672,15 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 				}
 				wholesaleKWh = bestWholesale
 				markupEstimated = true
-				slog.Debug("markup estimation: found", "wholesale", bestWholesale, "markup", supplierMarkup)
+				slog.Info("markup estimation: found", "wholesale", bestWholesale, "markup", supplierMarkup)
 			} else {
-				slog.Debug("markup estimation: no wholesale found for current slot")
+				slog.Info("markup estimation: no wholesale found for current slot")
 			}
 		} else {
-			slog.Debug("markup estimation: cache get failed", "error", err)
+			slog.Info("markup estimation: cache get failed", "error", err)
 		}
 	} else if data != nil {
-		slog.Debug("markup estimation: skipped", "source_tier", data.SourceTier, "has_cache", s.sqliteCache != nil)
+		slog.Info("markup estimation: skipped", "source_tier", data.SourceTier, "has_cache", s.sqliteCache != nil)
 	}
 
 	tp := models.TaxProfile{
