@@ -843,11 +843,12 @@ func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{
-		"sources":     statuses,
-		"zone":        s.cfg.BiddingZone,
-		"leverancier": leverancier,
-		"quality":     quality,
-		"active_info": activeInfo,
+		"sources":      statuses,
+		"zone":         s.cfg.BiddingZone,
+		"pricing_mode": s.cfg.PricingMode,
+		"leverancier":  leverancier,
+		"quality":      quality,
+		"active_info":  activeInfo,
 	})
 }
 
@@ -1163,8 +1164,8 @@ func (s *Server) handleCacheReset(w http.ResponseWriter, r *http.Request) {
 
 // deriveSourceLabel returns a human-readable label describing how the price was composed.
 func deriveSourceLabel(mode, source, taxSource string, isConsumer bool) string {
-	if mode == "p1_meter" {
-		return "P1 meter tariff"
+	if mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff" {
+		return "External sensor"
 	}
 	if mode == "manual" {
 		return "Manual tax config"

@@ -159,7 +159,7 @@ func main() {
 		}
 	}
 
-	// Auto-detect tariff sensor (UK Glow, Octopus, Tibber, P1 Monitor, etc.)
+	// Auto-detect tariff sensor (Zonneplan, Tibber, Octopus, P1 Monitor, etc.)
 	var detectedTariffSensor string
 	if cfg.P1SensorEntity == "" && supervisor != nil {
 		if detected := hasensor.DetectTariffSensor(context.Background(), supervisor); detected != "" {
@@ -219,12 +219,12 @@ func main() {
 			cfg.BestWindowHours,
 		)
 
-		// P1 mode: override consumer price with HA sensor reading
-		if cfg.IsMeterTariffMode() && supervisor != nil {
-			if p1Price, err := readP1Price(ctx, supervisor, cfg.P1SensorEntity); err == nil {
-				sensorSet.CurrentPrice = p1Price
+		// External sensor mode: override consumer price with HA sensor reading
+		if cfg.IsExternalSensorMode() && supervisor != nil {
+			if extPrice, err := readExternalSensorPrice(ctx, supervisor, cfg.P1SensorEntity); err == nil {
+				sensorSet.CurrentPrice = extPrice
 			} else {
-				slog.Warn("P1 sensor read failed, using calculated price", "entity", cfg.P1SensorEntity, "error", err)
+				slog.Warn("external sensor read failed, using calculated price", "entity", cfg.P1SensorEntity, "error", err)
 			}
 		}
 
@@ -503,20 +503,20 @@ func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI
 	return chain
 }
 
-// readP1Price reads the current electricity tariff from an HA sensor entity.
+// readExternalSensorPrice reads the current electricity tariff from an HA sensor entity.
 // Returns the price in EUR/kWh. The sensor state must be a numeric string.
-func readP1Price(ctx context.Context, sv *ha.SupervisorClient, entityID string) (float64, error) {
+func readExternalSensorPrice(ctx context.Context, sv *ha.SupervisorClient, entityID string) (float64, error) {
 	state, err := sv.GetState(ctx, entityID)
 	if err != nil {
-		return 0, fmt.Errorf("read P1 sensor: %w", err)
+		return 0, fmt.Errorf("read external sensor: %w", err)
 	}
 	stateStr, ok := state["state"].(string)
 	if !ok {
-		return 0, fmt.Errorf("P1 sensor state is not a string")
+		return 0, fmt.Errorf("external sensor state is not a string")
 	}
 	price, err := strconv.ParseFloat(stateStr, 64)
 	if err != nil {
-		return 0, fmt.Errorf("P1 sensor value %q is not numeric: %w", stateStr, err)
+		return 0, fmt.Errorf("external sensor value %q is not numeric: %w", stateStr, err)
 	}
 	return price, nil
 }

@@ -645,6 +645,16 @@
             });
             html += '</div>';
 
+            // External sensor indicator
+            var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
+            if (isExtSensor) {
+                html += '<div class="source-chain" style="font-size:0.82em">' +
+                    '<span class="source-label">' + t('source.mode', 'Mode:') + '</span>' +
+                    '<span class="source-chain-item"><span class="source-dot healthy"></span>' +
+                    '<span class="source-chain-name active">' + t('settings.mode_external_sensor', 'External Sensor') + '</span></span>' +
+                    '</div>';
+            }
+
             document.getElementById('sourceBar').innerHTML = html;
         } catch (e) { console.warn('source health load failed:', e.message); }
     }
@@ -1010,7 +1020,7 @@
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
         var m = mode.value;
-        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-p1-section', 'mode-fixed-section', 'mode-enever-section'];
+        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-external_sensor-section', 'mode-fixed-section', 'mode-enever-section'];
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
@@ -1031,6 +1041,8 @@
     function renderSettings() {
         var c = currentConfig;
         var mode = c.pricing_mode || 'auto';
+        // Normalize legacy mode values
+        if (mode === 'p1_meter' || mode === 'meter_tariff') mode = 'external_sensor';
 
         var powerPlaceholder = c.detected_power_sensor
             ? tReplace('settings.power_sensor_auto', {sensor: esc(c.detected_power_sensor)}, 'Auto: ' + esc(c.detected_power_sensor))
@@ -1072,7 +1084,7 @@
                 '<div style="display:flex;flex-direction:column;gap:8px">' +
                     renderModeRadio('auto', t('settings.mode_auto', 'Synctacles Auto'), t('settings.mode_auto_hint'), mode) +
                     renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
-                    renderModeRadio('meter_tariff', t('settings.mode_meter_tariff', 'Smart Meter'), t('settings.mode_meter_tariff_hint', 'Use tariff from your smart meter or energy provider integration (P1, Glow, Octopus, Tibber, etc.)'), mode) +
+                    renderModeRadio('external_sensor', t('settings.mode_external_sensor', 'External Sensor'), t('settings.mode_external_sensor_hint', 'Use any HA sensor that provides your electricity tariff (Zonneplan, Tibber, Octopus, P1 meter, etc.).'), mode) +
                     renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
                     renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) +
                 '</div>' +
@@ -1140,10 +1152,10 @@
                 '</div>' +
             '</div>' +
 
-            // P1 mode section
-            '<div id="mode-p1_meter-section" style="' + (mode === 'p1_meter' ? '' : 'display:none') + '">' +
+            // External sensor mode section
+            '<div id="mode-external_sensor-section" style="' + (mode === 'external_sensor' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_p1', 'Smart Meter (P1)') + '</h3>' +
+                    '<h3>' + t('settings.mode_external_sensor', 'External Sensor') + '</h3>' +
                     '<div class="form-group">' +
                         '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
                         '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
@@ -1427,7 +1439,7 @@
             payload.manual_surcharges = parseFloat(document.getElementById('cfg-manual-surcharges').value) || 0;
             payload.manual_network_tariff = parseFloat(document.getElementById('cfg-manual-network').value) || 0;
             payload.supplier_markup = parseFloat(document.getElementById('cfg-manual-markup').value) || 0;
-        } else if (mode === 'p1_meter') {
+        } else if (mode === 'external_sensor') {
             var p1Manual = document.getElementById('cfg-p1-manual');
             payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
         } else if (mode === 'fixed') {

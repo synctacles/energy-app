@@ -13,7 +13,7 @@ type Config struct {
 	SupervisorToken string `env:"SUPERVISOR_TOKEN"`
 	IngressPort     int    `env:"INGRESS_PORT" envDefault:"8098"`
 
-	// Pricing mode: "auto", "manual", "p1_meter", "enever"
+	// Pricing mode: "auto", "manual", "external_sensor", "enever", "fixed"
 	PricingMode string `env:"PRICING_MODE" envDefault:"auto"`
 
 	// Zone
@@ -44,7 +44,7 @@ type Config struct {
 	// Fixed-rate mode: user-defined flat rate (no dynamic pricing)
 	FixedRatePrice float64 `env:"FIXED_RATE_PRICE" envDefault:"0"`
 
-	// P1 mode: HA sensor entity for consumer tariff
+	// External sensor mode: HA sensor entity for consumer tariff (env kept as P1_SENSOR_ENTITY for backward compat)
 	P1SensorEntity string `env:"P1_SENSOR_ENTITY"`
 
 	// Best window duration in hours (1-8, default 3)
@@ -67,12 +67,13 @@ type Config struct {
 
 // Valid pricing modes.
 const (
-	ModeAuto         = "auto"
-	ModeManual       = "manual"
-	ModeP1Meter      = "p1_meter"      // Legacy name, kept for backward compat
-	ModeMeterTariff  = "meter_tariff"   // New canonical name for smart meter mode
-	ModeEnever       = "enever"
-	ModeFixed        = "fixed"          // User-defined flat rate, no dynamic pricing
+	ModeAuto           = "auto"
+	ModeManual         = "manual"
+	ModeExternalSensor = "external_sensor" // Canonical: any HA sensor with EUR/kWh tariff
+	ModeP1Meter        = "p1_meter"        // Legacy, kept for backward compat
+	ModeMeterTariff    = "meter_tariff"    // Legacy, kept for backward compat
+	ModeEnever         = "enever"
+	ModeFixed          = "fixed"           // User-defined flat rate, no dynamic pricing
 )
 
 // Load loads configuration from environment variables.
@@ -89,7 +90,7 @@ func Load() (*Config, error) {
 	}
 	// Validate pricing mode
 	switch cfg.PricingMode {
-	case ModeAuto, ModeManual, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed:
+	case ModeAuto, ModeManual, ModeExternalSensor, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed:
 		// OK
 	default:
 		cfg.PricingMode = ModeAuto
@@ -127,10 +128,10 @@ func (c *Config) IsEneverMode() bool {
 	return c.PricingMode == ModeEnever && c.EneverToken != ""
 }
 
-// IsMeterTariffMode returns true if pricing mode is meter tariff (smart meter)
-// with a configured sensor. Accepts both legacy "p1_meter" and new "meter_tariff".
-func (c *Config) IsMeterTariffMode() bool {
-	return (c.PricingMode == ModeP1Meter || c.PricingMode == ModeMeterTariff) && c.P1SensorEntity != ""
+// IsExternalSensorMode returns true if pricing mode uses an external HA sensor
+// for the consumer tariff. Accepts canonical "external_sensor" and legacy "p1_meter"/"meter_tariff".
+func (c *Config) IsExternalSensorMode() bool {
+	return (c.PricingMode == ModeExternalSensor || c.PricingMode == ModeP1Meter || c.PricingMode == ModeMeterTariff) && c.P1SensorEntity != ""
 }
 
 // ValidateTaxInputs validates user-entered tax components against CC_INSTRUCTION §10 ranges.
