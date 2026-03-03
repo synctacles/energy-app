@@ -1009,6 +1009,19 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 		Breakdown   *models.PriceBreakdown `json:"breakdown,omitempty"`
 	}
 
+	// When entries lack wholesale data (Enever mode), fetch from Worker for comparison
+	var wholesaleMap map[time.Time]float64
+	needsWholesale := false
+	for _, row := range rows {
+		if row.WholesaleKWh == 0 {
+			needsWholesale = true
+			break
+		}
+	}
+	if needsWholesale && s.fallback != nil {
+		wholesaleMap = s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
+	}
+
 	entries := make([]cacheEntry, 0, len(rows))
 	for _, row := range rows {
 		e := cacheEntry{
@@ -1023,13 +1036,25 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 			FetchedAt:    row.FetchedAt,
 		}
 
+		// Fill wholesale from Worker comparison data if missing
+		wholesale := row.WholesaleKWh
+		if wholesale == 0 && wholesaleMap != nil {
+			ts, err := time.Parse(time.RFC3339, row.Timestamp)
+			if err == nil {
+				if w, ok := wholesaleMap[ts.Truncate(time.Hour)]; ok {
+					wholesale = w
+					e.WholesaleKWh = w
+				}
+			}
+		}
+
 		// Compute breakdown if we have tax data and a wholesale price
-		if row.WholesaleKWh > 0 && s.taxCache != nil {
+		if wholesale > 0 && s.taxCache != nil {
 			if tp := s.taxCache.Get(zone); tp != nil {
-				subtotal := row.WholesaleKWh + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges
+				subtotal := wholesale + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges
 				vatAmount := subtotal * tp.VATRate
 				bd := models.PriceBreakdown{
-					Wholesale:      row.WholesaleKWh,
+					Wholesale:      wholesale,
 					SupplierMarkup: tp.SupplierMarkup,
 					EnergyTax:      tp.EnergyTax,
 					Surcharges:     tp.Surcharges,

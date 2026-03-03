@@ -200,7 +200,7 @@ func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier
 			fetched_at = excluded.fetched_at,
 			original_tier = excluded.original_tier,
 			is_consumer = excluded.is_consumer,
-			wholesale_kwh = excluded.wholesale_kwh
+			wholesale_kwh = CASE WHEN excluded.wholesale_kwh > 0 THEN excluded.wholesale_kwh ELSE prices.wholesale_kwh END
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)

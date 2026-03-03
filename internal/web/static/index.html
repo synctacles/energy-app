@@ -1606,11 +1606,17 @@
             var now = new Date();
             var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
+            var hasWholesale = data.entries.some(function(e) { return e.wholesale_kwh > 0; });
+            var hasDelta = data.entries.some(function(e) { return e.breakdown && e.breakdown.total; });
+            var colCount = 4 + (hasWholesale ? 1 : 0) + (hasDelta ? 1 : 0);
+
             var html = '<div class="cache-table-wrap"><table class="cache-table"><thead><tr>';
             html += '<th>' + t('cache.col_hour', 'Hour') + '</th>';
-            html += '<th>' + t('cache.col_wholesale', 'Wholesale') + '</th>';
-            html += '<th>' + t('cache.col_consumer', 'Consumer') + '</th>';
             html += '<th>' + t('cache.col_source', 'Source') + '</th>';
+            if (hasWholesale) html += '<th>' + t('cache.col_wholesale', 'Wholesale') + '</th>';
+            html += '<th>' + t('cache.col_consumer', 'Consumer') + '</th>';
+            if (hasDelta) html += '<th>Calc</th>';
+            if (hasDelta) html += '<th>\u0394</th>';
             html += '<th>' + t('cache.col_fetched', 'Fetched') + '</th>';
             html += '</tr></thead><tbody>';
 
@@ -1624,28 +1630,38 @@
                 if (dayStr !== lastDay) {
                     var label = isTomorrow ? t('cache.tomorrow', 'Tomorrow') : t('cache.today', 'Today');
                     var cls = isTomorrow ? 'cache-day-tomorrow' : 'cache-day-today';
-                    html += '<tr><td colspan="5" style="padding:8px 10px;font-weight:600;font-size:0.9em;border-bottom:2px solid var(--border)">';
+                    html += '<tr><td colspan="' + colCount + '" style="padding:8px 10px;font-weight:600;font-size:0.9em;border-bottom:2px solid var(--border)">';
                     html += dayStr + ' <span class="cache-day-label ' + cls + '">' + esc(label) + '</span></td></tr>';
                     lastDay = dayStr;
                 }
 
-                var hourStr = String(d.getHours()).padStart(2, '0') + ':00';
+                var hourStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
                 var trCls = isTomorrow ? ' class="cache-row-tomorrow"' : '';
                 var hasBreakdown = e.breakdown && Object.keys(e.breakdown).length > 0;
                 var toggleCls = hasBreakdown ? ' cache-row-toggle' : '';
 
+                // Compute delta: consumer (actual) vs calculated (Worker breakdown)
+                var calcPrice = hasBreakdown && e.breakdown.total ? e.breakdown.total : null;
+                var delta = (calcPrice !== null) ? (e.consumer_kwh - calcPrice) : null;
+
                 html += '<tr' + trCls + ' data-idx="' + idx + '">';
                 html += '<td class="' + toggleCls + '">' + hourStr + '</td>';
-                html += '<td>' + fmtCt(e.wholesale_kwh) + '</td>';
-                html += '<td><strong>' + fmtCt(e.consumer_kwh) + '</strong></td>';
                 html += '<td title="' + esc(e.source) + '">' + esc(e.source_label || e.source) + '</td>';
+                if (hasWholesale) html += '<td>' + fmtCt(e.wholesale_kwh) + '</td>';
+                html += '<td><strong>' + fmtCt(e.consumer_kwh) + '</strong></td>';
+                if (hasDelta) html += '<td>' + (calcPrice !== null ? fmtCt(calcPrice) : '-') + '</td>';
+                if (hasDelta) {
+                    var deltaStr = delta !== null ? ((delta >= 0 ? '+' : '') + (delta * 100).toFixed(2) + ' ct') : '-';
+                    var deltaColor = delta !== null ? (Math.abs(delta * 100) < 0.5 ? 'color:#0d9488' : Math.abs(delta * 100) < 2 ? 'color:#d97706' : 'color:#dc2626') : '';
+                    html += '<td style="' + deltaColor + '">' + deltaStr + '</td>';
+                }
                 html += '<td>' + fmtAge(e.fetched_at) + '</td>';
                 html += '</tr>';
 
                 // Breakdown row (hidden by default)
                 if (hasBreakdown) {
                     html += '<tr class="cache-breakdown hidden" data-breakdown="' + idx + '">';
-                    html += '<td colspan="5">';
+                    html += '<td colspan="' + colCount + '">';
                     html += '<strong>' + t('cache.breakdown_title', 'Price breakdown') + ':</strong> ';
                     var parts = [];
                     var bd = e.breakdown;

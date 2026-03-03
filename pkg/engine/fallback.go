@@ -305,6 +305,55 @@ func (f *FallbackManager) ClearMemCache() {
 	f.mu.Unlock()
 }
 
+// FetchWholesaleForZone calls non-Enever sources to get wholesale prices
+// for comparison. Returns a map of truncated-hour timestamp → wholesale EUR/kWh.
+// Used by the cache view to compute breakdown + delta in Enever mode.
+func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string, date time.Time) map[time.Time]float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Check in-memory cache (keyed differently to not collide with primary fetch)
+	cacheKey := "wholesale:" + zone + ":" + date.Format("2006-01-02")
+	if entry, ok := f.memCache[cacheKey]; ok && time.Since(entry.fetchedAt) < memCacheTTL {
+		result := make(map[time.Time]float64)
+		for _, p := range entry.result.Prices {
+			if p.WholesaleKWh > 0 {
+				result[p.Timestamp.Truncate(time.Hour)] = p.WholesaleKWh
+			}
+		}
+		return result
+	}
+
+	for _, src := range f.sources {
+		if src.Name() == "enever" || !supportsZone(src, zone) {
+			continue
+		}
+
+		prices, err := src.FetchDayAhead(ctx, zone, date)
+		if err != nil {
+			slog.Debug("wholesale comparison fetch failed", "source", src.Name(), "error", err)
+			continue
+		}
+
+		result := make(map[time.Time]float64)
+		for _, p := range prices {
+			if p.WholesaleKWh > 0 {
+				result[p.Timestamp.Truncate(time.Hour)] = p.WholesaleKWh
+			}
+		}
+
+		// Cache for reuse
+		f.memCache[cacheKey] = &memCacheEntry{
+			result:    &FetchResult{Prices: prices, Source: src.Name()},
+			fetchedAt: time.Now(),
+		}
+
+		return result
+	}
+
+	return nil
+}
+
 func supportsZone(src collector.PriceSource, zone string) bool {
 	for _, z := range src.Zones() {
 		if z == zone {
