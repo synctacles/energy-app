@@ -182,8 +182,36 @@ func (n *Normalizer) vatRateForZone(zone string) float64 {
 	return 0
 }
 
-// CalcStats computes price statistics from a set of hourly prices.
-// Expects prices in EUR/kWh.
+// DetectSlotDuration returns the duration between consecutive price entries.
+// Returns time.Hour for hourly, 15*time.Minute for PT15M, 30*time.Minute for PT30M.
+// Falls back to time.Hour if unable to determine (fewer than 2 entries).
+func DetectSlotDuration(prices []models.HourlyPrice) time.Duration {
+	if len(prices) < 2 {
+		return time.Hour
+	}
+	// Find two earliest timestamps to determine gap
+	min1, min2 := prices[0].Timestamp, prices[1].Timestamp
+	if min2.Before(min1) {
+		min1, min2 = min2, min1
+	}
+	for _, p := range prices[2:] {
+		if p.Timestamp.Before(min1) {
+			min2 = min1
+			min1 = p.Timestamp
+		} else if p.Timestamp.Before(min2) {
+			min2 = p.Timestamp
+		}
+	}
+	gap := min2.Sub(min1)
+	if gap > 0 && gap <= time.Hour {
+		return gap
+	}
+	return time.Hour
+}
+
+// CalcStats computes price statistics from a set of prices (hourly or PT15).
+// Expects prices in EUR/kWh. "Best 4" scales with resolution: 4 slots for PT60,
+// 16 slots for PT15 — so it always represents the cheapest 4 hours of the day.
 func CalcStats(prices []models.HourlyPrice) models.PriceStats {
 	if len(prices) == 0 {
 		return models.PriceStats{}
@@ -210,8 +238,10 @@ func CalcStats(prices []models.HourlyPrice) models.PriceStats {
 
 	avg := sum / float64(len(prices))
 
-	// Find best 4 hours (cheapest)
-	best4 := findCheapestN(prices, 4)
+	// Find best 4 hours (cheapest) — scale N by slots-per-hour for PT15/PT30
+	slotDur := DetectSlotDuration(prices)
+	slotsPerHour := int(time.Hour / slotDur) // 1 for PT60, 4 for PT15
+	best4 := findCheapestN(prices, 4*slotsPerHour)
 
 	return models.PriceStats{
 		Average:       avg,

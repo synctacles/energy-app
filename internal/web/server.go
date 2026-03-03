@@ -1036,12 +1036,16 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 			FetchedAt:    row.FetchedAt,
 		}
 
-		// Fill wholesale from Worker comparison data if missing
+		// Fill wholesale from Worker comparison data if missing.
+		// Try exact PT15 timestamp first, fall back to hourly for mixed resolution.
 		wholesale := row.WholesaleKWh
 		if wholesale == 0 && wholesaleMap != nil {
 			ts, err := time.Parse(time.RFC3339, row.Timestamp)
 			if err == nil {
-				if w, ok := wholesaleMap[ts.Truncate(time.Hour)]; ok {
+				if w, ok := wholesaleMap[ts]; ok {
+					wholesale = w
+					e.WholesaleKWh = w
+				} else if w, ok := wholesaleMap[ts.Truncate(time.Hour)]; ok {
 					wholesale = w
 					e.WholesaleKWh = w
 				}

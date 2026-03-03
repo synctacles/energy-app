@@ -8,10 +8,20 @@ import (
 )
 
 // FindBestWindow finds the cheapest contiguous window of the given duration
-// from the remaining hours in the day (starting from now).
-// Duration is in hours. Returns nil if not enough hours remain.
+// from the remaining slots in the day (starting from now).
+// Duration is in hours. Handles both PT60 and PT15 data automatically.
+// Returns nil if not enough slots remain.
 func FindBestWindow(prices []models.HourlyPrice, now time.Time, durationHours int) *models.BestWindow {
-	if durationHours <= 0 || len(prices) < durationHours {
+	if durationHours <= 0 || len(prices) == 0 {
+		return nil
+	}
+
+	// Detect slot duration (PT15 = 15min, PT60 = 1h)
+	slotDur := DetectSlotDuration(prices)
+	slotsPerHour := int(time.Hour / slotDur)
+	slotsNeeded := durationHours * slotsPerHour
+
+	if len(prices) < slotsNeeded {
 		return nil
 	}
 
@@ -22,7 +32,7 @@ func FindBestWindow(prices []models.HourlyPrice, now time.Time, durationHours in
 		return sorted[i].Timestamp.Before(sorted[j].Timestamp)
 	})
 
-	// Filter to future hours only
+	// Filter to future slots only
 	currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 	var future []models.HourlyPrice
 	for _, p := range sorted {
@@ -31,37 +41,37 @@ func FindBestWindow(prices []models.HourlyPrice, now time.Time, durationHours in
 		}
 	}
 
-	if len(future) < durationHours {
+	if len(future) < slotsNeeded {
 		return nil
 	}
 
 	// Sliding window: find the contiguous block with lowest average price
 	bestSum := float64(0)
-	for i := 0; i < durationHours; i++ {
+	for i := 0; i < slotsNeeded; i++ {
 		bestSum += future[i].PriceEUR
 	}
 
 	currentSum := bestSum
 	bestStart := 0
 
-	for i := 1; i <= len(future)-durationHours; i++ {
-		currentSum = currentSum - future[i-1].PriceEUR + future[i+durationHours-1].PriceEUR
+	for i := 1; i <= len(future)-slotsNeeded; i++ {
+		currentSum = currentSum - future[i-1].PriceEUR + future[i+slotsNeeded-1].PriceEUR
 		if currentSum < bestSum {
 			bestSum = currentSum
 			bestStart = i
 		}
 	}
 
-	avgPrice := bestSum / float64(durationHours)
+	avgPrice := bestSum / float64(slotsNeeded)
 	startTime := future[bestStart].Timestamp
-	endTime := future[bestStart+durationHours-1].Timestamp.Add(time.Hour)
+	endTime := future[bestStart+slotsNeeded-1].Timestamp.Add(slotDur)
 
 	return &models.BestWindow{
 		StartHour: startTime.Format("15:04"),
 		EndHour:   endTime.Format("15:04"),
 		AvgPrice:  avgPrice,
 		Duration:  durationHours,
-		TotalCost: bestSum,
+		TotalCost: avgPrice * float64(durationHours),
 	}
 }
 
@@ -72,7 +82,12 @@ func FindBestWindows(prices []models.HourlyPrice, now time.Time, durationHours i
 		return nil, nil
 	}
 
-	// Find runner-up: exclude the best window's hours and find next best
+	// Detect slot duration for runner-up calculation
+	slotDur := DetectSlotDuration(prices)
+	slotsPerHour := int(time.Hour / slotDur)
+	slotsNeeded := durationHours * slotsPerHour
+
+	// Find runner-up: exclude the best window's slots and find next best
 	currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 	sorted := make([]models.HourlyPrice, len(prices))
 	copy(sorted, prices)
@@ -96,33 +111,33 @@ func FindBestWindows(prices []models.HourlyPrice, now time.Time, durationHours i
 		remaining = append(remaining, p)
 	}
 
-	if len(remaining) >= durationHours {
+	if len(remaining) >= slotsNeeded {
 		// Find best window in remaining
 		bestSum := float64(0)
-		for i := 0; i < durationHours; i++ {
+		for i := 0; i < slotsNeeded; i++ {
 			bestSum += remaining[i].PriceEUR
 		}
 		currentSum := bestSum
 		bestStart := 0
 
-		for i := 1; i <= len(remaining)-durationHours; i++ {
-			currentSum = currentSum - remaining[i-1].PriceEUR + remaining[i+durationHours-1].PriceEUR
+		for i := 1; i <= len(remaining)-slotsNeeded; i++ {
+			currentSum = currentSum - remaining[i-1].PriceEUR + remaining[i+slotsNeeded-1].PriceEUR
 			if currentSum < bestSum {
 				bestSum = currentSum
 				bestStart = i
 			}
 		}
 
-		avgPrice := bestSum / float64(durationHours)
+		avgPrice := bestSum / float64(slotsNeeded)
 		startTime := remaining[bestStart].Timestamp
-		endTime := remaining[bestStart+durationHours-1].Timestamp.Add(time.Hour)
+		endTime := remaining[bestStart+slotsNeeded-1].Timestamp.Add(slotDur)
 
 		runnerUp = &models.BestWindow{
 			StartHour: startTime.Format("15:04"),
 			EndHour:   endTime.Format("15:04"),
 			AvgPrice:  avgPrice,
 			Duration:  durationHours,
-			TotalCost: bestSum,
+			TotalCost: avgPrice * float64(durationHours),
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/synctacles/energy-app/pkg/models"
 )
 
 func TestFindBestWindow_Basic(t *testing.T) {
@@ -72,4 +73,58 @@ func TestFindBestWindow_NotEnoughHours(t *testing.T) {
 func TestFindBestWindow_EmptyPrices(t *testing.T) {
 	window := FindBestWindow(nil, time.Now(), 3)
 	assert.Nil(t, window)
+}
+
+func TestFindBestWindow_PT15(t *testing.T) {
+	// 8 hours of PT15 data = 32 entries, hours 2-4 cheapest
+	var prices []models.HourlyPrice
+	base := time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC)
+	for h := 0; h < 8; h++ {
+		for q := 0; q < 4; q++ {
+			p := 0.25
+			if h >= 2 && h <= 4 {
+				p = 0.08 + float64(q)*0.01 // vary within hour
+			}
+			prices = append(prices, models.HourlyPrice{
+				Timestamp: base.Add(time.Duration(h)*time.Hour + time.Duration(q)*15*time.Minute),
+				PriceEUR:  p,
+				Unit:      models.UnitKWh,
+				Source:    "test",
+				Quality:   "live",
+				Zone:      "NL",
+			})
+		}
+	}
+
+	now := time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC)
+	window := FindBestWindow(prices, now, 3)
+
+	require.NotNil(t, window)
+	assert.Equal(t, "02:00", window.StartHour)
+	assert.Equal(t, "05:00", window.EndHour) // 3 hours later
+	assert.Equal(t, 3, window.Duration)
+}
+
+func TestDetectSlotDuration_PT15(t *testing.T) {
+	base := time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC)
+	prices := []models.HourlyPrice{
+		{Timestamp: base},
+		{Timestamp: base.Add(15 * time.Minute)},
+		{Timestamp: base.Add(30 * time.Minute)},
+	}
+	assert.Equal(t, 15*time.Minute, DetectSlotDuration(prices))
+}
+
+func TestDetectSlotDuration_Hourly(t *testing.T) {
+	base := time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC)
+	prices := []models.HourlyPrice{
+		{Timestamp: base},
+		{Timestamp: base.Add(time.Hour)},
+	}
+	assert.Equal(t, time.Hour, DetectSlotDuration(prices))
+}
+
+func TestDetectSlotDuration_Single(t *testing.T) {
+	prices := []models.HourlyPrice{{Timestamp: time.Now()}}
+	assert.Equal(t, time.Hour, DetectSlotDuration(prices))
 }

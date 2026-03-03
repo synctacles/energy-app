@@ -306,7 +306,8 @@ func (f *FallbackManager) ClearMemCache() {
 }
 
 // FetchWholesaleForZone calls non-Enever sources to get wholesale prices
-// for comparison. Returns a map of truncated-hour timestamp → wholesale EUR/kWh.
+// for comparison. Returns a map of exact timestamp → wholesale EUR/kWh.
+// Preserves PT15 granularity when the Worker provides quarter-hour data.
 // Used by the cache view to compute breakdown + delta in Enever mode.
 func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string, date time.Time) map[time.Time]float64 {
 	f.mu.Lock()
@@ -318,7 +319,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		result := make(map[time.Time]float64)
 		for _, p := range entry.result.Prices {
 			if p.WholesaleKWh > 0 {
-				result[p.Timestamp.Truncate(time.Hour)] = p.WholesaleKWh
+				result[p.Timestamp] = p.WholesaleKWh
 			}
 		}
 		return result
@@ -338,7 +339,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		result := make(map[time.Time]float64)
 		for _, p := range prices {
 			if p.WholesaleKWh > 0 {
-				result[p.Timestamp.Truncate(time.Hour)] = p.WholesaleKWh
+				result[p.Timestamp] = p.WholesaleKWh
 			}
 		}
 
