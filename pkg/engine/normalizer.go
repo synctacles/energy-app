@@ -94,8 +94,9 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		if n.lastTaxSource == "none" {
 			n.lastTaxSource = "consumer"
 		}
-		// Apply supplier markup if set: markup is pre-VAT, so add markup × (1 + VAT).
-		if n.supplierMarkupOverride > 0 {
+		// Apply supplier markup in auto mode only: Enever already returns exact
+		// leverancier-specific prices, so adding markup would double-count.
+		if n.supplierMarkupOverride > 0 && n.pricingMode != "enever" {
 			vatRate := n.vatRateForZone(p.Zone)
 			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
 		}
