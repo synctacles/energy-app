@@ -644,43 +644,29 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	// The real wholesale is already in the SQLite cache (preserved by UPSERT
 	// from the Worker fetch). Use it to derive the estimated markup.
 	supplierMarkup := override.SupplierMarkup
-	if data != nil && data.SourceTier == "enever" && s.sqliteCache != nil {
+	if data != nil && data.SourceTier == "enever" && s.fallback != nil {
 		now := time.Now().UTC()
-		if cached, err := s.sqliteCache.Get(zone, now); err == nil {
+		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
+		if wholesaleMap != nil {
 			// Try exact PT15 slot first, fall back to hourly
 			currentSlot := now.Truncate(15 * time.Minute)
 			currentHour := now.Truncate(time.Hour)
-			slog.Info("markup estimation: searching cache",
-				"source_tier", data.SourceTier,
-				"cached_count", len(cached),
-				"current_slot", currentSlot.Format(time.RFC3339),
-				"current_hour", currentHour.Format(time.RFC3339))
-			var bestWholesale float64
-			for _, p := range cached {
-				if p.WholesaleKWh > 0 && (p.Timestamp.Equal(currentSlot) || p.Timestamp.Equal(currentHour)) {
-					bestWholesale = p.WholesaleKWh
-					if p.Timestamp.Equal(currentSlot) {
-						break // exact PT15 match preferred
-					}
-				}
+			var realWholesale float64
+			if w, ok := wholesaleMap[currentSlot]; ok {
+				realWholesale = w
+			} else if w, ok := wholesaleMap[currentHour]; ok {
+				realWholesale = w
 			}
-			if bestWholesale > 0 {
+			if realWholesale > 0 {
 				subtotal := data.CurrentPrice / (1 + override.VATRate)
-				supplierMarkup = subtotal - bestWholesale - override.EnergyTax - override.Surcharges
+				supplierMarkup = subtotal - realWholesale - override.EnergyTax - override.Surcharges
 				if supplierMarkup < 0 {
 					supplierMarkup = 0
 				}
-				wholesaleKWh = bestWholesale
+				wholesaleKWh = realWholesale
 				markupEstimated = true
-				slog.Info("markup estimation: found", "wholesale", bestWholesale, "markup", supplierMarkup)
-			} else {
-				slog.Info("markup estimation: no wholesale found for current slot")
 			}
-		} else {
-			slog.Info("markup estimation: cache get failed", "error", err)
 		}
-	} else if data != nil {
-		slog.Info("markup estimation: skipped", "source_tier", data.SourceTier, "has_cache", s.sqliteCache != nil)
 	}
 
 	tp := models.TaxProfile{
