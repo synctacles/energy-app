@@ -708,9 +708,10 @@
                 '<div style="text-align:right;font-weight:600">' + formatPrice(bd.wholesale) + ' ' + ct + '</div>';
 
         // Supplier markup
-        if (bd.supplier_markup > 0.0001) {
+        if (bd.supplier_markup !== undefined) {
+            var mkSign = bd.supplier_markup > 0.0001 ? '+ ' : '';
             html += '<div style="color:var(--text-muted)">' + t('tax.supplier_markup', 'Supplier markup') + '</div>' +
-                    '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.supplier_markup) + ' ' + ct + '</div>';
+                    '<div style="text-align:right;font-weight:600">' + mkSign + formatPrice(bd.supplier_markup) + ' ' + ct + '</div>';
         }
 
         // Energy tax
@@ -1651,7 +1652,8 @@
                 html += '<td><strong>' + fmtCt(e.consumer_kwh) + '</strong></td>';
                 if (hasDelta) html += '<td>' + (calcPrice !== null ? fmtCt(calcPrice) : '-') + '</td>';
                 if (hasDelta) {
-                    var deltaStr = delta !== null ? ((delta >= 0 ? '+' : '') + (delta * 100).toFixed(2) + ' ct') : '-';
+                    var deltaAbs = delta !== null ? Math.abs(delta * 100) : 0;
+                    var deltaStr = delta !== null ? (deltaAbs < 0.005 ? '0.00 ct' : (delta >= 0 ? '+' : '') + (delta * 100).toFixed(2) + ' ct') : '-';
                     var deltaColor = delta !== null ? (Math.abs(delta * 100) < 0.5 ? 'color:#0d9488' : Math.abs(delta * 100) < 2 ? 'color:#d97706' : 'color:#dc2626') : '';
                     html += '<td style="' + deltaColor + '">' + deltaStr + '</td>';
                 }
@@ -1668,7 +1670,7 @@
                     if (bd.wholesale !== undefined) parts.push('Wholesale: ' + fmtCt(bd.wholesale));
                     if (bd.energy_tax !== undefined) parts.push('Energy tax: ' + fmtCt(bd.energy_tax));
                     if (bd.surcharges !== undefined && bd.surcharges > 0.0001) parts.push('Surcharges: ' + fmtCt(bd.surcharges));
-                    if (bd.supplier_markup !== undefined && bd.supplier_markup > 0.0001) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
+                    if (bd.supplier_markup !== undefined) parts.push('Markup: ' + fmtCt(bd.supplier_markup));
                     if (bd.subtotal !== undefined) parts.push('Subtotal: ' + fmtCt(bd.subtotal));
                     if (bd.vat_amount !== undefined) parts.push('VAT: ' + fmtCt(bd.vat_amount));
                     if (bd.consumer_total !== undefined) parts.push('<strong>Total: ' + fmtCt(bd.consumer_total) + '</strong>');
