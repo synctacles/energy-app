@@ -7,6 +7,10 @@ tax_defaults:
   surcharges: 0
   network_tariff_avg: 0.065
   valid_from: "2026-01-01"
+suppliers:
+  - id: awattar
+    name: aWATTar
+    markup: 0.015
 zones:
 - code: AT
   eic: 10YAT-APG------L

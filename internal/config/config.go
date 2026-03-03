@@ -32,6 +32,9 @@ type Config struct {
 	// Supplier markup in EUR/kWh (used in auto + manual modes)
 	SupplierMarkup float64 `env:"ENERGY_SUPPLIER_MARKUP" envDefault:"0"`
 
+	// Selected supplier ID (e.g. "tibber", "awattar") — pre-fills SupplierMarkup
+	SupplierID string `env:"ENERGY_SUPPLIER_ID" envDefault:""`
+
 	// Manual mode: user-defined tax components
 	ManualVATRate       float64 `env:"MANUAL_VAT_RATE" envDefault:"0"`
 	ManualEnergyTax     float64 `env:"MANUAL_ENERGY_TAX" envDefault:"0"`

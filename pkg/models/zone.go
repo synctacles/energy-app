@@ -20,6 +20,13 @@ type EmbeddedTaxDefaults struct {
 	ValidFrom        string  `yaml:"valid_from" json:"valid_from"`                 // "2026-01-01"
 }
 
+// Supplier describes a known electricity supplier for a country.
+type Supplier struct {
+	ID     string  `yaml:"id" json:"id"`         // "tibber", "awattar"
+	Name   string  `yaml:"name" json:"name"`     // "Tibber"
+	Markup float64 `yaml:"markup" json:"markup"` // markup per kWh in local currency
+}
+
 // CountryConfig defines the full configuration for a country.
 // Live tax data comes from the Worker (see TaxProfileCache).
 // TaxDefaults provides embedded fallback for cold-start when Worker is unreachable.
@@ -29,6 +36,7 @@ type CountryConfig struct {
 	Currency    string               `yaml:"currency" json:"currency"`
 	Zones       []ZoneInfo           `yaml:"zones" json:"zones"`
 	TaxDefaults *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
+	Suppliers   []Supplier           `yaml:"suppliers,omitempty" json:"suppliers,omitempty"`
 }
 
 // ZoneRegistry provides lookup for bidding zones.

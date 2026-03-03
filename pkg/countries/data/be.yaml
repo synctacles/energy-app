@@ -7,6 +7,10 @@ tax_defaults:
   surcharges: 0
   network_tariff_avg: 0.11
   valid_from: "2026-01-01"
+suppliers:
+  - id: engie
+    name: ENGIE Dynamic
+    markup: 0.009
 zones:
 - code: BE
   eic: 10YBE----------2

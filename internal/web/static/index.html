@@ -1073,11 +1073,20 @@
                 '</div>' +
             '</div>' +
 
-            // Auto mode section — calibration
+            // Auto mode section — supplier select + calibration
             '<div id="mode-auto-section" style="' + (mode === 'auto' ? '' : 'display:none') + '">' +
+                '<div class="settings-section" id="supplier-select-section">' +
+                    '<h3>' + t('settings.supplier', 'Your Supplier') + '</h3>' +
+                    '<div class="form-group">' +
+                        '<select class="form-select" id="cfg-supplier">' +
+                            '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>' +
+                        '</select>' +
+                        '<div class="form-hint">' + t('settings.supplier_hint', 'Select your supplier to automatically set the correct markup.') + '</div>' +
+                    '</div>' +
+                '</div>' +
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.calibration', 'Calibration') + '</h3>' +
-                    '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_hint', 'Optional: fine-tune the calculated price to match your supplier.') + '</div>' +
+                    '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_or', 'Or calibrate manually if your supplier is not listed.') + '</div>' +
                     '<div class="form-row">' +
                         '<div class="form-group">' +
                             '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
@@ -1229,7 +1238,7 @@
         // Bind events
         var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
         modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
-        document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); };
+        document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
         document.getElementById('btnSave').onclick = saveSettings;
         document.getElementById('btnPrivacy').onclick = showPrivacyModal;
@@ -1257,6 +1266,9 @@
         // Calibrate button
         var calBtn = document.getElementById('btnCalibrate');
         if (calBtn) calBtn.onclick = doCalibrate;
+
+        // Supplier dropdown — fetch and populate
+        loadSupplierDropdown(c.supplier_id || '');
 
         // P1 sensor dropdown → fill manual input
         var p1Select = document.getElementById('cfg-p1-sensor');
@@ -1294,6 +1306,44 @@
             html += '<option value="' + s[0] + '"' + (s[0] === current ? ' selected' : '') + '>' + s[1] + '</option>';
         });
         return html;
+    }
+
+    var _supplierList = [];
+    async function loadSupplierDropdown(selectedId) {
+        var select = document.getElementById('cfg-supplier');
+        var section = document.getElementById('supplier-select-section');
+        if (!select || !section) return;
+        var zoneEl = document.getElementById('cfg-zone');
+        var zone = zoneEl ? zoneEl.value : '';
+        try {
+            var resp = await fetch('api/suppliers' + (zone ? '?zone=' + encodeURIComponent(zone) : ''));
+            _supplierList = await resp.json();
+        } catch(e) { _supplierList = []; }
+        if (!_supplierList || _supplierList.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+        select.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
+        _supplierList.forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name + ' (+' + (s.markup * 100).toFixed(1) + ' ct)';
+            if (s.id === selectedId) opt.selected = true;
+            select.appendChild(opt);
+        });
+        select.onchange = function() {
+            var sup = _supplierList.find(function(s) { return s.id === select.value; });
+            if (sup) {
+                fetch('api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ supplier_id: sup.id, supplier_markup: sup.markup })
+                });
+                currentConfig.supplier_markup = sup.markup;
+                currentConfig.supplier_id = sup.id;
+            }
+        };
     }
 
     async function doCalibrate() {
@@ -1365,7 +1415,12 @@
         };
 
         // Mode-specific fields
-        if (mode === 'manual') {
+        if (mode === 'auto') {
+            var supplierEl = document.getElementById('cfg-supplier');
+            if (supplierEl) {
+                payload.supplier_id = supplierEl.value;
+            }
+        } else if (mode === 'manual') {
             payload.manual_vat_rate = parseFloat(document.getElementById('cfg-manual-vat').value) || 0;
             payload.manual_energy_tax = parseFloat(document.getElementById('cfg-manual-etax').value) || 0;
             payload.manual_surcharges = parseFloat(document.getElementById('cfg-manual-surcharges').value) || 0;

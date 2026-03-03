@@ -119,6 +119,7 @@ func NewServer(deps Deps) *Server {
 		r.Get("/tax-breakdown", s.handleTaxBreakdown)
 		r.Post("/calibrate", s.handleCalibrate)
 		r.Get("/sensors/tariff", s.handleTariffSensors)
+		r.Get("/suppliers", s.handleSuppliers)
 
 		// Sources health
 		r.Get("/sources", s.handleSources)
@@ -373,6 +374,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"enever_token":            s.cfg.EneverToken,
 		"enever_leverancier":      s.cfg.EneverLeverancier,
 		"supplier_markup":         s.cfg.SupplierMarkup,
+		"supplier_id":             s.cfg.SupplierID,
 		"manual_vat_rate":         s.cfg.ManualVATRate,
 		"manual_energy_tax":       s.cfg.ManualEnergyTax,
 		"manual_surcharges":       s.cfg.ManualSurcharges,
@@ -408,7 +410,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	// Merge allowed fields
 	allowed := []string{
 		"pricing_mode", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
-		"enever_token", "enever_leverancier", "supplier_markup",
+		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
 		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
 	}
@@ -465,6 +467,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["supplier_markup"].(float64); ok {
 		s.cfg.SupplierMarkup = v
 	}
+	if v, ok := incoming["supplier_id"].(string); ok {
+		s.cfg.SupplierID = v
+	}
 	if v, ok := incoming["manual_vat_rate"].(float64); ok {
 		s.cfg.ManualVATRate = v
 	}
@@ -485,6 +490,19 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
+}
+
+func (s *Server) handleSuppliers(w http.ResponseWriter, r *http.Request) {
+	zone := r.URL.Query().Get("zone")
+	if zone == "" {
+		zone = s.cfg.BiddingZone
+	}
+	cc, ok := s.zoneRegistry.GetCountryForZone(zone)
+	if !ok || len(cc.Suppliers) == 0 {
+		writeJSON(w, []any{})
+		return
+	}
+	writeJSON(w, cc.Suppliers)
 }
 
 func (s *Server) handleZones(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,19 @@ tax_defaults:
   surcharges: 0
   network_tariff_avg: 0.095
   valid_from: "2026-01-01"
+suppliers:
+  - id: tibber
+    name: Tibber
+    markup: 0.021
+  - id: zonneplan
+    name: Zonneplan
+    markup: 0.02
+  - id: vandebron
+    name: Vandebron
+    markup: 0.018
+  - id: frank
+    name: Frank Energie
+    markup: 0.015
 zones:
 - code: NL
   eic: 10YNL----------L
