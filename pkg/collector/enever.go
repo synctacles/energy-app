@@ -79,11 +79,10 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 		return nil, fmt.Errorf("enever fetch: %w", err)
 	}
 
-	// API v3 always returns {"status": bool, "data": [...], "code": int}
+	// API v3 returns {"status": "true", "data": [...], "code": "5"}
+	// All fields are strings (not native JSON types).
 	var resp struct {
-		Status bool              `json:"status"`
-		Data   []json.RawMessage `json:"data"`
-		Code   int               `json:"code"`
+		Data []json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("enever parse: %w", err)
