@@ -1767,6 +1767,12 @@
     document.getElementById('disclaimerOkBtn').onclick = function() {
         localStorage.setItem('disclaimer_accepted', 'true');
         document.getElementById('disclaimerOverlay').classList.remove('visible');
+        // Persist to backend so it survives HA ingress token changes
+        fetch('api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ disclaimer_accepted: true })
+        });
         if (localStorage.getItem('privacy_shown') !== 'true') {
             showPrivacyModal();
         }
@@ -1812,6 +1818,12 @@
     document.getElementById('privacyOkBtn').onclick = function() {
         localStorage.setItem('privacy_shown', 'true');
         hidePrivacyModal();
+        // Persist to backend so it survives HA ingress token changes
+        fetch('api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ privacy_accepted: true })
+        });
     };
 
     document.getElementById('privacyOverlay').onclick = function(e) {
@@ -1824,15 +1836,29 @@
         if (e.key === 'Escape' && document.getElementById('privacyOverlay').classList.contains('visible')) {
             localStorage.setItem('privacy_shown', 'true');
             hidePrivacyModal();
+            fetch('api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ privacy_accepted: true })
+            });
         }
     });
 
     loadVersion().then(function() {
         return initI18n(_detectedLocale);
     }).then(function() {
-        if (localStorage.getItem('disclaimer_accepted') !== 'true') {
+        // Check consent from backend config (survives HA ingress token changes).
+        // localStorage is a fast cache — backend is the source of truth.
+        return fetch('api/config').then(function(r) { return r.json(); }).catch(function() { return {}; });
+    }).then(function(cfg) {
+        var disclaimerOk = cfg.disclaimer_accepted || localStorage.getItem('disclaimer_accepted') === 'true';
+        var privacyOk = cfg.privacy_accepted || localStorage.getItem('privacy_shown') === 'true';
+        // Sync localStorage from backend so anti-flash script works next time
+        if (cfg.disclaimer_accepted) localStorage.setItem('disclaimer_accepted', 'true');
+        if (cfg.privacy_accepted) localStorage.setItem('privacy_shown', 'true');
+        if (!disclaimerOk) {
             showDisclaimerModal();
-        } else if (localStorage.getItem('privacy_shown') !== 'true') {
+        } else if (!privacyOk) {
             showPrivacyModal();
         }
         loadDashboard();

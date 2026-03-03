@@ -92,10 +92,30 @@ func TestNormalizer_SkipsConsumerPrices(t *testing.T) {
 	assert.True(t, result[0].IsConsumer)
 }
 
-func TestNormalizer_ConsumerPriceIgnoresSupplierMarkupOverride(t *testing.T) {
+func TestNormalizer_ConsumerPriceAppliesSupplierMarkup(t *testing.T) {
 	cache := testTaxCache()
-	// Even with a supplier markup override, consumer prices should not be touched
+	// Supplier markup is pre-VAT, so consumer price += markup × (1 + VAT)
 	norm := NewNormalizer(cache, 0.005)
+
+	consumerPrice := 0.2134
+	prices := []models.HourlyPrice{{
+		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:   consumerPrice,
+		Unit:       models.UnitKWh,
+		Source:     "synctacles",
+		Zone:       "NL",
+		IsConsumer: true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	// 0.2134 + 0.005 × (1 + 0.21) = 0.2134 + 0.00605 = 0.21945
+	assert.InDelta(t, 0.21945, result[0].PriceEUR, 0.00001)
+}
+
+func TestNormalizer_ConsumerPriceNoMarkupWhenZero(t *testing.T) {
+	cache := testTaxCache()
+	// No supplier markup → consumer price unchanged
+	norm := NewNormalizer(cache)
 
 	consumerPrice := 0.2134
 	prices := []models.HourlyPrice{{

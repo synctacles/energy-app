@@ -47,6 +47,11 @@ func (n *Normalizer) SetManualTaxProfile(tp *models.TaxProfile) {
 	n.manualTaxProfile = tp
 }
 
+// SetSupplierMarkup updates the supplier markup override at runtime.
+func (n *Normalizer) SetSupplierMarkup(markup float64) {
+	n.supplierMarkupOverride = markup
+}
+
 // TaxSource returns the tax data source used for the last normalization.
 // "worker" = live Worker data, "embedded" = fallback defaults, "none" = no tax data.
 func (n *Normalizer) TaxSource() string {
@@ -88,6 +93,11 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		// Update lastTaxSource so the degraded banner doesn't trigger.
 		if n.lastTaxSource == "none" {
 			n.lastTaxSource = "consumer"
+		}
+		// Apply supplier markup if set: markup is pre-VAT, so add markup × (1 + VAT).
+		if n.supplierMarkupOverride > 0 {
+			vatRate := n.vatRateForZone(p.Zone)
+			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
 		}
 		return p
 	}
@@ -154,6 +164,21 @@ func (n *Normalizer) normalizeManual(p models.HourlyPrice) models.HourlyPrice {
 	p.PriceEUR = n.manualTaxProfile.WholesaleToConsumer(wholesale, p.Timestamp)
 	p.IsConsumer = true
 	return p
+}
+
+// vatRateForZone returns the VAT rate for a zone from cache or embedded defaults.
+func (n *Normalizer) vatRateForZone(zone string) float64 {
+	if n.taxCache != nil {
+		if override := n.taxCache.Get(zone); override != nil {
+			return override.VATRate
+		}
+	}
+	if n.zoneRegistry != nil {
+		if defaults := n.zoneRegistry.GetTaxDefaults(zone); defaults != nil {
+			return defaults.VATRate
+		}
+	}
+	return 0
 }
 
 // CalcStats computes price statistics from a set of hourly prices.

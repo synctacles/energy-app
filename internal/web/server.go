@@ -382,6 +382,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"p1_sensor_entity":        s.cfg.P1SensorEntity,
 		"fixed_rate_price":        s.cfg.FixedRatePrice,
 		"debug_mode":              s.cfg.DebugMode,
+		"disclaimer_accepted":     s.cfg.DisclaimerAccepted,
+		"privacy_accepted":        s.cfg.PrivacyAccepted,
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
 	}
@@ -413,6 +415,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
 		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
+		"disclaimer_accepted", "privacy_accepted",
 	}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -466,6 +469,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := incoming["supplier_markup"].(float64); ok {
 		s.cfg.SupplierMarkup = v
+		if s.normalizer != nil {
+			s.normalizer.SetSupplierMarkup(v)
+		}
 	}
 	if v, ok := incoming["supplier_id"].(string); ok {
 		s.cfg.SupplierID = v
@@ -487,6 +493,12 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := incoming["fixed_rate_price"].(float64); ok {
 		s.cfg.FixedRatePrice = v
+	}
+	if v, ok := incoming["disclaimer_accepted"].(bool); ok {
+		s.cfg.DisclaimerAccepted = v
+	}
+	if v, ok := incoming["privacy_accepted"].(bool); ok {
+		s.cfg.PrivacyAccepted = v
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
