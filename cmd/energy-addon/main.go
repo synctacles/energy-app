@@ -479,20 +479,25 @@ func main() {
 func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI) []collector.PriceSource {
 	var chain []collector.PriceSource
 
-	// Tier 0: Synctacles Worker — always first
-	chain = append(chain, synctaclesAPI)
-	slog.Info("SynctaclesAPI enabled as primary source (Tier 0)")
-
-	// Tier 1: Enever (NL only, optional — exact supplier prices)
+	// When Enever is configured, it provides exact supplier consumer prices —
+	// more accurate than Worker's generic tax calculation. Put it first.
 	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
 		chain = append(chain, &collector.Enever{
 			Token:       cfg.EneverToken,
 			Leverancier: cfg.EneverLeverancier,
 		})
-		slog.Info("Enever enabled as Tier 1 source", "leverancier", cfg.EneverLeverancier)
+		slog.Info("Enever enabled as primary source (exact supplier prices)", "leverancier", cfg.EneverLeverancier)
 	}
 
-	// Tier 2: Energy-Charts — always present as fallback
+	// Synctacles Worker — wholesale + generic tax profile
+	chain = append(chain, synctaclesAPI)
+	if len(chain) == 1 {
+		slog.Info("SynctaclesAPI enabled as primary source")
+	} else {
+		slog.Info("SynctaclesAPI enabled as fallback source")
+	}
+
+	// Energy-Charts — always present as last resort
 	chain = append(chain, &collector.EnergyCharts{})
 
 	return chain

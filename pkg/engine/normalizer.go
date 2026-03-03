@@ -84,6 +84,11 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 // normalizeAuto handles auto/enever mode: consumer prices pass through, wholesale → tax cache.
 func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 	if p.IsConsumer {
+		// Consumer prices already include taxes — no normalization needed.
+		// Update lastTaxSource so the degraded banner doesn't trigger.
+		if n.lastTaxSource == "none" {
+			n.lastTaxSource = "consumer"
+		}
 		return p
 	}
 

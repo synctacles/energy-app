@@ -510,14 +510,16 @@
 
     async function initI18n(lang) {
         _lang = lang || 'en';
+        // Cache-bust: HA ingress / browser may cache old i18n files across app updates
+        var cb = '?v=' + (window._appVersion || Date.now());
         try {
-            var resp = await fetch('static/i18n/' + _lang + '.json');
+            var resp = await fetch('static/i18n/' + _lang + '.json' + cb);
             if (resp.ok) {
                 _i18n = await resp.json();
             } else {
                 // Fallback to English
                 if (_lang !== 'en') {
-                    resp = await fetch('static/i18n/en.json');
+                    resp = await fetch('static/i18n/en.json' + cb);
                     if (resp.ok) _i18n = await resp.json();
                 }
             }
@@ -667,6 +669,7 @@
             var resp = await fetch('api/version');
             var d = await resp.json();
             if (d.addon_slug) window._addonSlug = d.addon_slug;
+            if (d.version) window._appVersion = d.version;
             if (d.locale) _detectedLocale = d.locale;
         } catch (e) { console.warn('version/locale load failed:', e.message); }
     }

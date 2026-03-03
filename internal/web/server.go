@@ -325,11 +325,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"leverancier": data.Leverancier,
 	}
 
-	// Tax data source: "worker" (live), "embedded" (fallback), "none" (no tax data)
+	// Tax data source: "worker", "consumer", "embedded", "none"
+	// "consumer" = prices already include taxes (Enever, Worker consumer prices)
+	// "worker"   = live Worker tax profile applied to wholesale
+	// "embedded" = fallback tax defaults (less accurate)
+	// "none"     = no tax data at all (wholesale only)
 	if s.normalizer != nil {
 		taxSource := s.normalizer.TaxSource()
 		dashboard["tax_source"] = taxSource
-		if taxSource == "embedded" || taxSource == "none" {
+		if taxSource == "none" {
 			dashboard["degraded"] = true
 			dashboard["degraded_reason"] = "no_tax_data"
 		}
