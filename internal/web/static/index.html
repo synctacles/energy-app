@@ -682,8 +682,8 @@
     // Tax breakdown — loaded from API, cached per zone
     var _taxBreakdownCache = {};
 
-    async function loadTaxBreakdown(zone) {
-        if (_taxBreakdownCache[zone]) return _taxBreakdownCache[zone];
+    async function loadTaxBreakdown(zone, forceRefresh) {
+        if (!forceRefresh && _taxBreakdownCache[zone]) return _taxBreakdownCache[zone];
         try {
             var resp = await fetch('api/tax-breakdown?zone=' + encodeURIComponent(zone));
             if (!resp.ok) return null;
@@ -859,7 +859,7 @@
             }
 
             // Load tax breakdown from API (async, fills slot when ready)
-            loadTaxBreakdown(d.zone).then(function(bd) {
+            loadTaxBreakdown(d.zone, true).then(function(bd) {
                 var slot = document.getElementById('taxBreakdownSlot');
                 if (slot && bd) slot.innerHTML = buildTaxBreakdownCard(bd);
             });
