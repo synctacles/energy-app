@@ -88,6 +88,9 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 		rawItems = wrapped.Data
 	}
 
+	// Enever timestamps are in CET/CEST (Netherlands local time)
+	nlLoc, _ := time.LoadLocation("Europe/Amsterdam")
+
 	var prices []models.HourlyPrice
 	for _, item := range rawItems {
 		datum, _ := item["datum"].(string)
@@ -105,17 +108,33 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 			continue
 		}
 
-		// Parse hours from the response
-		// Enever returns 24 entries, one per hour (or 96 for 15-min)
-		uur, _ := item["uur"].(string)
-		if uur == "" {
-			// Fallback: use "van" field
-			uur, _ = item["van"].(string)
+		// Parse timestamp from the response.
+		// Enever may return datetime in "datum" (e.g. "2026-03-03 00:00:00")
+		// or split across "datum" + "uur"/"van" fields.
+		var ts time.Time
+		parsed := false
+		for _, layout := range []string{
+			"2006-01-02 15:04:05", // full datetime in datum
+			"2006-01-02 15:04",    // datetime without seconds
+		} {
+			if t, err := time.ParseInLocation(layout, datum, nlLoc); err == nil {
+				ts = t
+				parsed = true
+				break
+			}
 		}
-
-		ts, err := time.Parse("2006-01-02 15:04", datum+" "+uur)
-		if err != nil {
-			// Try just date + hour index
+		if !parsed {
+			// Fallback: separate uur/van field
+			uur, _ := item["uur"].(string)
+			if uur == "" {
+				uur, _ = item["van"].(string)
+			}
+			if t, err := time.ParseInLocation("2006-01-02 15:04", datum+" "+uur, nlLoc); err == nil {
+				ts = t
+				parsed = true
+			}
+		}
+		if !parsed {
 			continue
 		}
 
