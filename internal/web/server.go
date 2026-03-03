@@ -640,37 +640,21 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// When the consumer price comes from an external source (Enever, External
-	// Sensor, P1 meter), back-calculate the supplier markup. These modes provide
-	// all-in consumer prices, so the reverse above yields an inflated "wholesale"
-	// (real wholesale + hidden markup). The real wholesale is in the SQLite cache
-	// (preserved by the Worker fetch). Use it to derive the estimated markup.
+	// Sensor, P1 meter), decompose the all-in price into components assuming a
+	// 2% supplier markup on wholesale. This is the standard margin for NL suppliers.
+	// Formula: subtotal = wholesale*1.02 + energy_tax + surcharges
 	// Note: check PricingMode (config), not SourceTier (runtime) — Enever without
 	// API key falls back to another source but the consumer price still includes markup.
 	supplierMarkup := override.SupplierMarkup
 	mode := s.cfg.PricingMode
 	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
-	if data != nil && isConsumerPriceMode && s.fallback != nil {
-		now := time.Now().UTC()
-		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
-		if wholesaleMap != nil {
-			// Try exact PT15 slot first, fall back to hourly
-			currentSlot := now.Truncate(15 * time.Minute)
-			currentHour := now.Truncate(time.Hour)
-			var realWholesale float64
-			if w, ok := wholesaleMap[currentSlot]; ok {
-				realWholesale = w
-			} else if w, ok := wholesaleMap[currentHour]; ok {
-				realWholesale = w
-			}
-			if realWholesale > 0 {
-				subtotal := data.CurrentPrice / (1 + override.VATRate)
-				supplierMarkup = subtotal - realWholesale - override.EnergyTax - override.Surcharges
-				if supplierMarkup < 0 {
-					supplierMarkup = 0
-				}
-				wholesaleKWh = realWholesale
-				markupEstimated = true
-			}
+	if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
+		subtotal := data.CurrentPrice / (1 + override.VATRate)
+		base := subtotal - override.EnergyTax - override.Surcharges // wholesale + markup combined
+		if base > 0 {
+			wholesaleKWh = base / 1.02
+			supplierMarkup = base - wholesaleKWh // = wholesale * 0.02
+			markupEstimated = true
 		}
 	}
 
