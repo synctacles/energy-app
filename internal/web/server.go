@@ -627,7 +627,9 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 
 	// Get current price for breakdown calculation
 	var wholesaleKWh float64
-	if data := s.sensorData.Get(); data != nil && data.CurrentPrice > 0 {
+	var markupEstimated bool
+	data := s.sensorData.Get()
+	if data != nil && data.CurrentPrice > 0 {
 		// Reverse: consumer / (1 + VAT) - taxes = wholesale
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
@@ -636,20 +638,49 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// When Enever is the active source, back-calculate the supplier markup.
+	// Enever consumer prices already include the markup, so the reverse above
+	// yields an inflated "wholesale" (real wholesale + hidden markup).
+	// The real wholesale is already in the SQLite cache (preserved by UPSERT
+	// from the Worker fetch). Use it to derive the estimated markup.
+	supplierMarkup := override.SupplierMarkup
+	if data != nil && data.SourceTier == "enever" && s.sqliteCache != nil {
+		now := time.Now()
+		if cached, err := s.sqliteCache.Get(zone, now); err == nil {
+			currentHour := now.Truncate(time.Hour)
+			for _, p := range cached {
+				if p.Timestamp.Equal(currentHour) && p.WholesaleKWh > 0 {
+					subtotal := data.CurrentPrice / (1 + override.VATRate)
+					supplierMarkup = subtotal - p.WholesaleKWh - override.EnergyTax - override.Surcharges
+					if supplierMarkup < 0 {
+						supplierMarkup = 0
+					}
+					wholesaleKWh = p.WholesaleKWh
+					markupEstimated = true
+					break
+				}
+			}
+		}
+	}
+
 	tp := models.TaxProfile{
 		VATRate:          override.VATRate,
-		SupplierMarkup:   override.SupplierMarkup,
+		SupplierMarkup:   supplierMarkup,
 		EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: override.EnergyTax}},
 		Surcharges:       override.Surcharges,
 		NetworkTariffAvg: override.NetworkTariffAvg,
 	}
 	breakdown := tp.CalculateBreakdown(wholesaleKWh, time.Now())
 
-	writeJSON(w, map[string]any{
+	resp := map[string]any{
 		"zone":      zone,
 		"breakdown": breakdown,
 		"version":   override.Version,
-	})
+	}
+	if markupEstimated {
+		resp["markup_estimated"] = true
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {

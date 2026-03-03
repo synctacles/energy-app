@@ -688,8 +688,10 @@
             var resp = await fetch('api/tax-breakdown?zone=' + encodeURIComponent(zone));
             if (!resp.ok) return null;
             var data = await resp.json();
-            _taxBreakdownCache[zone] = data.breakdown;
-            return data.breakdown;
+            var result = data.breakdown;
+            if (result && data.markup_estimated) result._markup_estimated = true;
+            _taxBreakdownCache[zone] = result;
+            return result;
         } catch (e) { return null; }
     }
 
@@ -710,7 +712,9 @@
         // Supplier markup
         if (bd.supplier_markup !== undefined) {
             var mkSign = bd.supplier_markup > 0.0001 ? '+ ' : '';
-            html += '<div style="color:var(--text-muted)">' + t('tax.supplier_markup', 'Supplier markup') + '</div>' +
+            var mkLabel = t('tax.supplier_markup', 'Supplier markup');
+            if (bd._markup_estimated) mkLabel += ' <span style="font-weight:normal;font-style:italic">(estimated)</span>';
+            html += '<div style="color:var(--text-muted)">' + mkLabel + '</div>' +
                     '<div style="text-align:right;font-weight:600">' + mkSign + formatPrice(bd.supplier_markup) + ' ' + ct + '</div>';
         }
 
