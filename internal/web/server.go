@@ -639,13 +639,17 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// When Enever is the active source, back-calculate the supplier markup.
-	// Enever consumer prices already include the markup, so the reverse above
-	// yields an inflated "wholesale" (real wholesale + hidden markup).
-	// The real wholesale is already in the SQLite cache (preserved by UPSERT
-	// from the Worker fetch). Use it to derive the estimated markup.
+	// When the consumer price comes from an external source (Enever, External
+	// Sensor, P1 meter), back-calculate the supplier markup. These modes provide
+	// all-in consumer prices, so the reverse above yields an inflated "wholesale"
+	// (real wholesale + hidden markup). The real wholesale is in the SQLite cache
+	// (preserved by the Worker fetch). Use it to derive the estimated markup.
+	// Note: check PricingMode (config), not SourceTier (runtime) — Enever without
+	// API key falls back to another source but the consumer price still includes markup.
 	supplierMarkup := override.SupplierMarkup
-	if data != nil && data.SourceTier == "enever" && s.fallback != nil {
+	mode := s.cfg.PricingMode
+	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+	if data != nil && isConsumerPriceMode && s.fallback != nil {
 		now := time.Now().UTC()
 		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
 		if wholesaleMap != nil {
