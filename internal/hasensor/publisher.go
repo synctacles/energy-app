@@ -316,15 +316,8 @@ func ComputeSensorSet(
 ) *SensorSet {
 	stats := engine.CalcStats(todayPrices)
 
-	// Current hour price
-	currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-	var currentPrice float64
-	for _, p := range todayPrices {
-		if p.Timestamp.Equal(currentHour) {
-			currentPrice = p.PriceEUR
-			break
-		}
-	}
+	// Current slot price (works for both PT60 hourly and PT15 quarter-hourly data)
+	currentPrice, _, _ := engine.CurrentSlotPrice(todayPrices, now)
 
 	// Action
 	actionResult := actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())

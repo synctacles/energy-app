@@ -21,6 +21,21 @@ func NewActionEngine(goThreshold, avoidThreshold float64) *ActionEngine {
 	}
 }
 
+// CurrentSlotPrice finds the price for the current time slot from a list of prices.
+// Works for both hourly (PT60) and quarter-hourly (PT15) data by selecting the
+// most recent entry at or before now. Returns the price, slot timestamp, and whether
+// a matching slot was found.
+func CurrentSlotPrice(prices []models.HourlyPrice, now time.Time) (price float64, slot time.Time, found bool) {
+	for _, p := range prices {
+		if !p.Timestamp.After(now) && p.Timestamp.After(slot) {
+			price = p.PriceEUR
+			slot = p.Timestamp
+			found = true
+		}
+	}
+	return
+}
+
 // Calculate computes the action for the current hour given today's prices.
 // Expects prices in EUR/kWh. allowGo controls whether GO is permitted (only for live data).
 func (e *ActionEngine) Calculate(prices []models.HourlyPrice, now time.Time, allowGo bool) models.ActionResult {
@@ -33,17 +48,8 @@ func (e *ActionEngine) Calculate(prices []models.HourlyPrice, now time.Time, all
 
 	stats := CalcStats(prices)
 
-	// Find current hour's price
-	currentHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-	var currentPrice float64
-	found := false
-	for _, p := range prices {
-		if p.Timestamp.Equal(currentHour) {
-			currentPrice = p.PriceEUR
-			found = true
-			break
-		}
-	}
+	// Find current slot's price (works for PT60 and PT15)
+	currentPrice, currentSlot, found := CurrentSlotPrice(prices, now)
 
 	if !found {
 		return models.ActionResult{
@@ -59,11 +65,11 @@ func (e *ActionEngine) Calculate(prices []models.HourlyPrice, now time.Time, all
 		deviationPct = ((currentPrice - stats.Average) / stats.Average) * 100
 	}
 
-	// Check if current hour is in best 4 hours (always GO if allowed)
+	// Check if current slot is in best 4 (always GO if allowed)
 	isBest4 := false
-	hourStr := currentHour.Format("15:04")
+	slotStr := currentSlot.Format("15:04")
 	for _, h := range stats.Best4Hours {
-		if h == hourStr {
+		if h == slotStr {
 			isBest4 = true
 			break
 		}

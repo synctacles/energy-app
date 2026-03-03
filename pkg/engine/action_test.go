@@ -125,3 +125,81 @@ func TestActionEngine_EmptyPrices(t *testing.T) {
 	result := engine.Calculate(nil, time.Now(), true)
 	assert.Equal(t, models.ActionWait, result.Action)
 }
+
+// --- CurrentSlotPrice tests ---
+
+func TestCurrentSlotPrice_Hourly(t *testing.T) {
+	date := time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC)
+	prices := makeHourlyPrices(date, []float64{0.10, 0.15, 0.20, 0.25})
+
+	// At 02:35, should pick the 02:00 slot (0.20)
+	now := time.Date(2026, 3, 3, 2, 35, 0, 0, time.UTC)
+	price, slot, found := CurrentSlotPrice(prices, now)
+	assert.True(t, found)
+	assert.Equal(t, 0.20, price)
+	assert.Equal(t, time.Date(2026, 3, 3, 2, 0, 0, 0, time.UTC), slot)
+}
+
+func TestCurrentSlotPrice_PT15(t *testing.T) {
+	// Simulate 4 PT15 entries for hour 12:00-12:45
+	prices := []models.HourlyPrice{
+		{Timestamp: time.Date(2026, 3, 3, 11, 0, 0, 0, time.UTC), PriceEUR: 0.18},
+		{Timestamp: time.Date(2026, 3, 3, 11, 15, 0, 0, time.UTC), PriceEUR: 0.19},
+		{Timestamp: time.Date(2026, 3, 3, 11, 30, 0, 0, time.UTC), PriceEUR: 0.1687},
+		{Timestamp: time.Date(2026, 3, 3, 11, 45, 0, 0, time.UTC), PriceEUR: 0.15},
+	}
+
+	// At 11:35 UTC, should pick 11:30 slot (0.1687), NOT 11:00 (0.18)
+	now := time.Date(2026, 3, 3, 11, 35, 0, 0, time.UTC)
+	price, slot, found := CurrentSlotPrice(prices, now)
+	assert.True(t, found)
+	assert.Equal(t, 0.1687, price)
+	assert.Equal(t, time.Date(2026, 3, 3, 11, 30, 0, 0, time.UTC), slot)
+}
+
+func TestCurrentSlotPrice_ExactMatch(t *testing.T) {
+	prices := []models.HourlyPrice{
+		{Timestamp: time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), PriceEUR: 0.20},
+		{Timestamp: time.Date(2026, 3, 3, 12, 15, 0, 0, time.UTC), PriceEUR: 0.22},
+	}
+
+	// Exactly at 12:15, should pick 12:15 (0.22)
+	now := time.Date(2026, 3, 3, 12, 15, 0, 0, time.UTC)
+	price, _, found := CurrentSlotPrice(prices, now)
+	assert.True(t, found)
+	assert.Equal(t, 0.22, price)
+}
+
+func TestCurrentSlotPrice_BeforeAllEntries(t *testing.T) {
+	prices := []models.HourlyPrice{
+		{Timestamp: time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), PriceEUR: 0.20},
+	}
+
+	// Before any entry — should not find
+	now := time.Date(2026, 3, 3, 11, 59, 0, 0, time.UTC)
+	_, _, found := CurrentSlotPrice(prices, now)
+	assert.False(t, found)
+}
+
+func TestCurrentSlotPrice_Empty(t *testing.T) {
+	_, _, found := CurrentSlotPrice(nil, time.Now())
+	assert.False(t, found)
+}
+
+func TestActionEngine_PT15_CorrectSlot(t *testing.T) {
+	// PT15 prices: 4 entries per hour
+	prices := []models.HourlyPrice{
+		{Timestamp: time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC), PriceEUR: 0.30, Unit: models.UnitKWh, Source: "test", Quality: "live", Zone: "NL"},
+		{Timestamp: time.Date(2026, 3, 3, 12, 15, 0, 0, time.UTC), PriceEUR: 0.25, Unit: models.UnitKWh, Source: "test", Quality: "live", Zone: "NL"},
+		{Timestamp: time.Date(2026, 3, 3, 12, 30, 0, 0, time.UTC), PriceEUR: 0.10, Unit: models.UnitKWh, Source: "test", Quality: "live", Zone: "NL"},
+		{Timestamp: time.Date(2026, 3, 3, 12, 45, 0, 0, time.UTC), PriceEUR: 0.35, Unit: models.UnitKWh, Source: "test", Quality: "live", Zone: "NL"},
+	}
+
+	engine := NewActionEngine(-15, 20)
+	// At 12:35, the current slot is 12:30 (price 0.10 = cheapest → GO)
+	now := time.Date(2026, 3, 3, 12, 35, 0, 0, time.UTC)
+	result := engine.Calculate(prices, now, true)
+
+	assert.Equal(t, 0.10, result.CurrentPrice)
+	assert.Equal(t, models.ActionGo, result.Action)
+}
