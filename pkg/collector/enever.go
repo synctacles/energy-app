@@ -22,13 +22,13 @@ var Leveranciers = map[string]string{
 	"energyzero":     "prijsEZ",
 	"essent":         "prijsES",
 	"frank":          "prijsFR",
-	"groenestroom":   "prijsGL",
-	"hegg":           "prijsHG",
+	"groenestroom":   "prijsGSL",
+	"hegg":           "prijsHE",
 	"innova":         "prijsIN",
 	"mijndomein":     "prijsMDE",
 	"nextenergy":     "prijsNE",
 	"pureenergie":    "prijsPE",
-	"quatt":          "prijsQT",
+	"quatt":          "prijsQU",
 	"samsam":         "prijsSS",
 	"tibber":         "prijsTI",
 	"vandebron":      "prijsVDB",
@@ -38,8 +38,9 @@ var Leveranciers = map[string]string{
 	"zonneplan":      "prijsZP",
 }
 
-// Enever fetches NL consumer prices from enever.nl.
+// Enever fetches NL consumer prices from enever.nl (API v3).
 // Requires a user-provided API token and leverancier selection.
+// Returns PT15 (96 entries per day) when available.
 type Enever struct {
 	Token       string
 	Leverancier string // Key from Leveranciers map (e.g. "frank")
@@ -69,38 +70,38 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 		endpoint = "stroomprijs_morgen"
 	}
 
-	url := fmt.Sprintf("https://enever.nl/api/%s.php?token=%s", endpoint, e.Token)
+	// API v3: resolution=15 for PT15, price filter to reduce payload
+	url := fmt.Sprintf("https://enever.nl/apiv3/%s.php?token=%s&resolution=15&price=prijs,%s",
+		endpoint, e.Token, priceField)
 
 	body, err := httpGet(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("enever fetch: %w", err)
 	}
 
-	// Parse response — Enever returns array of objects with dynamic price field names
-	var rawItems []map[string]any
-	if err := json.Unmarshal(body, &rawItems); err != nil {
-		// Try wrapped format
-		var wrapped struct {
-			Data []map[string]any `json:"data"`
-		}
-		if err2 := json.Unmarshal(body, &wrapped); err2 != nil {
-			return nil, fmt.Errorf("enever parse: %w (also tried wrapped: %w)", err, err2)
-		}
-		rawItems = wrapped.Data
+	// API v3 always returns {"status": bool, "data": [...], "code": int}
+	var resp struct {
+		Status bool              `json:"status"`
+		Data   []json.RawMessage `json:"data"`
+		Code   int               `json:"code"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("enever parse: %w", err)
 	}
 
-	// Enever timestamps are in CET/CEST (Netherlands local time)
-	nlLoc, _ := time.LoadLocation("Europe/Amsterdam")
-
 	var prices []models.HourlyPrice
-	for _, item := range rawItems {
+	for _, raw := range resp.Data {
+		var item map[string]any
+		if json.Unmarshal(raw, &item) != nil {
+			continue
+		}
+
 		datum, _ := item["datum"].(string)
 		if datum == "" {
 			continue
 		}
 
-		// Extract price from the leverancier-specific field.
-		// Enever returns prices as strings (e.g. "0.238174") or floats.
+		// Extract price — Enever returns prices as strings (e.g. "0.238174")
 		priceVal, ok := item[priceField]
 		if !ok {
 			continue
@@ -119,34 +120,16 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 			continue
 		}
 
-		// Parse timestamp from the response.
-		// Enever may return datetime in "datum" (e.g. "2026-03-03 00:00:00")
-		// or split across "datum" + "uur"/"van" fields.
-		var ts time.Time
-		parsed := false
-		for _, layout := range []string{
-			"2006-01-02 15:04:05", // full datetime in datum
-			"2006-01-02 15:04",    // datetime without seconds
-		} {
-			if t, err := time.ParseInLocation(layout, datum, nlLoc); err == nil {
+		// API v3 timestamps are ISO 8601 with timezone offset: "2026-03-03T00:00:00+01:00"
+		ts, err := time.Parse(time.RFC3339, datum)
+		if err != nil {
+			// Fallback: v2 format "2026-03-03 00:00:00" (CET/CEST)
+			nlLoc, _ := time.LoadLocation("Europe/Amsterdam")
+			if t, err2 := time.ParseInLocation("2006-01-02 15:04:05", datum, nlLoc); err2 == nil {
 				ts = t
-				parsed = true
-				break
+			} else {
+				continue
 			}
-		}
-		if !parsed {
-			// Fallback: separate uur/van field
-			uur, _ := item["uur"].(string)
-			if uur == "" {
-				uur, _ = item["van"].(string)
-			}
-			if t, err := time.ParseInLocation("2006-01-02 15:04", datum+" "+uur, nlLoc); err == nil {
-				ts = t
-				parsed = true
-			}
-		}
-		if !parsed {
-			continue
 		}
 
 		prices = append(prices, models.HourlyPrice{
