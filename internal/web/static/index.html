@@ -510,21 +510,22 @@
 
     async function initI18n(lang) {
         _lang = lang || 'en';
-        // Cache-bust: HA ingress / browser may cache old i18n files across app updates
-        var cb = '?v=' + (window._appVersion || Date.now());
-        try {
-            var resp = await fetch('static/i18n/' + _lang + '.json' + cb);
-            if (resp.ok) {
-                _i18n = await resp.json();
-            } else {
-                // Fallback to English
-                if (_lang !== 'en') {
-                    resp = await fetch('static/i18n/en.json' + cb);
-                    if (resp.ok) _i18n = await resp.json();
+        // English i18n is injected inline by the server (var _i18n = {...}) to prevent
+        // browser/ingress cache issues. Only fetch if a different language is needed.
+        if (_lang !== 'en' || Object.keys(_i18n).length === 0) {
+            var cb = '?v=' + (window._appVersion || Date.now());
+            try {
+                var resp = await fetch('static/i18n/' + _lang + '.json' + cb);
+                if (resp.ok) {
+                    _i18n = await resp.json();
+                } else if (_lang !== 'en') {
+                    // Non-English fetch failed — English already available from inline injection
+                    console.warn('i18n: ' + _lang + ' not found, using English');
                 }
+            } catch (e) {
+                console.warn('i18n load failed:', e.message);
+                // English is still available from inline injection
             }
-        } catch (e) {
-            console.warn('i18n load failed:', e.message);
         }
         // Apply to data-i18n elements
         document.querySelectorAll('[data-i18n]').forEach(function(el) {

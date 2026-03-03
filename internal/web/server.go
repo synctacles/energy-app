@@ -787,6 +787,14 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Not Found"))
 		return
 	}
+
+	// Inject default i18n (English) inline to eliminate browser/ingress cache issues.
+	// The separate static/i18n/*.json fetch suffered from stale browser cache: old JSON
+	// (missing new keys) was served even after app updates, causing raw keys in the UI.
+	if enJSON, err2 := staticFS.ReadFile("static/i18n/en.json"); err2 == nil {
+		data = bytes.Replace(data, []byte("var _i18n = {};"), []byte("var _i18n = "+string(enJSON)+";"), 1)
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	_, _ = w.Write(data)
