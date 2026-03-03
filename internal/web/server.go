@@ -472,6 +472,10 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		if s.normalizer != nil {
 			s.normalizer.SetSupplierMarkup(v)
 		}
+		// Trigger re-fetch so cached prices are re-normalized with new markup
+		if s.scheduler != nil {
+			s.scheduler.TriggerFetch()
+		}
 	}
 	if v, ok := incoming["supplier_id"].(string); ok {
 		s.cfg.SupplierID = v
