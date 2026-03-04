@@ -152,10 +152,6 @@ func NewServer(deps Deps) *Server {
 		r.Post("/feedback/rating", s.handleFeedbackRating)
 		r.Post("/feedback/bug", s.handleFeedbackBug)
 
-		// Onboarding wizard
-		r.Get("/wizard-data", s.handleWizardData)
-		r.Post("/crowdsource-submit", s.handleCrowdsourceSubmit)
-
 		// GDPR data deletion
 		r.Post("/delete-data", s.handleDeleteData)
 	})
@@ -408,7 +404,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"privacy_accepted":        s.cfg.PrivacyAccepted,
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
-		"onboarding_completed":    s.cfg.OnboardingCompleted,
 	}
 	writeJSON(w, resp)
 }
@@ -527,10 +522,6 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["privacy_accepted"].(bool); ok {
 		s.cfg.PrivacyAccepted = v
 	}
-	if v, ok := incoming["onboarding_completed"].(bool); ok {
-		s.cfg.OnboardingCompleted = v
-	}
-
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
 }
 
