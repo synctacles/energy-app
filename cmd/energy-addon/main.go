@@ -192,6 +192,7 @@ func main() {
 				slog.Warn("MQTT connection failed, using REST only", "error", err)
 				mqttPub = nil
 			} else {
+				mqttPub.CleanupStaleTopics()
 				publishers = append(publishers, mqttPub)
 				slog.Info("MQTT publisher enabled (dual publishing)")
 			}

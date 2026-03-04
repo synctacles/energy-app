@@ -77,6 +77,26 @@ func (p *MQTTPublisher) connectLocked() error {
 	return nil
 }
 
+// CleanupStaleTopics removes retained MQTT messages from legacy discovery topics.
+// Call once after Connect to clear topics that used incorrect naming.
+func (p *MQTTPublisher) CleanupStaleTopics() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Legacy topic used "binary_sensor.synctacles_cheap_hour" as object_id (with dot).
+	// Fixed in rc34: now uses component=binary_sensor, object_id=cheap_hour.
+	staleTopics := []string{
+		"homeassistant/sensor/synctacles_energy/binary_sensor.synctacles_cheap_hour/config",
+	}
+	for _, topic := range staleTopics {
+		if err := p.doPublish(topic, []byte{}, true); err != nil {
+			slog.Debug("mqtt: failed to clear stale topic", "topic", topic, "error", err)
+		} else {
+			slog.Info("mqtt: cleared stale discovery topic", "topic", topic)
+		}
+	}
+}
+
 // Close disconnects from the broker.
 func (p *MQTTPublisher) Close() {
 	p.mu.Lock()
