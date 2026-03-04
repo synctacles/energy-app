@@ -8,25 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-02-12
 
 ### Added
-- **14-day free trial** — all Pro features unlocked for 14 days after first install, no license key needed
 - Power sensor auto-detection — automatically finds P1 meter or power sensor from HA entities
-- Trial status badge in dashboard header and settings page with days remaining
 
-### Changed
-- License section in Settings now shows TRIAL/PRO/FREE badge with contextual hint
+### Removed
+- License/trial system — all features are now unconditionally free
 
 ## [1.1.0] - 2026-02-12
 
 ### Added
-- `binary_sensor.synctacles_cheap_hour` — free-tier binary sensor, ON during GO periods
-- `sensor.synctacles_daily_cost` — pro-tier cumulative daily cost sensor (resets at midnight, requires power sensor)
+- `binary_sensor.synctacles_cheap_hour` — ON during GO periods
+- `sensor.synctacles_daily_cost` — cumulative daily cost sensor (resets at midnight, requires power sensor)
 - Configurable best window duration (`best_window_hours`, 1-8 hours, default 3)
 
 ### Fixed
 - SQLite cache now writes to `/data` instead of read-only `/config` mount
 
 ### Changed
-- Sensor count: 11 → 12 (5 free, 7 pro)
+- Sensor count: 11 → 12
 - Best window sensor description updated for configurable duration
 
 ## [1.0.0] - 2026-02-12
@@ -38,17 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GO/WAIT/AVOID action recommendations based on price deviation from daily average
 - Best 3-hour consecutive window finder
 - Tomorrow price preview (FAVORABLE/NORMAL/EXPENSIVE)
-- 12 Home Assistant sensors (5 free, 7 pro)
+- 12 Home Assistant sensors
 - Enever integration for NL all-in consumer prices (24 Dutch suppliers)
 - Rate limit protection for Enever API (2h in-memory cache, ~3 calls/day)
 - YAML-driven country tax profiles (VAT, energy tax, ODE) with embedded configs
 - SQLite price cache with 48h retention (pure Go, no CGO)
 - Web dashboard with dark/light theme and real-time price chart
 - Source health indicators (green/red) for all configured price APIs
-- Settings UI for all addon options (zone, thresholds, Enever, license, power sensor)
+- Settings UI for all addon options (zone, thresholds, Enever, power sensor)
 - Dual sensor publishing: REST API (always) + MQTT auto-discovery (if broker detected)
 - Live Cost, Savings, and Usage Score sensors (requires power sensor entity)
-- License validation against api.synctacles.com with 90-day offline grace period
-- Freemium model: free tier (price + stats) and pro tier (actions + advanced sensors)
 - Cross-compilation for amd64, aarch64, armv7
 - Comprehensive English documentation (DOCS.md)

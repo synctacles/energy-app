@@ -41,10 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQLite price cache with 48h retention (pure Go, no CGO)
 - Web dashboard with dark/light theme and real-time price chart
 - Source health indicators (green/red) for all configured price APIs
-- Settings UI for all addon options (zone, thresholds, Enever, license, power sensor)
+- Settings UI for all addon options (zone, thresholds, Enever, power sensor)
 - Dual sensor publishing: REST API (always) + MQTT auto-discovery (if broker detected)
 - Live Cost, Savings, and Usage Score sensors (requires power sensor entity)
-- License validation against api.synctacles.com with 90-day offline grace period
-- Freemium model: free tier (price + stats) and pro tier (actions + advanced sensors)
 - Cross-compilation for amd64, aarch64, armv7
 - Comprehensive English documentation (DOCS.md)
