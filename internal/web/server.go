@@ -1052,6 +1052,7 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mode := s.cfg.PricingMode
+	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 	taxSource := ""
 	if s.normalizer != nil {
 		taxSource = s.normalizer.TaxSource()
@@ -1113,14 +1114,30 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Compute breakdown if we have tax data and a wholesale price
+		// Compute breakdown if we have tax data and a wholesale price.
+		// Markup priority: manual config > Worker calibration > 2% fallback.
 		if wholesale > 0 && s.taxCache != nil {
 			if tp := s.taxCache.Get(zone); tp != nil {
-				subtotal := wholesale + tp.SupplierMarkup + tp.EnergyTax + tp.Surcharges
+				markup := tp.SupplierMarkup
+				displayWholesale := wholesale
+				if mode == "manual" && s.cfg.SupplierMarkup > 0 {
+					markup = s.cfg.SupplierMarkup
+				} else if tp.SupplierMarkup > 0 {
+					markup = tp.SupplierMarkup
+				} else if isConsumerPriceMode && row.PriceEUR > 0 {
+					// Decompose consumer price: base = subtotal - taxes = wholesale + markup
+					subtotal := row.PriceEUR / (1 + tp.VATRate)
+					base := subtotal - tp.EnergyTax - tp.Surcharges
+					if base > 0 {
+						displayWholesale = base / 1.02
+						markup = base - displayWholesale
+					}
+				}
+				subtotal := displayWholesale + markup + tp.EnergyTax + tp.Surcharges
 				vatAmount := subtotal * tp.VATRate
 				bd := models.PriceBreakdown{
-					Wholesale:      wholesale,
-					SupplierMarkup: tp.SupplierMarkup,
+					Wholesale:      displayWholesale,
+					SupplierMarkup: markup,
 					EnergyTax:      tp.EnergyTax,
 					Surcharges:     tp.Surcharges,
 					NetworkTariff:  tp.NetworkTariffAvg,
