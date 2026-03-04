@@ -11,15 +11,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const (
-	defaultBaseURL = "https://api.synctacles.com"
-	sendInterval   = 24 * time.Hour
-	uuidFile       = ".synctacles_uuid.json"
+	defaultBaseURL  = "https://api.synctacles.com"
+	sendInterval    = 24 * time.Hour
+	uuidFile        = ".synctacles_uuid.json"          // legacy (per-app)
+	sharedUUIDFile  = ".synctacles_install_id"          // shared across apps via /config
 )
 
 // payload matches the auth service TelemetryRequest.
@@ -47,7 +49,8 @@ type payload struct {
 // Deps holds all dependencies that the telemetry sender reads from.
 // All fields are optional; nil/zero values are silently skipped.
 type Deps struct {
-	DataPath     string // persistent storage path for install UUID
+	DataPath     string // persistent storage path (legacy UUID location)
+	ConfigPath   string // shared HA config path (shared UUID location)
 	Version      string // addon version
 	Zone         string // bidding zone (e.g. "NL")
 
@@ -272,25 +275,7 @@ type storedUUID struct {
 }
 
 func (s *Sender) loadOrCreateUUID() string {
-	path := filepath.Join(s.deps.DataPath, uuidFile)
-
-	data, err := os.ReadFile(path)
-	if err == nil {
-		var stored storedUUID
-		if json.Unmarshal(data, &stored) == nil && stored.UUID != "" {
-			return stored.UUID
-		}
-	}
-
-	id := uuid.New().String()
-	stored := storedUUID{
-		UUID:      id,
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-	if out, err := json.MarshalIndent(stored, "", "  "); err == nil {
-		_ = os.WriteFile(path, out, 0600)
-	}
-	return id
+	return LoadInstallUUID(s.deps.ConfigPath, s.deps.DataPath)
 }
 
 // --- Bucket helpers ---
@@ -355,26 +340,45 @@ func (s *Sender) InstallUUID() string {
 }
 
 // LoadInstallUUID reads or creates a persistent install UUID.
-// Exported for use by other components (heartbeat, feature gate) without
-// needing to create a full Sender.
-func LoadInstallUUID(dataPath string) string {
-	path := filepath.Join(dataPath, uuidFile)
+// It prefers the shared location (/config/.synctacles_install_id) so both
+// Energy and Care apps use the same UUID per HA installation.
+// Falls back to the legacy location (/data/.synctacles_uuid.json) and migrates.
+func LoadInstallUUID(configPath, dataPath string) string {
+	// 1. Shared location (preferred — shared with Care app)
+	if configPath != "" {
+		sharedPath := filepath.Join(configPath, sharedUUIDFile)
+		if data, err := os.ReadFile(sharedPath); err == nil {
+			if id := strings.TrimSpace(string(data)); id != "" {
+				return id
+			}
+		}
+	}
 
-	data, err := os.ReadFile(path)
-	if err == nil {
+	// 2. Legacy location — migrate to shared if possible
+	legacyPath := filepath.Join(dataPath, uuidFile)
+	if data, err := os.ReadFile(legacyPath); err == nil {
 		var stored storedUUID
 		if json.Unmarshal(data, &stored) == nil && stored.UUID != "" {
+			if configPath != "" {
+				if err := os.WriteFile(filepath.Join(configPath, sharedUUIDFile), []byte(stored.UUID), 0644); err == nil {
+					slog.Info("install UUID migrated to shared location", "uuid", stored.UUID)
+				}
+			}
 			return stored.UUID
 		}
 	}
 
+	// 3. Generate new UUID at shared location (fallback to legacy)
 	id := uuid.New().String()
-	stored := storedUUID{
-		UUID:      id,
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	if configPath != "" {
+		if err := os.WriteFile(filepath.Join(configPath, sharedUUIDFile), []byte(id), 0644); err == nil {
+			return id
+		}
+		slog.Warn("could not write shared UUID, falling back to legacy", "error", "config path not writable")
 	}
+	stored := storedUUID{UUID: id, CreatedAt: time.Now().UTC().Format(time.RFC3339)}
 	if out, err := json.MarshalIndent(stored, "", "  "); err == nil {
-		_ = os.WriteFile(path, out, 0600)
+		_ = os.WriteFile(legacyPath, out, 0600)
 	}
 	return id
 }

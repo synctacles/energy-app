@@ -16,6 +16,7 @@ import (
 
 	"github.com/synctacles/energy-app/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/heartbeat"
 	"github.com/synctacles/energy-app/pkg/countries"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -73,10 +74,14 @@ func main() {
 	}
 
 	// /data is the addon's writable persistent directory.
-	// /config is HA's config dir (mounted read-only via config:ro).
+	// /config is HA's shared config dir (mounted via config:rw for shared UUID).
 	dataPath := "/data"
 	if v := os.Getenv("HA_DATA_PATH"); v != "" {
 		dataPath = v
+	}
+	configPath := "/config"
+	if v := os.Getenv("HA_CONFIG_PATH"); v != "" {
+		configPath = v
 	}
 
 	// Load country configs and zone registry
@@ -116,8 +121,8 @@ func main() {
 		}
 	}
 
-	// Load persistent install UUID (shared by telemetry)
-	installUUID := telemetry.LoadInstallUUID(dataPath)
+	// Load persistent install UUID (shared with Care app via /config)
+	installUUID := telemetry.LoadInstallUUID(configPath, dataPath)
 	osArch := telemetry.OSArch()
 	slog.Info("install identity", "uuid", installUUID, "arch", osArch)
 
@@ -295,9 +300,10 @@ func main() {
 
 	// Start telemetry sender (daily, first send after 2 min)
 	telemetrySender := telemetry.NewSender(telemetry.Deps{
-		DataPath: dataPath,
-		Version:  version,
-		Zone:     cfg.BiddingZone,
+		DataPath:   dataPath,
+		ConfigPath: configPath,
+		Version:    version,
+		Zone:       cfg.BiddingZone,
 		GetCoreInfo: func(ctx context.Context) (arch, haVersion, machine string, err error) {
 			if supervisor == nil {
 				return "", "", "", fmt.Errorf("no supervisor")
@@ -362,6 +368,15 @@ func main() {
 		},
 	})
 	telemetrySender.RunBackground(ctx)
+
+	// Start heartbeat sender (install counting — no feature gating for energy)
+	go heartbeat.NewSender(heartbeat.Config{
+		InstallUUID:  installUUID,
+		Product:      "energy",
+		AddonVersion: version,
+		OSArch:       osArch,
+	}).Run(ctx)
+	slog.Info("heartbeat sender started", "uuid", installUUID)
 
 	// Startup: fetch tax profile from Worker to warm cache.
 	// FetchDayAhead caches the tax profile even when prices are empty (stale/missing),

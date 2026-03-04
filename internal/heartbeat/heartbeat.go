@@ -1,21 +1,21 @@
-// Package heartbeat sends minimal installation pings to the auth service.
-// Unlike telemetry (opt-in, detailed), heartbeat is always active when
-// the user has consented via the addon config option.
+// Package heartbeat sends minimal installation pings to the Synctacles API.
+// Unlike telemetry (opt-in, detailed), heartbeat is always active.
 package heartbeat
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
 )
 
-// Endpoint is the auth service heartbeat URL.
-const Endpoint = "https://api.synctacles.com/auth/heartbeat"
+// Endpoint is the Synctacles API heartbeat URL.
+const Endpoint = "https://api.synctacles.com/api/v1/install/heartbeat"
 
-// Sender sends heartbeats to the auth service.
+// Sender sends heartbeats to the Synctacles API.
 type Sender struct {
 	installUUID  string
 	product      string
@@ -23,6 +23,7 @@ type Sender struct {
 	osArch       string
 	onSuccess    func()
 	onFailure    func()
+	onPurged     func()
 }
 
 // Config for creating a heartbeat sender.
@@ -33,6 +34,7 @@ type Config struct {
 	OSArch       string
 	OnSuccess    func() // called after successful heartbeat
 	OnFailure    func() // called after failed heartbeat
+	OnPurged     func() // called when server reports install is purged
 }
 
 // NewSender creates a heartbeat sender.
@@ -44,6 +46,7 @@ func NewSender(cfg Config) *Sender {
 		osArch:       cfg.OSArch,
 		onSuccess:    cfg.OnSuccess,
 		onFailure:    cfg.OnFailure,
+		onPurged:     cfg.OnPurged,
 	}
 }
 
@@ -67,10 +70,10 @@ func (s *Sender) Run(ctx context.Context) {
 
 func (s *Sender) send(ctx context.Context) {
 	payload := map[string]string{
-		"install_uuid":  s.installUUID,
-		"product":       s.product,
-		"addon_version": s.addonVersion,
-		"os_arch":       s.osArch,
+		"install_id": s.installUUID,
+		"product":    s.product,
+		"version":    s.addonVersion,
+		"arch":       s.osArch,
 	}
 
 	body, _ := json.Marshal(payload)
@@ -93,17 +96,31 @@ func (s *Sender) send(ctx context.Context) {
 		}
 		return
 	}
-	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		slog.Info("heartbeat sent", "product", s.product, "version", s.addonVersion)
-		if s.onSuccess != nil {
-			s.onSuccess()
-		}
-	} else {
+	if resp.StatusCode != http.StatusOK {
 		slog.Warn("heartbeat: unexpected status", "status", resp.StatusCode)
 		if s.onFailure != nil {
 			s.onFailure()
 		}
+		return
+	}
+
+	// Parse response to check for purge status
+	var result struct {
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(respBody, &result) == nil && result.Status == "purged" {
+		slog.Warn("heartbeat: install is purged — server rejected registration")
+		if s.onPurged != nil {
+			s.onPurged()
+		}
+		return
+	}
+
+	slog.Info("heartbeat sent", "product", s.product, "version", s.addonVersion)
+	if s.onSuccess != nil {
+		s.onSuccess()
 	}
 }
