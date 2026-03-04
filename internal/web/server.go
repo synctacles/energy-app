@@ -606,8 +606,13 @@ func (s *Server) handleZoneDetect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// No exact match — try country from timezone (Europe/Berlin → DE)
-	writeJSON(w, map[string]any{"detected": false, "timezone": tz, "reason": "no zone matches timezone " + tz})
+	// No exact match — region is not supported
+	writeJSON(w, map[string]any{
+		"detected":           false,
+		"unsupported_region": true,
+		"timezone":           tz,
+		"reason":             "no zone matches timezone " + tz,
+	})
 }
 
 func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
@@ -639,18 +644,32 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// When the consumer price comes from an external source (Enever, External
-	// Sensor, P1 meter), decompose the all-in price into components assuming a
-	// 2% supplier markup on wholesale. This is the standard margin for NL suppliers.
-	// Formula: subtotal = wholesale*1.02 + energy_tax + surcharges
-	// Note: check PricingMode (config), not SourceTier (runtime) — Enever without
-	// API key falls back to another source but the consumer price still includes markup.
+	// Determine supplier markup. Priority:
+	// 1. Manual mode / user-configured: s.cfg.SupplierMarkup (exact EUR/kWh)
+	// 2. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
+	// 3. Fallback: 2% of wholesale (estimated)
 	supplierMarkup := override.SupplierMarkup
 	mode := s.cfg.PricingMode
 	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
-	if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
+
+	if mode == "manual" && s.cfg.SupplierMarkup > 0 {
+		// Manual mode: user's explicit value takes priority
+		supplierMarkup = s.cfg.SupplierMarkup
+		// Recalculate wholesale with the correct markup
+		if data != nil && data.CurrentPrice > 0 {
+			subtotal := data.CurrentPrice / (1 + override.VATRate)
+			wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - supplierMarkup
+			if wholesaleKWh < 0 {
+				wholesaleKWh = 0
+			}
+		}
+	} else if override.SupplierMarkup > 0 {
+		// Calibration data from Worker (crowdsourced) — use as-is
+		supplierMarkup = override.SupplierMarkup
+	} else if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
+		// No calibration: decompose consumer price with 2% markup estimate
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
-		base := subtotal - override.EnergyTax - override.Surcharges // wholesale + markup combined
+		base := subtotal - override.EnergyTax - override.Surcharges
 		if base > 0 {
 			wholesaleKWh = base / 1.02
 			supplierMarkup = base - wholesaleKWh // = wholesale * 0.02
