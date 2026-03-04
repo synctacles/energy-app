@@ -9,6 +9,11 @@ import (
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
+// FeatureGate controls whether price fetching is allowed.
+type FeatureGate interface {
+	CanFetchPrices() bool
+}
+
 // Scheduler manages periodic price fetching and sensor updates.
 type Scheduler struct {
 	fallback    *FallbackManager
@@ -18,6 +23,7 @@ type Scheduler struct {
 	updateFn    func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error
 	stopCh      chan struct{}
 	triggerCh   chan struct{}
+	gate        FeatureGate
 }
 
 // NewScheduler creates a price fetch scheduler.
@@ -27,8 +33,9 @@ func NewScheduler(
 	action *ActionEngine,
 	zone string,
 	updateFn func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error,
+	gate ...FeatureGate,
 ) *Scheduler {
-	return &Scheduler{
+	s := &Scheduler{
 		fallback:   fallback,
 		normalizer: normalizer,
 		action:     action,
@@ -37,6 +44,10 @@ func NewScheduler(
 		stopCh:     make(chan struct{}),
 		triggerCh:  make(chan struct{}, 1),
 	}
+	if len(gate) > 0 {
+		s.gate = gate[0]
+	}
+	return s
 }
 
 // Run starts the scheduler loop. Blocks until Stop() is called or ctx is cancelled.
@@ -96,6 +107,11 @@ func (s *Scheduler) TriggerFetch() {
 }
 
 func (s *Scheduler) fetchAndUpdate(ctx context.Context) {
+	if s.gate != nil && !s.gate.CanFetchPrices() {
+		slog.Debug("price fetch skipped — install purged")
+		return
+	}
+
 	result, err := s.fallback.Fetch(ctx, s.zone, time.Now().UTC())
 	if err != nil {
 		slog.Error("price fetch failed", "zone", s.zone, "error", err)

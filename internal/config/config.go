@@ -58,8 +58,9 @@ type Config struct {
 	AlertThreshold float64 `env:"ENERGY_ALERT_THRESHOLD" envDefault:"0"`
 
 	// Consent flags (persisted in HA Supervisor options)
-	DisclaimerAccepted bool `env:"DISCLAIMER_ACCEPTED" envDefault:"false"`
-	PrivacyAccepted    bool `env:"PRIVACY_ACCEPTED" envDefault:"false"`
+	DisclaimerAccepted  bool `env:"DISCLAIMER_ACCEPTED" envDefault:"false"`
+	PrivacyAccepted     bool `env:"PRIVACY_ACCEPTED" envDefault:"false"`
+	OnboardingCompleted bool `env:"ONBOARDING_COMPLETED" envDefault:"false"`
 
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`

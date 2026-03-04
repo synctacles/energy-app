@@ -52,6 +52,12 @@ type Server struct {
 	installUUID         string
 }
 
+// SetPurged marks this installation as purged by the server.
+// When purged, price fetching stops and API features are disabled.
+func (s *Server) SetPurged() {
+	slog.Warn("install marked as purged — price fetching and API features disabled")
+}
+
 // Deps holds dependencies for the web server.
 type Deps struct {
 	Config              *config.Config
@@ -404,6 +410,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"privacy_accepted":        s.cfg.PrivacyAccepted,
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
+		"onboarding_completed":    s.cfg.OnboardingCompleted,
+		"purged":                  s.featureGate.IsPurged(),
 	}
 	writeJSON(w, resp)
 }
@@ -935,6 +943,10 @@ func (s *Server) handleFeedbackSysInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
+	if s.featureGate.IsPurged() {
+		writeError(w, http.StatusForbidden, "install purged")
+		return
+	}
 	var req struct {
 		Rating  int    `json:"rating"`
 		Comment string `json:"comment"`
@@ -971,6 +983,10 @@ func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
+	if s.featureGate.IsPurged() {
+		writeError(w, http.StatusForbidden, "install purged")
+		return
+	}
 	var req struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -1042,6 +1058,10 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 // --- GDPR Data Deletion ---
 
 func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
+	if s.featureGate.IsPurged() {
+		writeError(w, http.StatusForbidden, "install already purged")
+		return
+	}
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return
@@ -1057,6 +1077,7 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
+	// Delete from platform Worker (synctacles-prod D1)
 	req, err := http.NewRequestWithContext(ctx, "DELETE", feedbackBaseURL+"/api/v1/install/data", bytes.NewReader(jsonData))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create request")
@@ -1083,6 +1104,22 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "invalid response from server")
 		return
 	}
+
+	// Also delete from energy-data Worker (synctacles-energy-db D1) — best-effort
+	go func() {
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel2()
+		req2, err := http.NewRequestWithContext(ctx2, "DELETE", energyDataBaseURL+"/api/v1/install/data", bytes.NewReader(jsonData))
+		if err != nil {
+			return
+		}
+		req2.Header.Set("Content-Type", "application/json")
+		resp2, err := http.DefaultClient.Do(req2)
+		if err != nil {
+			return
+		}
+		resp2.Body.Close()
+	}()
 
 	writeJSON(w, result)
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/synctacles/energy-app/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
 	"github.com/synctacles/energy-app/pkg/countries"
 	"github.com/synctacles/energy-app/pkg/engine"
@@ -382,14 +383,7 @@ func main() {
 	})
 	telemetrySender.RunBackground(ctx)
 
-	// Start heartbeat sender (install counting — no feature gating for energy)
-	go heartbeat.NewSender(heartbeat.Config{
-		InstallUUID:  installUUID,
-		Product:      "energy",
-		AddonVersion: version,
-		OSArch:       osArch,
-	}).Run(ctx)
-	slog.Info("heartbeat sender started", "uuid", installUUID)
+	// Heartbeat sender started after web server is created (needs srv.SetPurged callback)
 
 	// Startup: fetch tax profile from Worker to warm cache.
 	// FetchDayAhead caches the tax profile even when prices are empty (stale/missing),
@@ -433,8 +427,11 @@ func main() {
 		slog.Info("tax profile cache loaded from disk", "zone", cfg.BiddingZone)
 	}
 
+	// Feature gate (controls price fetch + actions after GDPR purge)
+	featureGate := gate.New(cfg.BiddingZone, false, "")
+
 	// Start scheduler
-	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn)
+	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn, featureGate)
 	go scheduler.Run(ctx)
 
 	// Detect addon slug for dynamic HA UI navigation
@@ -450,6 +447,7 @@ func main() {
 		SensorData:          sensorData,
 		Supervisor:          supervisor,
 		Fallback:            fallbackMgr,
+		Gate:                featureGate,
 		Version:             version,
 		DetectedPowerSensor:  detectedPowerSensor,
 		DetectedTariffSensor: detectedTariffSensor,
@@ -461,6 +459,19 @@ func main() {
 		SQLiteCache:         sqliteCache,
 		InstallUUID:         installUUID,
 	})
+
+	// Start heartbeat sender (install counting + purge detection)
+	go heartbeat.NewSender(heartbeat.Config{
+		InstallUUID:  installUUID,
+		Product:      "energy",
+		AddonVersion: version,
+		OSArch:       osArch,
+		OnPurged: func() {
+			featureGate.SetPurged() // stops scheduler price fetching
+			srv.SetPurged()         // blocks API handlers + notifies frontend
+		},
+	}).Run(ctx)
+	slog.Info("heartbeat sender started", "uuid", installUUID)
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
 	httpSrv := &http.Server{

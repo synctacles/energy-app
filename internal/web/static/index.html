@@ -320,6 +320,81 @@
         }
         .privacy-settings-btn:hover { background: var(--input-bg); }
 
+        /* Wizard modal */
+        .wizard-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 1100;
+            align-items: center; justify-content: center; padding: 16px;
+        }
+        .wizard-overlay.visible { display: flex; }
+        .wizard-modal {
+            background: var(--bg-card); border-radius: 12px; padding: 24px;
+            max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .wizard-modal h2 { font-size: 1.1em; margin-bottom: 4px; color: var(--accent); }
+        .wizard-subtitle { font-size: 0.82em; color: var(--text-muted); margin-bottom: 16px; }
+        .wizard-steps {
+            display: flex; gap: 4px; margin-bottom: 20px; padding: 0; list-style: none;
+        }
+        .wizard-steps li {
+            flex: 1; text-align: center; font-size: 0.72em; font-weight: 600;
+            padding: 6px 0; border-bottom: 3px solid var(--border); color: var(--text-faint);
+            transition: all 0.2s;
+        }
+        .wizard-steps li.active { border-color: var(--accent); color: var(--accent); }
+        .wizard-steps li.done { border-color: #0d9488; color: #0d9488; }
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; }
+        .wizard-step h3 { font-size: 0.95em; margin-bottom: 10px; color: var(--text); }
+        .wizard-step p { font-size: 0.82em; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4; }
+        .wizard-select {
+            width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text); font-size: 0.88em; margin-bottom: 10px;
+            appearance: auto;
+        }
+        .wizard-select:focus { border-color: var(--accent); outline: none; }
+        .wizard-input {
+            width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text); font-size: 0.88em; margin-bottom: 8px;
+            box-sizing: border-box;
+        }
+        .wizard-input:focus { border-color: var(--accent); outline: none; }
+        .wizard-tax-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; font-size: 0.84em; border-bottom: 1px solid var(--border);
+        }
+        .wizard-tax-row:last-child { border-bottom: none; }
+        .wizard-tax-label { color: var(--text-muted); }
+        .wizard-tax-value { font-weight: 600; color: var(--text); }
+        .wizard-summary-row {
+            display: flex; justify-content: space-between; padding: 8px 0;
+            font-size: 0.88em; border-bottom: 1px solid var(--border);
+        }
+        .wizard-summary-row:last-child { border-bottom: none; }
+        .wizard-summary-label { color: var(--text-muted); }
+        .wizard-summary-value { font-weight: 600; color: var(--text); }
+        .wizard-nav {
+            display: flex; gap: 8px; margin-top: 16px;
+        }
+        .wizard-nav button {
+            flex: 1; padding: 10px; border: none; border-radius: 8px;
+            font-size: 0.88em; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+        }
+        .wizard-nav button:hover { opacity: 0.9; }
+        .wizard-btn-primary { background: var(--accent); color: white; }
+        .wizard-btn-secondary { background: var(--input-bg); color: var(--text); }
+        .wizard-btn-skip {
+            display: block; width: 100%; margin-top: 8px; padding: 8px;
+            background: none; border: none; color: var(--text-faint); font-size: 0.78em;
+            cursor: pointer; text-decoration: underline;
+        }
+        .wizard-detected {
+            font-size: 0.82em; color: #0d9488; padding: 8px 12px; background: rgba(13,148,136,0.08);
+            border-radius: 8px; margin-bottom: 10px;
+        }
+        .wizard-check { color: #0d9488; margin-right: 4px; }
+
         /* Pricing mode radio cards */
         label[for^="mode-"]:has(input:checked) {
             border-color: var(--accent); background: rgba(26,115,232,0.06);
@@ -496,6 +571,82 @@
             <div id="deleteDataStatus" style="font-size:0.85em;margin-top:12px;min-height:1.2em"></div>
             <button class="btn-ok" id="deleteDataConfirmBtn" style="background:#dc2626;margin-top:12px">Delete</button>
             <button class="btn-ok" id="deleteDataCancelBtn" style="background:var(--input-bg);color:var(--text);margin-top:6px">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Purged notice modal -->
+    <div class="privacy-overlay" id="purgedOverlay">
+        <div class="privacy-modal">
+            <h2 id="purgedTitle">Data Deleted</h2>
+            <p id="purgedBody">You have deleted your data from our servers. The app can no longer fetch prices or provide recommendations.</p>
+            <p id="purgedHint" style="font-size:0.82em;color:var(--text-faint);margin-top:8px">To restore full functionality, reinstall the app from the Home Assistant App Store.</p>
+            <button class="btn-ok" id="purgedOkBtn">OK</button>
+        </div>
+    </div>
+
+    <!-- Onboarding wizard modal -->
+    <div class="wizard-overlay" id="wizardOverlay">
+        <div class="wizard-modal">
+            <h2 id="wizardTitle">Welcome to Synctacles Energy</h2>
+            <p class="wizard-subtitle" id="wizardSubtitle">Let's set up your energy prices in a few steps.</p>
+            <ul class="wizard-steps" id="wizardSteps">
+                <li class="active" data-step="0" id="wizStep0">Region</li>
+                <li data-step="1" id="wizStep1">Supplier</li>
+                <li data-step="2" id="wizStep2">Verify</li>
+                <li data-step="3" id="wizStep3">Done</li>
+            </ul>
+
+            <!-- Step 0: Region -->
+            <div class="wizard-step active" id="wizardStep0">
+                <h3 id="wizRegionTitle">Select your country</h3>
+                <div class="wizard-detected" id="wizDetected" style="display:none"></div>
+                <select class="wizard-select" id="wizCountry"></select>
+                <div id="wizZoneWrap" style="display:none">
+                    <p id="wizZoneHint"></p>
+                    <select class="wizard-select" id="wizZone"></select>
+                </div>
+            </div>
+
+            <!-- Step 1: Supplier -->
+            <div class="wizard-step" id="wizardStep1">
+                <h3 id="wizSupplierTitle">Select your energy supplier</h3>
+                <div id="wizSensorDetected" class="wizard-detected" style="display:none">
+                    <span id="wizSensorName"></span>
+                    <div style="margin-top:6px;font-size:0.88em" id="wizSensorPrice"></div>
+                    <div style="margin-top:4px;font-size:0.82em;color:var(--text-muted)" id="wizSensorCalcResult"></div>
+                    <button class="wizard-btn-primary" id="wizSensorUseBtn" style="margin-top:8px;padding:8px 16px;font-size:0.82em;width:auto;display:inline-block">Use this sensor</button>
+                </div>
+                <div id="wizSupplierManual">
+                    <select class="wizard-select" id="wizSupplier">
+                        <option value="">---</option>
+                    </select>
+                    <div id="wizMarkupWrap" style="display:none">
+                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizMarkupLabel">Supplier markup (EUR/kWh)</label>
+                        <input type="number" class="wizard-input" id="wizMarkupInput" step="0.001" min="0" max="0.2" value="0" placeholder="0.000">
+                        <p style="font-size:0.78em;color:var(--text-faint)" id="wizMarkupHint"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Verify prices -->
+            <div class="wizard-step" id="wizardStep2">
+                <h3 id="wizVerifyTitle">Verify tax data</h3>
+                <p id="wizVerifyIntro"></p>
+                <div id="wizTaxRows" style="margin: 12px 0;"></div>
+            </div>
+
+            <!-- Step 3: Confirmation -->
+            <div class="wizard-step" id="wizardStep3">
+                <h3 id="wizSummaryTitle">You're all set!</h3>
+                <div id="wizSummaryRows" style="margin: 12px 0;"></div>
+                <p id="wizSummaryThanks" style="font-size:0.82em;color:#0d9488;margin-top:12px"></p>
+            </div>
+
+            <div class="wizard-nav" id="wizardNav">
+                <button class="wizard-btn-secondary" id="wizPrevBtn" style="display:none">Back</button>
+                <button class="wizard-btn-primary" id="wizNextBtn">Next</button>
+            </div>
+            <button class="wizard-btn-skip" id="wizSkipBtn">Skip setup</button>
         </div>
     </div>
 
@@ -1892,6 +2043,17 @@
         });
     }
 
+    function showPurgedNotice() {
+        document.getElementById('purgedTitle').textContent = t('purged.title', 'Data Deleted');
+        document.getElementById('purgedBody').textContent = t('purged.body', 'You have deleted your data from our servers. The app can no longer fetch prices or provide recommendations.');
+        document.getElementById('purgedHint').textContent = t('purged.hint', 'To restore full functionality, reinstall the app from the Home Assistant App Store.');
+        document.getElementById('purgedOkBtn').textContent = t('purged.ok', 'OK');
+        document.getElementById('purgedOverlay').classList.add('visible');
+    }
+    document.getElementById('purgedOkBtn').onclick = function() {
+        document.getElementById('purgedOverlay').classList.remove('visible');
+    };
+
     function showDisclaimerModal() {
         populateDisclaimerModal();
         document.getElementById('disclaimerOverlay').classList.add('visible');
@@ -1957,6 +2119,10 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ privacy_accepted: true })
         });
+        // Chain into onboarding wizard if not completed yet
+        if (localStorage.getItem('onboarding_completed') !== 'true') {
+            showWizard();
+        }
     };
 
     document.getElementById('privacyOverlay').onclick = function(e) {
@@ -1974,6 +2140,9 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ privacy_accepted: true })
             });
+            if (localStorage.getItem('onboarding_completed') !== 'true') {
+                showWizard();
+            }
         }
     });
 
@@ -2014,6 +2183,7 @@
             status.style.color = '#0d9488';
             setTimeout(function() {
                 document.getElementById('deleteDataOverlay').classList.remove('visible');
+                showPurgedNotice();
             }, 2000);
         } catch(e) {
             status.textContent = t('settings.delete_data_error', 'Failed to delete data. Please try again.');
@@ -2023,6 +2193,387 @@
         btn.textContent = t('settings.delete_data_confirm_btn', 'Delete');
     };
 
+    // --- Onboarding wizard ---
+    var _wizardData = null;
+    var _wizardStep = 0;
+    var _wizardTaxVerified = false;
+    var _wizardSelectedCountry = null;
+    var _wizardSelectedZone = null;
+    var _wizardSelectedSupplier = null;
+    var _wizardMarkup = 0;
+    var _wizardUseSensor = false;
+    var _wizardSensorEntity = null;
+
+    function wizardPopulateI18n() {
+        document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
+        document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
+        document.getElementById('wizStep0').textContent = t('wizard.step_region', 'Region');
+        document.getElementById('wizStep1').textContent = t('wizard.step_supplier', 'Supplier');
+        document.getElementById('wizStep2').textContent = t('wizard.step_verify', 'Verify');
+        document.getElementById('wizStep3').textContent = t('wizard.step_confirm', 'Done');
+        document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
+        document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
+        document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
+        document.getElementById('wizMarkupHint').textContent = t('wizard.markup_hint', "Your supplier's per-kWh markup on top of wholesale prices.");
+        document.getElementById('wizVerifyTitle').textContent = t('wizard.step_verify', 'Verify Prices');
+        document.getElementById('wizVerifyIntro').textContent = t('wizard.verify_intro', 'We have tax data for your region. Does this look correct?');
+        document.getElementById('wizPrevBtn').textContent = t('wizard.btn_prev', 'Back');
+        document.getElementById('wizNextBtn').textContent = t('wizard.btn_next', 'Next');
+        document.getElementById('wizSkipBtn').textContent = t('wizard.btn_skip', 'Skip setup');
+    }
+
+    async function showWizard() {
+        wizardPopulateI18n();
+        try {
+            var resp = await fetch('api/wizard-data');
+            _wizardData = await resp.json();
+        } catch(e) {
+            // If wizard data fails, skip wizard entirely
+            wizardComplete(false);
+            return;
+        }
+
+        // Populate country dropdown
+        var sel = document.getElementById('wizCountry');
+        sel.innerHTML = '<option value="">' + t('wizard.select_country', 'Select your country') + '</option>';
+        (_wizardData.countries || []).forEach(function(c) {
+            var opt = document.createElement('option');
+            opt.value = c.code;
+            opt.textContent = c.name;
+            sel.appendChild(opt);
+        });
+
+        // Pre-select detected zone's country
+        if (_wizardData.detected_zone) {
+            var detectedCountry = null;
+            (_wizardData.countries || []).forEach(function(c) {
+                c.zones.forEach(function(z) {
+                    if (z.code === _wizardData.detected_zone) detectedCountry = c;
+                });
+            });
+            if (detectedCountry) {
+                sel.value = detectedCountry.code;
+                wizardOnCountryChange(detectedCountry.code);
+                var detDiv = document.getElementById('wizDetected');
+                detDiv.style.display = 'block';
+                detDiv.textContent = '\u2713 ' + tReplace('wizard.detected_zone', {zone: _wizardData.detected_zone}, 'Detected: ' + _wizardData.detected_zone);
+            }
+        }
+
+        _wizardStep = 0;
+        wizardShowStep(0);
+        document.getElementById('wizardOverlay').classList.add('visible');
+    }
+
+    function wizardOnCountryChange(countryCode) {
+        _wizardSelectedCountry = null;
+        _wizardSelectedZone = null;
+        var zoneWrap = document.getElementById('wizZoneWrap');
+        var zoneHint = document.getElementById('wizZoneHint');
+        var zoneSel = document.getElementById('wizZone');
+
+        if (!countryCode) {
+            zoneWrap.style.display = 'none';
+            return;
+        }
+
+        var country = null;
+        (_wizardData.countries || []).forEach(function(c) {
+            if (c.code === countryCode) country = c;
+        });
+        if (!country) return;
+        _wizardSelectedCountry = country;
+
+        if (country.zones.length === 1) {
+            _wizardSelectedZone = country.zones[0].code;
+            zoneHint.textContent = t('wizard.single_zone', 'Your country has one bidding zone.');
+            zoneWrap.style.display = 'block';
+            zoneSel.style.display = 'none';
+        } else {
+            zoneHint.textContent = t('wizard.multi_zone', 'Your country has multiple bidding zones. Select yours.');
+            zoneSel.innerHTML = '<option value="">' + t('wizard.select_zone', 'Select your bidding zone') + '</option>';
+            country.zones.forEach(function(z) {
+                var opt = document.createElement('option');
+                opt.value = z.code;
+                opt.textContent = z.code + ' — ' + z.name;
+                zoneSel.appendChild(opt);
+            });
+            // Pre-select detected zone
+            if (_wizardData.detected_zone) {
+                country.zones.forEach(function(z) {
+                    if (z.code === _wizardData.detected_zone) zoneSel.value = z.code;
+                });
+                _wizardSelectedZone = zoneSel.value || null;
+            }
+            zoneWrap.style.display = 'block';
+            zoneSel.style.display = '';
+        }
+    }
+
+    document.getElementById('wizCountry').onchange = function() {
+        wizardOnCountryChange(this.value);
+        document.getElementById('wizDetected').style.display = 'none';
+    };
+    document.getElementById('wizZone').onchange = function() {
+        _wizardSelectedZone = this.value || null;
+    };
+
+    function wizardPopulateSuppliers() {
+        // Show detected sensor if available
+        var sensorDiv = document.getElementById('wizSensorDetected');
+        var sensor = _wizardData.detected_sensor;
+        var wholesale = _wizardData.wholesale_kwh || 0;
+        if (sensor && sensor.state > 0) {
+            var sensorPriceCt = (sensor.state * 100).toFixed(2);
+            document.getElementById('wizSensorName').textContent = '\u2713 ' + tReplace('wizard.sensor_detected', {sensor: sensor.name}, 'Price sensor detected: ' + sensor.name);
+            document.getElementById('wizSensorPrice').textContent = tReplace('wizard.sensor_price', {price: sensorPriceCt}, 'Current sensor price: ' + sensorPriceCt + ' ct/kWh');
+            // Calculate markup if we have wholesale
+            if (wholesale > 0) {
+                var calcMarkup = sensor.state - wholesale;
+                if (calcMarkup < 0) calcMarkup = 0;
+                var calcMarkupCt = (calcMarkup * 100).toFixed(2);
+                document.getElementById('wizSensorCalcResult').textContent = tReplace('wizard.sensor_markup_result', {markup: calcMarkupCt}, 'Calculated markup: ' + calcMarkupCt + ' ct/kWh');
+                document.getElementById('wizSensorCalcResult').style.display = '';
+            } else {
+                document.getElementById('wizSensorCalcResult').style.display = 'none';
+            }
+            document.getElementById('wizSensorUseBtn').textContent = t('wizard.sensor_use', 'Use this sensor');
+            sensorDiv.style.display = 'block';
+        } else {
+            sensorDiv.style.display = 'none';
+        }
+
+        // Populate supplier dropdown
+        var sel = document.getElementById('wizSupplier');
+        sel.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
+        if (_wizardSelectedCountry && _wizardSelectedCountry.suppliers) {
+            _wizardSelectedCountry.suppliers.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name + (s.markup > 0 ? ' (+' + (s.markup * 100).toFixed(1) + ' ct/kWh)' : '');
+                opt.dataset.markup = s.markup;
+                sel.appendChild(opt);
+            });
+        }
+        // Add "not listed" option
+        var notListed = document.createElement('option');
+        notListed.value = '__custom';
+        notListed.textContent = t('wizard.supplier_not_listed', 'My supplier is not listed');
+        sel.appendChild(notListed);
+    }
+
+    // "Use this sensor" button — sets pricing to external_sensor mode
+    document.getElementById('wizSensorUseBtn').onclick = function() {
+        var sensor = _wizardData.detected_sensor;
+        if (!sensor) return;
+        _wizardUseSensor = true;
+        _wizardSensorEntity = sensor.entity_id;
+        // Calculate markup from sensor price - wholesale
+        var wholesale = _wizardData.wholesale_kwh || 0;
+        if (wholesale > 0) {
+            _wizardMarkup = Math.max(0, sensor.state - wholesale);
+        }
+        // Visual feedback
+        this.textContent = '\u2713 ' + t('wizard.sensor_use', 'Use this sensor');
+        this.style.background = '#0d9488';
+    };
+
+    document.getElementById('wizSupplier').onchange = function() {
+        var val = this.value;
+        var markupWrap = document.getElementById('wizMarkupWrap');
+        if (val === '__custom') {
+            markupWrap.style.display = 'block';
+            _wizardSelectedSupplier = null;
+            _wizardMarkup = parseFloat(document.getElementById('wizMarkupInput').value) || 0;
+        } else if (val) {
+            markupWrap.style.display = 'none';
+            _wizardSelectedSupplier = val;
+            var opt = this.options[this.selectedIndex];
+            _wizardMarkup = parseFloat(opt.dataset.markup) || 0;
+        } else {
+            markupWrap.style.display = 'none';
+            _wizardSelectedSupplier = null;
+            _wizardMarkup = 0;
+        }
+    };
+    document.getElementById('wizMarkupInput').oninput = function() {
+        _wizardMarkup = parseFloat(this.value) || 0;
+    };
+
+    function wizardPopulateTax() {
+        var rows = document.getElementById('wizTaxRows');
+        rows.innerHTML = '';
+        var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
+        if (!tax) {
+            rows.innerHTML = '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
+            return;
+        }
+        var items = [
+            { label: t('wizard.verify_vat', 'VAT rate'), value: (tax.vat_rate * 100).toFixed(0) + '%' },
+            { label: t('wizard.verify_energy_tax', 'Energy tax'), value: (tax.energy_tax * 100).toFixed(3) + ' ct/kWh' },
+            { label: t('wizard.verify_surcharges', 'Surcharges'), value: (tax.surcharges * 100).toFixed(3) + ' ct/kWh' },
+            { label: t('wizard.verify_network', 'Network tariff'), value: tax.network_tariff_avg > 0 ? (tax.network_tariff_avg * 100).toFixed(2) + ' ct/kWh' : '—' }
+        ];
+        items.forEach(function(item) {
+            var row = document.createElement('div');
+            row.className = 'wizard-tax-row';
+            row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
+            row.querySelector('.wizard-tax-label').textContent = item.label;
+            row.querySelector('.wizard-tax-value').textContent = item.value;
+            rows.appendChild(row);
+        });
+    }
+
+    function wizardPopulateSummary() {
+        var rows = document.getElementById('wizSummaryRows');
+        rows.innerHTML = '';
+        var modeLabel = _wizardUseSensor
+            ? t('settings.mode_external_sensor', 'External Sensor')
+            : t('settings.mode_auto', 'Synctacles Auto');
+        var supplierLabel = _wizardUseSensor
+            ? (_wizardData.detected_sensor ? _wizardData.detected_sensor.name : 'Sensor')
+            : (_wizardSelectedSupplier || t('settings.supplier_none', 'None'));
+        var items = [
+            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
+            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierLabel },
+            { label: t('wizard.summary_mode', 'Pricing mode'), value: modeLabel }
+        ];
+        items.forEach(function(item) {
+            var row = document.createElement('div');
+            row.className = 'wizard-summary-row';
+            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
+            row.querySelector('.wizard-summary-label').textContent = item.label;
+            row.querySelector('.wizard-summary-value').textContent = item.value;
+            rows.appendChild(row);
+        });
+        var thanks = document.getElementById('wizSummaryThanks');
+        if (_wizardTaxVerified) {
+            thanks.textContent = t('wizard.summary_thanks', 'Thank you for verifying your price data.');
+        } else {
+            thanks.textContent = t('wizard.summary_no_verify', 'You can always verify or adjust your tax data in Settings.');
+        }
+        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
+    }
+
+    function wizardShowStep(step) {
+        _wizardStep = step;
+        for (var i = 0; i < 4; i++) {
+            var panel = document.getElementById('wizardStep' + i);
+            var stepEl = document.getElementById('wizStep' + i);
+            if (i === step) {
+                panel.classList.add('active');
+                stepEl.classList.add('active');
+                stepEl.classList.remove('done');
+            } else {
+                panel.classList.remove('active');
+                stepEl.classList.remove('active');
+                if (i < step) stepEl.classList.add('done');
+                else stepEl.classList.remove('done');
+            }
+        }
+        // Populate step-specific data
+        if (step === 1) wizardPopulateSuppliers();
+        if (step === 2) wizardPopulateTax();
+        if (step === 3) wizardPopulateSummary();
+
+        // Nav buttons
+        document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
+        var nextBtn = document.getElementById('wizNextBtn');
+        if (step === 2) {
+            // Two buttons: verify or skip
+            nextBtn.textContent = t('wizard.verify_confirm', 'Looks correct');
+        } else if (step === 3) {
+            nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
+        } else {
+            nextBtn.textContent = t('wizard.btn_next', 'Next');
+        }
+        document.getElementById('wizSkipBtn').style.display = step < 3 ? '' : 'none';
+    }
+
+    document.getElementById('wizNextBtn').onclick = function() {
+        if (_wizardStep === 0) {
+            // Validate: country + zone selected
+            if (!_wizardSelectedZone) return;
+            wizardShowStep(1);
+        } else if (_wizardStep === 1) {
+            wizardShowStep(2);
+        } else if (_wizardStep === 2) {
+            _wizardTaxVerified = true;
+            wizardShowStep(3);
+        } else if (_wizardStep === 3) {
+            wizardComplete(true);
+        }
+    };
+    document.getElementById('wizPrevBtn').onclick = function() {
+        if (_wizardStep > 0) wizardShowStep(_wizardStep - 1);
+    };
+    document.getElementById('wizSkipBtn').onclick = function() {
+        if (_wizardStep === 2) {
+            // Skip tax verification
+            _wizardTaxVerified = false;
+            wizardShowStep(3);
+        } else {
+            wizardComplete(false);
+        }
+    };
+
+    async function wizardComplete(saveSettings) {
+        document.getElementById('wizardOverlay').classList.remove('visible');
+
+        var configPayload = { onboarding_completed: true };
+        if (saveSettings && _wizardSelectedZone) {
+            configPayload.zone = _wizardSelectedZone;
+            if (_wizardUseSensor && _wizardSensorEntity) {
+                // External sensor mode — use the detected tariff sensor
+                configPayload.pricing_mode = 'external_sensor';
+                configPayload.p1_sensor_entity = _wizardSensorEntity;
+            } else {
+                configPayload.pricing_mode = 'auto';
+            }
+            if (_wizardSelectedSupplier) {
+                configPayload.supplier_id = _wizardSelectedSupplier;
+            }
+            if (_wizardMarkup > 0) {
+                configPayload.supplier_markup = _wizardMarkup;
+            }
+        }
+
+        // Save config
+        try {
+            await fetch('api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configPayload)
+            });
+        } catch(e) { /* best-effort */ }
+
+        // Submit crowdsource data if verified
+        if (saveSettings && _wizardTaxVerified && _wizardSelectedZone && _wizardSelectedCountry) {
+            var tax = _wizardSelectedCountry.tax_defaults;
+            if (tax) {
+                try {
+                    await fetch('api/crowdsource-submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            zone: _wizardSelectedZone,
+                            contract_type: 'dynamic',
+                            vat_pct: tax.vat_rate,
+                            energy_tax_kwh: tax.energy_tax,
+                            surcharges_kwh: tax.surcharges,
+                            network_cost_kwh: tax.network_tariff_avg || null,
+                            supplier_name: _wizardSelectedSupplier || '',
+                            total_markup_kwh: _wizardMarkup
+                        })
+                    });
+                } catch(e) { /* best-effort */ }
+            }
+        }
+
+        // Reload dashboard to reflect new settings
+        loadDashboard();
+    }
+
     loadVersion().then(function() {
         return initI18n(_detectedLocale);
     }).then(function() {
@@ -2030,15 +2581,24 @@
         // localStorage is a fast cache — backend is the source of truth.
         return fetch('api/config').then(function(r) { return r.json(); }).catch(function() { return {}; });
     }).then(function(cfg) {
+        // GDPR purge: app is disabled — show notice and stop
+        if (cfg.purged) {
+            showPurgedNotice();
+            return;
+        }
         var disclaimerOk = cfg.disclaimer_accepted || localStorage.getItem('disclaimer_accepted') === 'true';
         var privacyOk = cfg.privacy_accepted || localStorage.getItem('privacy_shown') === 'true';
+        var onboardingOk = cfg.onboarding_completed || localStorage.getItem('onboarding_completed') === 'true';
         // Sync localStorage from backend so anti-flash script works next time
         if (cfg.disclaimer_accepted) localStorage.setItem('disclaimer_accepted', 'true');
         if (cfg.privacy_accepted) localStorage.setItem('privacy_shown', 'true');
+        if (cfg.onboarding_completed) localStorage.setItem('onboarding_completed', 'true');
         if (!disclaimerOk) {
             showDisclaimerModal();
         } else if (!privacyOk) {
             showPrivacyModal();
+        } else if (!onboardingOk) {
+            showWizard();
         }
         loadDashboard();
     });
