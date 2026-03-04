@@ -178,7 +178,13 @@
     "connection_error": "Forbindelsesfejl"
   },
   "common": {
-    "loading": "Indlæser..."
+    "loading": "Indlæser...",
+    "ok": "OK"
+  },
+  "unsupported_region": {
+    "title": "Region endnu ikke understøttet",
+    "body": "Synctacles Energy understøtter i øjeblikket EU- og UK-elzoner. Din Home Assistant placering ({timezone}) er uden for det understøttede dækningsområde. Appen kræver day-ahead engrospriser, som endnu ikke er tilgængelige for din region.",
+    "contact": "Ønsker du support for din region? Lad os vide:"
   },
   "disclaimer": {
     "title": "Vigtig meddelelse",

@@ -178,7 +178,13 @@
     "connection_error": "Erro de ligação"
   },
   "common": {
-    "loading": "Carregando..."
+    "loading": "Carregando...",
+    "ok": "OK"
+  },
+  "unsupported_region": {
+    "title": "Região ainda não suportada",
+    "body": "O Synctacles Energy suporta atualmente zonas elétricas da UE e do Reino Unido. A localização do seu Home Assistant ({timezone}) está fora da área de cobertura suportada. A aplicação necessita de preços grossistas day-ahead que ainda não estão disponíveis para a sua região.",
+    "contact": "Quer suporte para a sua região? Diga-nos:"
   },
   "disclaimer": {
     "title": "Aviso importante",

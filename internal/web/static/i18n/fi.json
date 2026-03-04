@@ -178,7 +178,13 @@
     "connection_error": "Yhteysvirhe"
   },
   "common": {
-    "loading": "Ladataan..."
+    "loading": "Ladataan...",
+    "ok": "OK"
+  },
+  "unsupported_region": {
+    "title": "Aluetta ei vielä tueta",
+    "body": "Synctacles Energy tukee tällä hetkellä EU:n ja Yhdistyneen kuningaskunnan sähkövyöhykkeitä. Home Assistant -sijaintisi ({timezone}) on tuetun kattavuusalueen ulkopuolella. Sovellus tarvitsee day-ahead-tukkuhintoja, jotka eivät ole vielä saatavilla alueellesi.",
+    "contact": "Haluatko tuen alueellesi? Kerro meille:"
   },
   "disclaimer": {
     "title": "Tärkeä ilmoitus",

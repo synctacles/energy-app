@@ -178,7 +178,13 @@
     "connection_error": "Erreur de connexion"
   },
   "common": {
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "ok": "OK"
+  },
+  "unsupported_region": {
+    "title": "Région pas encore prise en charge",
+    "body": "Synctacles Energy prend actuellement en charge les zones électriques de l'UE et du Royaume-Uni. Votre emplacement Home Assistant ({timezone}) se trouve en dehors de la zone de couverture. L'application nécessite des prix de gros day-ahead qui ne sont pas encore disponibles pour votre région.",
+    "contact": "Vous souhaitez le support pour votre région ? Faites-le nous savoir :"
   },
   "disclaimer": {
     "title": "Avis important",

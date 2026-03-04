@@ -369,10 +369,10 @@
                     <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Favoid_signal_switch_off.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
                         &#x1F6D1; <span data-i18n="automations.avoid_signal">AVOID Signal — Switch off devices when energy is expensive</span>
                     </a>
-                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fprice_alert_notification.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block;background:var(--input-bg);color:var(--text);border:1px solid var(--border)">
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fprice_alert_notification.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
                         &#x1F514; <span data-i18n="automations.price_alert">Price Alert — Get notified at cheap or expensive prices</span>
                     </a>
-                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fbest_window_schedule.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block;background:var(--input-bg);color:var(--text);border:1px solid var(--border)">
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fbest_window_schedule.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
                         &#x23F0; <span data-i18n="automations.best_window">Best Window — Smart scheduling during cheapest hours</span>
                     </a>
                 </div>
@@ -471,6 +471,16 @@
             <ul class="privacy-list" id="privacyNeverList"></ul>
             <a class="privacy-link" id="privacyLink" href="https://synctacles.com/privacy" target="_blank"></a>
             <button class="btn-ok" id="privacyOkBtn">OK</button>
+        </div>
+    </div>
+
+    <!-- Unsupported region modal -->
+    <div class="privacy-overlay" id="unsupportedRegionOverlay">
+        <div class="privacy-modal" id="unsupportedRegionModal">
+            <h2 id="unsupportedRegionTitle">Region Not Supported</h2>
+            <p id="unsupportedRegionBody"></p>
+            <p id="unsupportedRegionContact" style="font-size:0.85em;margin-top:12px"></p>
+            <button class="btn-ok" id="unsupportedRegionOkBtn">OK</button>
         </div>
     </div>
 
@@ -886,12 +896,14 @@
     }
 
     var chartBars = [];
+    var chartTooltip = null;
 
     function drawChart(prices, avg) {
         var canvas = document.getElementById('priceChart');
         if (!canvas) return;
         var ctx = canvas.getContext('2d');
         chartBars = [];
+        chartTooltip = null; // force re-creation after DOM replacement
 
         var rect = canvas.parentElement.getBoundingClientRect();
         var dpr = window.devicePixelRatio || 1;
@@ -980,54 +992,44 @@
     }
 
     // Chart tooltip on hover
-    (function() {
-        var tooltip = null;
-        function getTooltip() {
-            if (!tooltip) {
-                tooltip = document.querySelector('.chart-tooltip');
-                if (!tooltip) {
-                    var container = document.querySelector('.chart-container');
-                    if (!container) return null;
-                    tooltip = document.createElement('div');
-                    tooltip.className = 'chart-tooltip';
-                    container.appendChild(tooltip);
-                }
+    function ensureChartTooltip() {
+        if (chartTooltip && chartTooltip.parentNode) return chartTooltip;
+        chartTooltip = null;
+        var container = document.querySelector('.chart-container');
+        if (!container) return null;
+        chartTooltip = document.createElement('div');
+        chartTooltip.className = 'chart-tooltip';
+        container.appendChild(chartTooltip);
+        return chartTooltip;
+    }
+    document.addEventListener('mousemove', function(e) {
+        var canvas = document.getElementById('priceChart');
+        if (!canvas || !chartBars.length) return;
+        var rect = canvas.getBoundingClientRect();
+        var mx = e.clientX - rect.left;
+        var my = e.clientY - rect.top;
+        var hit = null;
+        for (var i = 0; i < chartBars.length; i++) {
+            var b = chartBars[i];
+            if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+                hit = b; break;
             }
-            return tooltip;
         }
-        document.addEventListener('mousemove', function(e) {
-            var canvas = document.getElementById('priceChart');
-            if (!canvas || !chartBars.length) return;
-            var rect = canvas.getBoundingClientRect();
-            var mx = e.clientX - rect.left;
-            var my = e.clientY - rect.top;
-            var hit = null;
-            for (var i = 0; i < chartBars.length; i++) {
-                var b = chartBars[i];
-                if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
-                    hit = b; break;
-                }
-            }
-            var tip = getTooltip();
-            if (!tip) return;
-            if (hit) {
-                tip.textContent = hit.hour + ' — ' + hit.val.toFixed(1) + ' ct/kWh';
-                tip.style.opacity = '1';
-                var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
-                var ty = hit.y - 28;
-                if (ty < 0) ty = hit.y + hit.h + 4;
-                tip.style.left = tx + 'px';
-                tip.style.top = ty + 'px';
-                tip.style.transform = 'translateX(-50%)';
-            } else {
-                tip.style.opacity = '0';
-            }
-        });
-        document.addEventListener('mouseleave', function(e) {
-            var tip = getTooltip();
-            if (tip) tip.style.opacity = '0';
-        });
-    })();
+        var tip = ensureChartTooltip();
+        if (!tip) return;
+        if (hit) {
+            tip.textContent = hit.hour + ' — ' + hit.val.toFixed(1) + ' ct/kWh';
+            tip.style.opacity = '1';
+            var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
+            var ty = hit.y - 28;
+            if (ty < 0) ty = hit.y + hit.h + 4;
+            tip.style.left = tx + 'px';
+            tip.style.top = ty + 'px';
+            tip.style.transform = 'translateX(-50%)';
+        } else {
+            tip.style.opacity = '0';
+        }
+    });
 
     // --- Settings ---
     var settingsLoaded = false;
@@ -1315,6 +1317,10 @@
                     result.style.color = '#0d9488';
                     result.textContent = data.name + ' (' + data.zone + ')';
                     updateModeVisibility();
+                } else if (data.unsupported_region) {
+                    result.style.color = '#d97706';
+                    result.textContent = t('settings.detect_zone_fail', 'Could not detect zone') + (data.timezone ? ' (' + data.timezone + ')' : '');
+                    showUnsupportedRegionModal(data.timezone);
                 } else {
                     result.style.color = '#d97706';
                     result.textContent = t('settings.detect_zone_fail', 'Could not detect zone') + (data.timezone ? ' (' + data.timezone + ')' : '');
@@ -1324,6 +1330,15 @@
                 result.textContent = t('settings.connection_error', 'Connection error');
             }
         };
+
+        // Auto-detect zone on first Settings load to warn about unsupported regions
+        if (!localStorage.getItem('unsupported_region_dismissed')) {
+            fetch('api/zone-detect').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.unsupported_region) {
+                    showUnsupportedRegionModal(data.timezone);
+                }
+            }).catch(function() {});
+        }
 
         // Calibrate button
         var calBtn = document.getElementById('btnCalibrate');
@@ -1926,6 +1941,24 @@
             });
         }
     });
+
+    // --- Unsupported region modal ---
+    function showUnsupportedRegionModal(timezone) {
+        var tz = timezone || '';
+        document.getElementById('unsupportedRegionTitle').textContent = t('unsupported_region.title', 'Region Not Yet Supported');
+        document.getElementById('unsupportedRegionBody').textContent = t('unsupported_region.body',
+            'Synctacles Energy currently supports EU and UK electricity zones. Your Home Assistant location ({timezone}) is outside the supported coverage area. The app requires day-ahead wholesale price data which is not yet available for your region.').replace('{timezone}', tz);
+        document.getElementById('unsupportedRegionContact').innerHTML =
+            t('unsupported_region.contact', 'Want support for your region? Let us know:') +
+            ' <a href="mailto:support@synctacles.com" style="color:var(--accent)">support@synctacles.com</a>';
+        document.getElementById('unsupportedRegionOkBtn').textContent = t('common.ok', 'OK');
+        document.getElementById('unsupportedRegionOverlay').classList.add('visible');
+    }
+
+    document.getElementById('unsupportedRegionOkBtn').onclick = function() {
+        localStorage.setItem('unsupported_region_dismissed', 'true');
+        document.getElementById('unsupportedRegionOverlay').classList.remove('visible');
+    };
 
     loadVersion().then(function() {
         return initI18n(_detectedLocale);
