@@ -48,7 +48,6 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		"friendly_name":       "Synctacles Energy Price",
 		"icon":                "mdi:currency-eur",
 		"device_class":        "monetary",
-		"state_class":         "measurement",
 		"last_updated":        now,
 	}
 	if s.Leverancier != "" {
@@ -225,7 +224,6 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 				"friendly_name":       "Synctacles Live Cost",
 				"icon":                "mdi:cash-clock",
 				"device_class":        "monetary",
-				"state_class":         "measurement",
 				"last_updated":        now,
 			},
 		); err != nil {
