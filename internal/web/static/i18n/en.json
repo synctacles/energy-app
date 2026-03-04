@@ -138,7 +138,16 @@
     "save_error": "Could not save settings. Please check your configuration and try again.",
     "connection_error": "Connection error",
     "loading_settings": "Loading settings...",
-    "failed_to_load": "Failed to load settings"
+    "failed_to_load": "Failed to load settings",
+    "delete_data": "Delete My Data",
+    "delete_data_desc": "Remove all your data from our servers.",
+    "delete_data_title": "Delete My Data?",
+    "delete_data_body": "This will permanently delete all your data from our servers. This action cannot be undone.",
+    "delete_data_hint": "Your app will continue to work normally after deletion.",
+    "delete_data_confirm_btn": "Delete",
+    "delete_data_cancel_btn": "Cancel",
+    "delete_data_success": "Your data has been deleted.",
+    "delete_data_error": "Failed to delete data. Please try again."
   },
   "feedback": {
     "rate_app": "Rate this app",

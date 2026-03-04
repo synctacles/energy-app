@@ -138,7 +138,16 @@
     "save_error": "Konnte Einstellungen nicht speichern. Überprüfe deine Konfiguration und versuche es erneut.",
     "connection_error": "Verbindungsfehler",
     "loading_settings": "Einstellungen werden geladen...",
-    "failed_to_load": "Konnte Einstellungen nicht laden"
+    "failed_to_load": "Konnte Einstellungen nicht laden",
+    "delete_data": "Meine Daten löschen",
+    "delete_data_desc": "Entfernen Sie alle Ihre Daten von unseren Servern.",
+    "delete_data_title": "Daten löschen?",
+    "delete_data_body": "Dies löscht alle Ihre Daten dauerhaft von unseren Servern. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "delete_data_hint": "Ihre App funktioniert nach der Löschung weiterhin normal.",
+    "delete_data_confirm_btn": "Löschen",
+    "delete_data_cancel_btn": "Abbrechen",
+    "delete_data_success": "Ihre Daten wurden gelöscht.",
+    "delete_data_error": "Löschen fehlgeschlagen. Bitte versuchen Sie es erneut."
   },
   "feedback": {
     "rate_app": "Diese App bewerten",

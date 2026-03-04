@@ -138,7 +138,16 @@
     "save_error": "Não foi possível guardar as definições. Por favor, verifique a sua configuração e tente novamente.",
     "connection_error": "Erro de ligação",
     "loading_settings": "Carregando definições...",
-    "failed_to_load": "Falha ao carregar as definições"
+    "failed_to_load": "Falha ao carregar as definições",
+    "delete_data": "Eliminar os meus dados",
+    "delete_data_desc": "Remova todos os seus dados dos nossos servidores.",
+    "delete_data_title": "Eliminar os meus dados?",
+    "delete_data_body": "Isto eliminará permanentemente todos os seus dados dos nossos servidores. Esta ação não pode ser revertida.",
+    "delete_data_hint": "A sua app continuará a funcionar normalmente após a eliminação.",
+    "delete_data_confirm_btn": "Eliminar",
+    "delete_data_cancel_btn": "Cancelar",
+    "delete_data_success": "Os seus dados foram eliminados.",
+    "delete_data_error": "Falha ao eliminar. Tente novamente."
   },
   "feedback": {
     "rate_app": "Classificar esta aplicação",

@@ -138,7 +138,16 @@
     "save_error": "Asetuksia ei voitu tallentaa. Tarkista konfiguraatiosi ja yritä uudelleen.",
     "connection_error": "Yhteysvirhe",
     "loading_settings": "Ladataan asetuksia...",
-    "failed_to_load": "Asetuksia ei voitu ladata"
+    "failed_to_load": "Asetuksia ei voitu ladata",
+    "delete_data": "Poista tietoni",
+    "delete_data_desc": "Poista kaikki tietosi palvelimiltamme.",
+    "delete_data_title": "Poista tietoni?",
+    "delete_data_body": "Tämä poistaa pysyvästi kaikki tietosi palvelimiltamme. Tätä toimintoa ei voi kumota.",
+    "delete_data_hint": "Sovelluksesi toimii normaalisti poistamisen jälkeen.",
+    "delete_data_confirm_btn": "Poista",
+    "delete_data_cancel_btn": "Peruuta",
+    "delete_data_success": "Tietosi on poistettu.",
+    "delete_data_error": "Poistaminen epäonnistui. Yritä uudelleen."
   },
   "feedback": {
     "rate_app": "Arvioi tämä sovellus",

@@ -138,7 +138,16 @@
     "save_error": "No se pudo guardar la configuración. Verifica tu configuración e intenta de nuevo.",
     "connection_error": "Error de conexión",
     "loading_settings": "Cargando configuración...",
-    "failed_to_load": "No se pudo cargar la configuración"
+    "failed_to_load": "No se pudo cargar la configuración",
+    "delete_data": "Eliminar mis datos",
+    "delete_data_desc": "Elimina todos tus datos de nuestros servidores.",
+    "delete_data_title": "¿Eliminar mis datos?",
+    "delete_data_body": "Esto eliminará permanentemente todos tus datos de nuestros servidores. Esta acción no se puede deshacer.",
+    "delete_data_hint": "Tu app seguirá funcionando normalmente después de la eliminación.",
+    "delete_data_confirm_btn": "Eliminar",
+    "delete_data_cancel_btn": "Cancelar",
+    "delete_data_success": "Tus datos han sido eliminados.",
+    "delete_data_error": "Error al eliminar. Inténtalo de nuevo."
   },
   "feedback": {
     "rate_app": "Califica esta app",

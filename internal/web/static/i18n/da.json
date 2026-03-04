@@ -138,7 +138,16 @@
     "save_error": "Kunne ikke gemme indstillinger. Tjek din konfiguration og prøv igen.",
     "connection_error": "Forbindelsesfejl",
     "loading_settings": "Indlæser indstillinger...",
-    "failed_to_load": "Kunne ikke indlæse indstillinger"
+    "failed_to_load": "Kunne ikke indlæse indstillinger",
+    "delete_data": "Slet mine data",
+    "delete_data_desc": "Fjern alle dine data fra vores servere.",
+    "delete_data_title": "Slet mine data?",
+    "delete_data_body": "Dette vil permanent slette alle dine data fra vores servere. Denne handling kan ikke fortrydes.",
+    "delete_data_hint": "Din app vil fortsat fungere normalt efter sletning.",
+    "delete_data_confirm_btn": "Slet",
+    "delete_data_cancel_btn": "Annuller",
+    "delete_data_success": "Dine data er blevet slettet.",
+    "delete_data_error": "Sletning mislykkedes. Prøv igen."
   },
   "feedback": {
     "rate_app": "Bedøm denne app",

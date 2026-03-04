@@ -431,6 +431,7 @@ func main() {
 		Normalizer:          normalizer,
 		Scheduler:           scheduler,
 		SQLiteCache:         sqliteCache,
+		InstallUUID:         installUUID,
 	})
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)

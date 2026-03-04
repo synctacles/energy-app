@@ -138,7 +138,16 @@
     "save_error": "Impossible d'enregistrer les paramètres. Veuillez vérifier votre configuration et réessayer.",
     "connection_error": "Erreur de connexion",
     "loading_settings": "Chargement des paramètres...",
-    "failed_to_load": "Impossible de charger les paramètres"
+    "failed_to_load": "Impossible de charger les paramètres",
+    "delete_data": "Supprimer mes données",
+    "delete_data_desc": "Supprimez toutes vos données de nos serveurs.",
+    "delete_data_title": "Supprimer mes données ?",
+    "delete_data_body": "Cela supprimera définitivement toutes vos données de nos serveurs. Cette action est irréversible.",
+    "delete_data_hint": "Votre application continuera à fonctionner normalement après la suppression.",
+    "delete_data_confirm_btn": "Supprimer",
+    "delete_data_cancel_btn": "Annuler",
+    "delete_data_success": "Vos données ont été supprimées.",
+    "delete_data_error": "Échec de la suppression. Veuillez réessayer."
   },
   "feedback": {
     "rate_app": "Évaluez cette application",

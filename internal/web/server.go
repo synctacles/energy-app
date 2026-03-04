@@ -49,6 +49,7 @@ type Server struct {
 	normalizer          *engine.Normalizer
 	scheduler           *engine.Scheduler
 	sqliteCache         *store.SQLiteCache
+	installUUID         string
 }
 
 // Deps holds dependencies for the web server.
@@ -68,6 +69,7 @@ type Deps struct {
 	Normalizer          *engine.Normalizer
 	Scheduler           *engine.Scheduler
 	SQLiteCache         *store.SQLiteCache
+	InstallUUID         string
 }
 
 // NewServer creates a new energy addon web server.
@@ -88,6 +90,7 @@ func NewServer(deps Deps) *Server {
 		normalizer:          deps.Normalizer,
 		scheduler:           deps.Scheduler,
 		sqliteCache:         deps.SQLiteCache,
+		installUUID:         deps.InstallUUID,
 	}
 
 	r := chi.NewRouter()
@@ -148,6 +151,9 @@ func NewServer(deps Deps) *Server {
 		r.Get("/feedback/sysinfo", s.handleFeedbackSysInfo)
 		r.Post("/feedback/rating", s.handleFeedbackRating)
 		r.Post("/feedback/bug", s.handleFeedbackBug)
+
+		// GDPR data deletion
+		r.Post("/delete-data", s.handleDeleteData)
 	})
 
 	// Static files and SPA — no-cache headers to prevent stale i18n/JS across app updates
@@ -1021,6 +1027,54 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 	}
 
 	return result, nil
+}
+
+// --- GDPR Data Deletion ---
+
+func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
+	if s.installUUID == "" {
+		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
+		return
+	}
+
+	payload := map[string]string{"install_uuid": s.installUUID}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to build request")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", feedbackBaseURL+"/api/v1/install/data", bytes.NewReader(jsonData))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create request")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "failed to contact server")
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 400 {
+		writeError(w, http.StatusBadGateway, "server returned error: "+string(body))
+		return
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(body, &result); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid response from server")
+		return
+	}
+
+	writeJSON(w, result)
 }
 
 // --- Helpers ---

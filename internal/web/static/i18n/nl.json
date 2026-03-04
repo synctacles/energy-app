@@ -138,7 +138,16 @@
     "save_error": "Kon instellingen niet opslaan. Controleer je configuratie en probeer opnieuw.",
     "connection_error": "Verbindingsfout",
     "loading_settings": "Instellingen laden...",
-    "failed_to_load": "Kon instellingen niet laden"
+    "failed_to_load": "Kon instellingen niet laden",
+    "delete_data": "Mijn gegevens verwijderen",
+    "delete_data_desc": "Verwijder al je gegevens van onze servers.",
+    "delete_data_title": "Gegevens verwijderen?",
+    "delete_data_body": "Dit verwijdert al je gegevens permanent van onze servers. Deze actie kan niet ongedaan worden gemaakt.",
+    "delete_data_hint": "Je app blijft normaal werken na het verwijderen.",
+    "delete_data_confirm_btn": "Verwijderen",
+    "delete_data_cancel_btn": "Annuleren",
+    "delete_data_success": "Je gegevens zijn verwijderd.",
+    "delete_data_error": "Verwijderen mislukt. Probeer het opnieuw."
   },
   "feedback": {
     "rate_app": "Beoordeel deze app",
