@@ -128,6 +128,9 @@
         .chart-container { position: relative; height: 200px; margin-top: 8px; }
         canvas { width: 100% !important; height: 100% !important; }
         .chart-tooltip { position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity 0.15s; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 10; }
+        .info-tip { position: relative; cursor: help; opacity: 0.5; font-weight: normal; font-style: normal; }
+        .info-tip:hover .info-tip-text { visibility: visible; opacity: 1; }
+        .info-tip-text { visibility: hidden; opacity: 0; transition: opacity 0.15s; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 280px; padding: 8px 10px; border-radius: 6px; font-size: 0.78em; font-weight: normal; line-height: 1.4; background: var(--card-bg); color: var(--text-muted); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 20; white-space: normal; text-align: left; }
 
         .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
         .stat { text-align: center; flex: 1; min-width: 80px; }
@@ -1295,7 +1298,9 @@
             '<div class="settings-section">' +
                 '<h3>' + t('settings.advanced', 'Advanced') + '</h3>' +
                 '<div class="form-group">' +
-                    '<label class="form-label">' + t('settings.power_sensor', 'Power Sensor Entity') + '</label>' +
+                    '<label class="form-label">' + t('settings.power_sensor', 'Power Sensor Entity') +
+                        ' <span class="info-tip">&#9432;<span class="info-tip-text">' + esc(t('settings.power_sensor_info', 'A power sensor measures your real-time electricity consumption in watts (W). This is NOT a price/tariff sensor. It enables Live Cost, Savings, and Usage Score on the dashboard.')) + '</span></span>' +
+                    '</label>' +
                     '<input class="form-input" id="cfg-power" type="text" placeholder="' + powerPlaceholder + '" value="' + esc(c.power_sensor || '') + '">' +
                     '<div class="form-hint">' + powerHint + '</div>' +
                 '</div>' +

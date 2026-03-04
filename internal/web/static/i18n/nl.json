@@ -131,6 +131,7 @@
     "power_sensor_auto": "Auto: {sensor}",
     "power_sensor_auto_hint": "Automatisch gedetecteerd: {sensor} (laat leeg om te behouden)",
     "power_sensor_hint": "HA entiteit voor live kosten (automatisch gedetecteerd indien leeg)",
+    "power_sensor_info": "Een vermogenssensor meet je real-time elektriciteitsverbruik in watt (W). Dit is GEEN prijs-/tariffsensor. Het stelt Live Cost, Besparingen en Usage Score op het dashboard in. Voorbeelden: sensor.power_consumption, sensor.p1_meter_active_power.",
     "debug_mode": "Debug Modus",
     "save_settings": "Instellingen Opslaan",
     "saving": "Opslaan...",

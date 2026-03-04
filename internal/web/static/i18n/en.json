@@ -128,6 +128,7 @@
     "best_window_hint": "Duration of the cheapest contiguous window (1-8 hours, default 3)",
     "advanced": "Advanced",
     "power_sensor": "Power Sensor Entity",
+    "power_sensor_info": "A power sensor measures your real-time electricity consumption in watts (W). This is NOT a price/tariff sensor. It enables Live Cost, Savings, and Usage Score on the dashboard. Examples: sensor.power_consumption, sensor.p1_meter_active_power.",
     "power_sensor_auto": "Auto: {sensor}",
     "power_sensor_auto_hint": "Auto-detected: {sensor} (leave empty to keep)",
     "power_sensor_hint": "HA entity for live cost (auto-detected if empty)",
