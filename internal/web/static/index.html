@@ -850,7 +850,10 @@
                 degradedBanner +
                 '<div class="grid">' +
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.current_price', 'Current Price') + '</div>' +
+                        '<div class="card-label">' + t('dashboard.current_price', 'Current Price') +
+                            (d.resolution === 'PT15M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>' :
+                             d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '') +
+                        '</div>' +
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
                     '</div>' +

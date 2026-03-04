@@ -26,6 +26,8 @@
   },
   "dashboard": {
     "current_price": "Aktuell pris",
+    "resolution_15m": "15 min. pris",
+    "resolution_60m": "timepris",
     "action": "Handling",
     "cheapest": "Billigste",
     "expensive": "Dyreste",

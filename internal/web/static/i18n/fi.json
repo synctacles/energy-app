@@ -26,6 +26,8 @@
   },
   "dashboard": {
     "current_price": "Nykyinen hinta",
+    "resolution_15m": "15 min. hinta",
+    "resolution_60m": "tuntihinta",
     "action": "Toiminto",
     "cheapest": "Halvin",
     "expensive": "Kallein",

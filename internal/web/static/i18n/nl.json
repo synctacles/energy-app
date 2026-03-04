@@ -26,6 +26,8 @@
   },
   "dashboard": {
     "current_price": "Huidige Prijs",
+    "resolution_15m": "15 min. prijs",
+    "resolution_60m": "uurprijs",
     "action": "Actie",
     "cheapest": "Goedkoopst",
     "expensive": "Duurst",

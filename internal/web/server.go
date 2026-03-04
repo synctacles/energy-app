@@ -344,6 +344,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Price resolution: "PT15M" or "PT60M"
+	slotDur := engine.DetectSlotDuration(data.TodayPrices)
+	if slotDur == 15*time.Minute {
+		dashboard["resolution"] = "PT15M"
+	} else {
+		dashboard["resolution"] = "PT60M"
+	}
+
 	// Source info for chart attribution
 	dashboard["source_info"] = map[string]any{
 		"source":      data.Source,

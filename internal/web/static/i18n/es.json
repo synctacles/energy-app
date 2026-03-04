@@ -26,6 +26,8 @@
   },
   "dashboard": {
     "current_price": "Precio Actual",
+    "resolution_15m": "precio 15 min.",
+    "resolution_60m": "precio por hora",
     "action": "Acción",
     "cheapest": "Más barato",
     "expensive": "Más caro",
