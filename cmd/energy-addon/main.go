@@ -202,11 +202,23 @@ func main() {
 	// Price alert state (deduplication across price updates)
 	alerts := &alertState{}
 
+	// Load zone timezone for local-day filtering (energy day = midnight local time)
+	var zoneLoc *time.Location
+	if z, ok := registry.GetZone(cfg.BiddingZone); ok {
+		if loc, err := time.LoadLocation(z.Timezone); err == nil {
+			zoneLoc = loc
+		}
+	}
+	if zoneLoc == nil {
+		zoneLoc = time.UTC
+	}
+
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
-		// Split into today/tomorrow
+		// Split into today/tomorrow using local midnight (energy day boundary)
 		now := time.Now().UTC()
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+		localNow := now.In(zoneLoc)
+		today := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, zoneLoc).UTC()
 		tomorrow := today.Add(24 * time.Hour)
 
 		var todayPrices, tomorrowPrices []models.HourlyPrice

@@ -60,9 +60,10 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 		return nil, fmt.Errorf("enever: unknown leverancier %q", e.Leverancier)
 	}
 
-	// Determine endpoint (today or tomorrow)
-	now := time.Now().UTC()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// Determine endpoint (today or tomorrow) using Amsterdam time (Enever is NL-only)
+	nlLoc, _ := time.LoadLocation("Europe/Amsterdam")
+	nowLocal := time.Now().In(nlLoc)
+	today := time.Date(nowLocal.Year(), nowLocal.Month(), nowLocal.Day(), 0, 0, 0, 0, nlLoc)
 	var endpoint string
 	if date.Before(today.Add(24 * time.Hour)) {
 		endpoint = "stroomprijs_vandaag"

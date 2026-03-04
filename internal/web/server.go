@@ -152,6 +152,10 @@ func NewServer(deps Deps) *Server {
 		r.Post("/feedback/rating", s.handleFeedbackRating)
 		r.Post("/feedback/bug", s.handleFeedbackBug)
 
+		// Onboarding wizard
+		r.Get("/wizard-data", s.handleWizardData)
+		r.Post("/crowdsource-submit", s.handleCrowdsourceSubmit)
+
 		// GDPR data deletion
 		r.Post("/delete-data", s.handleDeleteData)
 	})
@@ -293,11 +297,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build hourly prices for chart
+	// Load zone timezone for local time display
+	loc := s.zoneLoc()
+
+	// Build hourly prices for chart (local time labels)
 	todayPrices := make([]map[string]any, 0, len(data.TodayPrices))
 	for _, p := range data.TodayPrices {
 		todayPrices = append(todayPrices, map[string]any{
-			"hour":  p.Timestamp.Format("15:04"),
+			"hour":  p.Timestamp.In(loc).Format("15:04"),
 			"price": p.PriceEUR,
 		})
 	}
@@ -321,8 +328,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"average":        data.Stats.Average,
 			"min":            data.Stats.Min,
 			"max":            data.Stats.Max,
-			"cheapest_hour":  data.Stats.CheapestHour,
-			"expensive_hour": data.Stats.ExpensiveHour,
+			"cheapest_hour":  utcHourToLocal(data.Stats.CheapestHour, loc),
+			"expensive_hour": utcHourToLocal(data.Stats.ExpensiveHour, loc),
 		},
 		"prices_today": todayPrices,
 		"tomorrow": map[string]any{
@@ -331,14 +338,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"hours":    len(data.TomorrowPrices),
 		},
 		"quality":    data.Quality,
-		"updated_at": data.UpdatedAt.Format(time.RFC3339),
+		"updated_at": data.UpdatedAt.In(loc).Format(time.RFC3339),
 		"last_fetch": st.LastFetch,
 	}
 
 	if data.BestWindow != nil {
 		dashboard["best_window"] = map[string]any{
-			"start":    data.BestWindow.StartHour,
-			"end":      data.BestWindow.EndHour,
+			"start":    utcHourToLocal(data.BestWindow.StartHour, loc),
+			"end":      utcHourToLocal(data.BestWindow.EndHour, loc),
 			"avg":      data.BestWindow.AvgPrice,
 			"duration": data.BestWindow.Duration,
 		}
@@ -401,6 +408,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"privacy_accepted":        s.cfg.PrivacyAccepted,
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
+		"onboarding_completed":    s.cfg.OnboardingCompleted,
 	}
 	writeJSON(w, resp)
 }
@@ -430,7 +438,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
 		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
-		"disclaimer_accepted", "privacy_accepted",
+		"disclaimer_accepted", "privacy_accepted", "onboarding_completed",
 	}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -518,6 +526,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := incoming["privacy_accepted"].(bool); ok {
 		s.cfg.PrivacyAccepted = v
+	}
+	if v, ok := incoming["onboarding_completed"].(bool); ok {
+		s.cfg.OnboardingCompleted = v
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
@@ -1146,10 +1157,17 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 		wholesaleMap = s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
 	}
 
+	loc := s.zoneLoc()
+
 	entries := make([]cacheEntry, 0, len(rows))
 	for _, row := range rows {
+		// Convert timestamp to local time for display
+		localTs := row.Timestamp
+		if ts, err := time.Parse(time.RFC3339, row.Timestamp); err == nil {
+			localTs = ts.In(loc).Format(time.RFC3339)
+		}
 		e := cacheEntry{
-			Hour:         row.Timestamp,
+			Hour:         localTs,
 			WholesaleKWh: row.WholesaleKWh,
 			ConsumerKWh:  row.PriceEUR,
 			Source:       row.Source,
@@ -1285,6 +1303,36 @@ func deriveSourceLabel(mode, source, taxSource string, isConsumer bool) string {
 	default:
 		return "Wholesale only (no tax)"
 	}
+}
+
+// zoneLoc returns the *time.Location for the configured bidding zone.
+// Falls back to UTC if the zone is not found or the timezone is invalid.
+func (s *Server) zoneLoc() *time.Location {
+	if z, ok := s.zoneRegistry.GetZone(s.cfg.BiddingZone); ok {
+		if loc, err := time.LoadLocation(z.Timezone); err == nil {
+			return loc
+		}
+	}
+	return time.UTC
+}
+
+// utcHourToLocal converts a UTC "HH:MM" string to local time for display.
+func utcHourToLocal(utcHour string, loc *time.Location) string {
+	if loc == time.UTC {
+		return utcHour
+	}
+	parts := strings.SplitN(utcHour, ":", 2)
+	if len(parts) != 2 {
+		return utcHour
+	}
+	h, err1 := strconv.Atoi(parts[0])
+	m, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return utcHour
+	}
+	now := time.Now().UTC()
+	ts := time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, time.UTC)
+	return ts.In(loc).Format("15:04")
 }
 
 // toFloat64 extracts a float64 from a map value (handles both float64 and json.Number).
