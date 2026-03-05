@@ -43,9 +43,10 @@
         .container { max-width: 900px; margin: 0 auto; }
 
         /* Header */
-        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; position: relative; }
         .header-left { display: flex; align-items: center; gap: 10px; }
         .header-logo { height: 28px; width: auto; }
+        .header-center { font-size: 18px; font-weight: 600; color: var(--text); position: absolute; left: 50%; transform: translateX(-50%); }
         .header .meta { font-size: 0.75em; color: var(--text-faint); }
         .version-badge {
             font-size: 12px; background: var(--bg-card); color: var(--text-muted);
@@ -417,6 +418,7 @@
                 <img class="header-logo" id="headerLogo" src="static/logo-full-light.png" alt="Synctacles Energy">
                 <span class="version-badge" id="versionBadge" title="App Info"></span>
             </div>
+            <div class="header-center">Energy</div>
             <div style="display:flex;align-items:center;gap:10px">
                 <div class="meta" id="meta"></div>
                 <button class="header-btn" id="addonInfo" title="App Info, Changelog & Restart">&#9881;</button>
