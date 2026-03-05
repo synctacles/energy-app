@@ -1474,15 +1474,16 @@
                 '<span class="save-status" id="saveStatus"></span>' +
             '</div>' +
 
-            // Privacy: Telemetry opt-out
+            // Community data sharing
             '<div class="settings-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:16px">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between">' +
                     '<div>' +
-                        '<div style="font-weight:600;margin-bottom:2px">' + t('settings.telemetry', 'Anonymous Telemetry') + '</div>' +
-                        '<div class="form-hint">' + t('settings.telemetry_desc', 'Help improve the app by sharing anonymous usage data. No personal information is collected.') + '</div>' +
+                        '<div style="font-weight:600;margin-bottom:2px">' + t('settings.community_data', 'Help Improve for Everyone') + '</div>' +
+                        '<div class="form-hint">' + t('settings.community_data_desc', 'Share anonymous installation data to help improve Synctacles for the entire HA community. No personal information is ever collected.') + '</div>' +
                     '</div>' +
                     '<div class="toggle-switch' + (cfg.telemetry_enabled !== false ? ' on' : '') + '" id="cfg-telemetry-toggle"></div>' +
                 '</div>' +
+                '<div class="form-hint" id="telemetry-impact" style="margin-top:8px;padding:8px 12px;border-radius:8px;font-size:0.8em;line-height:1.4"></div>' +
             '</div>' +
 
             // GDPR: Delete My Data
@@ -1496,7 +1497,18 @@
         modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
         document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
-        document.getElementById('cfg-telemetry-toggle').onclick = function() { this.classList.toggle('on'); };
+        document.getElementById('cfg-telemetry-toggle').onclick = function() {
+            this.classList.toggle('on');
+            var impact = document.getElementById('telemetry-impact');
+            if (!this.classList.contains('on')) {
+                impact.style.background = 'rgba(220,38,38,0.1)';
+                impact.innerHTML = t('settings.community_data_off', 'Without anonymous data from installations like yours, it becomes harder to detect common issues, improve price accuracy, and keep Synctacles free for everyone.');
+            } else {
+                impact.style.background = 'rgba(34,197,94,0.1)';
+                impact.innerHTML = t('settings.community_data_on', 'Thank you! Your anonymous data helps us detect issues faster and improve Synctacles for thousands of HA users.');
+                setTimeout(function() { impact.innerHTML = ''; impact.style.background = ''; }, 4000);
+            }
+        };
         document.getElementById('btnSave').onclick = saveSettings;
         document.getElementById('btnDeleteData').onclick = function() {
             document.getElementById('deleteDataTitle').textContent = t('settings.delete_data_title', 'Delete My Data?');

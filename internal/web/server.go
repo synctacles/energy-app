@@ -406,6 +406,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
 		"onboarding_completed":    s.cfg.OnboardingCompleted,
+		"telemetry_enabled":       s.cfg.TelemetryEnabled,
 		"purged":                  false,
 	}
 	writeJSON(w, resp)
@@ -436,7 +437,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
 		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
-		"disclaimer_accepted", "privacy_accepted", "onboarding_completed",
+		"disclaimer_accepted", "privacy_accepted", "onboarding_completed", "telemetry_enabled",
 	}
 	for _, key := range allowed {
 		if val, ok := incoming[key]; ok {
@@ -524,6 +525,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := incoming["privacy_accepted"].(bool); ok {
 		s.cfg.PrivacyAccepted = v
+	}
+	if v, ok := incoming["telemetry_enabled"].(bool); ok {
+		s.cfg.TelemetryEnabled = v
 	}
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
 }
