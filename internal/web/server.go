@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,12 +51,6 @@ type Server struct {
 	scheduler           *engine.Scheduler
 	sqliteCache         *store.SQLiteCache
 	installUUID         string
-}
-
-// SetPurged marks this installation as purged by the server.
-// When purged, price fetching stops and API features are disabled.
-func (s *Server) SetPurged() {
-	slog.Warn("install marked as purged — price fetching and API features disabled")
 }
 
 // Deps holds dependencies for the web server.
@@ -411,7 +406,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"detected_power_sensor":   s.detectedPowerSensor,
 		"detected_tariff_sensor":  s.detectedTariffSensor,
 		"onboarding_completed":    s.cfg.OnboardingCompleted,
-		"purged":                  s.featureGate.IsPurged(),
+		"purged":                  false,
 	}
 	writeJSON(w, resp)
 }
@@ -943,10 +938,6 @@ func (s *Server) handleFeedbackSysInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate.IsPurged() {
-		writeError(w, http.StatusForbidden, "install purged")
-		return
-	}
 	var req struct {
 		Rating  int    `json:"rating"`
 		Comment string `json:"comment"`
@@ -983,10 +974,6 @@ func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate.IsPurged() {
-		writeError(w, http.StatusForbidden, "install purged")
-		return
-	}
 	var req struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -1058,10 +1045,6 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 // --- GDPR Data Deletion ---
 
 func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate.IsPurged() {
-		writeError(w, http.StatusForbidden, "install already purged")
-		return
-	}
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return
@@ -1099,12 +1082,6 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result map[string]any
-	if err := json.Unmarshal(body, &result); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid response from server")
-		return
-	}
-
 	// Also delete from energy-data Worker (synctacles-energy-db D1) — best-effort
 	go func() {
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1121,7 +1098,14 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 		resp2.Body.Close()
 	}()
 
-	writeJSON(w, result)
+	// Delete local UUID file so a fresh one is generated on restart
+	_ = os.Remove("/config/.synctacles_install_id")
+
+	writeJSON(w, map[string]any{
+		"status":         "ok",
+		"install_uuid":   s.installUUID,
+		"restart_needed": true,
+	})
 }
 
 // --- Helpers ---

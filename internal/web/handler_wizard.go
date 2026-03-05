@@ -207,10 +207,6 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 
 // handleCrowdsourceSubmit proxies tax verification data to the energy-data Worker.
 func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request) {
-	if s.featureGate.IsPurged() {
-		writeError(w, http.StatusForbidden, "install purged")
-		return
-	}
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return

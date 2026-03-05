@@ -381,9 +381,14 @@ func main() {
 			return normalizer.TaxSource()
 		},
 	})
-	telemetrySender.RunBackground(ctx)
+	if cfg.TelemetryEnabled {
+		telemetrySender.RunBackground(ctx)
+		slog.Info("telemetry enabled")
+	} else {
+		slog.Info("telemetry disabled by user preference")
+	}
 
-	// Heartbeat sender started after web server is created (needs srv.SetPurged callback)
+	// Heartbeat sender (always active, independent of telemetry preference)
 
 	// Startup: fetch tax profile from Worker to warm cache.
 	// FetchDayAhead caches the tax profile even when prices are empty (stale/missing),
@@ -460,16 +465,12 @@ func main() {
 		InstallUUID:         installUUID,
 	})
 
-	// Start heartbeat sender (install counting + purge detection)
+	// Start heartbeat sender (install counting)
 	go heartbeat.NewSender(heartbeat.Config{
 		InstallUUID:  installUUID,
 		Product:      "energy",
 		AddonVersion: version,
 		OSArch:       osArch,
-		OnPurged: func() {
-			featureGate.SetPurged() // stops scheduler price fetching
-			srv.SetPurged()         // blocks API handlers + notifies frontend
-		},
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 

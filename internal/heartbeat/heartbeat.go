@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -23,7 +22,6 @@ type Sender struct {
 	osArch       string
 	onSuccess    func()
 	onFailure    func()
-	onPurged     func()
 }
 
 // Config for creating a heartbeat sender.
@@ -34,7 +32,6 @@ type Config struct {
 	OSArch       string
 	OnSuccess    func() // called after successful heartbeat
 	OnFailure    func() // called after failed heartbeat
-	OnPurged     func() // called when server reports install is purged
 }
 
 // NewSender creates a heartbeat sender.
@@ -46,7 +43,6 @@ func NewSender(cfg Config) *Sender {
 		osArch:       cfg.OSArch,
 		onSuccess:    cfg.OnSuccess,
 		onFailure:    cfg.OnFailure,
-		onPurged:     cfg.OnPurged,
 	}
 }
 
@@ -96,25 +92,12 @@ func (s *Sender) send(ctx context.Context) {
 		}
 		return
 	}
-	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Warn("heartbeat: unexpected status", "status", resp.StatusCode)
 		if s.onFailure != nil {
 			s.onFailure()
-		}
-		return
-	}
-
-	// Parse response to check for purge status
-	var result struct {
-		Status string `json:"status"`
-	}
-	if json.Unmarshal(respBody, &result) == nil && result.Status == "purged" {
-		slog.Warn("heartbeat: install is purged — server rejected registration")
-		if s.onPurged != nil {
-			s.onPurged()
 		}
 		return
 	}

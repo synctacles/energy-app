@@ -47,6 +47,12 @@
         .header-left { display: flex; align-items: center; gap: 10px; }
         .header-logo { height: 28px; width: auto; }
         .header .meta { font-size: 0.75em; color: var(--text-faint); }
+        .version-badge {
+            font-size: 12px; background: var(--bg-card); color: var(--text-muted);
+            padding: 2px 10px; border-radius: 12px; border: 1px solid var(--border);
+            cursor: pointer; transition: background 0.2s; text-decoration: none;
+        }
+        .version-badge:hover { background: var(--border); }
         .header-btn {
             background: none; border: 1px solid var(--border); border-radius: 8px;
             cursor: pointer; padding: 6px 8px; font-size: 1.1em; color: var(--text-muted);
@@ -409,9 +415,10 @@
         <div class="header">
             <div class="header-left">
                 <img class="header-logo" id="headerLogo" src="static/logo-full-light.png" alt="Synctacles Energy">
+                <span class="version-badge" id="versionBadge" title="App Info"></span>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
-                <div class="meta" id="meta" data-i18n="common.loading">Loading...</div>
+                <div class="meta" id="meta"></div>
                 <button class="header-btn" id="addonInfo" title="App Info, Changelog & Restart">&#9881;</button>
                 <button class="header-btn" id="themeToggle" title="Toggle dark mode">&#9789;</button>
             </div>
@@ -574,16 +581,6 @@
         </div>
     </div>
 
-    <!-- Purged notice modal -->
-    <div class="privacy-overlay" id="purgedOverlay">
-        <div class="privacy-modal">
-            <h2 id="purgedTitle">Data Deleted</h2>
-            <p id="purgedBody">You have deleted your data from our servers. The app can no longer fetch prices or provide recommendations.</p>
-            <p id="purgedHint" style="font-size:0.82em;color:var(--text-faint);margin-top:8px">To restore full functionality, reinstall the app from the Home Assistant App Store.</p>
-            <button class="btn-ok" id="purgedOkBtn">OK</button>
-        </div>
-    </div>
-
     <!-- Onboarding wizard modal -->
     <div class="wizard-overlay" id="wizardOverlay">
         <div class="wizard-modal">
@@ -725,10 +722,12 @@
     }
     applyTheme();
 
-    document.getElementById('addonInfo').onclick = function() {
+    function openAddonInfo() {
         var slug = window._addonSlug || '308ee12f_synctacles_energy';
         window.top.location.href = '/hassio/addon/' + slug + '/info';
-    };
+    }
+    document.getElementById('addonInfo').onclick = openAddonInfo;
+    document.getElementById('versionBadge').onclick = openAddonInfo;
 
     document.getElementById('themeToggle').onclick = function() {
         isDark = !isDark;
@@ -856,7 +855,10 @@
             var resp = await fetch('api/version');
             var d = await resp.json();
             if (d.addon_slug) window._addonSlug = d.addon_slug;
-            if (d.version) window._appVersion = d.version;
+            if (d.version) {
+                window._appVersion = d.version;
+                document.getElementById('versionBadge').textContent = 'v' + d.version;
+            }
             if (d.locale) _detectedLocale = d.locale;
         } catch (e) { console.warn('version/locale load failed:', e.message); }
     }
@@ -960,8 +962,8 @@
             var actionClass = action.toLowerCase();
             var price = (d.current_price && d.current_price.price) || '0';
             var priceCent = formatPrice(price);
-            document.getElementById('meta').textContent =
-                d.zone + ' | v' + d.version;
+            document.getElementById('versionBadge').textContent = 'v' + d.version;
+            document.getElementById('meta').textContent = d.zone;
 
             var bwHtml = '';
             if (d.best_window) {
@@ -1470,8 +1472,19 @@
                 '<span class="save-status" id="saveStatus"></span>' +
             '</div>' +
 
-            // GDPR: Delete My Data
+            // Privacy: Telemetry opt-out
             '<div class="settings-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:16px">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between">' +
+                    '<div>' +
+                        '<div style="font-weight:600;margin-bottom:2px">' + t('settings.telemetry', 'Anonymous Telemetry') + '</div>' +
+                        '<div class="form-hint">' + t('settings.telemetry_desc', 'Help improve the app by sharing anonymous usage data. No personal information is collected.') + '</div>' +
+                    '</div>' +
+                    '<div class="toggle-switch' + (cfg.telemetry_enabled !== false ? ' on' : '') + '" id="cfg-telemetry-toggle"></div>' +
+                '</div>' +
+            '</div>' +
+
+            // GDPR: Delete My Data
+            '<div class="settings-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">' +
                 '<div class="form-hint" style="margin-bottom:8px">' + t('settings.delete_data_desc', 'Remove all your data from our servers.') + '</div>' +
                 '<button type="button" class="btn-save" id="btnDeleteData" style="background:#dc2626">' + t('settings.delete_data', 'Delete My Data') + '</button>' +
             '</div>';
@@ -1481,6 +1494,7 @@
         modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
         document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
+        document.getElementById('cfg-telemetry-toggle').onclick = function() { this.classList.toggle('on'); };
         document.getElementById('btnSave').onclick = saveSettings;
         document.getElementById('btnDeleteData').onclick = function() {
             document.getElementById('deleteDataTitle').textContent = t('settings.delete_data_title', 'Delete My Data?');
@@ -1673,7 +1687,8 @@
             avoid_threshold: parseFloat(document.getElementById('cfg-avoid').value),
             best_window_hours: parseInt(document.getElementById('cfg-bw').value) || 3,
             power_sensor: document.getElementById('cfg-power').value.trim(),
-            debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on')
+            debug_mode: document.getElementById('cfg-debug-toggle').classList.contains('on'),
+            telemetry_enabled: document.getElementById('cfg-telemetry-toggle').classList.contains('on')
         };
 
         // Mode-specific fields
@@ -2042,17 +2057,6 @@
         });
     }
 
-    function showPurgedNotice() {
-        document.getElementById('purgedTitle').textContent = t('purged.title', 'Data Deleted');
-        document.getElementById('purgedBody').textContent = t('purged.body', 'You have deleted your data from our servers. The app can no longer fetch prices or provide recommendations.');
-        document.getElementById('purgedHint').textContent = t('purged.hint', 'To restore full functionality, reinstall the app from the Home Assistant App Store.');
-        document.getElementById('purgedOkBtn').textContent = t('purged.ok', 'OK');
-        document.getElementById('purgedOverlay').classList.add('visible');
-    }
-    document.getElementById('purgedOkBtn').onclick = function() {
-        document.getElementById('purgedOverlay').classList.remove('visible');
-    };
-
     function showDisclaimerModal() {
         populateDisclaimerModal();
         document.getElementById('disclaimerOverlay').classList.add('visible');
@@ -2178,12 +2182,11 @@
             var resp = await fetch('api/delete-data', { method: 'POST' });
             var data = await resp.json();
             if (!resp.ok) throw new Error(data.error || 'Failed');
-            status.textContent = t('settings.delete_data_success', 'Your data has been deleted.');
+            status.textContent = t('settings.delete_data_success', 'Data deleted. Please restart the app to complete.');
             status.style.color = '#0d9488';
             setTimeout(function() {
                 document.getElementById('deleteDataOverlay').classList.remove('visible');
-                showPurgedNotice();
-            }, 2000);
+            }, 3000);
         } catch(e) {
             status.textContent = t('settings.delete_data_error', 'Failed to delete data. Please try again.');
             status.style.color = '#dc2626';
@@ -2580,11 +2583,6 @@
         // localStorage is a fast cache — backend is the source of truth.
         return fetch('api/config').then(function(r) { return r.json(); }).catch(function() { return {}; });
     }).then(function(cfg) {
-        // GDPR purge: app is disabled — show notice and stop
-        if (cfg.purged) {
-            showPurgedNotice();
-            return;
-        }
         var disclaimerOk = cfg.disclaimer_accepted || localStorage.getItem('disclaimer_accepted') === 'true';
         var privacyOk = cfg.privacy_accepted || localStorage.getItem('privacy_shown') === 'true';
         var onboardingOk = cfg.onboarding_completed || localStorage.getItem('onboarding_completed') === 'true';

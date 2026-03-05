@@ -57,6 +57,9 @@ type Config struct {
 	AlertEnabled   bool    `env:"ENERGY_ALERTS_ENABLED" envDefault:"false"`
 	AlertThreshold float64 `env:"ENERGY_ALERT_THRESHOLD" envDefault:"0"`
 
+	// Telemetry opt-out (default: enabled, user can disable via Settings)
+	TelemetryEnabled bool `env:"TELEMETRY_ENABLED" envDefault:"true"`
+
 	// Consent flags (persisted in HA Supervisor options)
 	DisclaimerAccepted  bool `env:"DISCLAIMER_ACCEPTED" envDefault:"false"`
 	PrivacyAccepted     bool `env:"PRIVACY_ACCEPTED" envDefault:"false"`
