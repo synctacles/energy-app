@@ -720,7 +720,7 @@
     function applyTheme() {
         document.body.classList.toggle('dark', isDark);
         var logo = document.getElementById('headerLogo');
-        if (logo) logo.src = isDark ? 'static/logo-full-dark.jpg' : 'static/logo-full-light.png';
+        if (logo) logo.src = isDark ? 'static/logo-full-dark.png' : 'static/logo-full-light.png';
         document.getElementById('themeToggle').innerHTML = isDark ? '&#9788;' : '&#9789;';
     }
     applyTheme();
