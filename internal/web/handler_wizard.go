@@ -187,6 +187,9 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch approved crowdsource suppliers from energy-data Worker (best-effort)
+	crowdsourceSuppliers := fetchCrowdsourceSuppliers(r.Context(), s.cfg.BiddingZone)
+
 	resp := map[string]any{
 		"countries":     countries,
 		"detected_zone": detectedZone,
@@ -196,8 +199,9 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 			"supplier_id":          s.cfg.SupplierID,
 			"onboarding_completed": s.cfg.OnboardingCompleted,
 		},
-		"tariff_sensors": tariffSensors,
-		"wholesale_kwh":  wholesaleKWh,
+		"tariff_sensors":        tariffSensors,
+		"wholesale_kwh":         wholesaleKWh,
+		"crowdsource_suppliers": crowdsourceSuppliers,
 	}
 	if bestSensor != nil {
 		resp["detected_sensor"] = bestSensor
@@ -259,4 +263,39 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, result)
+}
+
+// fetchCrowdsourceSuppliers fetches approved crowdsource suppliers for a zone
+// from the energy-data Worker. Returns nil on any error (best-effort).
+func fetchCrowdsourceSuppliers(ctx context.Context, zone string) []map[string]any {
+	if zone == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		energyDataBaseURL+"/api/v1/energy/suppliers?zone="+zone, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil
+	}
+
+	var result struct {
+		Suppliers []map[string]any `json:"suppliers"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil
+	}
+	return result.Suppliers
 }

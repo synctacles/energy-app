@@ -126,6 +126,10 @@ func NewServer(deps Deps) *Server {
 		r.Get("/sensors/tariff", s.handleTariffSensors)
 		r.Get("/suppliers", s.handleSuppliers)
 
+		// Wizard (onboarding)
+		r.Get("/wizard-data", s.handleWizardData)
+		r.Post("/crowdsource-submit", s.handleCrowdsourceSubmit)
+
 		// Sources health
 		r.Get("/sources", s.handleSources)
 
