@@ -1030,7 +1030,7 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	platform.SignRequest(req, jsonData, s.cfg.HMACSecret)
+	platform.SignRequest(req, jsonData)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

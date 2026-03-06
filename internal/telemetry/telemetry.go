@@ -70,9 +70,6 @@ type Deps struct {
 	GetTaxSource      func() string // "worker", "embedded", "none"
 	GetFallbackCount  func() int    // number of fallback events since startup
 	GetCacheHitRatio  func() float64 // 0.0-1.0 cache hit ratio
-
-	// HMAC signing secret for platform API requests
-	HMACSecret string
 }
 
 // Sender sends telemetry to the auth service once per interval.
@@ -214,7 +211,7 @@ func (s *Sender) sendOnce(ctx context.Context) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	platform.SignRequest(req, body, s.deps.HMACSecret)
+	platform.SignRequest(req, body)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -263,7 +260,7 @@ func (s *Sender) sendSourceHealth(ctx context.Context) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	platform.SignRequest(req, body, s.deps.HMACSecret)
+	platform.SignRequest(req, body)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
