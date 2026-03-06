@@ -354,7 +354,7 @@ func LoadInstallUUID(configPath, dataPath string) string {
 		}
 	}
 
-	// 2. Legacy location — migrate to shared if possible
+	// 2. Legacy location (Energy) — migrate to shared if possible
 	legacyPath := filepath.Join(dataPath, uuidFile)
 	if data, err := os.ReadFile(legacyPath); err == nil {
 		var stored storedUUID
@@ -365,6 +365,19 @@ func LoadInstallUUID(configPath, dataPath string) string {
 				}
 			}
 			return stored.UUID
+		}
+	}
+
+	// 2b. Legacy location (Care app) — adopt Care's UUID if it exists
+	if configPath != "" {
+		careLegacy := filepath.Join(configPath, ".care_install_id")
+		if data, err := os.ReadFile(careLegacy); err == nil {
+			if id := strings.TrimSpace(string(data)); id != "" {
+				if err := os.WriteFile(filepath.Join(configPath, sharedUUIDFile), []byte(id), 0644); err == nil {
+					slog.Info("install UUID adopted from Care app", "uuid", id)
+				}
+				return id
+			}
 		}
 	}
 
