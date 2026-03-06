@@ -35,6 +35,19 @@ var version = "dev"
 type alertState struct {
 	mu          sync.Mutex
 	lastAlertAt time.Time
+	locale      string // detected from HA config (e.g. "nl", "en", "de")
+}
+
+// alertI18n maps locale to [title, messageFormat].
+var alertI18n = map[string][2]string{
+	"nl": {"⚡ Lage energieprijs", "Prijs gedaald naar €%.4f/kWh (drempel: €%.4f)"},
+	"en": {"⚡ Low energy price", "Price dropped to €%.4f/kWh (threshold: €%.4f)"},
+	"de": {"⚡ Niedriger Energiepreis", "Preis gefallen auf €%.4f/kWh (Schwelle: €%.4f)"},
+	"fr": {"⚡ Prix bas de l'énergie", "Prix tombé à €%.4f/kWh (seuil : €%.4f)"},
+	"es": {"⚡ Precio bajo de energía", "Precio bajó a €%.4f/kWh (umbral: €%.4f)"},
+	"da": {"⚡ Lav energipris", "Prisen faldt til €%.4f/kWh (tærskel: €%.4f)"},
+	"fi": {"⚡ Matala energian hinta", "Hinta laski tasolle €%.4f/kWh (kynnys: €%.4f)"},
+	"pt": {"⚡ Preço baixo de energia", "Preço caiu para €%.4f/kWh (limite: €%.4f)"},
 }
 
 // MaybeSendAlert sends an HA persistent notification when the price is at or below the
@@ -47,8 +60,12 @@ func (a *alertState) MaybeSendAlert(ctx context.Context, sv *ha.SupervisorClient
 	}
 	a.lastAlertAt = time.Now()
 	if sv != nil {
-		title := "⚡ Lage energieprijs"
-		msg := fmt.Sprintf("Prijs gedaald naar €%.4f/kWh (drempel: €%.4f)", price, threshold)
+		strings := alertI18n["en"] // default
+		if s, ok := alertI18n[a.locale]; ok {
+			strings = s
+		}
+		title := strings[0]
+		msg := fmt.Sprintf(strings[1], price, threshold)
 		if err := sv.CreateNotification(ctx, title, msg, "synctacles_price_alert"); err != nil {
 			slog.Warn("price alert notification failed", "error", err)
 		}
@@ -203,6 +220,16 @@ func main() {
 	// Price alert state (deduplication across price updates)
 	alerts := &alertState{}
 
+	// Detect locale from HA for localized alert notifications
+	if supervisor != nil {
+		if haCfg, err := supervisor.GetConfig(context.Background()); err == nil {
+			if lang, ok := haCfg["language"].(string); ok && lang != "" {
+				alerts.locale = lang[:2] // normalize to 2-char code
+				slog.Info("locale detected for alerts", "locale", alerts.locale)
+			}
+		}
+	}
+
 	// Load zone timezone for local-day filtering (energy day = midnight local time)
 	var zoneLoc *time.Location
 	if z, ok := registry.GetZone(cfg.BiddingZone); ok {
@@ -229,6 +256,14 @@ func main() {
 			} else if !p.Timestamp.Before(tomorrow) {
 				tomorrowPrices = append(tomorrowPrices, p)
 			}
+		}
+
+		// Midnight gap mitigation: if no prices classified as "today" yet
+		// (e.g. Enever data for new day not available until ~01:00), use all
+		// available prices so the current slot can still be found.
+		if len(todayPrices) == 0 && len(consumerPrices) > 0 {
+			todayPrices = consumerPrices
+			slog.Info("midnight gap: using all cached prices for current slot")
 		}
 
 		// Compute sensor values

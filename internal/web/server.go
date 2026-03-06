@@ -1109,6 +1109,19 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 	// Delete local UUID file so a fresh one is generated on restart
 	_ = os.Remove("/config/.synctacles_install_id")
 
+	// Restart Care app so it picks up the UUID change (best-effort)
+	if s.supervisor != nil {
+		go func() {
+			ctx2, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := s.supervisor.RestartAddon(ctx2, "308ee12f_synctacles_care"); err != nil {
+				slog.Warn("GDPR: could not restart Care app", "error", err)
+			} else {
+				slog.Info("GDPR: Care app restart triggered for UUID sync")
+			}
+		}()
+	}
+
 	writeJSON(w, map[string]any{
 		"status":         "ok",
 		"install_uuid":   s.installUUID,
