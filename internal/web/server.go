@@ -25,6 +25,7 @@ import (
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
 	"github.com/synctacles/energy-app/pkg/models"
+	"github.com/synctacles/energy-app/pkg/platform"
 	"github.com/synctacles/energy-app/pkg/store"
 	"github.com/synctacles/energy-app/internal/state"
 )
@@ -1029,6 +1030,7 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	platform.SignRequest(req, jsonData, s.cfg.HMACSecret)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/synctacles/energy-app/pkg/platform"
 )
 
 // Endpoint is the Synctacles API heartbeat URL.
@@ -20,6 +22,7 @@ type Sender struct {
 	product      string
 	addonVersion string
 	osArch       string
+	hmacSecret   string
 	onSuccess    func()
 	onFailure    func()
 }
@@ -30,6 +33,7 @@ type Config struct {
 	Product      string // "energy" or "care"
 	AddonVersion string
 	OSArch       string
+	HMACSecret   string
 	OnSuccess    func() // called after successful heartbeat
 	OnFailure    func() // called after failed heartbeat
 }
@@ -41,6 +45,7 @@ func NewSender(cfg Config) *Sender {
 		product:      cfg.Product,
 		addonVersion: cfg.AddonVersion,
 		osArch:       cfg.OSArch,
+		hmacSecret:   cfg.HMACSecret,
 		onSuccess:    cfg.OnSuccess,
 		onFailure:    cfg.OnFailure,
 	}
@@ -82,6 +87,7 @@ func (s *Sender) send(ctx context.Context) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	platform.SignRequest(req, body, s.hmacSecret)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)

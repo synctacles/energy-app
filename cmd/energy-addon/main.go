@@ -353,6 +353,7 @@ func main() {
 		ConfigPath: configPath,
 		Version:    version,
 		Zone:       cfg.BiddingZone,
+		HMACSecret: cfg.HMACSecret,
 		GetCoreInfo: func(ctx context.Context) (arch, haVersion, machine string, err error) {
 			if supervisor == nil {
 				return "", "", "", fmt.Errorf("no supervisor")
@@ -506,6 +507,7 @@ func main() {
 		Product:      "energy",
 		AddonVersion: version,
 		OSArch:       osArch,
+		HMACSecret:   cfg.HMACSecret,
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 

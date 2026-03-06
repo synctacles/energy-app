@@ -65,6 +65,9 @@ type Config struct {
 	PrivacyAccepted     bool `env:"PRIVACY_ACCEPTED" envDefault:"false"`
 	OnboardingCompleted bool `env:"ONBOARDING_COMPLETED" envDefault:"false"`
 
+	// HMAC signing secret for platform API requests
+	HMACSecret string `env:"SYNCTACLES_HMAC_SECRET"`
+
 	// Debug
 	DebugMode bool `env:"DEBUG_MODE" envDefault:"false"`
 }
