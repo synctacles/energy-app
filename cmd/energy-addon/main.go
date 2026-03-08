@@ -73,6 +73,15 @@ func (a *alertState) MaybeSendAlert(ctx context.Context, sv *ha.SupervisorClient
 }
 
 func main() {
+	// Health check for Docker HEALTHCHECK (no logging, no startup)
+	if len(os.Args) > 1 && os.Args[1] == "--health" {
+		resp, err := http.Get("http://localhost:8080/api/version")
+		if err != nil || resp.StatusCode != 200 {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
