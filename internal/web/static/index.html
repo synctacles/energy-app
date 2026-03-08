@@ -2378,11 +2378,15 @@
         sel.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
         var cs = _wizardData.crowdsource_suppliers;
         var csSuppliers = cs && cs.suppliers && cs.suppliers.length > 0 ? cs.suppliers : null;
+        var addedIds = {};
         if (csSuppliers) {
             // Community-sourced suppliers with live markup data
             csSuppliers.forEach(function(s) {
+                var sid = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+                if (addedIds[sid]) return;
+                addedIds[sid] = true;
                 var opt = document.createElement('option');
-                opt.value = s.name.toLowerCase().replace(/\s+/g, '_');
+                opt.value = sid;
                 var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
                 opt.textContent = s.name + (mkCt ? ' (+' + mkCt + ' ct/kWh)' : '');
                 opt.dataset.markup = s.markup_kwh || 0;
@@ -2391,8 +2395,11 @@
             // Add emerging suppliers (unconfirmed, community-detected)
             if (cs.emerging && cs.emerging.length > 0) {
                 cs.emerging.forEach(function(s) {
+                    var sid = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+                    if (addedIds[sid]) return;
+                    addedIds[sid] = true;
                     var opt = document.createElement('option');
-                    opt.value = s.name.toLowerCase().replace(/\s+/g, '_');
+                    opt.value = sid;
                     var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
                     opt.textContent = s.name + (mkCt ? ' (~' + mkCt + ' ct/kWh)' : '');
                     opt.dataset.markup = s.markup_kwh || 0;
