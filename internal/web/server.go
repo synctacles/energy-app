@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/markup"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -414,6 +415,18 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"telemetry_enabled":       s.cfg.TelemetryEnabled,
 		"purged":                  false,
 	}
+
+	// Include crowdsourced EMA markup if available (energy-app#40)
+	supplier := s.cfg.SupplierID
+	if supplier == "" {
+		supplier = s.cfg.EneverLeverancier
+	}
+	if supplier != "" && s.cfg.BiddingZone != "" {
+		if ema := fetchSupplierEMA(r.Context(), s.cfg.BiddingZone, supplier); ema != nil {
+			resp["ema_markup"] = ema
+		}
+	}
+
 	writeJSON(w, resp)
 }
 
@@ -773,6 +786,15 @@ func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.cfg.SupplierMarkup = margin
+
+	// Submit markup to crowdsource EMA (fire-and-forget, energy-app#40 stap 3)
+	supplier := s.cfg.SupplierID
+	if supplier == "" {
+		supplier = s.cfg.EneverLeverancier
+	}
+	if supplier != "" && s.installUUID != "" {
+		markup.SubmitOnce(s.installUUID, s.cfg.BiddingZone, supplier, margin)
+	}
 
 	writeJSON(w, map[string]any{
 		"status":           "calibrated",

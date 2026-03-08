@@ -195,3 +195,34 @@ func matchTariffSensor(states []map[string]any) string {
 	slog.Debug("tariff sensor detection", "best", best.entityID, "priority", best.priority, "candidates", len(candidates))
 	return best.entityID
 }
+
+// supplierPatterns maps entity ID substrings to supplier names.
+var supplierPatterns = []struct {
+	pattern  string
+	supplier string
+}{
+	{"tibber", "tibber"},
+	{"octopus", "octopus"},
+	{"nord_pool", "nordpool"},
+	{"epex", "epex"},
+	{"energidataservice", "energidataservice"},
+	{"easyenergy", "easyenergy"},
+	{"energyzero", "energyzero"},
+	{"zonneplan", "zonneplan"},
+	{"frank_energie", "frank"},
+	{"amber", "amber"},
+	{"glow", "glow"},
+	{"p1_monitor", "p1monitor"},
+}
+
+// SupplierHintFromEntity extracts a supplier name from a tariff sensor entity ID.
+// Returns empty string if no known supplier pattern is found.
+func SupplierHintFromEntity(entityID string) string {
+	lower := strings.ToLower(entityID)
+	for _, p := range supplierPatterns {
+		if strings.Contains(lower, p.pattern) {
+			return p.supplier
+		}
+	}
+	return ""
+}

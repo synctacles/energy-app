@@ -18,6 +18,7 @@ import (
 	"github.com/synctacles/energy-app/internal/config"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
+	"github.com/synctacles/energy-app/internal/markup"
 	"github.com/synctacles/energy-app/pkg/countries"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -517,6 +518,51 @@ func main() {
 		OSArch:       osArch,
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
+
+	// Start markup submitter for crowdsourced EMA tracking (care-app#64 / energy-app#40)
+	// Source 1: Enever auto-markup (NL only, 23 suppliers)
+	if cfg.IsEneverMode() && cfg.BiddingZone == "NL" {
+		go markup.NewSubmitter(markup.SubmitterConfig{
+			InstallUUID: installUUID,
+			Zone:        cfg.BiddingZone,
+			Supplier:    cfg.EneverLeverancier,
+			Source:      "enever",
+			GetConsumerPrice: func() (float64, bool) {
+				data := sensorData.Get()
+				if data == nil || data.Source != "enever" {
+					return 0, false
+				}
+				return data.CurrentPrice, data.CurrentPrice > 0
+			},
+			TaxCache: taxCache,
+		}).Run(ctx)
+		slog.Info("markup submitter started (enever)", "supplier", cfg.EneverLeverancier)
+	}
+	// Source 2: Tariff sensor auto-markup (all countries — Tibber, Octopus, etc.)
+	if cfg.IsExternalSensorMode() && supervisor != nil {
+		sensorSupplier := cfg.SupplierID
+		if sensorSupplier == "" && detectedTariffSensor != "" {
+			// Extract supplier hint from detected sensor entity ID
+			sensorSupplier = hasensor.SupplierHintFromEntity(detectedTariffSensor)
+		}
+		if sensorSupplier != "" {
+			go markup.NewSubmitter(markup.SubmitterConfig{
+				InstallUUID: installUUID,
+				Zone:        cfg.BiddingZone,
+				Supplier:    sensorSupplier,
+				Source:      "sensor",
+				GetConsumerPrice: func() (float64, bool) {
+					data := sensorData.Get()
+					if data == nil {
+						return 0, false
+					}
+					return data.CurrentPrice, data.CurrentPrice > 0
+				},
+				TaxCache: taxCache,
+			}).Run(ctx)
+			slog.Info("markup submitter started (sensor)", "supplier", sensorSupplier, "entity", cfg.P1SensorEntity)
+		}
+	}
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
 	httpSrv := &http.Server{
