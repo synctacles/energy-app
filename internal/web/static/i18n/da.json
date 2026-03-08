@@ -17,8 +17,8 @@
   },
   "source": {
     "prices_from": "Priser fra:",
-    "chain": "Kæde:",
-    "serving": "[aktiv]",
+    "cached_locally": "• cached lokalt",
+    "offline_cache": "offline cache",
     "just_now": "lige nu",
     "m_ago": "for {n}m siden",
     "h_ago": "for {n}t siden",

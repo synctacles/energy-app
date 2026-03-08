@@ -93,6 +93,7 @@
         .source-chain-name { color: var(--text-faint); }
         .source-chain-name.active { color: var(--accent); font-weight: 600; }
         .source-chain-name.primary { font-weight: 500; }
+        .source-cached-note { color: var(--text-faint); font-size: 0.9em; }
         .source-serving { color: var(--accent); font-size: 0.9em; }
         .chart-source { font-weight: 400; font-size: 0.85em; color: var(--text-faint); }
 
@@ -743,7 +744,7 @@
     var sourceNames = {
         'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'Energy-Charts',
         'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
-        'spothinta': 'spot-hinta.fi', 'enever': 'Enever'
+        'synctacles': 'ENTSO-E', 'spothinta': 'spot-hinta.fi', 'enever': 'Enever'
     };
 
     var supplierNames = {
@@ -756,10 +757,12 @@
         'wout': 'Wout', 'zonneplan': 'Zonneplan'
     };
 
-    function sourceLabel(name, lev) {
+    function sourceLabel(name, lev, zone) {
         var label = sourceNames[name] || name;
         if (name === 'enever' && lev) {
             label += ' (' + (supplierNames[lev] || lev) + ')';
+        } else if (zone) {
+            label += ' (' + zone + ')';
         }
         return label;
     }
@@ -786,42 +789,20 @@
             var ai = d.active_info;
             var html = '';
 
-            // Line 1: Active source summary — what the user is actually seeing
+            // Active source summary — compact: "Prices from: ENTSO-E (NL) • cached locally"
             if (ai) {
-                var srcLabel = sourceLabel(ai.source, d.leverancier);
-                var qualLabel = ai.quality;
-                var qualCls = ai.quality;
-                if (ai.from_mem_cache && ai.quality === 'live') {
-                    // Data from memory cache — still live quality but show age
-                    var age = timeAgo(ai.fetched_at);
-                    qualLabel = 'live';
-                    if (age && age !== t('source.just_now', 'just now')) qualLabel += ' (cached)';
+                var srcLabel = sourceLabel(ai.source, d.leverancier, d.zone);
+                var cacheNote = '';
+                if (ai.from_mem_cache || ai.from_disk_cache) {
+                    cacheNote = ' <span class="source-cached-note">' + t('source.cached_locally', '• cached locally') + '</span>';
                 }
                 html += '<div class="source-summary">' +
                     '<span class="source-label">' + t('source.prices_from', 'Prices from:') + '</span> ' +
-                    '<span class="source-active-name">' + srcLabel + '</span> ' +
-                    '<span class="source-quality ' + qualCls + '">' + qualLabel + '</span>' +
-                    (ai.fetched_at ? '<span class="source-age">' + timeAgo(ai.fetched_at) + '</span>' : '') +
+                    '<span class="source-active-name">' + srcLabel + '</span>' +
+                    cacheNote +
+                    (ai.quality === 'cached' ? ' <span class="source-quality cached">' + t('source.offline_cache', 'offline cache') + '</span>' : '') +
                     '</div>';
             }
-
-            // Line 2: Source chain — all sources with health and tier
-            html += '<div class="source-chain">';
-            html += '<span class="source-label">' + t('source.chain', 'Chain:') + '</span>';
-            d.sources.forEach(function(s) {
-                var dotCls = s.healthy ? 'healthy' : 'unhealthy';
-                var nameCls = 'source-chain-name';
-                if (s.active) nameCls += ' active';
-                if (s.primary) nameCls += ' primary';
-                var label = s.tier + '. ' + sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '');
-                var extra = '';
-                if (s.active) extra = ' <span class="source-serving">' + t('source.serving', '[serving]') + '</span>';
-                else if (s.last_success) extra = ' <span class="source-age">' + timeAgo(s.last_success) + '</span>';
-                html += '<span class="source-chain-item">' +
-                    '<span class="source-dot ' + dotCls + '"></span>' +
-                    '<span class="' + nameCls + '">' + label + extra + '</span></span>';
-            });
-            html += '</div>';
 
             // External sensor indicator
             var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
@@ -1035,8 +1016,8 @@
                 '<div class="card chart-card">' +
                     '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' +
                         (d.source_info ? ' <span class="chart-source">&mdash; ' +
-                            sourceLabel(d.source_info.source, d.source_info.leverancier) +
-                            ' &middot; ' + (d.source_info.quality || 'live') + '</span>' : '') +
+                            sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone) +
+                            '</span>' : '') +
                     '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +

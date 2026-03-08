@@ -17,8 +17,8 @@
   },
   "source": {
     "prices_from": "Prijzen van:",
-    "chain": "Keten:",
-    "serving": "[actief]",
+    "cached_locally": "• lokaal gecached",
+    "offline_cache": "offline cache",
     "just_now": "zojuist",
     "m_ago": "{n}m geleden",
     "h_ago": "{n}u geleden",

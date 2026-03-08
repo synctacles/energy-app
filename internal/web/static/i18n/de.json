@@ -17,8 +17,8 @@
   },
   "source": {
     "prices_from": "Preise von:",
-    "chain": "Kette:",
-    "serving": "[aktiv]",
+    "cached_locally": "• lokal zwischengespeichert",
+    "offline_cache": "Offline-Cache",
     "just_now": "gerade eben",
     "m_ago": "vor {n}m",
     "h_ago": "vor {n}h",

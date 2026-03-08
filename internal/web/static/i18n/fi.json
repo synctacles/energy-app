@@ -17,8 +17,8 @@
   },
   "source": {
     "prices_from": "Hinnat peräisin:",
-    "chain": "Ketju:",
-    "serving": "[aktiivinen]",
+    "cached_locally": "• välimuistissa paikallisesti",
+    "offline_cache": "offline-välimuisti",
     "just_now": "juuri nyt",
     "m_ago": "{n}m sitten",
     "h_ago": "{n}h sitten",
