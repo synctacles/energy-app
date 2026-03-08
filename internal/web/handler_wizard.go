@@ -14,6 +14,62 @@ import (
 
 const energyDataBaseURL = "https://energy-data.synctacles.com"
 
+// profileResponse matches the synctacles-api GET /api/v1/energy/install-profile response.
+type profileResponse struct {
+	Profile *installProfile `json:"profile"`
+}
+
+type installProfile struct {
+	Zone             string   `json:"zone"`
+	Timezone         string   `json:"timezone"`
+	SupplierDomain   string   `json:"supplier_domain"`
+	SupplierName     string   `json:"supplier_name"`
+	ContractType     string   `json:"contract_type"`
+	HasSolar         int      `json:"has_solar"`
+	HasBattery       int      `json:"has_battery"`
+	HasGas           int      `json:"has_gas"`
+	HasGridMeter     int      `json:"has_grid_meter"`
+	TariffReadingKWh *float64 `json:"tariff_reading_kwh"`
+	TariffCurrency   string   `json:"tariff_currency"`
+	WholesaleKWh     *float64 `json:"wholesale_reading_kwh"`
+	SupplierMarkup   *float64 `json:"supplier_markup_kwh"`
+}
+
+const platformAPIBaseURL = "https://api.synctacles.com"
+
+// fetchHarvestedProfile fetches the Care-harvested install profile for wizard pre-fill.
+// Returns nil on any error (best-effort).
+func fetchHarvestedProfile(ctx context.Context, installUUID string) *installProfile {
+	if installUUID == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		platformAPIBaseURL+"/api/v1/energy/install-profile?install_uuid="+installUUID, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil
+	}
+
+	var result profileResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil
+	}
+	return result.Profile
+}
+
 // handleWizardData returns bundled data for the onboarding wizard:
 // zones grouped by country, suppliers, tax defaults, current config, and detected zone.
 func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
@@ -187,8 +243,23 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch Care-harvested profile for pre-fill (best-effort)
+	harvestedProfile := fetchHarvestedProfile(r.Context(), s.installUUID)
+
+	// Use harvested zone for supplier lookup if current config has no zone
+	supplierZone := s.cfg.BiddingZone
+	if supplierZone == "" && harvestedProfile != nil && harvestedProfile.Zone != "" {
+		supplierZone = harvestedProfile.Zone
+	}
+
+	// Build markup parameter for supplier suggestions
+	var markupParam string
+	if harvestedProfile != nil && harvestedProfile.SupplierMarkup != nil {
+		markupParam = strconv.FormatFloat(*harvestedProfile.SupplierMarkup, 'f', 6, 64)
+	}
+
 	// Fetch approved crowdsource suppliers from energy-data Worker (best-effort)
-	crowdsourceSuppliers := fetchCrowdsourceSuppliers(r.Context(), s.cfg.BiddingZone)
+	crowdsourceSuppliers := fetchCrowdsourceSuppliers(r.Context(), supplierZone, markupParam)
 
 	resp := map[string]any{
 		"countries":     countries,
@@ -205,6 +276,9 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	}
 	if bestSensor != nil {
 		resp["detected_sensor"] = bestSensor
+	}
+	if harvestedProfile != nil {
+		resp["harvested_profile"] = harvestedProfile
 	}
 	writeJSON(w, resp)
 }
@@ -266,16 +340,21 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 }
 
 // fetchCrowdsourceSuppliers fetches approved crowdsource suppliers for a zone
-// from the energy-data Worker. Returns nil on any error (best-effort).
-func fetchCrowdsourceSuppliers(ctx context.Context, zone string) []map[string]any {
+// from the energy-data Worker. If markup is non-empty, includes it for suggestion matching.
+// Returns nil on any error (best-effort).
+func fetchCrowdsourceSuppliers(ctx context.Context, zone, markup string) map[string]any {
 	if zone == "" {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET",
-		energyDataBaseURL+"/api/v1/energy/suppliers?zone="+zone, nil)
+	u := energyDataBaseURL + "/api/v1/energy/suppliers?zone=" + zone
+	if markup != "" {
+		u += "&markup=" + markup
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil
 	}
@@ -291,11 +370,9 @@ func fetchCrowdsourceSuppliers(ctx context.Context, zone string) []map[string]an
 		return nil
 	}
 
-	var result struct {
-		Suppliers []map[string]any `json:"suppliers"`
-	}
+	var result map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil
 	}
-	return result.Suppliers
+	return result
 }
