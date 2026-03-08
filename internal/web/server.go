@@ -672,12 +672,25 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get current price for breakdown calculation
+	// Get current price and wholesale for breakdown calculation
 	var wholesaleKWh float64
 	var markupEstimated bool
 	data := s.sensorData.Get()
-	if data != nil && data.CurrentPrice > 0 {
-		// Reverse: consumer / (1 + VAT) - taxes = wholesale
+	mode := s.cfg.PricingMode
+
+	// Try to find the actual wholesale price for the current hour.
+	// This enables exact markup calculation: markup = consumer_excl_tax - taxes - wholesale.
+	if s.fallback != nil && data != nil && data.CurrentPrice > 0 {
+		now := time.Now().UTC()
+		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
+		currentHour := now.Truncate(time.Hour)
+		if w, ok := wholesaleMap[currentHour]; ok {
+			wholesaleKWh = w
+		}
+	}
+
+	// Fallback: reverse-calculate wholesale from consumer price if no direct wholesale
+	if wholesaleKWh == 0 && data != nil && data.CurrentPrice > 0 {
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
 		if wholesaleKWh < 0 {
@@ -686,15 +699,22 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine supplier markup. Priority:
-	// 1. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
-	// 2. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 3. Fallback: 2% of wholesale (estimated, consumer price modes only)
-	supplierMarkup := override.SupplierMarkup
-	mode := s.cfg.PricingMode
+	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
+	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
+	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
+	// 4. Fallback: 2% of wholesale (estimated, consumer price modes only)
+	var supplierMarkup float64
 	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
-	if s.cfg.SupplierMarkup > 0 {
-		// User selected a supplier (wizard or settings) — always use their value
+	if wholesaleKWh > 0 && data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
+		// Exact: decompose consumer price using known wholesale
+		subtotal := data.CurrentPrice / (1 + override.VATRate)
+		supplierMarkup = subtotal - override.EnergyTax - override.Surcharges - wholesaleKWh
+		if supplierMarkup < 0 {
+			supplierMarkup = 0
+		}
+	} else if s.cfg.SupplierMarkup > 0 {
+		// User selected a supplier (wizard or settings)
 		supplierMarkup = s.cfg.SupplierMarkup
 		// Recalculate wholesale with the correct markup
 		if data != nil && data.CurrentPrice > 0 {
@@ -708,12 +728,12 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		// Calibration data from Worker (crowdsourced) — use as-is
 		supplierMarkup = override.SupplierMarkup
 	} else if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
-		// No calibration: decompose consumer price with 2% markup estimate
+		// No data: estimate with 2% of wholesale
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		base := subtotal - override.EnergyTax - override.Surcharges
 		if base > 0 {
 			wholesaleKWh = base / 1.02
-			supplierMarkup = base - wholesaleKWh // = wholesale * 0.02
+			supplierMarkup = base - wholesaleKWh
 			markupEstimated = true
 		}
 	}
@@ -1252,23 +1272,22 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Compute breakdown if we have tax data and a wholesale price.
-		// Markup priority: manual config > Worker calibration > 2% fallback.
+		// Markup priority: exact calc > user config > Worker calibration > 2% fallback.
 		if wholesale > 0 && s.taxCache != nil {
 			if tp := s.taxCache.Get(zone); tp != nil {
-				markup := tp.SupplierMarkup
+				var markup float64
 				displayWholesale := wholesale
-				if s.cfg.SupplierMarkup > 0 {
+				if isConsumerPriceMode && row.PriceEUR > 0 {
+					// Exact: decompose consumer price using known wholesale
+					subtotal := row.PriceEUR / (1 + tp.VATRate)
+					markup = subtotal - tp.EnergyTax - tp.Surcharges - wholesale
+					if markup < 0 {
+						markup = 0
+					}
+				} else if s.cfg.SupplierMarkup > 0 {
 					markup = s.cfg.SupplierMarkup
 				} else if tp.SupplierMarkup > 0 {
 					markup = tp.SupplierMarkup
-				} else if isConsumerPriceMode && row.PriceEUR > 0 {
-					// Decompose consumer price: base = subtotal - taxes = wholesale + markup
-					subtotal := row.PriceEUR / (1 + tp.VATRate)
-					base := subtotal - tp.EnergyTax - tp.Surcharges
-					if base > 0 {
-						displayWholesale = base / 1.02
-						markup = base - displayWholesale
-					}
 				}
 				subtotal := displayWholesale + markup + tp.EnergyTax + tp.Surcharges
 				vatAmount := subtotal * tp.VATRate
