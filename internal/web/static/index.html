@@ -2373,10 +2373,34 @@
             sensorDiv.style.display = 'none';
         }
 
-        // Populate supplier dropdown
+        // Populate supplier dropdown — prefer crowdsource data over static
         var sel = document.getElementById('wizSupplier');
         sel.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
-        if (_wizardSelectedCountry && _wizardSelectedCountry.suppliers) {
+        var cs = _wizardData.crowdsource_suppliers;
+        var csSuppliers = cs && cs.suppliers && cs.suppliers.length > 0 ? cs.suppliers : null;
+        if (csSuppliers) {
+            // Community-sourced suppliers with live markup data
+            csSuppliers.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.name.toLowerCase().replace(/\s+/g, '_');
+                var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
+                opt.textContent = s.name + (mkCt ? ' (+' + mkCt + ' ct/kWh)' : '');
+                opt.dataset.markup = s.markup_kwh || 0;
+                sel.appendChild(opt);
+            });
+            // Add emerging suppliers (unconfirmed, community-detected)
+            if (cs.emerging && cs.emerging.length > 0) {
+                cs.emerging.forEach(function(s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.name.toLowerCase().replace(/\s+/g, '_');
+                    var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
+                    opt.textContent = s.name + (mkCt ? ' (~' + mkCt + ' ct/kWh)' : '');
+                    opt.dataset.markup = s.markup_kwh || 0;
+                    sel.appendChild(opt);
+                });
+            }
+        } else if (_wizardSelectedCountry && _wizardSelectedCountry.suppliers) {
+            // Fallback: static supplier list from country config
             _wizardSelectedCountry.suppliers.forEach(function(s) {
                 var opt = document.createElement('option');
                 opt.value = s.id;
