@@ -2360,7 +2360,11 @@
         var wholesale = _wizardData.wholesale_kwh || 0;
         if (sensor && sensor.state > 0) {
             var sensorPriceCt = (sensor.state * 100).toFixed(2);
-            document.getElementById('wizSensorName').textContent = '\u2713 ' + tReplace('wizard.sensor_detected', {sensor: sensor.name}, 'Price sensor detected: ' + sensor.name);
+            // Use supplier hint for cleaner display name (e.g. "Zonneplan" instead of raw friendly_name)
+            var sensorLabel = sensor.supplier_hint
+                ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
+                : sensor.name;
+            document.getElementById('wizSensorName').textContent = '\u2713 ' + tReplace('wizard.sensor_detected', {sensor: sensorLabel}, 'Price sensor detected: ' + sensorLabel);
             document.getElementById('wizSensorPrice').textContent = tReplace('wizard.sensor_price', {price: sensorPriceCt}, 'Current sensor price: ' + sensorPriceCt + ' ct/kWh');
             document.getElementById('wizSensorCalcResult').style.display = 'none';
             document.getElementById('wizSensorUseBtn').textContent = t('wizard.sensor_use', 'Use this sensor');
@@ -2386,6 +2390,18 @@
         notListed.value = '__custom';
         notListed.textContent = t('wizard.supplier_not_listed', 'My supplier is not listed');
         sel.appendChild(notListed);
+
+        // Auto-select supplier if sensor has a supplier hint
+        if (sensor && sensor.supplier_hint) {
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value.toLowerCase() === sensor.supplier_hint.toLowerCase()) {
+                    sel.value = sel.options[i].value;
+                    _wizardSelectedSupplier = sel.options[i].value;
+                    _wizardMarkup = parseFloat(sel.options[i].dataset.markup) || 0;
+                    break;
+                }
+            }
+        }
 
         // Show EMA community markup hint if available
         var emaHint = document.getElementById('wizEmaHint');

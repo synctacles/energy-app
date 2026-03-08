@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/synctacles/energy-app/internal/hasensor"
 )
 
 const energyDataBaseURL = "https://energy-data.synctacles.com"
@@ -157,10 +159,11 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 
 	// Detect tariff sensors (Zonneplan, Tibber, Octopus, P1 Monitor, etc.)
 	type sensorInfo struct {
-		EntityID string  `json:"entity_id"`
-		Name     string  `json:"name"`
-		State    float64 `json:"state"`
-		Unit     string  `json:"unit"`
+		EntityID     string  `json:"entity_id"`
+		Name         string  `json:"name"`
+		State        float64 `json:"state"`
+		Unit         string  `json:"unit"`
+		SupplierHint string  `json:"supplier_hint,omitempty"`
 	}
 	var tariffSensors []sensorInfo
 	var bestSensor *sensorInfo
@@ -206,7 +209,7 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 						name = fn
 					}
 				}
-				si := sensorInfo{EntityID: entityID, Name: name, State: val, Unit: unit}
+				si := sensorInfo{EntityID: entityID, Name: name, State: val, Unit: unit, SupplierHint: hasensor.SupplierHintFromEntity(entityID)}
 				tariffSensors = append(tariffSensors, si)
 			}
 		}
