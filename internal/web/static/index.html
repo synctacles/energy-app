@@ -2489,17 +2489,38 @@
         var rows = document.getElementById('wizTaxRows');
         rows.innerHTML = '';
         var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
+
+        // Show selected supplier as confirmation from step 2
+        if (_wizardSelectedSupplier || _wizardUseSensor) {
+            var supRow = document.createElement('div');
+            supRow.className = 'wizard-tax-row';
+            supRow.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value" style="color:#0d9488"></span>';
+            supRow.querySelector('.wizard-tax-label').textContent = t('wizard.summary_supplier', 'Supplier');
+            var supName = _wizardUseSensor
+                ? (_wizardData.detected_sensor && _wizardData.detected_sensor.supplier_hint
+                    ? _wizardData.detected_sensor.supplier_hint.charAt(0).toUpperCase() + _wizardData.detected_sensor.supplier_hint.slice(1) + ' (sensor)'
+                    : t('settings.mode_external_sensor', 'External Sensor'))
+                : _wizardSelectedSupplier;
+            if (!_wizardUseSensor && _wizardMarkup > 0) {
+                supName += ' (+' + (_wizardMarkup * 100).toFixed(1) + ' ct/kWh)';
+            }
+            supRow.querySelector('.wizard-tax-value').textContent = supName;
+            rows.appendChild(supRow);
+        }
+
         if (!tax) {
-            rows.innerHTML = '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
+            rows.innerHTML += '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
             return;
         }
+        // Only show non-zero tax items
         var items = [
-            { label: t('wizard.verify_vat', 'VAT rate'), value: (tax.vat_rate * 100).toFixed(0) + '%' },
-            { label: t('wizard.verify_energy_tax', 'Energy tax'), value: (tax.energy_tax * 100).toFixed(3) + ' ct/kWh' },
-            { label: t('wizard.verify_surcharges', 'Surcharges'), value: (tax.surcharges * 100).toFixed(3) + ' ct/kWh' },
-            { label: t('wizard.verify_network', 'Network tariff'), value: tax.network_tariff_avg > 0 ? (tax.network_tariff_avg * 100).toFixed(2) + ' ct/kWh' : '—' }
+            { label: t('wizard.verify_vat', 'VAT rate'), value: (tax.vat_rate * 100).toFixed(0) + '%', show: tax.vat_rate > 0 },
+            { label: t('wizard.verify_energy_tax', 'Energy tax'), value: (tax.energy_tax * 100).toFixed(3) + ' ct/kWh', show: tax.energy_tax > 0 },
+            { label: t('wizard.verify_surcharges', 'Surcharges'), value: (tax.surcharges * 100).toFixed(3) + ' ct/kWh', show: tax.surcharges > 0 },
+            { label: t('wizard.verify_network', 'Network tariff (avg.)'), value: (tax.network_tariff_avg * 100).toFixed(2) + ' ct/kWh', show: tax.network_tariff_avg > 0 }
         ];
         items.forEach(function(item) {
+            if (!item.show) return;
             var row = document.createElement('div');
             row.className = 'wizard-tax-row';
             row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
