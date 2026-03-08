@@ -2362,16 +2362,7 @@
             var sensorPriceCt = (sensor.state * 100).toFixed(2);
             document.getElementById('wizSensorName').textContent = '\u2713 ' + tReplace('wizard.sensor_detected', {sensor: sensor.name}, 'Price sensor detected: ' + sensor.name);
             document.getElementById('wizSensorPrice').textContent = tReplace('wizard.sensor_price', {price: sensorPriceCt}, 'Current sensor price: ' + sensorPriceCt + ' ct/kWh');
-            // Calculate markup if we have wholesale
-            if (wholesale > 0) {
-                var calcMarkup = sensor.state - wholesale;
-                if (calcMarkup < 0) calcMarkup = 0;
-                var calcMarkupCt = (calcMarkup * 100).toFixed(2);
-                document.getElementById('wizSensorCalcResult').textContent = tReplace('wizard.sensor_markup_result', {markup: calcMarkupCt}, 'Calculated markup: ' + calcMarkupCt + ' ct/kWh');
-                document.getElementById('wizSensorCalcResult').style.display = '';
-            } else {
-                document.getElementById('wizSensorCalcResult').style.display = 'none';
-            }
+            document.getElementById('wizSensorCalcResult').style.display = 'none';
             document.getElementById('wizSensorUseBtn').textContent = t('wizard.sensor_use', 'Use this sensor');
             sensorDiv.style.display = 'block';
         } else {
@@ -2419,11 +2410,7 @@
         if (!sensor) return;
         _wizardUseSensor = true;
         _wizardSensorEntity = sensor.entity_id;
-        // Calculate markup from sensor price - wholesale
-        var wholesale = _wizardData.wholesale_kwh || 0;
-        if (wholesale > 0) {
-            _wizardMarkup = Math.max(0, sensor.state - wholesale);
-        }
+        // No markup calculation needed — sensor provides complete consumer price
         // Visual feedback
         this.textContent = '\u2713 ' + t('wizard.sensor_use', 'Use this sensor');
         this.style.background = '#0d9488';
