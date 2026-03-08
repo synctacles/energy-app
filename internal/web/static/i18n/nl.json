@@ -19,6 +19,8 @@
     "prices_from": "Prijzen van:",
     "cached_locally": "• lokaal gecached",
     "offline_cache": "offline cache",
+    "not_configured": "niet geconfigureerd",
+    "fallback_ready": "beschikbaar",
     "just_now": "zojuist",
     "m_ago": "{n}m geleden",
     "h_ago": "{n}u geleden",

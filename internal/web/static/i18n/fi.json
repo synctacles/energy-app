@@ -19,6 +19,8 @@
     "prices_from": "Hinnat peräisin:",
     "cached_locally": "• välimuistissa paikallisesti",
     "offline_cache": "offline-välimuisti",
+    "not_configured": "ei määritetty",
+    "fallback_ready": "valmis",
     "just_now": "juuri nyt",
     "m_ago": "{n}m sitten",
     "h_ago": "{n}h sitten",

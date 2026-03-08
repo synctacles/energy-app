@@ -19,6 +19,8 @@
     "prices_from": "Preise von:",
     "cached_locally": "• lokal zwischengespeichert",
     "offline_cache": "Offline-Cache",
+    "not_configured": "nicht konfiguriert",
+    "fallback_ready": "bereit",
     "just_now": "gerade eben",
     "m_ago": "vor {n}m",
     "h_ago": "vor {n}h",

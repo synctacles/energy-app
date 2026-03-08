@@ -686,15 +686,15 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine supplier markup. Priority:
-	// 1. Manual mode / user-configured: s.cfg.SupplierMarkup (exact EUR/kWh)
+	// 1. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
 	// 2. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 3. Fallback: 2% of wholesale (estimated)
+	// 3. Fallback: 2% of wholesale (estimated, consumer price modes only)
 	supplierMarkup := override.SupplierMarkup
 	mode := s.cfg.PricingMode
 	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
-	if mode == "manual" && s.cfg.SupplierMarkup > 0 {
-		// Manual mode: user's explicit value takes priority
+	if s.cfg.SupplierMarkup > 0 {
+		// User selected a supplier (wizard or settings) — always use their value
 		supplierMarkup = s.cfg.SupplierMarkup
 		// Recalculate wholesale with the correct markup
 		if data != nil && data.CurrentPrice > 0 {
@@ -1257,7 +1257,7 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 			if tp := s.taxCache.Get(zone); tp != nil {
 				markup := tp.SupplierMarkup
 				displayWholesale := wholesale
-				if mode == "manual" && s.cfg.SupplierMarkup > 0 {
+				if s.cfg.SupplierMarkup > 0 {
 					markup = s.cfg.SupplierMarkup
 				} else if tp.SupplierMarkup > 0 {
 					markup = tp.SupplierMarkup

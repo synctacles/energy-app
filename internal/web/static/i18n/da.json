@@ -19,6 +19,8 @@
     "prices_from": "Priser fra:",
     "cached_locally": "• cached lokalt",
     "offline_cache": "offline cache",
+    "not_configured": "ikke konfigureret",
+    "fallback_ready": "klar",
     "just_now": "lige nu",
     "m_ago": "for {n}m siden",
     "h_ago": "for {n}t siden",

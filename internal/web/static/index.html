@@ -804,6 +804,24 @@
                     '</div>';
             }
 
+            // Fallback sources — show non-active sources with health dots
+            var fallbacks = d.sources.filter(function(s) { return !s.active; });
+            if (fallbacks.length > 0) {
+                html += '<div class="source-chain" style="font-size:0.82em">';
+                fallbacks.forEach(function(s, idx) {
+                    var dotCls = s.healthy ? 'healthy' : (s.last_success ? 'unhealthy' : 'unknown');
+                    var label = sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '', d.zone);
+                    var note = '';
+                    if (s.name === 'enever' && !s.healthy) note = ' (' + t('source.not_configured', 'not configured') + ')';
+                    else if (s.healthy) note = ' (' + t('source.fallback_ready', 'ready') + ')';
+                    if (idx > 0) html += ' ';
+                    html += '<span class="source-chain-item">' +
+                        '<span class="source-dot ' + dotCls + '"></span>' +
+                        '<span class="source-chain-name">' + label + note + '</span></span>';
+                });
+                html += '</div>';
+            }
+
             // External sensor indicator
             var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
             if (isExtSensor) {
