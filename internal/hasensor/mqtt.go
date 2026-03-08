@@ -97,6 +97,43 @@ func (p *MQTTPublisher) CleanupStaleTopics() {
 	}
 }
 
+// RemoveAllDiscovery publishes empty retained messages to all previously
+// discovered entity topics, removing them from HA. Call before Close()
+// during app uninstall/shutdown to prevent orphaned ghost sensors.
+func (p *MQTTPublisher) RemoveAllDiscovery() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.conn == nil || len(p.discovered) == 0 {
+		return
+	}
+
+	cleared := 0
+	for entityID := range p.discovered {
+		component := "sensor"
+		objectID := strings.TrimPrefix(entityID, "sensor.synctacles_")
+		if strings.HasPrefix(entityID, "binary_sensor.") {
+			component = "binary_sensor"
+			objectID = strings.TrimPrefix(entityID, "binary_sensor.synctacles_")
+		}
+
+		// Clear discovery config (empty retained = HA removes the entity)
+		discoveryTopic := fmt.Sprintf("homeassistant/%s/synctacles_energy/%s/config", component, objectID)
+		if err := p.doPublish(discoveryTopic, []byte{}, true); err != nil {
+			slog.Debug("mqtt: failed to clear discovery", "topic", discoveryTopic, "error", err)
+			continue
+		}
+
+		// Clear state
+		stateTopic := fmt.Sprintf("synctacles/energy/%s/state", objectID)
+		_ = p.doPublish(stateTopic, []byte{}, true)
+
+		cleared++
+	}
+
+	slog.Info("mqtt: removed all discovery topics", "count", cleared)
+}
+
 // Close disconnects from the broker.
 func (p *MQTTPublisher) Close() {
 	p.mu.Lock()

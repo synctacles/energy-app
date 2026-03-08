@@ -530,6 +530,12 @@ func main() {
 
 	scheduler.Stop()
 
+	// Remove MQTT discovery topics so sensors don't become orphans
+	if mqttPub != nil {
+		mqttPub.RemoveAllDiscovery()
+		mqttPub.Close()
+	}
+
 	// Close SQLite cache
 	if sqliteCache != nil {
 		sqliteCache.Close()
