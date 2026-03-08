@@ -102,6 +102,11 @@
     "calibration_saved": "Calibration saved as supplier markup.",
     "calibration_warning": "Difference is outside the normal range. Double-check your input.",
     "calibration_note": "Re-calibrate when you switch suppliers.",
+    "ema_hint": "Community average: {markup} ct/kWh ({confidence}, {reporters} users)",
+    "ema_confidence_high": "high confidence",
+    "ema_confidence_medium": "medium confidence",
+    "ema_confidence_low": "limited data",
+    "ema_recalibrate": "Your markup differs from the community average. Consider re-calibrating.",
     "calibration_no_price": "No current price available. Wait for the first price update.",
     "manual_vat_rate": "VAT Rate",
     "manual_vat_rate_hint": "e.g. 0.21 for 21%",
@@ -268,7 +273,11 @@
     "btn_prev": "Back",
     "btn_skip": "Skip setup",
     "btn_start": "Start using Synctacles",
-    "btn_finish": "Finish"
+    "btn_finish": "Finish",
+    "ema_hint": "Community data suggests {markup} ct/kWh markup ({confidence}, {reporters} users)",
+    "ema_confidence_high": "high confidence",
+    "ema_confidence_medium": "medium confidence",
+    "ema_confidence_low": "limited data"
   },
   "cache": {
     "title": "Price Cache",

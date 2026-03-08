@@ -102,6 +102,11 @@
     "calibration_saved": "Kalibratie opgeslagen als leveranciersopslag.",
     "calibration_warning": "Verschil valt buiten het normale bereik. Controleer je invoer.",
     "calibration_note": "Kalibreer opnieuw als je van leverancier wisselt.",
+    "ema_hint": "Community gemiddelde: {markup} ct/kWh ({confidence}, {reporters} gebruikers)",
+    "ema_confidence_high": "hoge betrouwbaarheid",
+    "ema_confidence_medium": "gemiddelde betrouwbaarheid",
+    "ema_confidence_low": "beperkte data",
+    "ema_recalibrate": "Je markup wijkt af van het community-gemiddelde. Overweeg opnieuw te kalibreren.",
     "calibration_no_price": "Geen huidige prijs beschikbaar. Wacht op de eerste prijsupdate.",
     "manual_vat_rate": "BTW-tarief",
     "manual_vat_rate_hint": "bijv. 0.21 voor 21%",
@@ -268,7 +273,11 @@
     "btn_prev": "Terug",
     "btn_skip": "Setup overslaan",
     "btn_start": "Start met Synctacles",
-    "btn_finish": "Voltooien"
+    "btn_finish": "Voltooien",
+    "ema_hint": "Community data suggereert {markup} ct/kWh markup ({confidence}, {reporters} gebruikers)",
+    "ema_confidence_high": "hoge betrouwbaarheid",
+    "ema_confidence_medium": "gemiddelde betrouwbaarheid",
+    "ema_confidence_low": "beperkte data"
   },
   "cache": {
     "title": "Prijscache",

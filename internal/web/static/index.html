@@ -619,6 +619,7 @@
                     <select class="wizard-select" id="wizSupplier">
                         <option value="">---</option>
                     </select>
+                    <div id="wizEmaHint" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)"></div>
                     <div id="wizMarkupWrap" style="display:none">
                         <label style="font-size:0.82em;color:var(--text-muted)" id="wizMarkupLabel">Supplier markup (EUR/kWh)</label>
                         <input type="number" class="wizard-input" id="wizMarkupInput" step="0.001" min="0" max="0.2" value="0" placeholder="0.000">
@@ -1342,6 +1343,24 @@
                     '<div id="calibrateResult" style="font-size:0.82em;margin-top:8px;min-height:1.2em"></div>' +
                     '<div class="form-hint" style="margin-top:8px;font-style:italic">' + t('settings.calibration_note', 'Re-calibrate when you switch suppliers.') + '</div>' +
                     (c.supplier_markup ? '<div class="form-hint" style="margin-top:4px">' + t('settings.supplier_markup', 'Supplier Markup') + ': ' + (c.supplier_markup * 100).toFixed(2) + ' ct/kWh</div>' : '') +
+                    (c.ema_markup && c.ema_markup.available && c.ema_markup.markup_kwh != null ? (function() {
+                        var emaCt = (c.ema_markup.markup_kwh * 100).toFixed(2);
+                        var confLabel = c.ema_markup.confidence === 'high' ? t('settings.ema_confidence_high', 'high confidence')
+                                     : c.ema_markup.confidence === 'medium' ? t('settings.ema_confidence_medium', 'medium confidence')
+                                     : t('settings.ema_confidence_low', 'limited data');
+                        var hint = '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)">' +
+                            '<span style="color:#0d9488">&#x2139;</span> ' +
+                            tReplace('settings.ema_hint', {markup: emaCt, confidence: confLabel, reporters: c.ema_markup.reporters},
+                                'Community average: ' + emaCt + ' ct/kWh (' + confLabel + ', ' + c.ema_markup.reporters + ' users)') +
+                            '</div>';
+                        // Show recalibration suggestion if current markup diverges significantly
+                        if (c.supplier_markup && Math.abs(c.supplier_markup - c.ema_markup.markup_kwh) > 0.005 && c.ema_markup.confidence !== 'low') {
+                            hint += '<div class="form-hint" style="margin-top:4px;color:#d97706">' +
+                                t('settings.ema_recalibrate', 'Your markup differs from the community average. Consider re-calibrating.') +
+                                '</div>';
+                        }
+                        return hint;
+                    })() : '') +
                 '</div>' +
             '</div>' +
 
@@ -2376,6 +2395,22 @@
         notListed.value = '__custom';
         notListed.textContent = t('wizard.supplier_not_listed', 'My supplier is not listed');
         sel.appendChild(notListed);
+
+        // Show EMA community markup hint if available
+        var emaHint = document.getElementById('wizEmaHint');
+        var ema = _wizardData.ema_markup;
+        if (ema && ema.available && ema.markup_kwh != null) {
+            var emaCt = (ema.markup_kwh * 100).toFixed(2);
+            var confLabel = ema.confidence === 'high' ? t('wizard.ema_confidence_high', 'high confidence')
+                         : ema.confidence === 'medium' ? t('wizard.ema_confidence_medium', 'medium confidence')
+                         : t('wizard.ema_confidence_low', 'limited data');
+            emaHint.innerHTML = '<span style="color:#0d9488">\u2139</span> ' +
+                tReplace('wizard.ema_hint', {markup: emaCt, confidence: confLabel, reporters: ema.reporters},
+                    'Community data suggests ' + emaCt + ' ct/kWh markup (' + confLabel + ', ' + ema.reporters + ' users)');
+            emaHint.style.display = '';
+        } else {
+            emaHint.style.display = 'none';
+        }
     }
 
     // "Use this sensor" button — sets pricing to external_sensor mode
