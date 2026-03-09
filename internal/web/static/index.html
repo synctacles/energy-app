@@ -623,7 +623,7 @@
                 <p style="font-size:0.78em;color:var(--text-faint);margin-bottom:10px;line-height:1.4" id="wizEneverSupport">Enever is een onafhankelijk platform dat deze data gratis beschikbaar stelt. Overweeg supporter te worden als je de dienst waardeert.</p>
                 <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API-sleutel</label>
                 <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Plak hier je API-sleutel" autocomplete="off">
-                <div id="wizEneverSupplierWrap" style="display:none;margin-top:10px">
+                <div id="wizEneverSupplierWrap" style="margin-top:10px">
                     <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Jouw leverancier</label>
                     <select class="wizard-select" id="wizEneverSupplier">
                         <option value="">Kies je leverancier</option>
@@ -2622,8 +2622,6 @@
         }
     }
     document.getElementById('wizEneverToken').oninput = function() {
-        var wrap = document.getElementById('wizEneverSupplierWrap');
-        wrap.style.display = this.value.trim().length > 5 ? 'block' : 'none';
         wizEneverUpdateBtn();
     };
     document.getElementById('wizEneverSupplier').onchange = function() {
