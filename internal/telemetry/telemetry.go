@@ -70,6 +70,9 @@ type Deps struct {
 	GetTaxSource      func() string // "worker", "embedded", "none"
 	GetFallbackCount  func() int    // number of fallback events since startup
 	GetCacheHitRatio  func() float64 // 0.0-1.0 cache hit ratio
+
+	// Config snapshot for remote troubleshooting
+	GetConfigSnapshot func() map[string]any // pricing_mode, supplier, thresholds, etc.
 }
 
 // Sender sends telemetry to the auth service once per interval.
@@ -193,6 +196,13 @@ func (s *Sender) sendOnce(ctx context.Context) {
 	}
 	if s.deps.GetTaxSource != nil {
 		meta["tax_source"] = s.deps.GetTaxSource()
+	}
+	if s.deps.GetConfigSnapshot != nil {
+		if snap := s.deps.GetConfigSnapshot(); snap != nil {
+			for k, v := range snap {
+				meta["cfg_"+k] = v
+			}
+		}
 	}
 	if len(meta) > 0 {
 		p.Metadata = meta

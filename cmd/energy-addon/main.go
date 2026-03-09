@@ -429,6 +429,18 @@ func main() {
 		GetTaxSource: func() string {
 			return normalizer.TaxSource()
 		},
+		GetConfigSnapshot: func() map[string]any {
+			return map[string]any{
+				"pricing_mode":     cfg.PricingMode,
+				"supplier_id":     cfg.SupplierID,
+				"supplier_markup": cfg.SupplierMarkup,
+				"enever_enabled":  cfg.EneverEnabled,
+				"go_threshold":   cfg.GoThreshold,
+				"avoid_threshold": cfg.AvoidThreshold,
+				"best_window_h":  cfg.BestWindowHours,
+				"alerts_enabled": cfg.AlertEnabled,
+			}
+		},
 	})
 	if cfg.TelemetryEnabled {
 		telemetrySender.RunBackground(ctx)
