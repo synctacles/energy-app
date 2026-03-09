@@ -279,7 +279,10 @@
     "ema_hint": "Community data suggests {markup} ct/kWh markup ({confidence}, {reporters} users)",
     "ema_confidence_high": "high confidence",
     "ema_confidence_medium": "medium confidence",
-    "ema_confidence_low": "limited data"
+    "ema_confidence_low": "limited data",
+    "enever_skip": "Continue without Enever",
+    "enever_select_supplier": "Choose your supplier",
+    "enever_thanks": "Enever provides exact supplier prices — no manual tax setup needed."
   },
   "cache": {
     "title": "Price Cache",

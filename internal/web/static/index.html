@@ -591,9 +591,10 @@
             <p class="wizard-subtitle" id="wizardSubtitle">Let's set up your energy prices in a few steps.</p>
             <ul class="wizard-steps" id="wizardSteps">
                 <li class="active" data-step="0" id="wizStep0">Region</li>
-                <li data-step="1" id="wizStep1">Supplier</li>
-                <li data-step="2" id="wizStep2">Verify</li>
-                <li data-step="3" id="wizStep3">Done</li>
+                <li data-step="1" id="wizStep1" style="display:none">Enever</li>
+                <li data-step="2" id="wizStep2">Supplier</li>
+                <li data-step="3" id="wizStep3">Verify</li>
+                <li data-step="4" id="wizStep4">Done</li>
             </ul>
 
             <!-- Step 0: Region -->
@@ -607,8 +608,31 @@
                 </div>
             </div>
 
-            <!-- Step 1: Supplier -->
+            <!-- Step 1: Enever (NL only) -->
             <div class="wizard-step" id="wizardStep1">
+                <h3 id="wizEneverTitle">Exacte prijzen van jouw leverancier</h3>
+                <p id="wizEneverIntro" style="line-height:1.5">Enever.nl levert gratis real-time energieprijzen voor 23 Nederlandse leveranciers — per kwartier, inclusief alle belastingen en toeslagen. Met een gratis API-sleutel zie je exact wat jij per kWh betaalt.</p>
+                <div style="margin:12px 0;padding:10px 12px;background:rgba(13,148,136,0.08);border-radius:8px;font-size:0.82em;line-height:1.5">
+                    <strong style="color:var(--accent)" id="wizEneverHowTitle">Hoe werkt het?</strong>
+                    <ol style="margin:6px 0 0 16px;padding:0;color:var(--text-muted)" id="wizEneverHowList">
+                        <li>Vraag een gratis API-sleutel aan op <a href="https://enever.nl" target="_blank" rel="noopener" style="color:var(--accent)">enever.nl</a></li>
+                        <li>Vul de sleutel hieronder in en kies je leverancier</li>
+                        <li>Klaar — je ziet direct je exacte leveranciersprijs</li>
+                    </ol>
+                </div>
+                <p style="font-size:0.78em;color:var(--text-faint);margin-bottom:10px;line-height:1.4" id="wizEneverSupport">Enever is een onafhankelijk platform dat deze data gratis beschikbaar stelt. Overweeg supporter te worden als je de dienst waardeert.</p>
+                <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API-sleutel</label>
+                <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Plak hier je API-sleutel" autocomplete="off">
+                <div id="wizEneverSupplierWrap" style="display:none;margin-top:10px">
+                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Jouw leverancier</label>
+                    <select class="wizard-select" id="wizEneverSupplier">
+                        <option value="">Kies je leverancier</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Step 2: Supplier -->
+            <div class="wizard-step" id="wizardStep2">
                 <h3 id="wizSupplierTitle">Select your energy supplier</h3>
                 <div id="wizSensorDetected" class="wizard-detected" style="display:none">
                     <span id="wizSensorName"></span>
@@ -629,15 +653,15 @@
                 </div>
             </div>
 
-            <!-- Step 2: Verify prices -->
-            <div class="wizard-step" id="wizardStep2">
+            <!-- Step 3: Verify prices -->
+            <div class="wizard-step" id="wizardStep3">
                 <h3 id="wizVerifyTitle">Verify tax data</h3>
                 <p id="wizVerifyIntro"></p>
                 <div id="wizTaxRows" style="margin: 12px 0;"></div>
             </div>
 
-            <!-- Step 3: Confirmation -->
-            <div class="wizard-step" id="wizardStep3">
+            <!-- Step 4: Confirmation -->
+            <div class="wizard-step" id="wizardStep4">
                 <h3 id="wizSummaryTitle">You're all set!</h3>
                 <div id="wizSummaryRows" style="margin: 12px 0;"></div>
                 <p id="wizSummaryThanks" style="font-size:0.82em;color:#0d9488;margin-top:12px"></p>
@@ -2245,14 +2269,17 @@
     var _wizardMarkup = 0;
     var _wizardUseSensor = false;
     var _wizardSensorEntity = null;
+    var _wizardEneverMode = false;
+    var _wizardIsNL = false;
 
     function wizardPopulateI18n() {
         document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
         document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
         document.getElementById('wizStep0').textContent = t('wizard.step_region', 'Region');
-        document.getElementById('wizStep1').textContent = t('wizard.step_supplier', 'Supplier');
-        document.getElementById('wizStep2').textContent = t('wizard.step_verify', 'Verify');
-        document.getElementById('wizStep3').textContent = t('wizard.step_confirm', 'Done');
+        document.getElementById('wizStep1').textContent = 'Enever';
+        document.getElementById('wizStep2').textContent = t('wizard.step_supplier', 'Supplier');
+        document.getElementById('wizStep3').textContent = t('wizard.step_verify', 'Verify');
+        document.getElementById('wizStep4').textContent = t('wizard.step_confirm', 'Done');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
         document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
         document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
@@ -2568,9 +2595,46 @@
         document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
     }
 
+    function wizardPopulateEnever() {
+        // Populate Enever leverancier dropdown
+        var sel = document.getElementById('wizEneverSupplier');
+        sel.innerHTML = '<option value="">' + t('wizard.enever_select_supplier', 'Kies je leverancier') + '</option>';
+        var sortedKeys = Object.keys(supplierNames).sort(function(a, b) {
+            return (supplierNames[a] || a).localeCompare(supplierNames[b] || b);
+        });
+        sortedKeys.forEach(function(key) {
+            var opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = supplierNames[key] || key;
+            sel.appendChild(opt);
+        });
+    }
+
+    // Show leverancier dropdown when token is entered, update Next button
+    function wizEneverUpdateBtn() {
+        var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
+        var hasLev = !!document.getElementById('wizEneverSupplier').value;
+        var nextBtn = document.getElementById('wizNextBtn');
+        if (_wizardStep === 1) {
+            nextBtn.textContent = (hasToken && hasLev)
+                ? t('wizard.btn_start', 'Start using Synctacles')
+                : t('wizard.enever_skip', 'Continue without Enever');
+        }
+    }
+    document.getElementById('wizEneverToken').oninput = function() {
+        var wrap = document.getElementById('wizEneverSupplierWrap');
+        wrap.style.display = this.value.trim().length > 5 ? 'block' : 'none';
+        wizEneverUpdateBtn();
+    };
+    document.getElementById('wizEneverSupplier').onchange = function() {
+        wizEneverUpdateBtn();
+    };
+
     function wizardShowStep(step) {
         _wizardStep = step;
-        for (var i = 0; i < 4; i++) {
+        // Show/hide Enever step tab for NL only
+        document.getElementById('wizStep1').style.display = _wizardIsNL ? '' : 'none';
+        for (var i = 0; i <= 4; i++) {
             var panel = document.getElementById('wizardStep' + i);
             var stepEl = document.getElementById('wizStep' + i);
             if (i === step) {
@@ -2585,50 +2649,105 @@
             }
         }
         // Populate step-specific data
-        if (step === 1) wizardPopulateSuppliers();
-        if (step === 2) wizardPopulateTax();
-        if (step === 3) wizardPopulateSummary();
+        if (step === 1) wizardPopulateEnever();
+        if (step === 2) wizardPopulateSuppliers();
+        if (step === 3) wizardPopulateTax();
+        if (step === 4) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
         var nextBtn = document.getElementById('wizNextBtn');
-        if (step === 2) {
-            // Two buttons: verify or skip
-            nextBtn.textContent = t('wizard.verify_confirm', 'Looks correct');
+        if (step === 1) {
+            // Enever step: show appropriate button
+            var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
+            var hasLev = !!document.getElementById('wizEneverSupplier').value;
+            if (hasToken && hasLev) {
+                nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
+            } else {
+                nextBtn.textContent = t('wizard.enever_skip', 'Continue without Enever');
+            }
         } else if (step === 3) {
+            nextBtn.textContent = t('wizard.verify_confirm', 'Looks correct');
+        } else if (step === 4) {
             nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
         } else {
             nextBtn.textContent = t('wizard.btn_next', 'Next');
         }
-        document.getElementById('wizSkipBtn').style.display = step < 3 ? '' : 'none';
+        document.getElementById('wizSkipBtn').style.display = step < 4 ? '' : 'none';
     }
 
     document.getElementById('wizNextBtn').onclick = function() {
         if (_wizardStep === 0) {
-            // Validate: country + zone selected
             if (!_wizardSelectedZone) return;
-            wizardShowStep(1);
+            _wizardIsNL = _wizardSelectedZone === 'NL';
+            if (_wizardIsNL) {
+                wizardShowStep(1); // Enever step
+            } else {
+                wizardShowStep(2); // Skip Enever, go to supplier
+            }
         } else if (_wizardStep === 1) {
-            wizardShowStep(2);
+            // Enever step: check if user entered token + leverancier
+            var token = (document.getElementById('wizEneverToken').value || '').trim();
+            var lev = document.getElementById('wizEneverSupplier').value;
+            if (token.length > 5 && lev) {
+                // Enever complete — skip supplier/verify, go to Done
+                _wizardEneverMode = true;
+                wizardPopulateEneverSummary(token, lev);
+                wizardShowStep(4);
+            } else {
+                // No Enever — continue normal flow
+                _wizardEneverMode = false;
+                wizardShowStep(2);
+            }
         } else if (_wizardStep === 2) {
-            _wizardTaxVerified = true;
             wizardShowStep(3);
         } else if (_wizardStep === 3) {
+            _wizardTaxVerified = true;
+            wizardShowStep(4);
+        } else if (_wizardStep === 4) {
             wizardComplete(true);
         }
     };
     document.getElementById('wizPrevBtn').onclick = function() {
-        if (_wizardStep > 0) wizardShowStep(_wizardStep - 1);
+        if (_wizardStep === 2 && _wizardIsNL) {
+            wizardShowStep(1); // Back to Enever
+        } else if (_wizardStep === 2) {
+            wizardShowStep(0); // Back to Region (non-NL)
+        } else if (_wizardStep === 4 && _wizardEneverMode) {
+            wizardShowStep(1); // Back to Enever
+        } else if (_wizardStep > 0) {
+            wizardShowStep(_wizardStep - 1);
+        }
     };
     document.getElementById('wizSkipBtn').onclick = function() {
-        if (_wizardStep === 2) {
+        if (_wizardStep === 3) {
             // Skip tax verification
             _wizardTaxVerified = false;
-            wizardShowStep(3);
+            wizardShowStep(4);
         } else {
             wizardComplete(false);
         }
     };
+
+    function wizardPopulateEneverSummary(token, lev) {
+        var rows = document.getElementById('wizSummaryRows');
+        rows.innerHTML = '';
+        var items = [
+            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
+            { label: t('wizard.summary_mode', 'Pricing mode'), value: 'Enever' },
+            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierNames[lev] || lev }
+        ];
+        items.forEach(function(item) {
+            var row = document.createElement('div');
+            row.className = 'wizard-summary-row';
+            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
+            row.querySelector('.wizard-summary-label').textContent = item.label;
+            row.querySelector('.wizard-summary-value').textContent = item.value;
+            rows.appendChild(row);
+        });
+        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
+        document.getElementById('wizSummaryThanks').textContent = t('wizard.enever_thanks', 'Enever provides exact supplier prices — no manual tax setup needed.');
+    }
 
     async function wizardComplete(saveSettings) {
         document.getElementById('wizardOverlay').classList.remove('visible');
@@ -2636,7 +2755,13 @@
         var configPayload = { onboarding_completed: true };
         if (saveSettings && _wizardSelectedZone) {
             configPayload.zone = _wizardSelectedZone;
-            if (_wizardUseSensor && _wizardSensorEntity) {
+            if (_wizardEneverMode) {
+                // Enever mode — exact supplier prices via enever.nl
+                configPayload.pricing_mode = 'enever';
+                configPayload.enever_enabled = true;
+                configPayload.enever_token = (document.getElementById('wizEneverToken').value || '').trim();
+                configPayload.enever_leverancier = document.getElementById('wizEneverSupplier').value;
+            } else if (_wizardUseSensor && _wizardSensorEntity) {
                 // External sensor mode — use the detected tariff sensor
                 configPayload.pricing_mode = 'external_sensor';
                 configPayload.p1_sensor_entity = _wizardSensorEntity;

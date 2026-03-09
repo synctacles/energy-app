@@ -279,7 +279,10 @@
     "ema_hint": "Community data suggereert {markup} ct/kWh markup ({confidence}, {reporters} gebruikers)",
     "ema_confidence_high": "hoge betrouwbaarheid",
     "ema_confidence_medium": "gemiddelde betrouwbaarheid",
-    "ema_confidence_low": "beperkte data"
+    "ema_confidence_low": "beperkte data",
+    "enever_skip": "Doorgaan zonder Enever",
+    "enever_select_supplier": "Kies je leverancier",
+    "enever_thanks": "Enever levert exacte leveranciersprijzen — geen handmatige belastinginstellingen nodig."
   },
   "cache": {
     "title": "Prijscache",
