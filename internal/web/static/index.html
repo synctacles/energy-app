@@ -804,15 +804,20 @@
                     '</div>';
             }
 
-            // Fallback sources — show non-active sources with health dots
-            var fallbacks = d.sources.filter(function(s) { return !s.active; });
-            if (fallbacks.length > 0) {
+            // Other sources — show non-active sources with health dots
+            var others = d.sources.filter(function(s) { return !s.active; });
+            // For NL: show Enever as primary source even when not configured
+            var hasEnever = d.sources.some(function(s) { return s.name === 'enever'; });
+            if (d.zone === 'NL' && !hasEnever) {
+                others.unshift({ name: 'enever', healthy: false, ghost: true });
+            }
+            if (others.length > 0) {
                 html += '<div class="source-chain" style="font-size:0.82em">';
-                fallbacks.forEach(function(s, idx) {
+                others.forEach(function(s, idx) {
                     var dotCls = s.healthy ? 'healthy' : (s.last_success ? 'unhealthy' : 'unknown');
                     var label = sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '', d.zone);
                     var note = '';
-                    if (s.name === 'enever' && !s.healthy) note = ' (' + t('source.not_configured', 'not configured') + ')';
+                    if (s.name === 'enever' && (s.ghost || !s.healthy)) note = ' (' + t('source.not_configured', 'not configured') + ')';
                     else if (s.healthy) note = ' (' + t('source.fallback_ready', 'ready') + ')';
                     if (idx > 0) html += ' ';
                     html += '<span class="source-chain-item">' +
@@ -946,7 +951,10 @@
         return html;
     }
 
+    var _dashboardTimer = null;
     async function loadDashboard() {
+        // Cancel any pending refresh to prevent duplicate loops
+        if (_dashboardTimer) { clearTimeout(_dashboardTimer); _dashboardTimer = null; }
         try {
             var resp = await fetch('api/dashboard');
             var d = await resp.json();
@@ -956,7 +964,7 @@
                     '<div class="loading"><div class="spinner"></div>' +
                     '<p>' + t('dashboard.waiting_first_update', 'Waiting for first price update...') + '</p>' +
                     '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('dashboard.zone', 'Zone') + ': ' + d.zone + ' | ' + d.version + '</p></div>';
-                setTimeout(loadDashboard, 5000);
+                _dashboardTimer = setTimeout(loadDashboard, 5000);
                 return;
             }
 
@@ -1057,13 +1065,13 @@
                 if (slot && bd) slot.innerHTML = buildTaxBreakdownCard(bd);
             });
 
-            setTimeout(loadDashboard, 60000);
+            _dashboardTimer = setTimeout(loadDashboard, 60000);
         } catch (err) {
             document.getElementById('content').innerHTML =
                 '<div class="loading">' +
                 '<p style="color:#dc2626">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
                 '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + tReplace('errors.retrying_in', {n: 10}, 'Retrying in 10s...') + '</p></div>';
-            setTimeout(loadDashboard, 10000);
+            _dashboardTimer = setTimeout(loadDashboard, 10000);
         }
     }
 

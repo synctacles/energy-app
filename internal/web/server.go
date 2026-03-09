@@ -538,6 +538,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["fixed_rate_price"].(float64); ok {
 		s.cfg.FixedRatePrice = v
 	}
+	if v, ok := incoming["onboarding_completed"].(bool); ok {
+		s.cfg.OnboardingCompleted = v
+	}
 	if v, ok := incoming["disclaimer_accepted"].(bool); ok {
 		s.cfg.DisclaimerAccepted = v
 	}
