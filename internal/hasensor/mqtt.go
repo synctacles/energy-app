@@ -77,25 +77,11 @@ func (p *MQTTPublisher) connectLocked() error {
 	return nil
 }
 
-// CleanupStaleTopics removes retained MQTT messages from legacy discovery topics.
-// Call once after Connect to clear topics that used incorrect naming.
-func (p *MQTTPublisher) CleanupStaleTopics() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	// Legacy topic used "binary_sensor.synctacles_cheap_hour" as object_id (with dot).
-	// Fixed in rc34: now uses component=binary_sensor, object_id=cheap_hour.
-	staleTopics := []string{
-		"homeassistant/sensor/synctacles_energy/binary_sensor.synctacles_cheap_hour/config",
-	}
-	for _, topic := range staleTopics {
-		if err := p.doPublish(topic, []byte{}, true); err != nil {
-			slog.Debug("mqtt: failed to clear stale topic", "topic", topic, "error", err)
-		} else {
-			slog.Info("mqtt: cleared stale discovery topic", "topic", topic)
-		}
-	}
-}
+// CleanupStaleTopics is a no-op kept for backwards compatibility.
+// The legacy topic was cleared by empty retained publishes in rc34-rc55.
+// Publishing to the stale topic (even empty) triggered HA "illegal discovery topic"
+// warnings, so we no longer send anything to it.
+func (p *MQTTPublisher) CleanupStaleTopics() {}
 
 // RemoveAllDiscovery publishes empty retained messages to all previously
 // discovered entity topics, removing them from HA. Call before Close()

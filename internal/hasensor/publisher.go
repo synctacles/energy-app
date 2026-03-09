@@ -241,7 +241,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 				"avg_price":           s.Stats.Average,
 				"friendly_name":       "Synctacles Savings",
 				"icon":                "mdi:piggy-bank-outline",
-				"state_class":         "total_increasing",
+				"state_class":         "measurement",
 				"last_updated":        now,
 			},
 		); err != nil {
