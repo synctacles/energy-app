@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -77,11 +78,41 @@ func (p *MQTTPublisher) connectLocked() error {
 	return nil
 }
 
-// CleanupStaleTopics is a no-op kept for backwards compatibility.
-// The legacy topic was cleared by empty retained publishes in rc34-rc55.
-// Publishing to the stale topic (even empty) triggered HA "illegal discovery topic"
-// warnings, so we no longer send anything to it.
-func (p *MQTTPublisher) CleanupStaleTopics() {}
+// CleanupStaleTopics removes stale retained MQTT discovery messages from
+// legacy topic names. Runs exactly ONCE per installation using a marker file
+// in /data/ (persistent HA app storage). The one-time empty retained publish
+// clears the broker's retained message permanently.
+func (p *MQTTPublisher) CleanupStaleTopics() {
+	const markerFile = "/data/.mqtt_stale_cleaned"
+	if _, err := os.Stat(markerFile); err == nil {
+		return // already cleaned in a previous run
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.conn == nil {
+		return
+	}
+
+	// Legacy topic used "binary_sensor.synctacles_cheap_hour" as object_id
+	// (with dot, under sensor/ component). Fixed in rc34 to use
+	// component=binary_sensor, object_id=cheap_hour.
+	staleTopics := []string{
+		"homeassistant/sensor/synctacles_energy/binary_sensor.synctacles_cheap_hour/config",
+	}
+
+	for _, topic := range staleTopics {
+		if err := p.doPublish(topic, []byte{}, true); err != nil {
+			slog.Debug("mqtt: failed to clear stale topic", "topic", topic, "error", err)
+			return // don't write marker if we couldn't clear
+		}
+		slog.Info("mqtt: cleared stale discovery topic", "topic", topic)
+	}
+
+	// Mark as done so we never publish to the stale topic again
+	_ = os.WriteFile(markerFile, []byte("cleaned"), 0644)
+}
 
 // RemoveAllDiscovery publishes empty retained messages to all previously
 // discovered entity topics, removing them from HA. Call before Close()
