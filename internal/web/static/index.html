@@ -6,22 +6,29 @@
     <title>Synctacles Energy</title>
     <style>
         :root {
-            --bg: #f0f2f5;
+            --bg: #f8fafc;
             --bg-card: #ffffff;
-            --text: #1a1a2e;
-            --text-muted: #666;
-            --text-faint: #888;
-            --border: #e5e7eb;
+            --bg-card-hover: #f1f5f9;
+            --text: #0f172a;
+            --text-muted: #475569;
+            --text-faint: #94a3b8;
+            --border: #e2e8f0;
             --shadow: rgba(0,0,0,0.08);
             --shadow-hover: rgba(0,0,0,0.12);
-            --accent: #1a73e8;
-            --spinner-track: #e5e7eb;
-            --input-bg: #f9fafb;
-            --input-border: #d1d5db;
+            --accent: #3b82f6;
+            --spinner-track: #e2e8f0;
+            --input-bg: #ffffff;
+            --input-border: #e2e8f0;
+            --success: #22c55e; --success-bg: #dcfce7; --success-text: #166534;
+            --warning: #f59e0b; --warning-bg: #fef3c7; --warning-text: #854d0e;
+            --danger: #ef4444; --danger-bg: #fee2e2; --danger-text: #991b1b;
+            --info: #3b82f6; --info-bg: #dbeafe; --info-text: #1e40af;
+            --radius: 10px; --radius-sm: 6px;
         }
         .dark {
             --bg: #111418;
             --bg-card: #1e2128;
+            --bg-card-hover: #282c34;
             --text: #e4e6ea;
             --text-muted: #9ca3af;
             --text-faint: #6b7280;
@@ -32,6 +39,10 @@
             --spinner-track: #374151;
             --input-bg: #282c34;
             --input-border: #3d4250;
+            --success-bg: #052e16; --success-text: #86efac;
+            --warning-bg: #451a03; --warning-text: #fde68a;
+            --danger-bg: #450a0a; --danger-text: #fca5a5;
+            --info-bg: #172554; --info-text: #93c5fd;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -43,23 +54,23 @@
         .container { max-width: 900px; margin: 0 auto; }
 
         /* Header */
-        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; position: relative; }
+        .header { background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px var(--shadow); display: flex; align-items: center; justify-content: space-between; position: relative; }
         .header-left { display: flex; align-items: center; gap: 10px; }
         .header-logo { height: 28px; width: auto; }
         .header-center { font-size: 18px; font-weight: 600; color: var(--text); position: absolute; left: 50%; transform: translateX(-50%); }
         .header .meta { font-size: 0.75em; color: var(--text-faint); }
         .version-badge {
-            font-size: 12px; background: var(--bg-card); color: var(--text-muted);
-            padding: 2px 10px; border-radius: 12px; border: 1px solid var(--border);
-            cursor: pointer; transition: background 0.2s; text-decoration: none;
+            font-size: 12px; background: var(--info-bg); color: var(--info-text);
+            padding: 2px 8px; border-radius: 9999px;
+            cursor: pointer; transition: background 0.2s; text-decoration: none; border: none;
         }
-        .version-badge:hover { background: var(--border); }
+        .version-badge:hover { opacity: 0.8; }
         .header-btn {
-            background: none; border: 1px solid var(--border); border-radius: 8px;
-            cursor: pointer; padding: 6px 8px; font-size: 1.1em; color: var(--text-muted);
+            background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            cursor: pointer; padding: 4px 8px; font-size: 1.1em; color: var(--text-muted);
             transition: background 0.2s; text-decoration: none; display: inline-flex; align-items: center;
         }
-        .header-btn:hover { background: var(--bg-card); }
+        .header-btn:hover { background: var(--bg-card-hover); }
 
         /* Source bar — two-line layout */
         .source-bar {
@@ -75,10 +86,8 @@
         .source-quality {
             display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.95em;
         }
-        .source-quality.live { background: #d1fae5; color: #065f46; }
-        .source-quality.cached { background: #fef3c7; color: #92400e; }
-        .dark .source-quality.live { background: #064e3b; color: #6ee7b7; }
-        .dark .source-quality.cached { background: #78350f; color: #fcd34d; }
+        .source-quality.live { background: var(--success-bg); color: var(--success-text); }
+        .source-quality.cached { background: var(--warning-bg); color: var(--warning-text); }
         .source-age { color: var(--text-faint); }
         .source-chain {
             display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
@@ -87,9 +96,9 @@
         .source-dot {
             width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
         }
-        .source-dot.healthy { background: #22c55e; }
-        .source-dot.unhealthy { background: #ef4444; }
-        .source-dot.unknown { background: #9ca3af; }
+        .source-dot.healthy { background: var(--success); }
+        .source-dot.unhealthy { background: var(--danger); }
+        .source-dot.unknown { background: var(--text-faint); }
         .source-chain-name { color: var(--text-faint); }
         .source-chain-name.active { color: var(--accent); font-weight: 600; }
         .source-chain-name.primary { font-weight: 500; }
@@ -98,19 +107,21 @@
         .chart-source { font-weight: 400; font-size: 0.85em; color: var(--text-faint); }
 
         /* Tabs */
-        .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .tabs { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
         .tab {
-            padding: 8px 16px; cursor: pointer; font-size: 0.85em; font-weight: 500;
-            color: var(--text-muted); border-bottom: 2px solid transparent;
-            transition: color 0.2s, border-color 0.2s;
+            padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600;
+            color: var(--text-faint); border: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            background: var(--bg-card); border-bottom: 2px solid transparent;
+            transition: all 0.15s; white-space: nowrap;
         }
-        .tab:hover { color: var(--text); }
-        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab:hover { color: var(--text-muted); background: var(--bg-card-hover); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg-card); }
 
         /* Dashboard Grid — 3 columns */
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
         .card {
-            background: var(--bg-card); border-radius: 12px; padding: 16px;
+            background: var(--bg-card); border-radius: var(--radius); padding: 20px;
             box-shadow: 0 1px 3px var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
         }
         .card:hover { transform: translateY(-1px); box-shadow: 0 2px 8px var(--shadow-hover); }
@@ -118,19 +129,16 @@
         .card-value { font-size: 1.8em; font-weight: 700; }
         .card-sub { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
 
-        .action-go { color: #0d9488; }
-        .action-wait { color: #d97706; }
-        .action-avoid { color: #dc2626; }
+        .action-go { color: var(--success); }
+        .action-wait { color: var(--warning); }
+        .action-avoid { color: var(--danger); }
         .action-badge {
             display: inline-block; padding: 2px 10px; border-radius: 20px;
             font-size: 0.7em; font-weight: 600; margin-top: 4px;
         }
-        .badge-go { background: #d1fae5; color: #065f46; }
-        .badge-wait { background: #fef3c7; color: #92400e; }
-        .badge-avoid { background: #fee2e2; color: #991b1b; }
-        .dark .badge-go { background: #064e3b; color: #6ee7b7; }
-        .dark .badge-wait { background: #78350f; color: #fcd34d; }
-        .dark .badge-avoid { background: #7f1d1d; color: #fca5a5; }
+        .badge-go { background: var(--success-bg); color: var(--success-text); }
+        .badge-wait { background: var(--warning-bg); color: var(--warning-text); }
+        .badge-avoid { background: var(--danger-bg); color: var(--danger-text); }
 
         .chart-card { grid-column: 1 / -1; }
         .chart-container { position: relative; height: 200px; margin-top: 8px; }
@@ -147,8 +155,8 @@
 
         /* Settings */
         .settings-section {
-            margin-bottom: 16px; background: var(--bg-card); border-radius: 12px;
-            padding: 16px 20px; box-shadow: 0 1px 3px var(--shadow);
+            margin-bottom: 12px; background: var(--bg-card); border-radius: var(--radius);
+            padding: 20px; box-shadow: 0 1px 3px var(--shadow);
         }
         .settings-section h3 {
             font-size: 0.9em; color: var(--accent); margin-bottom: 12px;
@@ -158,10 +166,10 @@
         .form-label { display: block; font-size: 0.8em; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
         .form-input, .form-select {
             width: 100%; padding: 8px 12px; border: 1px solid var(--input-border);
-            border-radius: 8px; font-size: 0.85em; background: var(--input-bg); color: var(--text);
-            transition: border-color 0.2s;
+            border-radius: var(--radius-sm); font-size: 14px; background: var(--input-bg); color: var(--text);
+            transition: border-color 0.2s; font-family: inherit;
         }
-        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
         .form-input::placeholder { color: var(--text-faint); }
         .form-hint { font-size: 0.72em; color: var(--text-faint); margin-top: 3px; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -173,20 +181,20 @@
         }
         .toggle-btn.on { background: #22c55e; color: #fff; border-color: #22c55e; }
         .btn-save {
-            background: var(--accent); color: white; border: none; padding: 10px 24px;
-            border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer;
-            transition: opacity 0.2s;
+            background: var(--accent); color: white; border: none; padding: 8px 16px;
+            border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s; font-family: inherit;
         }
         .btn-save:hover { opacity: 0.9; }
         .btn-save:disabled { opacity: 0.5; cursor: default; }
-        .save-status { font-size: 0.8em; color: #0d9488; margin-left: 12px; }
+        .save-status { font-size: 13px; color: var(--success); margin-left: 12px; }
         .save-row { display: flex; align-items: center; margin-top: 16px; }
 
         .loading { text-align: center; padding: 40px; color: var(--text-faint); }
         .loading .spinner {
-            width: 32px; height: 32px; border: 3px solid var(--spinner-track);
-            border-top: 3px solid var(--accent); border-radius: 50%;
-            animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+            width: 14px; height: 14px; border: 2px solid var(--spinner-track);
+            border-top: 2px solid var(--accent); border-radius: 50%;
+            animation: spin 0.6s linear infinite; margin: 0 auto 12px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -211,7 +219,7 @@
             transition: color 0.15s; user-select: none;
         }
         .star-rating .star.hovered,
-        .star-rating .star.selected { color: #f59e0b; }
+        .star-rating .star.selected { color: var(--warning); }
         .star-label { font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px; min-height: 1.2em; }
         .feedback-textarea {
             width: 100%; min-height: 80px; padding: 8px 10px; border: 1px solid var(--input-border);
@@ -224,17 +232,18 @@
             margin-bottom: 8px;
         }
         .btn-submit {
-            margin-top: 10px; padding: 8px 20px; background: var(--accent); color: #fff;
-            border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em;
+            margin-top: 10px; padding: 8px 16px; background: var(--accent); color: #fff;
+            border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; font-size: 13px;
+            font-family: inherit; transition: all 0.15s;
         }
         .btn-submit:hover { opacity: 0.9; }
         .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         .feedback-msg { margin-top: 8px; font-size: 0.85em; min-height: 1.2em; }
-        .feedback-msg.success { color: #0d9488; }
-        .feedback-msg.error { color: #dc2626; }
+        .feedback-msg.success { color: var(--success); }
+        .feedback-msg.error { color: var(--danger); }
         .sysinfo-box {
-            background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
-            padding: 12px 14px; font-size: 0.82em; color: var(--text-muted);
+            background: var(--bg-card-hover); border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 12px 14px; font-size: 13px; color: var(--text-muted);
         }
         .sysinfo-box dt { font-weight: 600; color: var(--text); display: inline; }
         .sysinfo-box dt::after { content: ' '; }
@@ -248,8 +257,8 @@
         .cache-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
         .cache-meta span { font-size: 0.75em; color: var(--text-faint); }
         .btn-reset {
-            padding: 6px 14px; background: #dc2626; color: #fff; border: none; border-radius: 6px;
-            cursor: pointer; font-weight: 600; font-size: 0.8em; transition: opacity 0.2s;
+            padding: 6px 14px; background: var(--danger); color: #fff; border: none; border-radius: var(--radius-sm);
+            cursor: pointer; font-weight: 600; font-size: 13px; font-family: inherit; transition: all 0.15s;
         }
         .btn-reset:hover { opacity: 0.85; }
         .btn-reset:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -276,13 +285,11 @@
             display: inline-block; padding: 1px 6px; border-radius: 4px;
             font-size: 0.85em; margin-left: 6px;
         }
-        .cache-day-today { background: #dbeafe; color: #1d4ed8; }
-        .cache-day-tomorrow { background: #fef3c7; color: #92400e; }
-        .dark .cache-day-today { background: #1e3a5f; color: #93c5fd; }
-        .dark .cache-day-tomorrow { background: #78350f; color: #fcd34d; }
+        .cache-day-today { background: var(--info-bg); color: var(--info-text); }
+        .cache-day-tomorrow { background: var(--warning-bg); color: var(--warning-text); }
         .cache-msg { margin-top: 8px; font-size: 0.82em; min-height: 1.2em; }
-        .cache-msg.success { color: #0d9488; }
-        .cache-msg.error { color: #dc2626; }
+        .cache-msg.success { color: var(--success); }
+        .cache-msg.error { color: var(--danger); }
 
         /* Privacy modal */
         .privacy-overlay {
@@ -292,7 +299,7 @@
         }
         .privacy-overlay.visible { display: flex; }
         .privacy-modal {
-            background: var(--bg-card); border-radius: 12px; padding: 24px;
+            background: var(--bg-card); border-radius: var(--radius); padding: 24px;
             max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
@@ -314,17 +321,17 @@
         }
         .privacy-modal .privacy-link:hover { text-decoration: underline; }
         .privacy-modal .btn-ok {
-            display: block; width: 100%; margin-top: 16px; padding: 10px;
-            background: var(--accent); color: white; border: none; border-radius: 8px;
-            font-size: 0.9em; font-weight: 600; cursor: pointer;
+            display: block; width: 100%; margin-top: 16px; padding: 8px 16px;
+            background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
         }
         .privacy-modal .btn-ok:hover { opacity: 0.9; }
         .privacy-settings-btn {
-            background: none; border: 1px solid var(--border); border-radius: 8px;
-            padding: 8px 16px; color: var(--accent); font-size: 0.85em; font-weight: 500;
-            cursor: pointer; transition: background 0.2s;
+            background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 8px 16px; color: var(--accent); font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; font-family: inherit;
         }
-        .privacy-settings-btn:hover { background: var(--input-bg); }
+        .privacy-settings-btn:hover { background: var(--bg-card-hover); }
 
         /* Wizard modal */
         .wizard-overlay {
@@ -334,7 +341,7 @@
         }
         .wizard-overlay.visible { display: flex; }
         .wizard-modal {
-            background: var(--bg-card); border-radius: 12px; padding: 24px;
+            background: var(--bg-card); border-radius: var(--radius); padding: 24px;
             max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
@@ -349,23 +356,23 @@
             transition: all 0.2s;
         }
         .wizard-steps li.active { border-color: var(--accent); color: var(--accent); }
-        .wizard-steps li.done { border-color: #0d9488; color: #0d9488; }
+        .wizard-steps li.done { border-color: var(--success); color: var(--success); }
         .wizard-step { display: none; }
         .wizard-step.active { display: block; }
         .wizard-step h3 { font-size: 0.95em; margin-bottom: 10px; color: var(--text); }
         .wizard-step p { font-size: 0.82em; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4; }
         .wizard-select {
             width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--border);
-            border-radius: 8px; color: var(--text); font-size: 0.88em; margin-bottom: 10px;
-            appearance: auto;
+            border-radius: var(--radius-sm); color: var(--text); font-size: 14px; margin-bottom: 10px;
+            appearance: auto; font-family: inherit;
         }
-        .wizard-select:focus { border-color: var(--accent); outline: none; }
+        .wizard-select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
         .wizard-input {
             width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--border);
-            border-radius: 8px; color: var(--text); font-size: 0.88em; margin-bottom: 8px;
-            box-sizing: border-box;
+            border-radius: var(--radius-sm); color: var(--text); font-size: 14px; margin-bottom: 8px;
+            box-sizing: border-box; font-family: inherit;
         }
-        .wizard-input:focus { border-color: var(--accent); outline: none; }
+        .wizard-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
         .wizard-tax-row {
             display: flex; justify-content: space-between; align-items: center;
             padding: 6px 0; font-size: 0.84em; border-bottom: 1px solid var(--border);
@@ -384,8 +391,9 @@
             display: flex; gap: 8px; margin-top: 16px;
         }
         .wizard-nav button {
-            flex: 1; padding: 10px; border: none; border-radius: 8px;
-            font-size: 0.88em; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+            flex: 1; padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+            font-family: inherit;
         }
         .wizard-nav button:hover { opacity: 0.9; }
         .wizard-btn-primary { background: var(--accent); color: white; }
@@ -396,17 +404,17 @@
             cursor: pointer; text-decoration: underline;
         }
         .wizard-detected {
-            font-size: 0.82em; color: #0d9488; padding: 8px 12px; background: rgba(13,148,136,0.08);
-            border-radius: 8px; margin-bottom: 10px;
+            font-size: 13px; color: var(--success); padding: 8px 12px; background: var(--success-bg);
+            border-radius: var(--radius-sm); margin-bottom: 10px;
         }
-        .wizard-check { color: #0d9488; margin-right: 4px; }
+        .wizard-check { color: var(--success); margin-right: 4px; }
 
         /* Pricing mode radio cards */
         label[for^="mode-"]:has(input:checked) {
-            border-color: var(--accent); background: rgba(26,115,232,0.06);
+            border-color: var(--accent); background: var(--info-bg);
         }
         .dark label[for^="mode-"]:has(input:checked) {
-            background: rgba(74,158,255,0.08);
+            background: var(--info-bg);
         }
     </style>
 </head>
@@ -577,7 +585,7 @@
             <p id="deleteDataBody">This will permanently delete all your data from our servers. This action cannot be undone.</p>
             <p id="deleteDataHint" style="font-size:0.82em;color:var(--text-faint);margin-top:8px">Your app will continue to work normally after deletion.</p>
             <div id="deleteDataStatus" style="font-size:0.85em;margin-top:12px;min-height:1.2em"></div>
-            <button class="btn-ok" id="deleteDataConfirmBtn" style="background:#dc2626;margin-top:12px">Delete</button>
+            <button class="btn-ok" id="deleteDataConfirmBtn" style="background:var(--danger);margin-top:12px">Delete</button>
             <button class="btn-ok" id="deleteDataCancelBtn" style="background:var(--input-bg);color:var(--text);margin-top:6px">Cancel</button>
         </div>
     </div>
@@ -662,7 +670,7 @@
             <div class="wizard-step" id="wizardStep4">
                 <h3 id="wizSummaryTitle">You're all set!</h3>
                 <div id="wizSummaryRows" style="margin: 12px 0;"></div>
-                <p id="wizSummaryThanks" style="font-size:0.82em;color:#0d9488;margin-top:12px"></p>
+                <p id="wizSummaryThanks" style="font-size:0.82em;color:var(--success);margin-top:12px"></p>
             </div>
 
             <div class="wizard-nav" id="wizardNav">
@@ -942,8 +950,8 @@
             html += '<div style="color:var(--text-muted)">' + t('tax.energy_tax', 'Energy tax (excl. VAT)') + '</div>' +
                     '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.energy_tax) + ' ' + ct + '</div>';
         } else {
-            html += '<div style="color:#0d9488">' + t('tax.energy_tax_free', 'Energy tax (FREE for households!)') + '</div>' +
-                    '<div style="text-align:right;font-weight:600;color:#0d9488">0.0 ' + ct + '</div>';
+            html += '<div style="color:var(--success)">' + t('tax.energy_tax_free', 'Energy tax (FREE for households!)') + '</div>' +
+                    '<div style="text-align:right;font-weight:600;color:var(--success)">0.0 ' + ct + '</div>';
         }
 
         // Surcharges
@@ -1062,12 +1070,12 @@
                     '</div>' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:#0d9488">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+                        '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
                         '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
                     '</div>' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:#dc2626">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+                        '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
                         '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
                     '</div>' +
                     bwHtml +
@@ -1107,7 +1115,7 @@
             _lastDashJson = '';
             document.getElementById('content').innerHTML =
                 '<div class="loading">' +
-                '<p style="color:#dc2626">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
+                '<p style="color:var(--danger)">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
                 '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + tReplace('errors.retrying_in', {n: 10}, 'Retrying in 10s...') + '</p></div>';
             _dashboardTimer = setTimeout(loadDashboard, 10000);
         }
@@ -1151,7 +1159,7 @@
         var avgLineColor = dark ? '#6b7280' : '#9ca3af';
         var labelColor = dark ? '#9ca3af' : '#888';
         var barNormal = dark ? '#3b82f6' : '#93c5fd';
-        var barCurrent = dark ? '#4a9eff' : '#1a73e8';
+        var barCurrent = dark ? '#4a9eff' : '#3b82f6';
         var barBelow = dark ? '#34d399' : '#6ee7b7';
         var barAbove = dark ? '#f87171' : '#fca5a5';
 
@@ -1269,7 +1277,7 @@
             renderSettings();
         } catch (err) {
             document.getElementById('settingsContent').innerHTML =
-                '<div class="loading"><p style="color:#dc2626">' + t('settings.failed_to_load', 'Failed to load settings') + '</p></div>';
+                '<div class="loading"><p style="color:var(--danger)">' + t('settings.failed_to_load', 'Failed to load settings') + '</p></div>';
         }
     }
 
@@ -1394,13 +1402,13 @@
                                      : c.ema_markup.confidence === 'medium' ? t('settings.ema_confidence_medium', 'medium confidence')
                                      : t('settings.ema_confidence_low', 'limited data');
                         var hint = '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)">' +
-                            '<span style="color:#0d9488">&#x2139;</span> ' +
+                            '<span style="color:var(--success)">&#x2139;</span> ' +
                             tReplace('settings.ema_hint', {markup: emaCt, confidence: confLabel, reporters: c.ema_markup.reporters},
                                 'Community average: ' + emaCt + ' ct/kWh (' + confLabel + ', ' + c.ema_markup.reporters + ' users)') +
                             '</div>';
                         // Show recalibration suggestion if current markup diverges significantly
                         if (c.supplier_markup && Math.abs(c.supplier_markup - c.ema_markup.markup_kwh) > 0.005 && c.ema_markup.confidence !== 'low') {
-                            hint += '<div class="form-hint" style="margin-top:4px;color:#d97706">' +
+                            hint += '<div class="form-hint" style="margin-top:4px;color:var(--warning)">' +
                                 t('settings.ema_recalibrate', 'Your markup differs from the community average. Consider re-calibrating.') +
                                 '</div>';
                         }
@@ -1553,7 +1561,7 @@
             // GDPR: Delete My Data
             '<div class="settings-section" style="margin-top:16px">' +
                 '<div class="form-hint" style="margin-bottom:8px">' + t('settings.delete_data_desc', 'Remove all your data from our servers.') + '</div>' +
-                '<button type="button" class="btn-save" id="btnDeleteData" style="background:#dc2626">' + t('settings.delete_data', 'Delete My Data') + '</button>' +
+                '<button type="button" class="btn-save" id="btnDeleteData" style="background:var(--danger)">' + t('settings.delete_data', 'Delete My Data') + '</button>' +
             '</div>';
 
         // Bind events
@@ -1708,7 +1716,7 @@
         var userPrice = parseFloat(priceInput.value);
 
         if (!userPrice || userPrice < 0.01 || userPrice > 2.0) {
-            result.innerHTML = '<span style="color:#dc2626">Enter a price between 0.01 and 2.00 EUR/kWh</span>';
+            result.innerHTML = '<span style="color:var(--danger)">Enter a price between 0.01 and 2.00 EUR/kWh</span>';
             return;
         }
 
@@ -1723,25 +1731,25 @@
             });
             var data = await resp.json();
             if (!resp.ok) {
-                result.innerHTML = '<span style="color:#dc2626">' + (data.error || t('settings.calibration_no_price')) + '</span>';
+                result.innerHTML = '<span style="color:var(--danger)">' + (data.error || t('settings.calibration_no_price')) + '</span>';
                 btn.disabled = false;
                 return;
             }
 
-            var html = '<span style="color:#0d9488">' +
+            var html = '<span style="color:var(--success)">' +
                 tReplace('settings.calibration_result', {
                     synctacles: formatPrice(data.synctacles_price),
                     user: formatPrice(data.user_price),
                     margin: (data.margin >= 0 ? '+' : '') + formatPrice(data.margin)
                 }) + '</span><br>' +
-                '<span style="color:#0d9488;font-weight:500">' + t('settings.calibration_saved') + '</span>';
+                '<span style="color:var(--success);font-weight:500">' + t('settings.calibration_saved') + '</span>';
             if (data.warning) {
-                html += '<br><span style="color:#d97706">' + t('settings.calibration_warning') + '</span>';
+                html += '<br><span style="color:var(--warning)">' + t('settings.calibration_warning') + '</span>';
             }
             result.innerHTML = html;
             currentConfig.supplier_markup = data.margin;
         } catch (e) {
-            result.innerHTML = '<span style="color:#dc2626">' + t('settings.connection_error') + '</span>';
+            result.innerHTML = '<span style="color:var(--danger)">' + t('settings.connection_error') + '</span>';
         }
         btn.disabled = false;
     }
@@ -2032,7 +2040,7 @@
                 if (hasDelta) {
                     var deltaAbs = delta !== null ? Math.abs(delta * 100) : 0;
                     var deltaStr = delta !== null ? (deltaAbs < 0.005 ? '0.00 ct' : (delta >= 0 ? '+' : '') + (delta * 100).toFixed(2) + ' ct') : '-';
-                    var deltaColor = delta !== null ? (Math.abs(delta * 100) < 0.5 ? 'color:#0d9488' : Math.abs(delta * 100) < 2 ? 'color:#d97706' : 'color:#dc2626') : '';
+                    var deltaColor = delta !== null ? (Math.abs(delta * 100) < 0.5 ? 'color:var(--success)' : Math.abs(delta * 100) < 2 ? 'color:var(--warning)' : 'color:var(--danger)') : '';
                     html += '<td style="' + deltaColor + '">' + deltaStr + '</td>';
                 }
                 html += '<td>' + fmtAge(e.fetched_at) + '</td>';
@@ -2077,7 +2085,7 @@
                 };
             });
         } catch (e) {
-            content.innerHTML = '<p style="text-align:center;color:#dc2626;padding:24px">Failed to load cache data.</p>';
+            content.innerHTML = '<p style="text-align:center;color:var(--danger);padding:24px">Failed to load cache data.</p>';
             console.warn('cache load error:', e);
         }
     }
@@ -2510,7 +2518,7 @@
             var confLabel = ema.confidence === 'high' ? t('wizard.ema_confidence_high', 'high confidence')
                          : ema.confidence === 'medium' ? t('wizard.ema_confidence_medium', 'medium confidence')
                          : t('wizard.ema_confidence_low', 'limited data');
-            emaHint.innerHTML = '<span style="color:#0d9488">\u2139</span> ' +
+            emaHint.innerHTML = '<span style="color:var(--success)">\u2139</span> ' +
                 tReplace('wizard.ema_hint', {markup: emaCt, confidence: confLabel, reporters: ema.reporters},
                     'Community data suggests ' + emaCt + ' ct/kWh markup (' + confLabel + ', ' + ema.reporters + ' users)');
             emaHint.style.display = '';
@@ -2528,7 +2536,7 @@
         // No markup calculation needed — sensor provides complete consumer price
         // Visual feedback
         this.textContent = '\u2713 ' + t('wizard.sensor_use', 'Use this sensor');
-        this.style.background = '#0d9488';
+        this.style.background = 'var(--success)';
     };
 
     document.getElementById('wizSupplier').onchange = function() {
@@ -2562,7 +2570,7 @@
         if (_wizardSelectedSupplier || _wizardUseSensor) {
             var supRow = document.createElement('div');
             supRow.className = 'wizard-tax-row';
-            supRow.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value" style="color:#0d9488"></span>';
+            supRow.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value" style="color:var(--success)"></span>';
             supRow.querySelector('.wizard-tax-label').textContent = t('wizard.summary_supplier', 'Supplier');
             var supName = _wizardUseSensor
                 ? (_wizardData.detected_sensor && _wizardData.detected_sensor.supplier_hint
