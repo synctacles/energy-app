@@ -189,6 +189,12 @@ func (c *SupervisorClient) RestartAddon(ctx context.Context, slug string) error 
 	return err
 }
 
+// RestartSelf restarts this addon via the Supervisor API.
+func (c *SupervisorClient) RestartSelf(ctx context.Context) error {
+	_, err := c.requestWithRetry(ctx, "POST", "/addons/self/restart", nil)
+	return err
+}
+
 // ListAddons returns the list of installed addons (used for MQTT broker detection).
 func (c *SupervisorClient) ListAddons(ctx context.Context) ([]AddonInfo, error) {
 	data, err := c.requestWithRetry(ctx, "GET", "/addons", nil)

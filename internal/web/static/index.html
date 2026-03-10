@@ -1803,7 +1803,26 @@
             });
             var result = await resp.json();
             if (resp.ok) {
-                status.textContent = t('settings.saved', 'Saved! Restart app for changes to take effect.');
+                if (result.status === 'restarting') {
+                    status.textContent = t('settings.restarting', 'Applying new settings...');
+                    status.style.color = '#0d9488';
+                    // Show restart indicator and auto-reload
+                    document.getElementById('content').innerHTML =
+                        '<div class="loading"><div class="spinner"></div>' +
+                        '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
+                        '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
+                    // Switch to dashboard tab to show the restart message
+                    document.querySelector('.tab-btn[data-tab="dashboard"]').click();
+                    var pollRestart = function() {
+                        fetch('api/version').then(function(r) {
+                            if (r.ok) setTimeout(function() { location.reload(); }, 500);
+                            else setTimeout(pollRestart, 2000);
+                        }).catch(function() { setTimeout(pollRestart, 2000); });
+                    };
+                    setTimeout(pollRestart, 3000);
+                    return;
+                }
+                status.textContent = t('settings.saved', 'Settings saved.');
                 status.style.color = '#0d9488';
                 currentConfig = Object.assign(currentConfig, payload);
             } else {
@@ -2791,12 +2810,15 @@
         }
 
         // Save config
+        var restarting = false;
         try {
-            await fetch('api/config', {
+            var saveResp = await fetch('api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(configPayload)
             });
+            var saveResult = await saveResp.json();
+            restarting = saveResult.status === 'restarting';
         } catch(e) { /* best-effort */ }
 
         // Submit crowdsource data if verified
@@ -2820,6 +2842,23 @@
                     });
                 } catch(e) { /* best-effort */ }
             }
+        }
+
+        // If app is restarting, show waiting message and auto-reload
+        if (restarting) {
+            document.getElementById('content').innerHTML =
+                '<div class="loading"><div class="spinner"></div>' +
+                '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
+                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
+            // Poll until app is back, then reload
+            var pollRestart = function() {
+                fetch('api/version').then(function(r) {
+                    if (r.ok) setTimeout(function() { location.reload(); }, 500);
+                    else setTimeout(pollRestart, 2000);
+                }).catch(function() { setTimeout(pollRestart, 2000); });
+            };
+            setTimeout(pollRestart, 3000);
+            return;
         }
 
         // Force full rebuild on next dashboard load

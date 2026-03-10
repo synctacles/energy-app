@@ -484,6 +484,15 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if source chain needs rebuild BEFORE updating in-memory config
+	needsRestart := false
+	if v, ok := incoming["pricing_mode"].(string); ok && v != s.cfg.PricingMode {
+		needsRestart = true
+	}
+	if v, ok := incoming["zone"].(string); ok && v != s.cfg.BiddingZone {
+		needsRestart = true
+	}
+
 	// Invalidate tax cache when zone changes (forces Worker re-fetch for new zone)
 	if v, ok := incoming["zone"].(string); ok && v != s.cfg.BiddingZone {
 		if s.taxCache != nil {
@@ -550,7 +559,21 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["telemetry_enabled"].(bool); ok {
 		s.cfg.TelemetryEnabled = v
 	}
-	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved. Restart app for source chain changes."})
+	if needsRestart && s.supervisor != nil {
+		writeJSON(w, map[string]string{"status": "restarting", "message": "Settings saved. Restarting to apply source chain changes..."})
+		// Delay restart so HTTP response is sent first
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			ctx2, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := s.supervisor.RestartSelf(ctx2); err != nil {
+				slog.Error("self-restart failed", "error", err)
+			}
+		}()
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved."})
 }
 
 func (s *Server) handleSuppliers(w http.ResponseWriter, r *http.Request) {
