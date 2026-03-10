@@ -124,6 +124,32 @@ func main() {
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
 
+	// Auto-detect bidding zone from HA timezone when running with default zone.
+	// Only triggers when ENERGY_ZONE was not explicitly set (still "NL" default)
+	// and the Supervisor is available.
+	if cfg.BiddingZone == "NL" && cfg.HasSupervisor() {
+		sup := ha.NewSupervisorClient(cfg.SupervisorToken)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		haConfig, err := sup.GetConfig(ctx)
+		cancel()
+		if err == nil {
+			if tz, ok := haConfig["time_zone"].(string); ok && tz != "" {
+				for _, code := range registry.AllZones() {
+					if z, found := registry.GetZone(code); found && z.Timezone == tz {
+						if z.Code != cfg.BiddingZone {
+							slog.Info("auto-detected bidding zone from HA timezone",
+								"timezone", tz, "zone", z.Code, "previous", cfg.BiddingZone)
+							cfg.BiddingZone = z.Code
+						}
+						break
+					}
+				}
+			}
+		} else {
+			slog.Debug("zone auto-detect: could not read HA config", "error", err)
+		}
+	}
+
 	// Derive Enever settings from pricing mode
 	if cfg.PricingMode == config.ModeEnever && cfg.EneverToken != "" && cfg.BiddingZone == "NL" {
 		cfg.EneverEnabled = true

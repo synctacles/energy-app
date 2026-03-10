@@ -2215,6 +2215,8 @@
         });
         if (localStorage.getItem('privacy_shown') !== 'true') {
             showPrivacyModal();
+        } else if (localStorage.getItem('onboarding_completed') !== 'true') {
+            showWizard();
         }
     };
 
