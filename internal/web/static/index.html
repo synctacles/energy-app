@@ -2875,6 +2875,21 @@
     }
 
     loadVersion().then(function() {
+        // If HA Core config returned default 'en', check browser language as fallback.
+        // Users often set language in their HA profile (per-user) rather than system-wide,
+        // and the Supervisor API only exposes the system-wide setting.
+        if (_detectedLocale === 'en') {
+            var supported = ['nl','de','da','es','fi','fr','pt'];
+            var browserLangs = (navigator.languages || [navigator.language || '']).map(function(l) {
+                return l.split('-')[0].toLowerCase();
+            });
+            for (var i = 0; i < browserLangs.length; i++) {
+                if (supported.indexOf(browserLangs[i]) !== -1) {
+                    _detectedLocale = browserLangs[i];
+                    break;
+                }
+            }
+        }
         return initI18n(_detectedLocale);
     }).then(function() {
         // Check consent from backend config (survives HA ingress token changes).
