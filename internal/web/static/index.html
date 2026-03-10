@@ -2835,13 +2835,15 @@
         // localStorage is a fast cache — backend is the source of truth.
         return fetch('api/config').then(function(r) { return r.json(); }).catch(function() { return {}; });
     }).then(function(cfg) {
+        // Backend is source of truth — sync localStorage both ways
         var disclaimerOk = cfg.disclaimer_accepted || localStorage.getItem('disclaimer_accepted') === 'true';
         var privacyOk = cfg.privacy_accepted || localStorage.getItem('privacy_shown') === 'true';
-        var onboardingOk = cfg.onboarding_completed || localStorage.getItem('onboarding_completed') === 'true';
-        // Sync localStorage from backend so anti-flash script works next time
+        var onboardingOk = cfg.onboarding_completed;
+        if (onboardingOk === undefined) onboardingOk = localStorage.getItem('onboarding_completed') === 'true';
         if (cfg.disclaimer_accepted) localStorage.setItem('disclaimer_accepted', 'true');
         if (cfg.privacy_accepted) localStorage.setItem('privacy_shown', 'true');
-        if (cfg.onboarding_completed) localStorage.setItem('onboarding_completed', 'true');
+        if (cfg.onboarding_completed === true) localStorage.setItem('onboarding_completed', 'true');
+        if (cfg.onboarding_completed === false) localStorage.removeItem('onboarding_completed');
         if (!disclaimerOk) {
             showDisclaimerModal();
         } else if (!privacyOk) {
