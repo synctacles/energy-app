@@ -427,6 +427,16 @@
             </div>
             <div class="header-center">Energy</div>
             <div style="display:flex;align-items:center;gap:10px">
+                <select id="langSelect" title="Language" style="background:var(--bg-card);color:var(--text-muted);border:none;font-size:0.8em;padding:2px 4px;border-radius:var(--radius-sm);cursor:pointer;outline:none;">
+                    <option value="en">EN</option>
+                    <option value="nl">NL</option>
+                    <option value="de">DE</option>
+                    <option value="da">DA</option>
+                    <option value="es">ES</option>
+                    <option value="fi">FI</option>
+                    <option value="fr">FR</option>
+                    <option value="pt">PT</option>
+                </select>
                 <div class="meta" id="meta"></div>
                 <button class="header-btn" id="addonInfo" title="App Info, Changelog & Restart">&#9881;</button>
                 <button class="header-btn" id="themeToggle" title="Toggle dark mode">&#9789;</button>
@@ -768,6 +778,19 @@
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
         applyTheme();
         if (lastPrices) drawChart(lastPrices, lastAvg);
+    };
+
+    // Language selector — saves choice and rebuilds UI
+    document.getElementById('langSelect').onchange = function() {
+        var lang = this.value;
+        localStorage.setItem('synctacles_energy_lang', lang);
+        _detectedLocale = lang;
+        initI18n(lang).then(function() {
+            // Force full rebuild of dynamic content
+            _dashboardBuilt = false;
+            _lastDashJson = '';
+            loadDashboard();
+        });
     };
 
     // --- Source Health ---
@@ -2875,11 +2898,20 @@
     }
 
     loadVersion().then(function() {
-        // If HA Core config returned default 'en', check browser language as fallback.
-        // Users often set language in their HA profile (per-user) rather than system-wide,
-        // and the Supervisor API only exposes the system-wide setting.
-        if (_detectedLocale === 'en') {
-            var supported = ['nl','de','da','es','fi','fr','pt'];
+        // Language detection priority:
+        // 1. localStorage (user's previous manual choice)
+        // 2. HA Supervisor locale (if not default 'en')
+        // 3. Browser language (navigator.languages)
+        // 4. Default 'en'
+        var supported = ['nl','de','da','es','fi','fr','pt'];
+        var allSupported = ['en'].concat(supported);
+        var savedLang = localStorage.getItem('synctacles_energy_lang');
+        if (savedLang && allSupported.indexOf(savedLang) !== -1) {
+            _detectedLocale = savedLang;
+        } else if (_detectedLocale !== 'en') {
+            // HA Supervisor returned a non-English locale — use it
+        } else {
+            // Check browser languages as fallback
             var browserLangs = (navigator.languages || [navigator.language || '']).map(function(l) {
                 return l.split('-')[0].toLowerCase();
             });
@@ -2890,6 +2922,9 @@
                 }
             }
         }
+        // Sync language selector with detected locale
+        var langSel = document.getElementById('langSelect');
+        if (langSel) langSel.value = _detectedLocale;
         return initI18n(_detectedLocale);
     }).then(function() {
         // Check consent from backend config (survives HA ingress token changes).
