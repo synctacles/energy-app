@@ -52,9 +52,17 @@
     "degraded_embedded": "Estimerede skattedata bruges. Priserne kan afvige lidt fra din faktiske tarif."
   },
   "actions": {
-    "go": "GO",
-    "wait": "WAIT",
-    "avoid": "AVOID"
+    "go": "KØR",
+    "wait": "VENT",
+    "avoid": "UNDGÅ",
+    "reason_near_avg": "pris tæt på daggennemsnit",
+    "reason_cheapest_4h": "billigste 4 timer på dagen",
+    "reason_below_avg": "{pct}% under daggennemsnit",
+    "reason_above_avg": "{pct}% over daggennemsnit",
+    "reason_waiting": "venter på data",
+    "reason_stale": "data ikke frisk nok til KØR",
+    "tomorrow_favorable": "GUNSTIG",
+    "tomorrow_expensive": "DYR"
   },
   "tax": {
     "title": "Prisopbygning",

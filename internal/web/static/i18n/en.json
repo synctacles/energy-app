@@ -54,7 +54,15 @@
   "actions": {
     "go": "GO",
     "wait": "WAIT",
-    "avoid": "AVOID"
+    "avoid": "AVOID",
+    "reason_near_avg": "price near daily average",
+    "reason_cheapest_4h": "cheapest 4 hours of the day",
+    "reason_below_avg": "{pct}% below daily average",
+    "reason_above_avg": "{pct}% above daily average",
+    "reason_waiting": "waiting for data",
+    "reason_stale": "data not fresh enough for GO",
+    "tomorrow_favorable": "FAVORABLE",
+    "tomorrow_expensive": "EXPENSIVE"
   },
   "tax": {
     "title": "Price Breakdown",

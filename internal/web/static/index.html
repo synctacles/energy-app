@@ -726,6 +726,19 @@
         return str;
     }
 
+    function translateReason(reason) {
+        if (!reason) return '';
+        if (reason === 'price near daily average') return t('actions.reason_near_avg', reason);
+        if (reason === 'cheapest 4 hours of the day') return t('actions.reason_cheapest_4h', reason);
+        if (reason === 'waiting for data') return t('actions.reason_waiting', reason);
+        if (reason.indexOf('not fresh enough') !== -1) return t('actions.reason_stale', reason);
+        var belowMatch = reason.match(/^([\d.]+)% below/);
+        if (belowMatch) return tReplace('actions.reason_below_avg', {pct: belowMatch[1]}, reason);
+        var aboveMatch = reason.match(/^([\d.]+)% above/);
+        if (aboveMatch) return tReplace('actions.reason_above_avg', {pct: aboveMatch[1]}, reason);
+        return reason;
+    }
+
     async function initI18n(lang) {
         _lang = lang || 'en';
         // English i18n is injected inline by the server (var _i18n = {...}) to prevent
@@ -1054,7 +1067,7 @@
                 var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
                 tomorrowHtml = '<div class="card">' +
                     '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
-                    '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + ts + '</div>' +
+                    '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
                     '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
                     '</div>';
             }
@@ -1087,8 +1100,8 @@
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
-                        '<div class="card-value action-' + actionClass + '">' + action + '</div>' +
-                        '<div class="card-sub">' + ((d.action && d.action.reason) || '') + '</div>' +
+                        '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
+                        '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
                         '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
                     '</div>' +
                     '<div class="card">' +

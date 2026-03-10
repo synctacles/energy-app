@@ -54,7 +54,15 @@
   "actions": {
     "go": "GA",
     "wait": "WACHT",
-    "avoid": "VERMIJD"
+    "avoid": "VERMIJD",
+    "reason_near_avg": "prijs rond daggemiddelde",
+    "reason_cheapest_4h": "goedkoopste 4 uur van de dag",
+    "reason_below_avg": "{pct}% onder daggemiddelde",
+    "reason_above_avg": "{pct}% boven daggemiddelde",
+    "reason_waiting": "wachten op data",
+    "reason_stale": "data niet vers genoeg voor GA",
+    "tomorrow_favorable": "GUNSTIG",
+    "tomorrow_expensive": "DUUR"
   },
   "tax": {
     "title": "Prijsopbouw",

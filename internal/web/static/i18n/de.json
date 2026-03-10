@@ -52,9 +52,17 @@
     "degraded_embedded": "Geschätzte Steuerdaten werden verwendet. Preise können leicht von Ihrem tatsächlichen Tarif abweichen."
   },
   "actions": {
-    "go": "GO",
-    "wait": "WAIT",
-    "avoid": "AVOID"
+    "go": "LOS",
+    "wait": "WARTEN",
+    "avoid": "VERMEIDEN",
+    "reason_near_avg": "Preis nahe Tagesdurchschnitt",
+    "reason_cheapest_4h": "günstigste 4 Stunden des Tages",
+    "reason_below_avg": "{pct}% unter Tagesdurchschnitt",
+    "reason_above_avg": "{pct}% über Tagesdurchschnitt",
+    "reason_waiting": "warte auf Daten",
+    "reason_stale": "Daten nicht aktuell genug für LOS",
+    "tomorrow_favorable": "GÜNSTIG",
+    "tomorrow_expensive": "TEUER"
   },
   "tax": {
     "title": "Preisaufschlüsselung",

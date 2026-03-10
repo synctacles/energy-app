@@ -52,9 +52,17 @@
     "degraded_embedded": "Se utilizan datos fiscales estimados. Los precios pueden diferir ligeramente de su tarifa real."
   },
   "actions": {
-    "go": "GO",
-    "wait": "WAIT",
-    "avoid": "AVOID"
+    "go": "ADELANTE",
+    "wait": "ESPERAR",
+    "avoid": "EVITAR",
+    "reason_near_avg": "precio cerca del promedio diario",
+    "reason_cheapest_4h": "las 4 horas más baratas del día",
+    "reason_below_avg": "{pct}% por debajo del promedio diario",
+    "reason_above_avg": "{pct}% por encima del promedio diario",
+    "reason_waiting": "esperando datos",
+    "reason_stale": "datos no suficientemente frescos para ADELANTE",
+    "tomorrow_favorable": "FAVORABLE",
+    "tomorrow_expensive": "CARO"
   },
   "tax": {
     "title": "Desglose de precios",

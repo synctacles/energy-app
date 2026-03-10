@@ -52,9 +52,17 @@
     "degraded_embedded": "Arvioituja verotietoja käytetään. Hinnat voivat poiketa hieman todellisesta tariffistasi."
   },
   "actions": {
-    "go": "GO",
-    "wait": "WAIT",
-    "avoid": "AVOID"
+    "go": "KÄYTÄ",
+    "wait": "ODOTA",
+    "avoid": "VÄLTÄ",
+    "reason_near_avg": "hinta lähellä päivän keskiarvoa",
+    "reason_cheapest_4h": "päivän edullisin 4 tuntia",
+    "reason_below_avg": "{pct}% alle päivän keskiarvon",
+    "reason_above_avg": "{pct}% yli päivän keskiarvon",
+    "reason_waiting": "odotetaan dataa",
+    "reason_stale": "data ei tarpeeksi tuoretta KÄYTÄ-suositukseen",
+    "tomorrow_favorable": "EDULLINEN",
+    "tomorrow_expensive": "KALLIS"
   },
   "tax": {
     "title": "Hinnan erittely",

@@ -52,9 +52,17 @@
     "degraded_embedded": "Données fiscales estimées utilisées. Les prix peuvent différer légèrement de votre tarif réel."
   },
   "actions": {
-    "go": "GO",
-    "wait": "WAIT",
-    "avoid": "AVOID"
+    "go": "ALLEZ",
+    "wait": "ATTENDRE",
+    "avoid": "ÉVITER",
+    "reason_near_avg": "prix proche de la moyenne journalière",
+    "reason_cheapest_4h": "les 4 heures les moins chères",
+    "reason_below_avg": "{pct}% sous la moyenne journalière",
+    "reason_above_avg": "{pct}% au-dessus de la moyenne journalière",
+    "reason_waiting": "en attente de données",
+    "reason_stale": "données pas assez récentes pour ALLEZ",
+    "tomorrow_favorable": "FAVORABLE",
+    "tomorrow_expensive": "CHER"
   },
   "tax": {
     "title": "Détail des prix",
