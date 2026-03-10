@@ -192,6 +192,13 @@ func (f *FallbackManager) tryWarmFromDisk(zone string, date time.Time, cacheKey 
 	if entry.OriginalTier < 1 || entry.OriginalTier > 3 {
 		return nil // legacy (tier 0) or cache-tier data — don't trust for warming
 	}
+	// If the primary source changed (e.g. mode switch to Enever), skip disk cache
+	// so the new source gets a chance to provide data.
+	if len(f.sources) > 0 && entry.Prices[0].Source != f.sources[0].Name() {
+		slog.Info("disk cache source mismatch, forcing live fetch",
+			"cached_source", entry.Prices[0].Source, "primary_source", f.sources[0].Name())
+		return nil
+	}
 
 	prices := entry.Prices
 
