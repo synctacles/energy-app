@@ -896,6 +896,8 @@
 
     // --- Dashboard ---
     var lastPrices = null, lastAvg = 0;
+    var _lastDashJson = '';
+    var _dashboardBuilt = false;
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
 
     // Tax breakdown — loaded from API, cached per zone
@@ -984,6 +986,8 @@
             var d = await resp.json();
 
             if (d.status === 'waiting') {
+                _dashboardBuilt = false;
+                _lastDashJson = '';
                 document.getElementById('content').innerHTML =
                     '<div class="loading"><div class="spinner"></div>' +
                     '<p>' + t('dashboard.waiting_first_update', 'Waiting for first price update...') + '</p>' +
@@ -991,6 +995,14 @@
                 _dashboardTimer = setTimeout(loadDashboard, 5000);
                 return;
             }
+
+            // Skip full DOM rebuild if data hasn't changed (prevents chart flicker)
+            var dashJson = JSON.stringify(d);
+            if (_dashboardBuilt && dashJson === _lastDashJson) {
+                _dashboardTimer = setTimeout(loadDashboard, 60000);
+                return;
+            }
+            _lastDashJson = dashJson;
 
             var action = (d.action && d.action.action) || 'WAIT';
             var actionClass = action.toLowerCase();
@@ -1077,6 +1089,8 @@
                     '</div>' +
                 '</div>';
 
+            _dashboardBuilt = true;
+
             if (d.prices_today && d.prices_today.length > 0) {
                 lastPrices = d.prices_today;
                 lastAvg = (d.stats && d.stats.average) || 0;
@@ -1091,6 +1105,8 @@
 
             _dashboardTimer = setTimeout(loadDashboard, 60000);
         } catch (err) {
+            _dashboardBuilt = false;
+            _lastDashJson = '';
             document.getElementById('content').innerHTML =
                 '<div class="loading">' +
                 '<p style="color:#dc2626">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
@@ -2806,7 +2822,9 @@
             }
         }
 
-        // Reload dashboard to reflect new settings
+        // Force full rebuild on next dashboard load
+        _dashboardBuilt = false;
+        _lastDashJson = '';
         loadDashboard();
     }
 
