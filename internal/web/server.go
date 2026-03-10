@@ -25,6 +25,7 @@ import (
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
+	"github.com/synctacles/energy-app/pkg/kb"
 	"github.com/synctacles/energy-app/pkg/models"
 	"github.com/synctacles/energy-app/pkg/platform"
 	"github.com/synctacles/energy-app/pkg/store"
@@ -53,6 +54,7 @@ type Server struct {
 	scheduler           *engine.Scheduler
 	sqliteCache         *store.SQLiteCache
 	installUUID         string
+	kbClient            *kb.Client
 }
 
 // Deps holds dependencies for the web server.
@@ -94,6 +96,7 @@ func NewServer(deps Deps) *Server {
 		scheduler:           deps.Scheduler,
 		sqliteCache:         deps.SQLiteCache,
 		installUUID:         deps.InstallUUID,
+		kbClient:            kb.NewClient("", deps.InstallUUID),
 	}
 
 	r := chi.NewRouter()
@@ -153,6 +156,9 @@ func NewServer(deps Deps) *Server {
 		// Cache transparency
 		r.Get("/cache", s.handleCacheView)
 		r.Post("/cache/reset", s.handleCacheReset)
+
+		// KB search (proxied with product=energy)
+		r.Get("/kb/search", s.handleKBSearch)
 
 		// Feedback
 		r.Get("/feedback/sysinfo", s.handleFeedbackSysInfo)
@@ -964,6 +970,33 @@ func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
 		"quality":      quality,
 		"active_info":  activeInfo,
 	})
+}
+
+func (s *Server) handleKBSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		writeJSON(w, map[string]string{"error": "query parameter 'q' is required"})
+		return
+	}
+
+	limit := 5
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+
+	result, err := s.kbClient.Search(ctx, query, limit)
+	if err != nil {
+		slog.Warn("kb search failed", "error", err)
+		writeJSON(w, map[string]any{"results": []any{}, "total": 0, "error": err.Error()})
+		return
+	}
+
+	writeJSON(w, result)
 }
 
 func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
