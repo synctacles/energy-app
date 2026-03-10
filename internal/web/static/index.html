@@ -2666,7 +2666,7 @@
         if (step === 1) wizardPopulateEnever();
         if (step === 2) wizardPopulateSuppliers();
         if (step === 3) wizardPopulateTax();
-        if (step === 4) wizardPopulateSummary();
+        if (step === 4 && !_wizardEneverMode) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
