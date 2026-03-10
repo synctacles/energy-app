@@ -166,17 +166,12 @@
         .form-hint { font-size: 0.72em; color: var(--text-faint); margin-top: 3px; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-        .toggle {
-            position: relative; width: 44px; height: 24px; background: var(--input-border);
-            border-radius: 12px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+        .toggle-btn {
+            padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8em;
+            font-weight: 600; border: 1px solid var(--border); background: var(--input-bg);
+            color: var(--text-faint); transition: all 0.2s; flex-shrink: 0;
         }
-        .toggle.on { background: var(--accent); }
-        .toggle::after {
-            content: ''; position: absolute; top: 2px; left: 2px;
-            width: 20px; height: 20px; background: white; border-radius: 50%;
-            transition: transform 0.2s;
-        }
-        .toggle.on::after { transform: translateX(20px); }
+        .toggle-btn.on { background: #22c55e; color: #fff; border-color: #22c55e; }
         .btn-save {
             background: var(--accent); color: white; border: none; padding: 10px 24px;
             border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer;
@@ -1533,7 +1528,7 @@
                 '<div class="form-group">' +
                     '<div class="toggle-row">' +
                         '<span class="form-label" style="margin:0">' + t('settings.debug_mode', 'Debug Mode') + '</span>' +
-                        '<div class="toggle' + (c.debug_mode ? ' on' : '') + '" id="cfg-debug-toggle"></div>' +
+                        '<button class="toggle-btn' + (c.debug_mode ? ' on' : '') + '" id="cfg-debug-toggle">' + (c.debug_mode ? '&#10003; ON' : 'OFF') + '</button>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -1550,7 +1545,7 @@
                         '<div style="font-weight:600;margin-bottom:2px">' + t('settings.community_data', 'Help Improve for Everyone') + '</div>' +
                         '<div class="form-hint">' + t('settings.community_data_desc', 'Share anonymous installation data to help improve Synctacles for the entire HA community. No personal information is ever collected.') + '</div>' +
                     '</div>' +
-                    '<div class="toggle' + (c.telemetry_enabled !== false ? ' on' : '') + '" id="cfg-telemetry-toggle"></div>' +
+                    '<button class="toggle-btn' + (c.telemetry_enabled !== false ? ' on' : '') + '" id="cfg-telemetry-toggle">' + (c.telemetry_enabled !== false ? '&#10003; ON' : 'OFF') + '</button>' +
                 '</div>' +
                 '<div class="form-hint" id="telemetry-impact" style="margin-top:8px;padding:8px 12px;border-radius:8px;font-size:0.8em;line-height:1.4"></div>' +
             '</div>' +
@@ -1565,9 +1560,10 @@
         var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
         modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
         document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
-        document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); };
+        document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF'; };
         document.getElementById('cfg-telemetry-toggle').onclick = function() {
             this.classList.toggle('on');
+            this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF';
             var impact = document.getElementById('telemetry-impact');
             if (!this.classList.contains('on')) {
                 impact.style.background = 'rgba(220,38,38,0.1)';
