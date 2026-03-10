@@ -22,6 +22,7 @@ type Sender struct {
 	product      string
 	addonVersion string
 	osArch       string
+	haVersion    string
 	onSuccess    func()
 	onFailure    func()
 }
@@ -32,6 +33,7 @@ type Config struct {
 	Product      string // "energy" or "care"
 	AddonVersion string
 	OSArch       string
+	HAVersion    string // HA Core version (e.g. "2026.3.1")
 	OnSuccess    func() // called after successful heartbeat
 	OnFailure    func() // called after failed heartbeat
 }
@@ -43,6 +45,7 @@ func NewSender(cfg Config) *Sender {
 		product:      cfg.Product,
 		addonVersion: cfg.AddonVersion,
 		osArch:       cfg.OSArch,
+		haVersion:    cfg.HAVersion,
 		onSuccess:    cfg.OnSuccess,
 		onFailure:    cfg.OnFailure,
 	}
@@ -72,6 +75,7 @@ func (s *Sender) send(ctx context.Context) {
 		"product":    s.product,
 		"version":    s.addonVersion,
 		"arch":       s.osArch,
+		"ha_version": s.haVersion,
 	}
 
 	body, _ := json.Marshal(payload)

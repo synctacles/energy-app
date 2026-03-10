@@ -28,23 +28,20 @@ const (
 
 // payload matches the auth service TelemetryRequest.
 type payload struct {
-	InstallUUID    string         `json:"install_uuid"`
-	Product        string         `json:"product"`
-	Country        string         `json:"country,omitempty"`
-	HAVersion      string         `json:"ha_version,omitempty"`
-	EntityCount    int            `json:"entity_count,omitempty"`
-	AddonVersion   string         `json:"addon_version,omitempty"`
-	EnergyProvider string         `json:"energy_provider,omitempty"`
+	InstallUUID string         `json:"install_uuid"`
+	Product     string         `json:"product"`
+	Country     string         `json:"country,omitempty"`
+	HAVersion   string         `json:"ha_version,omitempty"`
+	EntityCount int            `json:"entity_count,omitempty"`
+	AddonCount  int            `json:"addon_count,omitempty"`
+	AddonVersion string        `json:"addon_version,omitempty"`
 
 	// Extended fields (all optional)
 	OSArch            string         `json:"os_arch,omitempty"`
 	HAInstallType     string         `json:"ha_install_type,omitempty"`
 	SupervisorChannel string         `json:"supervisor_channel,omitempty"`
 	Locale            string         `json:"locale,omitempty"`
-	ActiveSource      string         `json:"active_source,omitempty"`
 	UptimeBucket      string         `json:"uptime_bucket,omitempty"`
-	FallbackBucket    string         `json:"fallback_bucket,omitempty"`
-	CacheHitBucket    string         `json:"cache_hit_bucket,omitempty"`
 	Metadata          map[string]any `json:"metadata,omitempty"`
 }
 
@@ -63,6 +60,8 @@ type Deps struct {
 	GetLocale         func(ctx context.Context) (locale string, err error)
 	GetActiveSource   func() string
 	GetSensorCount    func() int
+	GetEntityCount    func(ctx context.Context) int // entity count from HA states
+	GetAddonCount     func(ctx context.Context) int // addon count from Supervisor
 	CheapestHoursOn   func() bool
 	HasSupervisor     bool // true when running inside HA with Supervisor access
 
@@ -173,21 +172,25 @@ func (s *Sender) sendOnce(ctx context.Context) {
 		}
 	}
 
-	// Active price source
-	if s.deps.GetActiveSource != nil {
-		p.ActiveSource = s.deps.GetActiveSource()
+	// Entity and addon counts
+	if s.deps.GetEntityCount != nil {
+		p.EntityCount = s.deps.GetEntityCount(ctx)
+	}
+	if s.deps.GetAddonCount != nil {
+		p.AddonCount = s.deps.GetAddonCount(ctx)
 	}
 
-	// Fallback and cache metrics
+	// Metadata (energy-specific fields stored here to match Worker schema)
+	meta := make(map[string]any)
+	if s.deps.GetActiveSource != nil {
+		meta["active_source"] = s.deps.GetActiveSource()
+	}
 	if s.deps.GetFallbackCount != nil {
-		p.FallbackBucket = FallbackBucket(s.deps.GetFallbackCount())
+		meta["fallback_bucket"] = FallbackBucket(s.deps.GetFallbackCount())
 	}
 	if s.deps.GetCacheHitRatio != nil {
-		p.CacheHitBucket = CacheHitBucket(s.deps.GetCacheHitRatio())
+		meta["cache_hit_bucket"] = CacheHitBucket(s.deps.GetCacheHitRatio())
 	}
-
-	// Metadata
-	meta := make(map[string]any)
 	if s.deps.GetSensorCount != nil {
 		meta["sensor_count"] = s.deps.GetSensorCount()
 	}

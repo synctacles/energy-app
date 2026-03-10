@@ -441,6 +441,26 @@ func main() {
 				"alerts_enabled": cfg.AlertEnabled,
 			}
 		},
+		GetEntityCount: func(ctx context.Context) int {
+			if supervisor == nil {
+				return 0
+			}
+			states, err := supervisor.GetAllStates(ctx)
+			if err != nil {
+				return 0
+			}
+			return len(states)
+		},
+		GetAddonCount: func(ctx context.Context) int {
+			if supervisor == nil {
+				return 0
+			}
+			addons, err := supervisor.ListAddons(ctx)
+			if err != nil {
+				return 0
+			}
+			return len(addons)
+		},
 	})
 	if cfg.TelemetryEnabled {
 		telemetrySender.RunBackground(ctx)
@@ -527,11 +547,18 @@ func main() {
 	})
 
 	// Start heartbeat sender (install counting)
+	var haVersion string
+	if supervisor != nil {
+		if info, err := supervisor.GetCoreInfo(ctx); err == nil {
+			haVersion = info.Version
+		}
+	}
 	go heartbeat.NewSender(heartbeat.Config{
 		InstallUUID:  installUUID,
 		Product:      "energy",
 		AddonVersion: version,
 		OSArch:       osArch,
+		HAVersion:    haVersion,
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 
