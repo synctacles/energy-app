@@ -49,6 +49,20 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 
 	restored := 0
 
+	// Core settings
+	if v, ok := settings["pricing_mode"].(string); ok && v != "" && v != "null" {
+		cfg.PricingMode = v
+		restored++
+	}
+	if v, ok := settings["zone"].(string); ok && v != "" && v != "null" {
+		cfg.BiddingZone = v
+		restored++
+	}
+	if v, ok := settings["currency"].(string); ok && v != "" && v != "null" {
+		cfg.Currency = v
+		restored++
+	}
+
 	// Thresholds
 	if v, ok := toFloat(settings["go_threshold"]); ok {
 		cfg.GoThreshold = v
@@ -157,6 +171,9 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 // Used for saving the backup file.
 func BuildSettingsMap(cfg *Config) map[string]any {
 	return map[string]any{
+		"pricing_mode":         cfg.PricingMode,
+		"zone":                 cfg.BiddingZone,
+		"currency":             cfg.Currency,
 		"go_threshold":         cfg.GoThreshold,
 		"avoid_threshold":      cfg.AvoidThreshold,
 		"best_window_hours":    cfg.BestWindowHours,
