@@ -101,24 +101,14 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 			continue
 		}
 
-		// Extract price — Enever returns prices as strings (e.g. "0.238174")
-		priceVal, ok := item[priceField]
+		// Extract consumer price — Enever returns prices as strings (e.g. "0.238174")
+		consumerPrice, ok := parseEneverPrice(item[priceField])
 		if !ok {
 			continue
 		}
-		var price float64
-		switch v := priceVal.(type) {
-		case float64:
-			price = v
-		case string:
-			if p, err := strconv.ParseFloat(v, 64); err == nil {
-				price = p
-			} else {
-				continue
-			}
-		default:
-			continue
-		}
+
+		// Extract EPEX wholesale price ("prijs" field) for markup calculation
+		wholesaleKWh, _ := parseEneverPrice(item["prijs"])
 
 		// API v3 timestamps are ISO 8601 with timezone offset: "2026-03-03T00:00:00+01:00"
 		ts, err := time.Parse(time.RFC3339, datum)
@@ -133,13 +123,14 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 		}
 
 		prices = append(prices, models.HourlyPrice{
-			Timestamp:  ts.UTC(),
-			PriceEUR:   price,
-			Unit:       models.UnitKWh, // Enever returns consumer EUR/kWh
-			Source:     "enever",
-			Quality:    "live",
-			Zone:       "NL",
-			IsConsumer: true, // Enever returns leverancier-specific consumer prices incl. VAT
+			Timestamp:    ts.UTC(),
+			PriceEUR:     consumerPrice,
+			WholesaleKWh: wholesaleKWh, // EPEX wholesale from "prijs" field
+			Unit:         models.UnitKWh,
+			Source:        "enever",
+			Quality:       "live",
+			Zone:          "NL",
+			IsConsumer:    true,
 		})
 	}
 
@@ -148,4 +139,20 @@ func (e *Enever) FetchDayAhead(ctx context.Context, zone string, date time.Time)
 	}
 
 	return prices, nil
+}
+
+// parseEneverPrice extracts a float64 from an Enever API value (string or float64).
+func parseEneverPrice(val any) (float64, bool) {
+	if val == nil {
+		return 0, false
+	}
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case string:
+		if p, err := strconv.ParseFloat(v, 64); err == nil {
+			return p, true
+		}
+	}
+	return 0, false
 }

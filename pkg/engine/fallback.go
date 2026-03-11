@@ -342,20 +342,31 @@ func cacheTTLFor(r *FetchResult) time.Duration {
 	return memCacheTTL
 }
 
-// FetchWholesaleForZone calls non-Enever sources to get wholesale prices
-// for comparison. Returns a map of exact timestamp → wholesale EUR/kWh.
-// Preserves PT15 granularity when the Worker provides quarter-hour data.
-// Used by the cache view to compute breakdown + delta in Enever mode.
+// FetchWholesaleForZone returns wholesale EUR/kWh prices for a zone.
+// Priority: 1) primary cache (Enever WholesaleKWh), 2) synctacles (ENTSO-E PT15M),
+// 3) EnergyCharts (PT60M fallback). Used for breakdown + delta calculations.
 func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string, date time.Time) map[time.Time]float64 {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	// Check in-memory cache (keyed differently to not collide with primary fetch)
-	cacheKey := "wholesale:" + zone + ":" + date.Format("2006-01-02")
-	if entry, ok := f.memCache[cacheKey]; ok && time.Since(entry.fetchedAt) < memCacheTTL {
+	dateStr := date.Format("2006-01-02")
+
+	// Check wholesale-specific cache first
+	wholesaleKey := "wholesale:" + zone + ":" + dateStr
+	if entry, ok := f.memCache[wholesaleKey]; ok && time.Since(entry.fetchedAt) < memCacheTTL {
 		return extractWholesale(entry.result.Prices)
 	}
 
+	// Check primary cache — Enever now populates WholesaleKWh from EPEX "prijs" field.
+	// This avoids an extra API call (Enever has 250/month rate limit).
+	primaryKey := zone + ":" + dateStr
+	if entry, ok := f.memCache[primaryKey]; ok {
+		if result := extractWholesale(entry.result.Prices); len(result) > 0 {
+			return result
+		}
+	}
+
+	// Fetch from non-Enever sources: synctacles (ENTSO-E PT15M) > EnergyCharts (PT60M)
 	for _, src := range f.sources {
 		if src.Name() == "enever" || !supportsZone(src, zone) {
 			continue
@@ -370,7 +381,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		result := extractWholesale(prices)
 
 		// Cache for reuse
-		f.memCache[cacheKey] = &memCacheEntry{
+		f.memCache[wholesaleKey] = &memCacheEntry{
 			result:    &FetchResult{Prices: prices, Source: src.Name()},
 			fetchedAt: time.Now(),
 		}
