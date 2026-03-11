@@ -588,6 +588,15 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Save non-schema settings to backup file (protects against HA Options page wipe)
+	// IMPORTANT: must happen BEFORE restart return, otherwise settings are lost on mode change
+	if s.dataPath != "" {
+		settingsMap := config.BuildSettingsMap(s.cfg)
+		if err := config.SaveSettingsFile(config.SettingsFilePath(s.dataPath), settingsMap); err != nil {
+			slog.Warn("failed to save settings backup", "error", err)
+		}
+	}
+
 	if needsRestart && s.supervisor != nil {
 		writeJSON(w, map[string]string{"status": "restarting", "message": "Settings saved. Restarting to apply source chain changes..."})
 		// Delay restart so HTTP response is sent first
@@ -600,14 +609,6 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 		return
-	}
-
-	// Save non-schema settings to backup file (protects against HA Options page wipe)
-	if s.dataPath != "" {
-		settingsMap := config.BuildSettingsMap(s.cfg)
-		if err := config.SaveSettingsFile(config.SettingsFilePath(s.dataPath), settingsMap); err != nil {
-			slog.Warn("failed to save settings backup", "error", err)
-		}
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved."})
