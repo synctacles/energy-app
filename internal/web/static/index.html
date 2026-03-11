@@ -2499,6 +2499,8 @@
             showPrivacyModal();
         } else if (localStorage.getItem('onboarding_completed') !== 'true') {
             showWizard();
+        } else {
+            loadDashboard();
         }
     };
 
@@ -2551,6 +2553,8 @@
         // Chain into onboarding wizard if not completed yet
         if (localStorage.getItem('onboarding_completed') !== 'true') {
             showWizard();
+        } else {
+            loadDashboard();
         }
     };
 
@@ -3245,8 +3249,9 @@
             showPrivacyModal();
         } else if (!onboardingOk) {
             showWizard();
+        } else {
+            loadDashboard();
         }
-        loadDashboard();
     });
     </script>
 </body>
