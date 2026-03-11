@@ -1,6 +1,26 @@
 country: IE
 name: Ireland
 currency: EUR
+tou_presets:
+  - id: smart_meter
+    name: "Smart Meter (CRU)"
+    periods:
+      - days: [1,2,3,4,5]
+        start: "17:00"
+        end: "19:00"
+        rate: peak
+      - days: [1,2,3,4,5]
+        start: "08:00"
+        end: "17:00"
+        rate: midpeak
+      - days: [1,2,3,4,5]
+        start: "19:00"
+        end: "23:00"
+        rate: midpeak
+      - days: [0,6]
+        start: "08:00"
+        end: "23:00"
+        rate: midpeak
 zones:
 - code: IE
   name: Ireland

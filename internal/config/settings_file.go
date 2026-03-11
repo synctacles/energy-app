@@ -64,11 +64,11 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 	}
 
 	// Enever (NL only)
-	if v, ok := settings["enever_token"].(string); ok {
+	if v, ok := settings["enever_token"].(string); ok && v != "null" {
 		cfg.EneverToken = v
 		restored++
 	}
-	if v, ok := settings["enever_leverancier"].(string); ok {
+	if v, ok := settings["enever_leverancier"].(string); ok && v != "null" {
 		cfg.EneverLeverancier = v
 		restored++
 	}
@@ -77,7 +77,7 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 	}
 
 	// Supplier
-	if v, ok := settings["supplier_id"].(string); ok {
+	if v, ok := settings["supplier_id"].(string); ok && v != "null" {
 		cfg.SupplierID = v
 		restored++
 	}
@@ -117,13 +117,13 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 	}
 
 	// External sensor
-	if v, ok := settings["p1_sensor_entity"].(string); ok {
+	if v, ok := settings["p1_sensor_entity"].(string); ok && v != "null" {
 		cfg.P1SensorEntity = v
 		restored++
 	}
 
 	// Power sensor
-	if v, ok := settings["power_sensor"].(string); ok {
+	if v, ok := settings["power_sensor"].(string); ok && v != "null" {
 		cfg.PowerSensorEntity = v
 		restored++
 	}

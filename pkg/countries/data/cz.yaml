@@ -1,6 +1,14 @@
 country: CZ
 name: Czech Republic
 currency: CZK
+tou_presets:
+  - id: d25d
+    name: "D25d (standard)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "06:00"
+        end: "22:00"
+        rate: peak
 zones:
 - code: CZ
   eic: 10YCZ-CEPS-----N

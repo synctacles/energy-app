@@ -1,6 +1,14 @@
 country: GR
 name: Greece
 currency: EUR
+tou_presets:
+  - id: night_tariff
+    name: "Νυχτερινό / Night tariff"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "07:00"
+        end: "23:00"
+        rate: peak
 zones:
 - code: GR
   name: Greece

@@ -11,6 +11,14 @@ suppliers:
   - id: engie
     name: ENGIE Dynamic
     markup: 0.009
+tou_presets:
+  - id: dag_nacht
+    name: "Dag/Nacht (tweevoudige meter)"
+    periods:
+      - days: [1,2,3,4,5]
+        start: "07:00"
+        end: "22:00"
+        rate: peak
 zones:
 - code: BE
   eic: 10YBE----------2
