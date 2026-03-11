@@ -616,6 +616,7 @@
             <!-- Step 0: Region -->
             <div class="wizard-step active" id="wizardStep0">
                 <h3 id="wizRegionTitle">Select your country</h3>
+                <p id="wizRegionWhy" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:10px">Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.</p>
                 <div class="wizard-detected" id="wizDetected" style="display:none"></div>
                 <select class="wizard-select" id="wizCountry"></select>
                 <div id="wizZoneWrap" style="display:none">
@@ -1237,7 +1238,16 @@
             ctx.fillRect(x, y, w, h);
             chartBars.push({ x: x, y: y, w: w, h: h, val: vals[i], hour: hours[i] });
 
-            if (i % 3 === 0) {
+            // Show labels at full hours only; for PT60 every 2-3 hours to avoid crowding
+            var showLabel = false;
+            if (vals.length > 48) {
+                // PT15M: label only on full hours (HH:00)
+                showLabel = hours[i].endsWith(':00');
+            } else {
+                // PT60M: every 3rd bar
+                showLabel = (i % 3 === 0);
+            }
+            if (showLabel) {
                 ctx.fillStyle = labelColor;
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'center';
@@ -2361,6 +2371,7 @@
         document.getElementById('wizStep3').textContent = t('wizard.step_verify', 'Verify');
         document.getElementById('wizStep4').textContent = t('wizard.step_confirm', 'Done');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
+        document.getElementById('wizRegionWhy').textContent = t('wizard.region_why', 'Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.');
         document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
         document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
         document.getElementById('wizMarkupHint').textContent = t('wizard.markup_hint', "Your supplier's per-kWh markup on top of wholesale prices.");
@@ -2405,7 +2416,8 @@
                 wizardOnCountryChange(detectedCountry.code);
                 var detDiv = document.getElementById('wizDetected');
                 detDiv.style.display = 'block';
-                detDiv.textContent = '\u2713 ' + tReplace('wizard.detected_zone', {zone: _wizardData.detected_zone}, 'Detected: ' + _wizardData.detected_zone);
+                var detLabel = detectedCountry.name + ' (' + _wizardData.detected_zone + ')';
+                detDiv.textContent = '\u2713 ' + tReplace('wizard.detected_zone', {zone: detLabel}, 'Detected: ' + detLabel);
             }
         }
 
