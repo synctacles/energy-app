@@ -1353,17 +1353,44 @@
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
-        // Enever radio: only enabled when zone=NL
+        // Enever radio: completely hidden when zone ≠ NL
         var eneverRadio = document.getElementById('mode-enever');
         var eneverLabel = document.querySelector('label[for="mode-enever"]');
         if (eneverRadio) {
             var isNL = selectedZoneIsNL();
             eneverRadio.disabled = !isNL;
-            if (eneverLabel) eneverLabel.style.opacity = isNL ? '1' : '0.4';
+            if (eneverLabel) eneverLabel.style.display = isNL ? '' : 'none';
             if (!isNL && eneverRadio.checked) {
                 document.getElementById('mode-auto').checked = true;
                 updateModeVisibility();
             }
+        }
+    }
+
+    // onZoneChange fetches country defaults and updates the settings UI accordingly.
+    async function onZoneChange(zone) {
+        updateModeVisibility();
+        loadSupplierDropdown('');
+        if (!zone) return;
+        try {
+            var resp = await fetch('api/country-defaults?zone=' + encodeURIComponent(zone));
+            var defaults = await resp.json();
+            if (defaults.error) return;
+
+            // Pre-fill manual tax fields from country defaults
+            if (defaults.tax_defaults) {
+                var td = defaults.tax_defaults;
+                var vatEl = document.getElementById('cfg-manual-vat');
+                var etaxEl = document.getElementById('cfg-manual-etax');
+                var surEl = document.getElementById('cfg-manual-surcharges');
+                var netEl = document.getElementById('cfg-manual-network');
+                if (vatEl && !parseFloat(vatEl.value)) vatEl.value = td.vat_rate || 0;
+                if (etaxEl && !parseFloat(etaxEl.value)) etaxEl.value = td.energy_tax || 0;
+                if (surEl && !parseFloat(surEl.value)) surEl.value = td.surcharges || 0;
+                if (netEl && !parseFloat(netEl.value)) netEl.value = td.network_tariff_avg || 0;
+            }
+        } catch(e) {
+            // Non-critical — settings still work without pre-fill
         }
     }
 
@@ -1613,7 +1640,7 @@
         // Bind events
         var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
         modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
-        document.getElementById('cfg-zone').onchange = function() { updateModeVisibility(); loadSupplierDropdown(''); };
+        document.getElementById('cfg-zone').onchange = function() { onZoneChange(this.value); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF'; };
         document.getElementById('cfg-telemetry-toggle').onclick = function() {
             this.classList.toggle('on');
@@ -1648,7 +1675,7 @@
                     document.getElementById('cfg-zone').value = data.zone;
                     result.style.color = '#0d9488';
                     result.textContent = data.name + ' (' + data.zone + ')';
-                    updateModeVisibility();
+                    onZoneChange(data.zone);
                 } else if (data.unsupported_region) {
                     result.style.color = '#d97706';
                     result.textContent = t('settings.detect_zone_fail', 'Could not detect zone') + (data.timezone ? ' (' + data.timezone + ')' : '');

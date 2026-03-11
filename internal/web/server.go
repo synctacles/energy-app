@@ -130,6 +130,7 @@ func NewServer(deps Deps) *Server {
 		r.Post("/calibrate", s.handleCalibrate)
 		r.Get("/sensors/tariff", s.handleTariffSensors)
 		r.Get("/suppliers", s.handleSuppliers)
+		r.Get("/country-defaults", s.handleCountryDefaults)
 
 		// Wizard (onboarding)
 		r.Get("/wizard-data", s.handleWizardData)
@@ -580,6 +581,49 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved."})
+}
+
+// handleCountryDefaults returns country-specific defaults for a zone.
+// Used by the settings UI to pre-fill fields when the user changes zone.
+func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
+	zone := r.URL.Query().Get("zone")
+	if zone == "" {
+		zone = s.cfg.BiddingZone
+	}
+
+	cc, ok := s.zoneRegistry.GetCountryForZone(zone)
+	if !ok {
+		writeJSON(w, map[string]any{"error": "unknown zone"})
+		return
+	}
+
+	resp := map[string]any{
+		"country":  cc.Country,
+		"name":     cc.Name,
+		"currency": cc.Currency,
+		"has_enever": cc.Country == "NL",
+	}
+
+	// Available pricing modes for this country
+	modes := []string{"auto", "manual", "external_sensor", "fixed"}
+	if cc.Country == "NL" {
+		modes = append(modes, "enever")
+	}
+	resp["pricing_modes"] = modes
+
+	// Suppliers
+	if len(cc.Suppliers) > 0 {
+		resp["suppliers"] = cc.Suppliers
+	} else {
+		resp["suppliers"] = []any{}
+	}
+
+	// Embedded tax defaults (fallback for cold-start)
+	if cc.TaxDefaults != nil {
+		resp["tax_defaults"] = cc.TaxDefaults
+	}
+
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleSuppliers(w http.ResponseWriter, r *http.Request) {
