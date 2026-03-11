@@ -353,13 +353,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 	// Check in-memory cache (keyed differently to not collide with primary fetch)
 	cacheKey := "wholesale:" + zone + ":" + date.Format("2006-01-02")
 	if entry, ok := f.memCache[cacheKey]; ok && time.Since(entry.fetchedAt) < memCacheTTL {
-		result := make(map[time.Time]float64)
-		for _, p := range entry.result.Prices {
-			if p.WholesaleKWh > 0 {
-				result[p.Timestamp] = p.WholesaleKWh
-			}
-		}
-		return result
+		return extractWholesale(entry.result.Prices)
 	}
 
 	for _, src := range f.sources {
@@ -373,12 +367,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 			continue
 		}
 
-		result := make(map[time.Time]float64)
-		for _, p := range prices {
-			if p.WholesaleKWh > 0 {
-				result[p.Timestamp] = p.WholesaleKWh
-			}
-		}
+		result := extractWholesale(prices)
 
 		// Cache for reuse
 		f.memCache[cacheKey] = &memCacheEntry{
@@ -390,6 +379,22 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 	}
 
 	return nil
+}
+
+// extractWholesale extracts wholesale EUR/kWh prices from a price slice.
+// Priority: explicit WholesaleKWh field > raw wholesale price (non-consumer, converted to kWh).
+func extractWholesale(prices []models.HourlyPrice) map[time.Time]float64 {
+	result := make(map[time.Time]float64)
+	for _, p := range prices {
+		if p.WholesaleKWh > 0 {
+			result[p.Timestamp] = p.WholesaleKWh
+		} else if !p.IsConsumer && p.PriceEUR != 0 {
+			// Raw wholesale price (e.g. EnergyCharts) — convert to kWh
+			kWh := p.ToKWh()
+			result[p.Timestamp] = kWh.PriceEUR
+		}
+	}
+	return result
 }
 
 func supportsZone(src collector.PriceSource, zone string) bool {

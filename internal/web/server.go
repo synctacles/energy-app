@@ -803,22 +803,25 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback: reverse-calculate wholesale from consumer price if no direct wholesale
-	if wholesaleKWh == 0 && data != nil && data.CurrentPrice > 0 {
+	// Determine supplier markup. Priority:
+	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
+	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
+	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
+	// 4. Fallback: 2% of wholesale (estimated, consumer price modes only)
+	// 5. Reverse-calculate wholesale from consumer (only for non-consumer-price modes like auto/manual)
+	var supplierMarkup float64
+	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+
+	// Reverse-calculate wholesale from consumer price as fallback.
+	// Only valid for auto/manual modes where consumer = wholesale + known taxes.
+	// In consumer-price modes (enever, sensor), this would be circular.
+	if wholesaleKWh == 0 && !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
 		if wholesaleKWh < 0 {
 			wholesaleKWh = 0
 		}
 	}
-
-	// Determine supplier markup. Priority:
-	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
-	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
-	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 4. Fallback: 2% of wholesale (estimated, consumer price modes only)
-	var supplierMarkup float64
-	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
 	if wholesaleKWh > 0 && data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
 		// Exact: decompose consumer price using known wholesale
