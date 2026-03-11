@@ -55,6 +55,7 @@ type Server struct {
 	sqliteCache         *store.SQLiteCache
 	installUUID         string
 	kbClient            *kb.Client
+	dataPath            string
 }
 
 // Deps holds dependencies for the web server.
@@ -75,6 +76,7 @@ type Deps struct {
 	Scheduler           *engine.Scheduler
 	SQLiteCache         *store.SQLiteCache
 	InstallUUID         string
+	DataPath            string
 }
 
 // NewServer creates a new energy addon web server.
@@ -97,6 +99,7 @@ func NewServer(deps Deps) *Server {
 		sqliteCache:         deps.SQLiteCache,
 		installUUID:         deps.InstallUUID,
 		kbClient:            kb.NewClient("", deps.InstallUUID),
+		dataPath:            deps.DataPath,
 	}
 
 	r := chi.NewRouter()
@@ -580,6 +583,14 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Save non-schema settings to backup file (protects against HA Options page wipe)
+	if s.dataPath != "" {
+		settingsMap := config.BuildSettingsMap(s.cfg)
+		if err := config.SaveSettingsFile(config.SettingsFilePath(s.dataPath), settingsMap); err != nil {
+			slog.Warn("failed to save settings backup", "error", err)
+		}
+	}
+
 	writeJSON(w, map[string]string{"status": "saved", "message": "Settings saved."})
 }
 
@@ -882,6 +893,12 @@ func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.cfg.SupplierMarkup = margin
+
+	// Update settings backup
+	if s.dataPath != "" {
+		settingsMap := config.BuildSettingsMap(s.cfg)
+		_ = config.SaveSettingsFile(config.SettingsFilePath(s.dataPath), settingsMap)
+	}
 
 	// Submit markup to crowdsource EMA (fire-and-forget, energy-app#40 stap 3)
 	supplier := s.cfg.SupplierID

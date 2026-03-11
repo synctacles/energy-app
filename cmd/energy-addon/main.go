@@ -116,6 +116,18 @@ func main() {
 		configPath = v
 	}
 
+	// Restore non-schema settings from backup file.
+	// This protects against HA Options page saves wiping web UI settings
+	// (HA Options only knows schema fields; non-schema fields are in the backup).
+	config.RestoreFromSettingsFile(cfg, dataPath)
+
+	// Save initial backup (migration: captures existing options.json values on first run)
+	settingsPath := config.SettingsFilePath(dataPath)
+	if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
+		_ = config.SaveSettingsFile(settingsPath, config.BuildSettingsMap(cfg))
+		slog.Info("created initial settings backup")
+	}
+
 	// Load country configs and zone registry
 	registry, err := countries.LoadRegistry()
 	if err != nil {
@@ -124,10 +136,9 @@ func main() {
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
 
-	// Auto-detect bidding zone from HA timezone when running with default zone.
-	// Only triggers when ENERGY_ZONE was not explicitly set (still "NL" default)
-	// and the Supervisor is available.
-	if cfg.BiddingZone == "NL" && cfg.HasSupervisor() {
+	// Auto-detect bidding zone from HA timezone when zone is empty or default.
+	// Triggers on first run (empty zone) or legacy default ("NL").
+	if (cfg.BiddingZone == "" || cfg.BiddingZone == "NL") && cfg.HasSupervisor() {
 		sup := ha.NewSupervisorClient(cfg.SupervisorToken)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		haConfig, err := sup.GetConfig(ctx)
@@ -148,6 +159,12 @@ func main() {
 		} else {
 			slog.Debug("zone auto-detect: could not read HA config", "error", err)
 		}
+	}
+
+	// Fallback: if zone is still empty after auto-detect, default to NL
+	if cfg.BiddingZone == "" {
+		cfg.BiddingZone = "NL"
+		slog.Warn("no zone configured and auto-detect failed, falling back to NL")
 	}
 
 	// Derive Enever settings from pricing mode
@@ -570,6 +587,7 @@ func main() {
 		Scheduler:           scheduler,
 		SQLiteCache:         sqliteCache,
 		InstallUUID:         installUUID,
+		DataPath:            dataPath,
 	})
 
 	// Start heartbeat sender (install counting)
