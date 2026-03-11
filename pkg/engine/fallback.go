@@ -132,6 +132,11 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		f.breaker.recordSuccess(src.Name())
 		f.lastSuccess[src.Name()] = time.Now()
 
+		// Upscale hourly Enever prices to PT15M using ENTSO-E wholesale
+		if src.Name() == "enever" {
+			prices = f.upscaleToQuarterHourly(ctx, prices, zone, date)
+		}
+
 		// Cache the result (with tier metadata if supported)
 		if f.cache != nil {
 			if smart, ok := f.cache.(SmartPriceCache); ok {
@@ -405,6 +410,90 @@ func extractWholesale(prices []models.HourlyPrice) map[time.Time]float64 {
 			result[p.Timestamp] = kWh.PriceEUR
 		}
 	}
+	return result
+}
+
+// upscaleToQuarterHourly converts hourly Enever prices to PT15M using ENTSO-E
+// quarter-hourly wholesale data. For each hour, the markup (consumer − wholesale)
+// is calculated from Enever, then applied to each of the 4 ENTSO-E PT15M slots.
+// Returns original prices if upscale is not possible.
+func (f *FallbackManager) upscaleToQuarterHourly(ctx context.Context, prices []models.HourlyPrice, zone string, date time.Time) []models.HourlyPrice {
+	// Only upscale hourly data (expect ~24 entries for today, ~48 for today+tomorrow)
+	if len(prices) < 20 {
+		return prices
+	}
+	if len(prices) >= 2 {
+		gap := prices[1].Timestamp.Sub(prices[0].Timestamp)
+		if gap < time.Hour {
+			return prices // Already sub-hourly
+		}
+	}
+
+	// Build hourly markup map: markup = consumer − wholesale (EUR/kWh)
+	hourlyMarkup := make(map[time.Time]float64)
+	for _, p := range prices {
+		if p.IsConsumer && p.WholesaleKWh > 0 {
+			hourlyMarkup[p.Timestamp] = p.PriceEUR - p.WholesaleKWh
+		}
+	}
+	if len(hourlyMarkup) == 0 {
+		return prices
+	}
+
+	// Fetch PT15M wholesale from non-Enever sources (synctacles → EnergyCharts)
+	var pt15Prices []models.HourlyPrice
+	for _, src := range f.sources {
+		if src.Name() == "enever" || !supportsZone(src, zone) {
+			continue
+		}
+		fetched, err := src.FetchDayAhead(ctx, zone, date)
+		if err != nil || len(fetched) < 48 {
+			continue
+		}
+		if len(fetched) >= 2 {
+			gap := fetched[1].Timestamp.Sub(fetched[0].Timestamp)
+			if gap >= time.Hour {
+				continue // Still hourly
+			}
+		}
+		pt15Prices = fetched
+		break
+	}
+	if len(pt15Prices) == 0 {
+		return prices
+	}
+
+	// Upscale: apply hourly markup to each PT15M slot
+	result := make([]models.HourlyPrice, 0, len(pt15Prices))
+	for _, wp := range pt15Prices {
+		hourStart := wp.Timestamp.Truncate(time.Hour)
+		markup, ok := hourlyMarkup[hourStart]
+		if !ok {
+			continue
+		}
+
+		wholesaleKWh := wp.WholesaleKWh
+		if wholesaleKWh == 0 && !wp.IsConsumer {
+			wholesaleKWh = wp.ToKWh().PriceEUR
+		}
+
+		result = append(result, models.HourlyPrice{
+			Timestamp:    wp.Timestamp,
+			PriceEUR:     wholesaleKWh + markup,
+			WholesaleKWh: wholesaleKWh,
+			Unit:         models.UnitKWh,
+			Source:       "enever",
+			Quality:      "live",
+			Zone:         zone,
+			IsConsumer:   true,
+		})
+	}
+
+	if len(result) < len(prices) {
+		return prices // Upscale incomplete, keep original
+	}
+
+	slog.Info("upscaled Enever hourly→PT15M", "zone", zone, "original", len(prices), "upscaled", len(result))
 	return result
 }
 
