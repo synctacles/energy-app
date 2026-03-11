@@ -416,6 +416,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"manual_network_tariff":   s.cfg.ManualNetworkTariff,
 		"p1_sensor_entity":        s.cfg.P1SensorEntity,
 		"fixed_rate_price":        s.cfg.FixedRatePrice,
+		"tou_config":              s.cfg.TOUConfigJSON,
 		"debug_mode":              s.cfg.DebugMode,
 		"disclaimer_accepted":     s.cfg.DisclaimerAccepted,
 		"privacy_accepted":        s.cfg.PrivacyAccepted,
@@ -464,7 +465,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		"pricing_mode", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
 		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
-		"p1_sensor_entity", "fixed_rate_price", "power_sensor", "debug_mode",
+		"p1_sensor_entity", "fixed_rate_price", "tou_config", "power_sensor", "debug_mode",
 		"disclaimer_accepted", "privacy_accepted", "onboarding_completed", "telemetry_enabled",
 	}
 	for _, key := range allowed {
@@ -557,6 +558,9 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["fixed_rate_price"].(float64); ok {
 		s.cfg.FixedRatePrice = v
 	}
+	if v, ok := incoming["tou_config"].(string); ok {
+		s.cfg.TOUConfigJSON = v
+	}
 	if v, ok := incoming["onboarding_completed"].(bool); ok {
 		s.cfg.OnboardingCompleted = v
 	}
@@ -569,6 +573,21 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	if v, ok := incoming["telemetry_enabled"].(bool); ok {
 		s.cfg.TelemetryEnabled = v
 	}
+
+	// Save consent flags to dedicated file (survives Supervisor options resets)
+	_, hasD := incoming["disclaimer_accepted"]
+	_, hasP := incoming["privacy_accepted"]
+	_, hasO := incoming["onboarding_completed"]
+	if s.dataPath != "" && (hasD || hasP || hasO) {
+		if err := config.SaveConsent(s.dataPath, config.ConsentState{
+			DisclaimerAccepted:  s.cfg.DisclaimerAccepted,
+			PrivacyAccepted:    s.cfg.PrivacyAccepted,
+			OnboardingCompleted: s.cfg.OnboardingCompleted,
+		}); err != nil {
+			slog.Warn("failed to save consent file", "error", err)
+		}
+	}
+
 	if needsRestart && s.supervisor != nil {
 		writeJSON(w, map[string]string{"status": "restarting", "message": "Settings saved. Restarting to apply source chain changes..."})
 		// Delay restart so HTTP response is sent first
@@ -616,11 +635,18 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Available pricing modes for this country
-	modes := []string{"auto", "manual", "external_sensor", "fixed"}
+	modes := []string{"auto", "manual", "external_sensor", "fixed", "tou"}
 	if cc.Country == "NL" {
 		modes = append(modes, "enever")
 	}
 	resp["pricing_modes"] = modes
+
+	// TOU presets
+	if len(cc.TOUPresets) > 0 {
+		resp["tou_presets"] = cc.TOUPresets
+	} else {
+		resp["tou_presets"] = []any{}
+	}
 
 	// Suppliers
 	if len(cc.Suppliers) > 0 {

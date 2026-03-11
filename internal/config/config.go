@@ -44,6 +44,9 @@ type Config struct {
 	// Fixed-rate mode: user-defined flat rate (no dynamic pricing)
 	FixedRatePrice float64 `env:"FIXED_RATE_PRICE" envDefault:"0"`
 
+	// Time-of-Use mode: flexible schedule with peak/off-peak rates (JSON)
+	TOUConfigJSON string `env:"TOU_CONFIG" envDefault:""`
+
 	// External sensor mode: HA sensor entity for consumer tariff (env kept as P1_SENSOR_ENTITY for backward compat)
 	P1SensorEntity string `env:"P1_SENSOR_ENTITY"`
 
@@ -78,6 +81,7 @@ const (
 	ModeMeterTariff    = "meter_tariff"    // Legacy, kept for backward compat
 	ModeEnever         = "enever"
 	ModeFixed          = "fixed"           // User-defined flat rate, no dynamic pricing
+	ModeTOU            = "tou"             // Time-of-use schedule (bi-horário / tri-horário)
 )
 
 // Load loads configuration from environment variables.
@@ -92,9 +96,25 @@ func Load() (*Config, error) {
 	} else if cfg.BestWindowHours > 8 {
 		cfg.BestWindowHours = 8
 	}
+	// Sanitize bashio "null" strings (bashio returns literal "null" for empty values)
+	if cfg.P1SensorEntity == "null" {
+		cfg.P1SensorEntity = ""
+	}
+	if cfg.PowerSensorEntity == "null" {
+		cfg.PowerSensorEntity = ""
+	}
+	if cfg.EneverToken == "null" {
+		cfg.EneverToken = ""
+	}
+	if cfg.EneverLeverancier == "null" {
+		cfg.EneverLeverancier = ""
+	}
+	if cfg.SupplierID == "null" {
+		cfg.SupplierID = ""
+	}
 	// Validate pricing mode
 	switch cfg.PricingMode {
-	case ModeAuto, ModeManual, ModeExternalSensor, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed:
+	case ModeAuto, ModeManual, ModeExternalSensor, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed, ModeTOU:
 		// OK
 	default:
 		cfg.PricingMode = ModeAuto
@@ -130,6 +150,11 @@ func (c *Config) IsFixedMode() bool {
 // IsEneverMode returns true if pricing mode is Enever with valid credentials.
 func (c *Config) IsEneverMode() bool {
 	return c.PricingMode == ModeEnever && c.EneverToken != ""
+}
+
+// IsTOUMode returns true if pricing mode is time-of-use with a valid config.
+func (c *Config) IsTOUMode() bool {
+	return c.PricingMode == ModeTOU && c.TOUConfigJSON != ""
 }
 
 // IsExternalSensorMode returns true if pricing mode uses an external HA sensor

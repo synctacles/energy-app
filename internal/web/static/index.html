@@ -1349,7 +1349,7 @@
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
         var m = mode.value;
-        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-external_sensor-section', 'mode-fixed-section', 'mode-enever-section'];
+        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-external_sensor-section', 'mode-fixed-section', 'mode-tou-section', 'mode-enever-section'];
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
@@ -1389,6 +1389,8 @@
                 if (surEl && !parseFloat(surEl.value)) surEl.value = td.surcharges || 0;
                 if (netEl && !parseFloat(netEl.value)) netEl.value = td.network_tariff_avg || 0;
             }
+            // Load TOU presets for this zone
+            if (defaults.tou_presets) loadTOUPresets(zone);
         } catch(e) {
             // Non-critical — settings still work without pre-fill
         }
@@ -1442,6 +1444,7 @@
                     renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
                     renderModeRadio('external_sensor', t('settings.mode_external_sensor', 'External Sensor'), t('settings.mode_external_sensor_hint', 'Use any HA sensor that provides your electricity tariff (Zonneplan, Tibber, Octopus, P1 meter, etc.).'), mode) +
                     renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
+                    renderModeRadio('tou', t('settings.mode_tou', 'Time-of-Use'), t('settings.mode_tou_hint', 'Bi-horário / tri-horário: set peak and off-peak rates with a schedule. GO/WAIT/AVOID follows your schedule.'), mode) +
                     renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) +
                 '</div>' +
             '</div>' +
@@ -1574,6 +1577,45 @@
                 '</div>' +
             '</div>' +
 
+            // TOU mode section
+            '<div id="mode-tou-section" style="' + (mode === 'tou' ? '' : 'display:none') + '">' +
+                '<div class="settings-section">' +
+                    '<h3>' + t('settings.mode_tou', 'Time-of-Use') + '</h3>' +
+                    (function() {
+                        var touCfg = null;
+                        try { if (c.tou_config) touCfg = JSON.parse(c.tou_config); } catch(e) {}
+                        var peakRate = touCfg && touCfg.rates ? (touCfg.rates.find(function(r){return r.id==='peak'}) || {}).price || '' : '';
+                        var offpeakRate = touCfg && touCfg.rates ? (touCfg.rates.find(function(r){return r.id==='offpeak'}) || {}).price || '' : '';
+                        var midpeakRate = touCfg && touCfg.rates ? (touCfg.rates.find(function(r){return r.id==='midpeak'}) || {}).price || '' : '';
+                        var periods = touCfg ? touCfg.periods || [] : [];
+                        return '<div id="tou-presets-row" style="margin-bottom:12px"></div>' +
+                            '<div class="form-row">' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">' + t('settings.tou_offpeak_rate', 'Off-peak rate (EUR/kWh)') + '</label>' +
+                                    '<input class="form-input" id="cfg-tou-offpeak" type="number" step="0.001" min="0" max="2" value="' + offpeakRate + '">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">' + t('settings.tou_peak_rate', 'Peak rate (EUR/kWh)') + '</label>' +
+                                    '<input class="form-input" id="cfg-tou-peak" type="number" step="0.001" min="0" max="2" value="' + peakRate + '">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div id="tou-midpeak-row" style="' + (midpeakRate ? '' : 'display:none') + '">' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">' + t('settings.tou_midpeak_rate', 'Mid-peak rate (EUR/kWh)') + '</label>' +
+                                    '<input class="form-input" id="cfg-tou-midpeak" type="number" step="0.001" min="0" max="2" value="' + midpeakRate + '">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div style="margin-bottom:12px"><a href="#" id="tou-toggle-midpeak" style="font-size:0.85em;color:var(--accent)">' + (midpeakRate ? t('settings.tou_remove_midpeak', 'Remove mid-peak rate') : t('settings.tou_add_midpeak', '+ Add mid-peak rate (tri-horário)')) + '</a></div>' +
+                            '<div class="form-group">' +
+                                '<label class="form-label">' + t('settings.tou_schedule', 'Schedule') + '</label>' +
+                                '<div id="tou-periods" data-periods=\'' + JSON.stringify(periods).replace(/'/g, '&#39;') + '\'></div>' +
+                                '<div style="margin-top:8px"><button type="button" class="btn-save" id="tou-add-period" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:0.85em;padding:6px 14px">' + t('settings.tou_add_period', '+ Add period') + '</button></div>' +
+                            '</div>' +
+                            '<div class="form-hint">' + t('settings.tou_hint', 'Hours not covered by any period use the off-peak rate. The app generates GO during off-peak and AVOID during peak hours.') + '</div>';
+                    })() +
+                '</div>' +
+            '</div>' +
+
             // Thresholds
             '<div class="settings-section">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
@@ -1660,6 +1702,30 @@
             }
         };
         document.getElementById('btnSave').onclick = saveSettings;
+
+        // TOU event bindings
+        var touToggle = document.getElementById('tou-toggle-midpeak');
+        if (touToggle) {
+            touToggle.onclick = function(e) {
+                e.preventDefault();
+                var row = document.getElementById('tou-midpeak-row');
+                var visible = row.style.display !== 'none';
+                row.style.display = visible ? 'none' : '';
+                if (visible) document.getElementById('cfg-tou-midpeak').value = '';
+                this.textContent = visible
+                    ? t('settings.tou_add_midpeak', '+ Add mid-peak rate (tri-horário)')
+                    : t('settings.tou_remove_midpeak', 'Remove mid-peak rate');
+            };
+        }
+        var touAddBtn = document.getElementById('tou-add-period');
+        if (touAddBtn) {
+            touAddBtn.onclick = function() { addTOUPeriod(); };
+        }
+        renderTOUPeriods();
+        // Load presets for current zone
+        var curZone = document.getElementById('cfg-zone');
+        if (curZone && curZone.value) loadTOUPresets(curZone.value);
+
         document.getElementById('btnRestartWizard').onclick = function() {
             fetch('api/config', {
                 method: 'POST',
@@ -1730,6 +1796,159 @@
 
         // Initial Enever visibility
         updateModeVisibility();
+    }
+
+    // --- TOU Schedule Builder ---
+    var _touDayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function renderTOUPeriods() {
+        var container = document.getElementById('tou-periods');
+        if (!container) return;
+        var periods = [];
+        try { periods = JSON.parse(container.getAttribute('data-periods') || '[]'); } catch(e) {}
+        var html = '';
+        periods.forEach(function(p, i) {
+            html += renderTOUPeriodRow(p, i);
+        });
+        if (periods.length === 0) {
+            html = '<div style="font-size:0.82em;color:var(--text-faint);padding:8px 0">' +
+                t('settings.tou_no_periods', 'No periods defined yet. Add a period or select a preset.') + '</div>';
+        }
+        container.innerHTML = html;
+        // Bind remove buttons
+        container.querySelectorAll('.tou-remove-period').forEach(function(btn) {
+            btn.onclick = function() { removeTOUPeriod(parseInt(btn.getAttribute('data-idx'))); };
+        });
+        // Bind day checkboxes and time inputs to update data-periods
+        container.querySelectorAll('.tou-period-row').forEach(function(row) {
+            row.querySelectorAll('input, select').forEach(function(el) {
+                el.onchange = function() { syncTOUPeriodsData(); };
+            });
+        });
+    }
+
+    function renderTOUPeriodRow(p, idx) {
+        var rateOptions = '<option value="peak"' + (p.rate_id === 'peak' ? ' selected' : '') + '>' + t('settings.tou_peak', 'Peak') + '</option>' +
+            '<option value="offpeak"' + (p.rate_id === 'offpeak' ? ' selected' : '') + '>' + t('settings.tou_offpeak', 'Off-peak') + '</option>' +
+            '<option value="midpeak"' + (p.rate_id === 'midpeak' ? ' selected' : '') + '>' + t('settings.tou_midpeak', 'Mid-peak') + '</option>';
+        var dayChecks = '';
+        for (var d = 0; d < 7; d++) {
+            var checked = p.days && p.days.indexOf(d) >= 0 ? ' checked' : '';
+            dayChecks += '<label style="display:inline-flex;align-items:center;gap:2px;font-size:0.78em;cursor:pointer">' +
+                '<input type="checkbox" class="tou-day" data-day="' + d + '"' + checked + '>' +
+                t('settings.tou_day_' + d, _touDayNames[d]) + '</label> ';
+        }
+        return '<div class="tou-period-row" data-idx="' + idx + '" style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--input-bg)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+                '<div style="display:flex;flex-wrap:wrap;gap:4px">' + dayChecks + '</div>' +
+                '<button type="button" class="tou-remove-period" data-idx="' + idx + '" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1.1em" title="Remove">&times;</button>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+                '<input type="time" class="form-input tou-start" value="' + (p.start || '00:00') + '" style="width:auto;min-width:100px">' +
+                '<span style="color:var(--text-faint)">–</span>' +
+                '<input type="time" class="form-input tou-end" value="' + (p.end || '00:00') + '" style="width:auto;min-width:100px">' +
+                '<select class="form-select tou-rate" style="width:auto;min-width:100px">' + rateOptions + '</select>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function addTOUPeriod(preset) {
+        var container = document.getElementById('tou-periods');
+        if (!container) return;
+        var periods = [];
+        try { periods = JSON.parse(container.getAttribute('data-periods') || '[]'); } catch(e) {}
+        var newP = preset || {days:[1,2,3,4,5], start:'08:00', end:'22:00', rate_id:'peak'};
+        periods.push(newP);
+        container.setAttribute('data-periods', JSON.stringify(periods));
+        renderTOUPeriods();
+    }
+
+    function removeTOUPeriod(idx) {
+        var container = document.getElementById('tou-periods');
+        if (!container) return;
+        var periods = [];
+        try { periods = JSON.parse(container.getAttribute('data-periods') || '[]'); } catch(e) {}
+        periods.splice(idx, 1);
+        container.setAttribute('data-periods', JSON.stringify(periods));
+        renderTOUPeriods();
+    }
+
+    function syncTOUPeriodsData() {
+        var container = document.getElementById('tou-periods');
+        if (!container) return;
+        var periods = [];
+        container.querySelectorAll('.tou-period-row').forEach(function(row) {
+            var days = [];
+            row.querySelectorAll('.tou-day:checked').forEach(function(cb) {
+                days.push(parseInt(cb.getAttribute('data-day')));
+            });
+            periods.push({
+                days: days,
+                start: row.querySelector('.tou-start').value || '00:00',
+                end: row.querySelector('.tou-end').value || '00:00',
+                rate_id: row.querySelector('.tou-rate').value
+            });
+        });
+        container.setAttribute('data-periods', JSON.stringify(periods));
+    }
+
+    function collectTOUPeriods() {
+        syncTOUPeriodsData();
+        var container = document.getElementById('tou-periods');
+        if (!container) return [];
+        try { return JSON.parse(container.getAttribute('data-periods') || '[]'); } catch(e) { return []; }
+    }
+
+    function loadTOUPresets(zone) {
+        var presetsRow = document.getElementById('tou-presets-row');
+        if (!presetsRow) return;
+        presetsRow.innerHTML = '';
+        if (!zone) return;
+        fetch('api/country-defaults?zone=' + encodeURIComponent(zone))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.tou_presets || data.tou_presets.length === 0) {
+                    presetsRow.style.display = 'none';
+                    return;
+                }
+                presetsRow.style.display = '';
+                var html = '<label class="form-label" style="margin-bottom:6px">' + t('settings.tou_presets', 'Presets') + '</label>' +
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+                data.tou_presets.forEach(function(preset) {
+                    html += '<button type="button" class="tou-preset-btn" data-preset=\'' + JSON.stringify(preset).replace(/'/g, '&#39;') + '\' ' +
+                        'style="background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:0.82em;color:var(--accent);cursor:pointer">' +
+                        esc(preset.name) + '</button>';
+                });
+                html += '</div>';
+                presetsRow.innerHTML = html;
+                presetsRow.querySelectorAll('.tou-preset-btn').forEach(function(btn) {
+                    btn.onclick = function() {
+                        var preset = JSON.parse(btn.getAttribute('data-preset'));
+                        applyTOUPreset(preset);
+                    };
+                });
+            })
+            .catch(function() { presetsRow.style.display = 'none'; });
+    }
+
+    function applyTOUPreset(preset) {
+        if (!preset || !preset.periods) return;
+        var container = document.getElementById('tou-periods');
+        if (!container) return;
+        // Convert preset periods to engine format
+        var periods = preset.periods.map(function(p) {
+            return {days: p.days, start: p.start, end: p.end, rate_id: p.rate};
+        });
+        container.setAttribute('data-periods', JSON.stringify(periods));
+        renderTOUPeriods();
+        // Check if preset uses midpeak
+        var hasMidpeak = preset.periods.some(function(p) { return p.rate === 'midpeak'; });
+        var midRow = document.getElementById('tou-midpeak-row');
+        var midToggle = document.getElementById('tou-toggle-midpeak');
+        if (hasMidpeak && midRow) {
+            midRow.style.display = '';
+            if (midToggle) midToggle.textContent = t('settings.tou_remove_midpeak', 'Remove mid-peak rate');
+        }
     }
 
     function renderModeRadio(value, label, hint, current) {
@@ -1882,6 +2101,18 @@
             payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
         } else if (mode === 'fixed') {
             payload.fixed_rate_price = parseFloat(document.getElementById('cfg-fixed-price').value) || 0;
+        } else if (mode === 'tou') {
+            var touRates = [];
+            var offV = parseFloat(document.getElementById('cfg-tou-offpeak').value);
+            var pkV = parseFloat(document.getElementById('cfg-tou-peak').value);
+            if (!isNaN(offV) && offV > 0) touRates.push({id:'offpeak', name:'Off-peak', price:offV});
+            if (!isNaN(pkV) && pkV > 0) touRates.push({id:'peak', name:'Peak', price:pkV});
+            var midEl = document.getElementById('cfg-tou-midpeak');
+            var midV = midEl ? parseFloat(midEl.value) : NaN;
+            if (!isNaN(midV) && midV > 0) touRates.push({id:'midpeak', name:'Mid-peak', price:midV});
+            var touPeriods = collectTOUPeriods();
+            var touCfg = {rates: touRates, periods: touPeriods, default: 'offpeak'};
+            payload.tou_config = JSON.stringify(touCfg);
         } else if (mode === 'enever') {
             var tokenEl = document.getElementById('cfg-enever-token');
             var levEl = document.getElementById('cfg-enever-lev');

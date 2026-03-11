@@ -27,6 +27,22 @@ type Supplier struct {
 	Markup float64 `yaml:"markup" json:"markup"` // markup per kWh in local currency
 }
 
+// TOUPresetPeriod defines a time range within a TOU preset.
+type TOUPresetPeriod struct {
+	Days  []int  `yaml:"days" json:"days"`   // 0=Sun, 1=Mon, ..., 6=Sat
+	Start string `yaml:"start" json:"start"` // "08:00"
+	End   string `yaml:"end" json:"end"`     // "22:00"
+	Rate  string `yaml:"rate" json:"rate"`   // "peak", "midpeak"
+}
+
+// TOUPreset defines a country-specific time-of-use schedule template.
+// Users select a preset to auto-fill the schedule; they only need to enter rates.
+type TOUPreset struct {
+	ID      string            `yaml:"id" json:"id"`           // "ciclo_diario"
+	Name    string            `yaml:"name" json:"name"`       // "Ciclo diário"
+	Periods []TOUPresetPeriod `yaml:"periods" json:"periods"` // schedule template
+}
+
 // CountryConfig defines the full configuration for a country.
 // Live tax data comes from the Worker (see TaxProfileCache).
 // TaxDefaults provides embedded fallback for cold-start when Worker is unreachable.
@@ -37,6 +53,7 @@ type CountryConfig struct {
 	Zones       []ZoneInfo           `yaml:"zones" json:"zones"`
 	TaxDefaults *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
 	Suppliers   []Supplier           `yaml:"suppliers,omitempty" json:"suppliers,omitempty"`
+	TOUPresets  []TOUPreset          `yaml:"tou_presets,omitempty" json:"tou_presets,omitempty"`
 }
 
 // ZoneRegistry provides lookup for bidding zones.

@@ -121,6 +121,9 @@ func main() {
 	// (HA Options only knows schema fields; non-schema fields are in the backup).
 	config.RestoreFromSettingsFile(cfg, dataPath)
 
+	// Restore consent flags from dedicated file (independent of Supervisor options).
+	config.RestoreConsent(cfg, dataPath)
+
 	// Save initial backup (migration: captures existing options.json values on first run)
 	settingsPath := config.SettingsFilePath(dataPath)
 	if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
@@ -300,6 +303,29 @@ func main() {
 
 	// Scheduler update callback — publishes sensors on every price update
 	updateFn := func(ctx context.Context, consumerPrices []models.HourlyPrice, result *engine.FetchResult) error {
+		// TOU mode: replace fetched prices with synthetic schedule-based prices
+		if cfg.IsTOUMode() {
+			touCfg, err := engine.ParseTOUConfig(cfg.TOUConfigJSON)
+			if err != nil {
+				slog.Warn("invalid TOU config, falling back to fetched prices", "error", err)
+			} else {
+				todayTOU, tomorrowTOU := engine.GenerateTOUPrices(touCfg, zoneLoc)
+				// Set zone on synthetic prices
+				for i := range todayTOU {
+					todayTOU[i].Zone = cfg.BiddingZone
+				}
+				for i := range tomorrowTOU {
+					tomorrowTOU[i].Zone = cfg.BiddingZone
+				}
+				consumerPrices = append(todayTOU, tomorrowTOU...)
+				result = &engine.FetchResult{
+					Source:  "tou",
+					Tier:    1,
+					Quality: "live",
+				}
+			}
+		}
+
 		// Split into today/tomorrow using local midnight (energy day boundary)
 		now := time.Now().UTC()
 		localNow := now.In(zoneLoc)

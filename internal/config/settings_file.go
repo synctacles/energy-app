@@ -110,6 +110,12 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 		restored++
 	}
 
+	// TOU config (stored as JSON string)
+	if v, ok := settings["tou_config"].(string); ok && v != "" {
+		cfg.TOUConfigJSON = v
+		restored++
+	}
+
 	// External sensor
 	if v, ok := settings["p1_sensor_entity"].(string); ok {
 		cfg.P1SensorEntity = v
@@ -164,6 +170,7 @@ func BuildSettingsMap(cfg *Config) map[string]any {
 		"manual_surcharges":    cfg.ManualSurcharges,
 		"manual_network_tariff": cfg.ManualNetworkTariff,
 		"fixed_rate_price":     cfg.FixedRatePrice,
+		"tou_config":           cfg.TOUConfigJSON,
 		"p1_sensor_entity":     cfg.P1SensorEntity,
 		"power_sensor":         cfg.PowerSensorEntity,
 		"alerts_enabled":       cfg.AlertEnabled,
@@ -172,6 +179,64 @@ func BuildSettingsMap(cfg *Config) map[string]any {
 		"privacy_accepted":     cfg.PrivacyAccepted,
 		"onboarding_completed": cfg.OnboardingCompleted,
 	}
+}
+
+// --- Consent file: dedicated storage for consent flags ---
+// Separate from settings backup to avoid Supervisor options sync issues.
+
+const consentFileName = "consent.json"
+
+// ConsentFilePath returns the path to the consent file.
+func ConsentFilePath(dataPath string) string {
+	return filepath.Join(dataPath, consentFileName)
+}
+
+// ConsentState holds the user's consent flags.
+type ConsentState struct {
+	DisclaimerAccepted  bool `json:"disclaimer_accepted"`
+	PrivacyAccepted     bool `json:"privacy_accepted"`
+	OnboardingCompleted bool `json:"onboarding_completed"`
+}
+
+// SaveConsent writes consent flags to a dedicated file.
+func SaveConsent(dataPath string, state ConsentState) error {
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ConsentFilePath(dataPath), data, 0644)
+}
+
+// LoadConsent reads consent flags from the dedicated file.
+func LoadConsent(dataPath string) (ConsentState, error) {
+	data, err := os.ReadFile(ConsentFilePath(dataPath))
+	if err != nil {
+		return ConsentState{}, err
+	}
+	var state ConsentState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return ConsentState{}, err
+	}
+	return state, nil
+}
+
+// RestoreConsent applies consent flags from the dedicated file to the config.
+// Called on startup after config.Load().
+func RestoreConsent(cfg *Config, dataPath string) {
+	state, err := LoadConsent(dataPath)
+	if err != nil {
+		return // no consent file yet — first run
+	}
+	if state.DisclaimerAccepted {
+		cfg.DisclaimerAccepted = true
+	}
+	if state.PrivacyAccepted {
+		cfg.PrivacyAccepted = true
+	}
+	if state.OnboardingCompleted {
+		cfg.OnboardingCompleted = true
+	}
+	slog.Info("restored consent from file", "disclaimer", state.DisclaimerAccepted, "privacy", state.PrivacyAccepted, "onboarding", state.OnboardingCompleted)
 }
 
 // toFloat handles JSON numbers (always float64 in Go's json package).
