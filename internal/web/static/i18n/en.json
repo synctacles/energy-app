@@ -150,6 +150,8 @@
     "power_sensor_auto_hint": "Auto-detected: {sensor} (leave empty to keep)",
     "power_sensor_hint": "HA entity for live cost (auto-detected if empty)",
     "debug_mode": "Debug Mode",
+    "restart_wizard": "Restart Setup Wizard",
+    "restart_wizard_hint": "Re-run the initial setup to change your region or reconfigure your pricing plan.",
     "save_settings": "Save Settings",
     "saving": "Saving...",
     "saved": "Settings saved.",

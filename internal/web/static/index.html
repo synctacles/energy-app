@@ -1612,6 +1612,10 @@
                         '<button class="toggle-btn' + (c.debug_mode ? ' on' : '') + '" id="cfg-debug-toggle">' + (c.debug_mode ? '&#10003; ON' : 'OFF') + '</button>' +
                     '</div>' +
                 '</div>' +
+                '<div class="form-group" style="margin-top:12px">' +
+                    '<button type="button" class="btn-save" id="btnRestartWizard" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:0.85em;padding:8px 16px">' + t('settings.restart_wizard', 'Restart Setup Wizard') + '</button>' +
+                    '<div class="form-hint">' + t('settings.restart_wizard_hint', 'Re-run the initial setup to change your region or reconfigure your pricing plan.') + '</div>' +
+                '</div>' +
             '</div>' +
 
             '<div class="save-row">' +
@@ -1656,6 +1660,16 @@
             }
         };
         document.getElementById('btnSave').onclick = saveSettings;
+        document.getElementById('btnRestartWizard').onclick = function() {
+            fetch('api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ onboarding_completed: false })
+            }).then(function() {
+                localStorage.removeItem('onboarding_completed');
+                showWizard();
+            });
+        };
         document.getElementById('btnDeleteData').onclick = function() {
             document.getElementById('deleteDataTitle').textContent = t('settings.delete_data_title', 'Delete My Data?');
             document.getElementById('deleteDataBody').textContent = t('settings.delete_data_body', 'This will permanently delete all your data from our servers. This action cannot be undone.');
@@ -2985,11 +2999,11 @@
         // localStorage is a fast cache — backend is the source of truth.
         return fetch('api/config').then(function(r) { return r.json(); }).catch(function() { return {}; });
     }).then(function(cfg) {
-        // Backend is source of truth — sync localStorage both ways
-        var disclaimerOk = cfg.disclaimer_accepted || localStorage.getItem('disclaimer_accepted') === 'true';
-        var privacyOk = cfg.privacy_accepted || localStorage.getItem('privacy_shown') === 'true';
-        var onboardingOk = cfg.onboarding_completed;
-        if (onboardingOk === undefined) onboardingOk = localStorage.getItem('onboarding_completed') === 'true';
+        // Backend is source of truth — sync localStorage both ways.
+        // IMPORTANT: use !== false so that undefined (fetch failed) does NOT trigger modals.
+        var disclaimerOk = cfg.disclaimer_accepted !== false || localStorage.getItem('disclaimer_accepted') === 'true';
+        var privacyOk = cfg.privacy_accepted !== false || localStorage.getItem('privacy_shown') === 'true';
+        var onboardingOk = cfg.onboarding_completed !== false;
         if (cfg.disclaimer_accepted) localStorage.setItem('disclaimer_accepted', 'true');
         if (cfg.privacy_accepted) localStorage.setItem('privacy_shown', 'true');
         if (cfg.onboarding_completed === true) localStorage.setItem('onboarding_completed', 'true');
