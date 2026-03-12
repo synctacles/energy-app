@@ -941,7 +941,7 @@
     var lastPrices = null, lastAvg = 0;
     var _lastDashJson = '';
     var _dashboardBuilt = false;
-    function formatPrice(p) { return (parseFloat(p) * 100).toFixed(1); }
+    function formatPrice(p) { return (parseFloat(p) * 100).toFixed(2); }
 
     // Tax breakdown — loaded from API, cached per zone
     var _taxBreakdownCache = {};
@@ -1315,7 +1315,7 @@
         var tip = ensureChartTooltip();
         if (!tip) return;
         if (hit) {
-            tip.textContent = hit.hour + ' — ' + hit.val.toFixed(1) + ' ct/kWh';
+            tip.textContent = hit.hour + ' — ' + hit.val.toFixed(2) + ' ct/kWh';
             tip.style.opacity = '1';
             var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
             var ty = hit.y - 28;
@@ -2022,7 +2022,7 @@
         _supplierList.forEach(function(s) {
             var opt = document.createElement('option');
             opt.value = s.id;
-            opt.textContent = s.name + ' (+' + (s.markup * 100).toFixed(1) + ' ct)';
+            opt.textContent = s.name + ' (+' + (s.markup * 100).toFixed(2) + ' ct)';
             if (s.id === selectedId) opt.selected = true;
             select.appendChild(opt);
         });
@@ -2814,7 +2814,7 @@
                 addedIds[sid] = true;
                 var opt = document.createElement('option');
                 opt.value = sid;
-                var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
+                var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
                 opt.textContent = s.name + (mkCt ? ' (+' + mkCt + ' ct/kWh)' : '');
                 opt.dataset.markup = s.markup_kwh || 0;
                 sel.appendChild(opt);
@@ -2827,7 +2827,7 @@
                     addedIds[sid] = true;
                     var opt = document.createElement('option');
                     opt.value = sid;
-                    var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(1) : null;
+                    var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
                     opt.textContent = s.name + (mkCt ? ' (~' + mkCt + ' ct/kWh)' : '');
                     opt.dataset.markup = s.markup_kwh || 0;
                     sel.appendChild(opt);
@@ -2838,7 +2838,7 @@
             _wizardSelectedCountry.suppliers.forEach(function(s) {
                 var opt = document.createElement('option');
                 opt.value = s.id;
-                opt.textContent = s.name + (s.markup > 0 ? ' (+' + (s.markup * 100).toFixed(1) + ' ct/kWh)' : '');
+                opt.textContent = s.name + (s.markup > 0 ? ' (+' + (s.markup * 100).toFixed(2) + ' ct/kWh)' : '');
                 opt.dataset.markup = s.markup;
                 sel.appendChild(opt);
             });
@@ -2929,7 +2929,7 @@
                     : t('settings.mode_external_sensor', 'External Sensor'))
                 : _wizardSelectedSupplier;
             if (!_wizardUseSensor && _wizardMarkup > 0) {
-                supName += ' (+' + (_wizardMarkup * 100).toFixed(1) + ' ct/kWh)';
+                supName += ' (+' + (_wizardMarkup * 100).toFixed(2) + ' ct/kWh)';
             }
             supRow.querySelector('.wizard-tax-value').textContent = supName;
             rows.appendChild(supRow);
