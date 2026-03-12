@@ -169,13 +169,17 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Detect tariff sensors (Zonneplan, Tibber, Octopus, P1 Monitor, etc.)
+	// Detect tariff sensors — generic scan for any sensor with /kWh unit
+	// that looks like an electricity tariff. Checks forecast attribute to
+	// identify day-ahead capable sensors (Zonneplan, Tibber, Octopus, etc.)
 	type sensorInfo struct {
-		EntityID     string  `json:"entity_id"`
-		Name         string  `json:"name"`
-		State        float64 `json:"state"`
-		Unit         string  `json:"unit"`
-		SupplierHint string  `json:"supplier_hint,omitempty"`
+		EntityID      string  `json:"entity_id"`
+		Name          string  `json:"name"`
+		State         float64 `json:"state"`
+		Unit          string  `json:"unit"`
+		SupplierHint  string  `json:"supplier_hint,omitempty"`
+		HasForecast   bool    `json:"has_forecast,omitempty"`
+		ForecastHours int     `json:"forecast_hours,omitempty"`
 	}
 	var tariffSensors []sensorInfo
 	var bestSensor *sensorInfo
@@ -216,12 +220,27 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				name := entityID
+				var hasForecast bool
+				var forecastHours int
 				if attrs != nil {
 					if fn, ok := attrs["friendly_name"].(string); ok {
 						name = fn
 					}
+					// Check for forecast attribute (day-ahead prices)
+					if forecast, ok := attrs["forecast"].([]any); ok && len(forecast) > 0 {
+						hasForecast = true
+						forecastHours = len(forecast)
+					}
 				}
-				si := sensorInfo{EntityID: entityID, Name: name, State: val, Unit: unit, SupplierHint: hasensor.SupplierHintFromEntity(entityID)}
+				si := sensorInfo{
+					EntityID:      entityID,
+					Name:          name,
+					State:         val,
+					Unit:          unit,
+					SupplierHint:  hasensor.SupplierHintFromEntity(entityID),
+					HasForecast:   hasForecast,
+					ForecastHours: forecastHours,
+				}
 				tariffSensors = append(tariffSensors, si)
 			}
 		}
@@ -234,9 +253,17 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		// Fallback: pick first sensor if no best detected
+		// Fallback: prefer sensor with day-ahead forecast, then first
 		if bestSensor == nil && len(tariffSensors) > 0 {
-			bestSensor = &tariffSensors[0]
+			for i := range tariffSensors {
+				if tariffSensors[i].HasForecast {
+					bestSensor = &tariffSensors[i]
+					break
+				}
+			}
+			if bestSensor == nil {
+				bestSensor = &tariffSensors[0]
+			}
 		}
 	}
 
