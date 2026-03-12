@@ -1578,9 +1578,9 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Compute breakdown if we have tax data and a wholesale price.
+		// Compute breakdown if we have tax data and a wholesale price (including negative).
 		// Markup priority: exact calc > user config > Worker calibration > 2% fallback.
-		if wholesale > 0 && s.taxCache != nil {
+		if wholesale != 0 && s.taxCache != nil {
 			if tp := s.taxCache.Get(zone); tp != nil {
 				var markup float64
 				displayWholesale := wholesale
