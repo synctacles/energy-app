@@ -82,6 +82,7 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		HasWholesale     bool   `json:"has_wholesale"`
 		TaxDefaults      any    `json:"tax_defaults,omitempty"`
 		RegulatedTariffs any    `json:"regulated_tariffs,omitempty"`
+		TOUPresets       []any  `json:"tou_presets,omitempty"`
 	}
 	type countryEntry struct {
 		Code        string      `json:"code"`
@@ -145,6 +146,11 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		}
 		if z.RegulatedTariffs != nil {
 			ze.RegulatedTariffs = z.RegulatedTariffs
+		}
+		if len(z.TOUPresets) > 0 {
+			for _, p := range z.TOUPresets {
+				ze.TOUPresets = append(ze.TOUPresets, p)
+			}
 		}
 		entry.Zones = append(entry.Zones, ze)
 	}

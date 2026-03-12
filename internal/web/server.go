@@ -698,9 +698,10 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 	resp["pricing_modes"] = modes
 	resp["has_wholesale"] = hasWholesale
 
-	// TOU presets
-	if len(cc.TOUPresets) > 0 {
-		resp["tou_presets"] = cc.TOUPresets
+	// TOU presets: zone-level override if available, else country-level
+	touPresets := s.zoneRegistry.GetTOUPresets(zone)
+	if len(touPresets) > 0 {
+		resp["tou_presets"] = touPresets
 	} else {
 		resp["tou_presets"] = []any{}
 	}

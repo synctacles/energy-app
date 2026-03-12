@@ -15,6 +15,7 @@ type ZoneInfo struct {
 	// Zone-level overrides (optional). When set, these override the country-level defaults.
 	TaxDefaults      *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
 	RegulatedTariffs *RegulatedTariffs    `yaml:"regulated_tariffs,omitempty" json:"regulated_tariffs,omitempty"`
+	TOUPresets       []TOUPreset          `yaml:"tou_presets,omitempty" json:"tou_presets,omitempty"`
 }
 
 // HasWholesale returns true if this zone has ENTSO-E wholesale market data.
@@ -155,6 +156,22 @@ func (r *ZoneRegistry) GetTaxDefaults(zoneCode string) *EmbeddedTaxDefaults {
 		return nil
 	}
 	return cc.TaxDefaults
+}
+
+// GetTOUPresets returns TOU presets for a zone. Zone-level presets override country-level when present.
+func (r *ZoneRegistry) GetTOUPresets(zoneCode string) []TOUPreset {
+	z, ok := r.GetZone(zoneCode)
+	if !ok {
+		return nil
+	}
+	if len(z.TOUPresets) > 0 {
+		return z.TOUPresets
+	}
+	cc, ok := r.GetCountry(z.Country)
+	if !ok {
+		return nil
+	}
+	return cc.TOUPresets
 }
 
 // AllZones returns all registered zone codes.
