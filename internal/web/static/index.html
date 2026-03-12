@@ -1111,7 +1111,7 @@
                     if (sessionStorage.getItem('hint_dismissed_' + hint.id)) return;
                     var msg = '';
                     if (hint.id === 'sensor_available') {
-                        msg = t('hints.sensor_available',
+                        msg = tReplace('hints.sensor_available', {sensor: hint.sensor},
                             'A tariff sensor was detected (' + hint.sensor + '). This may provide more accurate prices than your current setup.');
                     } else if (hint.id === 'enever_available') {
                         msg = t('hints.enever_available',
@@ -1119,7 +1119,7 @@
                     }
                     if (msg) {
                         hintsBanner += '<div class="setup-hint" data-hint-id="' + hint.id + '" style="background:rgba(13,148,136,0.08);color:var(--text);border:1px solid rgba(13,148,136,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.85em;line-height:1.4;display:flex;align-items:flex-start;gap:8px">' +
-                            '<div style="flex:1">' + msg + ' <a href="#" onclick="showSettings();return false" style="color:var(--accent);font-weight:500">' +
+                            '<div style="flex:1">' + msg + ' <a href="#" class="hint-settings-link" style="color:var(--accent);font-weight:500">' +
                             t('hints.go_to_settings', 'Go to Settings') + ' &rarr;</a></div>' +
                             '<button onclick="this.parentElement.style.display=\'none\';sessionStorage.setItem(\'hint_dismissed_' + hint.id + '\',\'1\')" ' +
                             'style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:1.1em;padding:0 4px;line-height:1" title="Dismiss">&times;</button></div>';
@@ -1173,6 +1173,15 @@
                 '</div>';
 
             _dashboardBuilt = true;
+
+            // Bind hint settings links to navigate to Settings tab
+            document.querySelectorAll('.hint-settings-link').forEach(function(link) {
+                link.onclick = function(e) {
+                    e.preventDefault();
+                    var settingsTab = document.querySelector('.tab[data-tab="settings"]');
+                    if (settingsTab) settingsTab.click();
+                };
+            });
 
             if (d.prices_today && d.prices_today.length > 0) {
                 lastPrices = d.prices_today;
@@ -3312,7 +3321,10 @@
             });
             var saveResult = await saveResp.json();
             restarting = saveResult.status === 'restarting';
-        } catch(e) { /* best-effort */ }
+        } catch(e) {
+            // Connection lost during save likely means the app is restarting
+            restarting = true;
+        }
 
         // Submit crowdsource data if verified
         if (saveSettings && _wizardTaxVerified && _wizardSelectedZone && _wizardSelectedCountry) {
