@@ -315,6 +315,8 @@
     "enever_supplier_label": "Jouw leverancier",
     "enever_select_supplier": "Kies je leverancier",
     "enever_auto_variable": "Enever levert exacte leveranciersprijzen \u2014 tarieftype wordt automatisch op Variabel gezet.",
+    "no_wholesale_desc": "Deze zone heeft gereguleerde tarieven (geen groothandelsmarkt). Kies een vast of tijdgebonden tarief.",
+    "regulated_prefilled": "Vooraf ingevuld met ERSE 2026 gereguleerd tarief.",
     "enever_thanks": "Enever levert exacte leveranciersprijzen \u2014 geen handmatige belastinginstellingen nodig.",
     "verify_vat": "BTW-tarief",
     "verify_energy_tax": "Energiebelasting",

@@ -300,6 +300,8 @@
     "enever_supplier_label": "Tu proveedor",
     "enever_select_supplier": "Selecciona tu proveedor",
     "enever_auto_variable": "Enever proporciona precios exactos del proveedor — el tipo de tarifa se establece en Variable automáticamente.",
+    "no_wholesale_desc": "Esta zona tiene tarifas reguladas (sin mercado mayorista). Elige una tarifa fija o por franja horaria.",
+    "regulated_prefilled": "Prellenado con tarifa regulada ERSE 2026.",
     "enever_thanks": "Enever proporciona precios exactos del proveedor — no se necesita configuración manual de impuestos.",
     "verify_vat": "Tipo de IVA",
     "verify_energy_tax": "Impuesto energético",

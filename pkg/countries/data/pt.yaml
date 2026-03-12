@@ -32,6 +32,12 @@ suppliers:
   - id: coopernico
     name: Coopérnico
     markup: 0.022
+  - id: eem
+    name: EEM (Madeira)
+    markup: 0.020
+  - id: eda
+    name: EDA (Açores)
+    markup: 0.020
 tou_presets:
   - id: ciclo_diario
     name: "Ciclo diário"
@@ -58,8 +64,52 @@ tou_presets:
 zones:
 - code: PT
   eic: 10YPT-REN------W
-  name: Portugal
+  name: Portugal (Continental)
   country: PT
   timezone: Europe/Lisbon
   lat: 39.6
   lon: -8.0
+- code: PT_MA
+  eic: ""
+  name: Madeira
+  country: PT
+  timezone: Atlantic/Madeira
+  lat: 32.65
+  lon: -16.92
+  tax_defaults:
+    vat_rate: 0.05
+    energy_tax: 0.001
+    surcharges: 0.002
+    network_tariff_avg: 0.037
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1659
+    tou:
+      ciclo_diario:
+        peak: 0.1980
+        offpeak: 0.1075
+      ciclo_semanal:
+        peak: 0.1980
+        offpeak: 0.1075
+- code: PT_AZ
+  eic: ""
+  name: Açores
+  country: PT
+  timezone: Atlantic/Azores
+  lat: 38.72
+  lon: -27.22
+  tax_defaults:
+    vat_rate: 0.04
+    energy_tax: 0.001
+    surcharges: 0.002
+    network_tariff_avg: 0.037
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1683
+    tou:
+      ciclo_diario:
+        peak: 0.2005
+        offpeak: 0.1082
+      ciclo_semanal:
+        peak: 0.2005
+        offpeak: 0.1082

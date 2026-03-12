@@ -300,6 +300,8 @@
     "enever_supplier_label": "Toimittajasi",
     "enever_select_supplier": "Valitse toimittajasi",
     "enever_auto_variable": "Enever tarjoaa tarkat toimittajahinnat — tariffityyppi asetetaan automaattisesti Vaihtuva-tilaan.",
+    "no_wholesale_desc": "Tällä alueella on säännellyt hinnat (ei tukkumarkkinaa). Valitse kiinteä tai aikaperusteinen hinta.",
+    "regulated_prefilled": "Esitäytetty ERSE 2026 säännellyllä hinnalla.",
     "enever_thanks": "Enever tarjoaa tarkat toimittajahinnat — manuaalista veroasetusta ei tarvita.",
     "verify_vat": "ALV-prosentti",
     "verify_energy_tax": "Energiavero",

@@ -692,6 +692,7 @@
                 <h3 id="wizTariffTitle">Choose your tariff type</h3>
                 <p id="wizTariffIntro" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">How does your energy supplier bill you?</p>
                 <div id="wizTariffEneverBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5;color:var(--text-muted)"></div>
+                <div id="wizTariffRegulatedBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:0.85em;line-height:1.5;color:var(--text-muted)"></div>
                 <div id="wizTariffCards" style="display:flex;flex-direction:column;gap:8px">
                     <div class="wizard-tariff-card active" data-tariff="variable" id="wizTariffVariable">
                         <div style="display:flex;align-items:center;gap:8px">
@@ -2798,6 +2799,7 @@
     var _wizardStep = 0;
     var _wizardSelectedCountry = null;
     var _wizardSelectedZone = null;
+    var _wizardSelectedZoneData = null; // full zone object from wizard data (has_wholesale, regulated_tariffs, etc.)
     var _wizardSelectedSupplier = null;
     var _wizardMarkup = 0;
     var _wizardUseSensor = false;
@@ -2926,6 +2928,7 @@
 
         if (country.zones.length === 1) {
             _wizardSelectedZone = country.zones[0].code;
+            _wizardSelectedZoneData = country.zones[0];
             zoneHint.textContent = t('wizard.single_zone', 'Your country has one bidding zone.');
             zoneWrap.style.display = 'block';
             zoneSel.style.display = 'none';
@@ -2944,6 +2947,7 @@
                     if (z.code === _wizardData.detected_zone) zoneSel.value = z.code;
                 });
                 _wizardSelectedZone = zoneSel.value || null;
+                _wizardSelectedZoneData = wizardFindZoneData(_wizardSelectedZone);
             }
             zoneWrap.style.display = 'block';
             zoneSel.style.display = '';
@@ -2956,7 +2960,17 @@
     };
     document.getElementById('wizZone').onchange = function() {
         _wizardSelectedZone = this.value || null;
+        _wizardSelectedZoneData = wizardFindZoneData(_wizardSelectedZone);
     };
+
+    function wizardFindZoneData(zoneCode) {
+        if (!zoneCode || !_wizardSelectedCountry) return null;
+        var found = null;
+        _wizardSelectedCountry.zones.forEach(function(z) {
+            if (z.code === zoneCode) found = z;
+        });
+        return found;
+    }
 
     function wizardPopulateSuppliers() {
         // Show detected sensor if available
@@ -3138,15 +3152,41 @@
     function wizardPopulateTariffType() {
         var cards = document.querySelectorAll('.wizard-tariff-card');
         var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
-        var banner = document.getElementById('wizTariffEneverBanner');
+        var eneverBanner = document.getElementById('wizTariffEneverBanner');
+        var regulatedBanner = document.getElementById('wizTariffRegulatedBanner');
+        var variableCard = document.getElementById('wizTariffVariable');
+
+        // Check if zone has wholesale market
+        var hasWholesale = !_wizardSelectedZoneData || _wizardSelectedZoneData.has_wholesale !== false;
+        var regulated = _wizardSelectedZoneData && _wizardSelectedZoneData.regulated_tariffs;
+
+        // Non-wholesale zone: hide Variable, show regulated banner
+        if (!hasWholesale) {
+            variableCard.style.display = 'none';
+            regulatedBanner.textContent = t('wizard.no_wholesale_desc', 'This zone has regulated tariffs (no wholesale market). Choose a fixed or time-of-use tariff.');
+            regulatedBanner.style.display = '';
+            if (_wizardTariffType === 'variable') {
+                _wizardTariffType = 'fixed';
+            }
+            // Pre-fill rates from regulated tariffs
+            if (regulated) {
+                if (regulated.fixed) {
+                    document.getElementById('wizFixedRateInput').value = (regulated.fixed * 100).toFixed(2);
+                    _wizardFixedRate = regulated.fixed * 100;
+                }
+            }
+        } else {
+            variableCard.style.display = '';
+            regulatedBanner.style.display = 'none';
+        }
 
         // If Enever configured, lock to variable and show banner
-        if (hasEnever) {
+        if (hasEnever && hasWholesale) {
             _wizardTariffType = 'variable';
-            banner.textContent = t('wizard.enever_auto_variable', 'Enever provides exact supplier prices \u2014 tariff type is set to Variable automatically.');
-            banner.style.display = '';
+            eneverBanner.textContent = t('wizard.enever_auto_variable', 'Enever provides exact supplier prices \u2014 tariff type is set to Variable automatically.');
+            eneverBanner.style.display = '';
         } else {
-            banner.style.display = 'none';
+            eneverBanner.style.display = 'none';
         }
 
         // Hide TOU option if country has no presets
@@ -3177,8 +3217,9 @@
 
         // Disable cards if Enever locked
         cards.forEach(function(card) {
-            card.style.opacity = hasEnever && card.dataset.tariff !== 'variable' ? '0.5' : '';
-            card.style.pointerEvents = hasEnever && card.dataset.tariff !== 'variable' ? 'none' : '';
+            if (card.style.display === 'none') return;
+            card.style.opacity = hasEnever && hasWholesale && card.dataset.tariff !== 'variable' ? '0.5' : '';
+            card.style.pointerEvents = hasEnever && hasWholesale && card.dataset.tariff !== 'variable' ? 'none' : '';
         });
     }
 
@@ -3209,6 +3250,19 @@
             // Check if this preset has midpeak
             var hasMidpeak = _wizardTOUPreset.periods && _wizardTOUPreset.periods.some(function(p) { return p.rate === 'midpeak'; });
             document.getElementById('wizTOUMidpeakWrap').style.display = hasMidpeak ? '' : 'none';
+            // Pre-fill TOU rates from regulated tariffs if available
+            var regulated = _wizardSelectedZoneData && _wizardSelectedZoneData.regulated_tariffs;
+            if (regulated && regulated.tou && regulated.tou[this.value]) {
+                var rates = regulated.tou[this.value];
+                if (rates.peak) {
+                    document.getElementById('wizTOUPeakInput').value = (rates.peak * 100).toFixed(2);
+                    _wizardTOURates.peak = rates.peak * 100;
+                }
+                if (rates.offpeak) {
+                    document.getElementById('wizTOUOffpeakInput').value = (rates.offpeak * 100).toFixed(2);
+                    _wizardTOURates.offpeak = rates.offpeak * 100;
+                }
+            }
         } catch(e) { _wizardTOUPreset = null; }
     };
 
@@ -3246,8 +3300,10 @@
             rows.appendChild(row);
         });
 
-        // Tax section
-        var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
+        // Tax section — zone-level overrides take precedence over country-level
+        var tax = (_wizardSelectedZoneData && _wizardSelectedZoneData.tax_defaults)
+            ? _wizardSelectedZoneData.tax_defaults
+            : (_wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null);
         var taxRows = document.getElementById('wizSummaryTaxRows');
         taxRows.innerHTML = '';
         _wizardTaxOverrides = null; // Reset on each populate

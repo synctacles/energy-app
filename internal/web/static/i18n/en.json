@@ -312,6 +312,8 @@
     "enever_supplier_label": "Your supplier",
     "enever_select_supplier": "Select your supplier",
     "enever_auto_variable": "Enever provides exact supplier prices — tariff type is set to Variable automatically.",
+    "no_wholesale_desc": "This zone has regulated tariffs (no wholesale market). Choose a fixed or time-of-use tariff.",
+    "regulated_prefilled": "Pre-filled with ERSE 2026 regulated tariff.",
     "enever_thanks": "Enever provides exact supplier prices — no manual tax setup needed.",
     "verify_vat": "VAT rate",
     "verify_energy_tax": "Energy tax",

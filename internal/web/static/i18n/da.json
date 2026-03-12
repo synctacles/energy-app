@@ -300,6 +300,8 @@
     "enever_supplier_label": "Din leverandør",
     "enever_select_supplier": "Vælg din leverandør",
     "enever_auto_variable": "Enever leverer nøjagtige leverandørpriser — tariftype sættes automatisk til Variabel.",
+    "no_wholesale_desc": "Denne zone har regulerede tariffer (ingen engrosmarked). Vælg en fast eller tidsbaseret tarif.",
+    "regulated_prefilled": "Forudfyldt med ERSE 2026 reguleret tarif.",
     "enever_thanks": "Enever leverer nøjagtige leverandørpriser — ingen manuel skatteopsætning nødvendig.",
     "verify_vat": "Momssats",
     "verify_energy_tax": "Energiafgift",

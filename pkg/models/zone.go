@@ -11,6 +11,27 @@ type ZoneInfo struct {
 	Timezone string  `yaml:"timezone" json:"timezone"` // "Europe/Amsterdam"
 	Lat      float64 `yaml:"lat" json:"lat"`           // zone centroid latitude
 	Lon      float64 `yaml:"lon" json:"lon"`           // zone centroid longitude
+
+	// Zone-level overrides (optional). When set, these override the country-level defaults.
+	TaxDefaults      *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
+	RegulatedTariffs *RegulatedTariffs    `yaml:"regulated_tariffs,omitempty" json:"regulated_tariffs,omitempty"`
+}
+
+// HasWholesale returns true if this zone has ENTSO-E wholesale market data.
+func (z ZoneInfo) HasWholesale() bool {
+	return z.EIC != ""
+}
+
+// RegulatedTariffs defines pre-set tariff rates for zones with regulated (non-wholesale) pricing.
+type RegulatedTariffs struct {
+	Fixed float64                      `yaml:"fixed" json:"fixed"` // flat rate EUR/kWh
+	TOU   map[string]RegulatedTOURates `yaml:"tou" json:"tou"`    // preset_id → rates
+}
+
+// RegulatedTOURates defines peak/offpeak rates for a regulated TOU preset.
+type RegulatedTOURates struct {
+	Peak    float64 `yaml:"peak" json:"peak"`       // EUR/kWh
+	Offpeak float64 `yaml:"offpeak" json:"offpeak"` // EUR/kWh
 }
 
 // EmbeddedTaxDefaults provides fallback tax data for cold-start scenarios when
@@ -119,8 +140,17 @@ func (r *ZoneRegistry) GetCountryForZone(zoneCode string) (*CountryConfig, bool)
 }
 
 // GetTaxDefaults returns embedded fallback tax defaults for a zone, or nil if unavailable.
+// Zone-level tax_defaults override country-level when present.
 func (r *ZoneRegistry) GetTaxDefaults(zoneCode string) *EmbeddedTaxDefaults {
-	cc, ok := r.GetCountryForZone(zoneCode)
+	z, ok := r.GetZone(zoneCode)
+	if !ok {
+		return nil
+	}
+	// Zone-level override takes precedence
+	if z.TaxDefaults != nil {
+		return z.TaxDefaults
+	}
+	cc, ok := r.GetCountry(z.Country)
 	if !ok || cc.TaxDefaults == nil {
 		return nil
 	}

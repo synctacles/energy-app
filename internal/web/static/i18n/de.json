@@ -300,6 +300,8 @@
     "enever_supplier_label": "Dein Anbieter",
     "enever_select_supplier": "Wähle deinen Anbieter",
     "enever_auto_variable": "Enever liefert exakte Anbieterpreise — der Tariftyp wird automatisch auf Variabel gesetzt.",
+    "no_wholesale_desc": "Diese Zone hat regulierte Tarife (kein Großhandelsmarkt). Wählen Sie einen Fest- oder Zeittarif.",
+    "regulated_prefilled": "Vorausgefüllt mit ERSE 2026 reguliertem Tarif.",
     "enever_thanks": "Enever liefert exakte Anbieterpreise — keine manuelle Steuereinrichtung nötig.",
     "verify_vat": "MwSt.-Satz",
     "verify_energy_tax": "Energiesteuer",

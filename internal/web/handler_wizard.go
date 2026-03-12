@@ -76,9 +76,12 @@ func fetchHarvestedProfile(ctx context.Context, installUUID string) *installProf
 // zones grouped by country, suppliers, tax defaults, current config, and detected zone.
 func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	type zoneEntry struct {
-		Code     string `json:"code"`
-		Name     string `json:"name"`
-		Timezone string `json:"timezone"`
+		Code             string `json:"code"`
+		Name             string `json:"name"`
+		Timezone         string `json:"timezone"`
+		HasWholesale     bool   `json:"has_wholesale"`
+		TaxDefaults      any    `json:"tax_defaults,omitempty"`
+		RegulatedTariffs any    `json:"regulated_tariffs,omitempty"`
 	}
 	type countryEntry struct {
 		Code        string      `json:"code"`
@@ -130,11 +133,20 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 			}
 			countriesMap[z.Country] = entry
 		}
-		entry.Zones = append(entry.Zones, zoneEntry{
-			Code:     z.Code,
-			Name:     z.Name,
-			Timezone: z.Timezone,
-		})
+		ze := zoneEntry{
+			Code:         z.Code,
+			Name:         z.Name,
+			Timezone:     z.Timezone,
+			HasWholesale: z.HasWholesale(),
+		}
+		// Zone-level tax defaults override country-level
+		if z.TaxDefaults != nil {
+			ze.TaxDefaults = z.TaxDefaults
+		}
+		if z.RegulatedTariffs != nil {
+			ze.RegulatedTariffs = z.RegulatedTariffs
+		}
+		entry.Zones = append(entry.Zones, ze)
 	}
 
 	// Sort countries by name

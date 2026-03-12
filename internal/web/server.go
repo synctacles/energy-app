@@ -676,12 +676,27 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 		"has_enever": cc.Country == "NL",
 	}
 
-	// Available pricing modes for this country
+	// Check if zone has ENTSO-E wholesale data
+	zoneInfo, _ := s.zoneRegistry.GetZone(zone)
+	hasWholesale := zoneInfo.HasWholesale()
+
+	// Available pricing modes for this country/zone
 	modes := []string{"auto", "manual", "external_sensor", "fixed", "tou"}
 	if cc.Country == "NL" {
 		modes = append(modes, "enever")
 	}
+	// Non-wholesale zones: remove "auto" (no ENTSO-E spot prices available)
+	if !hasWholesale {
+		filtered := make([]string, 0, len(modes))
+		for _, m := range modes {
+			if m != "auto" {
+				filtered = append(filtered, m)
+			}
+		}
+		modes = filtered
+	}
 	resp["pricing_modes"] = modes
+	resp["has_wholesale"] = hasWholesale
 
 	// TOU presets
 	if len(cc.TOUPresets) > 0 {
@@ -697,9 +712,15 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 		resp["suppliers"] = []any{}
 	}
 
-	// Embedded tax defaults (fallback for cold-start)
-	if cc.TaxDefaults != nil {
-		resp["tax_defaults"] = cc.TaxDefaults
+	// Tax defaults: zone-level override if available, else country-level
+	taxDefaults := s.zoneRegistry.GetTaxDefaults(zone)
+	if taxDefaults != nil {
+		resp["tax_defaults"] = taxDefaults
+	}
+
+	// Regulated tariffs for non-wholesale zones
+	if zoneInfo.RegulatedTariffs != nil {
+		resp["regulated_tariffs"] = zoneInfo.RegulatedTariffs
 	}
 
 	writeJSON(w, resp)
