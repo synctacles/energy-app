@@ -3077,73 +3077,28 @@
             sel.appendChild(opt);
         });
 
-        // Show sensor advice when a day-ahead sensor is detected
+        // Show sensor info when a day-ahead sensor is detected (complementary to Enever)
         var adviceDiv = document.getElementById('wizEneverSensorAdvice');
         var sensor = _wizardData && _wizardData.detected_sensor;
         if (sensor && sensor.has_forecast) {
             var sensorName = sensor.name || sensor.entity_id;
             var sensorPrice = (sensor.state * 100).toFixed(2);
-            var forecastLabel = sensor.forecast_hours ? sensor.forecast_hours + 'h' : '';
-            var supplierHint = sensor.supplier_hint
-                ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
-                : '';
 
             var html = '<strong style="color:var(--accent)">' +
                 t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
-                tReplace('wizard.sensor_enever_advice',
-                    { sensor: sensorName, supplier: supplierHint, hours: forecastLabel, price: sensorPrice },
-                    '<strong>' + sensorName + '</strong> provides day-ahead prices' +
-                    (supplierHint ? ' from ' + supplierHint : '') +
-                    (forecastLabel ? ' (' + forecastLabel + ' forecast)' : '') +
-                    '. Current price: <strong>' + sensorPrice + ' ct/kWh</strong>.' +
-                    ' This sensor delivers more accurate prices directly from your supplier than Enever.') +
-                '<div style="margin-top:8px">' +
-                '<button id="wizEneverUseSensorBtn" class="wizard-btn-primary" style="padding:8px 16px;font-size:0.82em;width:auto;display:inline-block;margin-right:8px">' +
-                t('wizard.sensor_use_instead', 'Use sensor prices') + '</button>' +
-                '<span style="font-size:0.82em;color:var(--text-faint)">' +
-                t('wizard.sensor_or_enever', 'or enter Enever API key below') + '</span></div>';
+                tReplace('wizard.sensor_enever_info',
+                    { sensor: sensorName, price: sensorPrice },
+                    '<strong>' + sensorName + '</strong> detected (current: <strong>' + sensorPrice + ' ct/kWh</strong>). ' +
+                    'When you also configure Enever below, the dashboard will show the price difference between your sensor and Enever.');
             adviceDiv.innerHTML = html;
             adviceDiv.style.display = '';
-
-            // Bind click after innerHTML is set
-            document.getElementById('wizEneverUseSensorBtn').onclick = function() {
-                _wizardUseSensor = true;
-                _wizardSensorEntity = sensor.entity_id;
-                _wizardEneverMode = false;
-                // Build sensor summary
-                wizardPopulateSensorSummary(sensor);
-                wizardShowStep(4);
-            };
+            // Store sensor entity for delta tracking (saved alongside Enever config)
+            _wizardSensorEntity = sensor.entity_id;
         } else {
             adviceDiv.style.display = 'none';
         }
     }
 
-    function wizardPopulateSensorSummary(sensor) {
-        var rows = document.getElementById('wizSummaryRows');
-        rows.innerHTML = '';
-        var sensorName = sensor.name || sensor.entity_id;
-        var supplierHint = sensor.supplier_hint
-            ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
-            : '';
-        var items = [
-            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '\u2014' },
-            { label: t('wizard.summary_mode', 'Pricing mode'), value: t('settings.mode_external_sensor', 'External Sensor') },
-            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierHint ? supplierHint + ' (sensor)' : sensorName },
-            { label: t('wizard.summary_sensor', 'Sensor'), value: sensorName }
-        ];
-        items.forEach(function(item) {
-            var row = document.createElement('div');
-            row.className = 'wizard-summary-row';
-            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
-            row.querySelector('.wizard-summary-label').textContent = item.label;
-            row.querySelector('.wizard-summary-value').textContent = item.value;
-            rows.appendChild(row);
-        });
-        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
-        document.getElementById('wizSummaryThanks').textContent = t('wizard.sensor_summary_thanks',
-            'Your sensor provides real-time prices directly from your supplier \u2014 no manual configuration needed.');
-    }
 
     // Show leverancier dropdown when token is entered, update Next button
     function wizEneverUpdateBtn() {
@@ -3185,7 +3140,7 @@
         if (step === 1) wizardPopulateEnever();
         if (step === 2) wizardPopulateSuppliers();
         if (step === 3) wizardPopulateTax();
-        if (step === 4 && !_wizardEneverMode && !_wizardUseSensor) wizardPopulateSummary();
+        if (step === 4 && !_wizardEneverMode) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
@@ -3246,9 +3201,7 @@
             wizardShowStep(1); // Back to Enever
         } else if (_wizardStep === 2) {
             wizardShowStep(0); // Back to Region (non-NL)
-        } else if (_wizardStep === 4 && (_wizardEneverMode || _wizardUseSensor)) {
-            _wizardUseSensor = false;
-            _wizardSensorEntity = null;
+        } else if (_wizardStep === 4 && _wizardEneverMode) {
             wizardShowStep(1); // Back to Enever
         } else if (_wizardStep > 0) {
             wizardShowStep(_wizardStep - 1);
@@ -3296,6 +3249,10 @@
                 configPayload.enever_enabled = true;
                 configPayload.enever_token = (document.getElementById('wizEneverToken').value || '').trim();
                 configPayload.enever_leverancier = document.getElementById('wizEneverSupplier').value;
+                // Also save detected sensor for delta comparison on dashboard
+                if (_wizardSensorEntity) {
+                    configPayload.p1_sensor_entity = _wizardSensorEntity;
+                }
             } else if (_wizardUseSensor && _wizardSensorEntity) {
                 // External sensor mode — use the detected tariff sensor
                 configPayload.pricing_mode = 'external_sensor';

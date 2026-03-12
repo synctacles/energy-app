@@ -405,10 +405,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) buildSetupHints() []map[string]string {
 	var hints []map[string]string
 	mode := s.cfg.PricingMode
-
-	// Hint: day-ahead sensor available but not used
 	isSensorMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
-	if !isSensorMode && s.detectedTariffSensor != "" && s.cfg.P1SensorEntity != s.detectedTariffSensor {
+	hasSensor := s.detectedTariffSensor != ""
+	sensorConfigured := s.cfg.P1SensorEntity != ""
+
+	// Hint: day-ahead sensor available but not configured anywhere
+	// (not in sensor mode, and not saved as p1_sensor_entity for delta)
+	if !isSensorMode && hasSensor && !sensorConfigured {
 		hints = append(hints, map[string]string{
 			"id":      "sensor_available",
 			"sensor":  s.detectedTariffSensor,
