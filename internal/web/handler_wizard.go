@@ -229,7 +229,22 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 					// Check for forecast attribute (day-ahead prices)
 					if forecast, ok := attrs["forecast"].([]any); ok && len(forecast) > 0 {
 						hasForecast = true
-						forecastHours = len(forecast)
+						now := time.Now()
+						for _, f := range forecast {
+							fm, ok := f.(map[string]any)
+							if !ok {
+								forecastHours = len(forecast)
+								break
+							}
+							dt, _ := fm["datetime"].(string)
+							if dt == "" {
+								forecastHours = len(forecast)
+								break
+							}
+							if ts, err := time.Parse(time.RFC3339Nano, dt); err == nil && ts.After(now) {
+								forecastHours++
+							}
+						}
 					}
 				}
 				si := sensorInfo{
