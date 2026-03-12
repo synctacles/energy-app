@@ -140,17 +140,29 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		return countries[i].Name < countries[j].Name
 	})
 
-	// Detect zone from HA timezone
+	// Detect zone from HA config (coordinates > timezone > country)
 	var detectedZone string
+	var zoneMismatch bool
+	var detectedCountryName string
+	var haCountry string
+	var detectMethod string
 	if s.supervisor != nil {
 		haConfig, err := s.supervisor.GetConfig(r.Context())
 		if err == nil {
-			if tz, ok := haConfig["time_zone"].(string); ok && tz != "" {
-				for _, code := range s.zoneRegistry.AllZones() {
-					z, ok := s.zoneRegistry.GetZone(code)
-					if ok && z.Timezone == tz {
-						detectedZone = z.Code
-						break
+			lat, _ := haConfig["latitude"].(float64)
+			lon, _ := haConfig["longitude"].(float64)
+			tz, _ := haConfig["time_zone"].(string)
+			haCountry, _ = haConfig["country"].(string)
+
+			result := s.zoneRegistry.DetectZone(lat, lon, tz, haCountry)
+			if result != nil {
+				detectedZone = result.Zone.Code
+				zoneMismatch = result.Mismatch
+				detectMethod = result.Method
+				if result.Mismatch {
+					cc, _ := s.zoneRegistry.GetCountry(result.Country)
+					if cc != nil {
+						detectedCountryName = cc.Name
 					}
 				}
 			}
@@ -280,6 +292,9 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
 		"countries":     countries,
 		"detected_zone": detectedZone,
+		"detect_method": detectMethod,
+		"zone_mismatch": zoneMismatch,
+		"ha_country":    haCountry,
 		"current_config": map[string]any{
 			"zone":                 s.cfg.BiddingZone,
 			"pricing_mode":         s.cfg.PricingMode,
@@ -298,6 +313,9 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	}
 	if emaMarkup != nil {
 		resp["ema_markup"] = emaMarkup
+	}
+	if detectedCountryName != "" {
+		resp["detected_country_name"] = detectedCountryName
 	}
 	writeJSON(w, resp)
 }

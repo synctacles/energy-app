@@ -1779,7 +1779,20 @@
                 if (data.detected) {
                     document.getElementById('cfg-zone').value = data.zone;
                     result.style.color = '#0d9488';
-                    result.textContent = data.name + ' (' + data.zone + ')';
+                    var detectText = data.name + ' (' + data.zone + ')';
+                    if (data.distance_km) detectText += ' — ' + data.distance_km + ' km';
+                    result.textContent = detectText;
+                    if (data.mismatch) {
+                        result.style.color = '#d97706';
+                        result.innerHTML = detectText +
+                            '<div style="margin-top:6px;padding:8px 12px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.9em">' +
+                            '⚠️ ' + tReplace('settings.zone_mismatch',
+                                {detected: data.detected_country_name || data.country, ha_country: data.ha_country},
+                                'Your location appears to be in ' + (data.detected_country_name || data.country) +
+                                ', but your HA is configured for ' + data.ha_country +
+                                '. The detected zone has been applied.') +
+                            '</div>';
+                    }
                     onZoneChange(data.zone);
                 } else if (data.unsupported_region) {
                     result.style.color = '#d97706';
@@ -2718,7 +2731,19 @@
                 var detDiv = document.getElementById('wizDetected');
                 detDiv.style.display = 'block';
                 var detLabel = detectedCountry.name + ' (' + _wizardData.detected_zone + ')';
-                detDiv.textContent = '\u2713 ' + tReplace('wizard.detected_zone', {zone: detLabel}, 'Detected: ' + detLabel);
+                var methodLabel = _wizardData.detect_method === 'coordinates' ? ' (GPS)' :
+                                  _wizardData.detect_method === 'timezone' ? ' (timezone)' : '';
+                detDiv.innerHTML = '\u2713 ' + tReplace('wizard.detected_zone', {zone: detLabel}, 'Detected: ' + detLabel) + '<span style="opacity:0.5;font-size:0.85em">' + methodLabel + '</span>';
+                if (_wizardData.zone_mismatch) {
+                    var mismatchDiv = document.createElement('div');
+                    mismatchDiv.style.cssText = 'margin-top:8px;padding:10px 14px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:0.9em;line-height:1.5';
+                    mismatchDiv.innerHTML = '\u26a0\ufe0f ' + tReplace('wizard.zone_mismatch',
+                        {detected: _wizardData.detected_country_name || detectedCountry.name, ha_country: _wizardData.ha_country},
+                        'Your location appears to be in <strong>' + (_wizardData.detected_country_name || detectedCountry.name) +
+                        '</strong>, but your Home Assistant is configured for <strong>' + _wizardData.ha_country +
+                        '</strong>. We have applied the detected zone. You can change this below if needed.');
+                    detDiv.appendChild(mismatchDiv);
+                }
             }
         }
 
