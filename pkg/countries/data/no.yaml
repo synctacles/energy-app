@@ -20,23 +20,33 @@ zones:
   name: Oslo / East Norway
   country: 'NO'
   timezone: Europe/Oslo
+  lat: 59.91
+  lon: 10.75
 - code: NO2
   eic: 10YNO-2--------T
   name: Kristiansand / South Norway
   country: 'NO'
   timezone: Europe/Oslo
+  lat: 58.16
+  lon: 7.99
 - code: NO3
   eic: 10YNO-3--------J
   name: Trondheim / Central Norway
   country: 'NO'
   timezone: Europe/Oslo
+  lat: 63.43
+  lon: 10.39
 - code: NO4
   eic: 10YNO-4--------9
   name: Tromsoe / North Norway
   country: 'NO'
   timezone: Europe/Oslo
+  lat: 68.44
+  lon: 17.43
 - code: NO5
   eic: 10Y1001A1001A48H
   name: Bergen / West Norway
   country: 'NO'
   timezone: Europe/Oslo
+  lat: 60.39
+  lon: 5.32

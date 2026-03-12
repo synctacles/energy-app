@@ -25,3 +25,5 @@ zones:
 - code: IE
   name: Ireland
   timezone: Europe/Dublin
+  lat: 53.41
+  lon: -8.24

@@ -5,3 +5,5 @@ zones:
 - code: EE
   name: Estonia
   timezone: Europe/Tallinn
+  lat: 58.6
+  lon: 25.01

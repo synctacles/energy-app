@@ -13,3 +13,5 @@ zones:
   name: Finland
   country: FI
   timezone: Europe/Helsinki
+  lat: 64.0
+  lon: 26.0

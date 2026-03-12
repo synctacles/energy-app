@@ -22,3 +22,5 @@ zones:
   name: Poland
   country: PL
   timezone: Europe/Warsaw
+  lat: 51.92
+  lon: 19.15

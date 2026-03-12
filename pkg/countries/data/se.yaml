@@ -20,18 +20,26 @@ zones:
   name: Luleå / Northern Sweden
   country: SE
   timezone: Europe/Stockholm
+  lat: 67.85
+  lon: 20.22
 - code: SE2
   eic: 10Y1001A1001A45N
   name: Sundsvall / Central North
   country: SE
   timezone: Europe/Stockholm
+  lat: 64.0
+  lon: 18.0
 - code: SE3
   eic: 10Y1001A1001A46L
   name: Stockholm / Central South
   country: SE
   timezone: Europe/Stockholm
+  lat: 59.33
+  lon: 18.07
 - code: SE4
   eic: 10Y1001A1001A47J
   name: Malmö / Southern Sweden
   country: SE
   timezone: Europe/Stockholm
+  lat: 55.6
+  lon: 13.0

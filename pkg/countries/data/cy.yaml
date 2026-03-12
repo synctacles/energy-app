@@ -5,3 +5,5 @@ zones:
 - code: CY
   name: Cyprus
   timezone: Asia/Nicosia
+  lat: 35.13
+  lon: 33.43

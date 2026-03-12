@@ -61,3 +61,5 @@ zones:
   name: Portugal
   country: PT
   timezone: Europe/Lisbon
+  lat: 39.6
+  lon: -8.0

@@ -13,3 +13,5 @@ zones:
 - code: HR
   name: Croatia
   timezone: Europe/Zagreb
+  lat: 45.1
+  lon: 15.2

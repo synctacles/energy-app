@@ -26,3 +26,5 @@ zones:
   name: Netherlands
   country: NL
   timezone: Europe/Amsterdam
+  lat: 52.37
+  lon: 5.3

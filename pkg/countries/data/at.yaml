@@ -17,3 +17,5 @@ zones:
   name: Austria
   country: AT
   timezone: Europe/Vienna
+  lat: 47.52
+  lon: 14.55

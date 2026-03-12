@@ -1,12 +1,16 @@
 package models
 
+import "math"
+
 // ZoneInfo describes a bidding zone and its configuration.
 type ZoneInfo struct {
-	Code     string `yaml:"code" json:"code"`         // "NL", "DE-LU", "NO1", etc.
-	EIC      string `yaml:"eic" json:"eic"`           // ENTSO-E EIC code
-	Name     string `yaml:"name" json:"name"`         // "Netherlands"
-	Country  string `yaml:"country" json:"country"`   // "NL", "DE", "NO"
-	Timezone string `yaml:"timezone" json:"timezone"` // "Europe/Amsterdam"
+	Code     string  `yaml:"code" json:"code"`         // "NL", "DE-LU", "NO1", etc.
+	EIC      string  `yaml:"eic" json:"eic"`           // ENTSO-E EIC code
+	Name     string  `yaml:"name" json:"name"`         // "Netherlands"
+	Country  string  `yaml:"country" json:"country"`   // "NL", "DE", "NO"
+	Timezone string  `yaml:"timezone" json:"timezone"` // "Europe/Amsterdam"
+	Lat      float64 `yaml:"lat" json:"lat"`           // zone centroid latitude
+	Lon      float64 `yaml:"lon" json:"lon"`           // zone centroid longitude
 }
 
 // EmbeddedTaxDefaults provides fallback tax data for cold-start scenarios when
@@ -130,4 +134,138 @@ func (r *ZoneRegistry) AllZones() []string {
 		codes = append(codes, code)
 	}
 	return codes
+}
+
+// ZoneDetectResult holds the result of zone auto-detection.
+type ZoneDetectResult struct {
+	Zone       ZoneInfo `json:"zone"`
+	Country    string   `json:"country"`
+	Method     string   `json:"method"`     // "coordinates", "timezone", "country"
+	Mismatch   bool     `json:"mismatch"`   // true if HA country differs from detected
+	HACountry  string   `json:"ha_country"` // original HA country setting
+	Distance   float64  `json:"distance"`   // km from zone centroid (coordinates method)
+}
+
+// DetectZone determines the best matching zone using HA config signals.
+// Priority: coordinates (strongest) > timezone > HA country (weakest).
+// For coordinates, timezone is used as tiebreaker when multiple zones
+// are within reasonable distance (e.g. NL vs BE vs DE borders).
+func (r *ZoneRegistry) DetectZone(lat, lon float64, timezone, haCountry string) *ZoneDetectResult {
+	// 1. Coordinates: find nearest zone, prefer timezone match as tiebreaker
+	if lat != 0 || lon != 0 {
+		best, dist := r.nearestZone(lat, lon)
+		if best.Code != "" {
+			// If timezone matches a different zone that's also close, prefer that
+			if timezone != "" && best.Timezone != timezone {
+				tzBest, tzDist := r.nearestZoneWithTimezone(lat, lon, timezone)
+				if tzBest.Code != "" && tzDist < dist*1.5 {
+					// Timezone-matching zone is within 50% of nearest → prefer it
+					best = tzBest
+					dist = tzDist
+				}
+			}
+			return &ZoneDetectResult{
+				Zone:      best,
+				Country:   best.Country,
+				Method:    "coordinates",
+				Mismatch:  haCountry != "" && haCountry != best.Country,
+				HACountry: haCountry,
+				Distance:  dist,
+			}
+		}
+	}
+
+	// 2. Timezone match
+	if timezone != "" {
+		for _, code := range r.AllZones() {
+			z, ok := r.GetZone(code)
+			if !ok {
+				continue
+			}
+			if z.Timezone == timezone {
+				return &ZoneDetectResult{
+					Zone:      z,
+					Country:   z.Country,
+					Method:    "timezone",
+					Mismatch:  haCountry != "" && haCountry != z.Country,
+					HACountry: haCountry,
+				}
+			}
+		}
+	}
+
+	// 3. HA country as fallback
+	if haCountry != "" {
+		z, ok := r.GetZone(haCountry)
+		if ok {
+			return &ZoneDetectResult{
+				Zone:      z,
+				Country:   z.Country,
+				Method:    "country",
+				HACountry: haCountry,
+			}
+		}
+		// Try alias (e.g. "DE" → "DE-LU")
+		if alias, hasAlias := r.aliases[haCountry]; hasAlias {
+			z, ok = r.GetZone(alias)
+			if ok {
+				return &ZoneDetectResult{
+					Zone:      z,
+					Country:   z.Country,
+					Method:    "country",
+					HACountry: haCountry,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// nearestZone finds the zone with centroid closest to the given coordinates.
+func (r *ZoneRegistry) nearestZone(lat, lon float64) (ZoneInfo, float64) {
+	var best ZoneInfo
+	bestDist := math.MaxFloat64
+	for _, z := range r.zones {
+		if z.Lat == 0 && z.Lon == 0 {
+			continue
+		}
+		d := haversine(lat, lon, z.Lat, z.Lon)
+		if d < bestDist {
+			bestDist = d
+			best = z
+		}
+	}
+	return best, bestDist
+}
+
+// nearestZoneWithTimezone finds the nearest zone that matches the given timezone.
+func (r *ZoneRegistry) nearestZoneWithTimezone(lat, lon float64, timezone string) (ZoneInfo, float64) {
+	var best ZoneInfo
+	bestDist := math.MaxFloat64
+	for _, z := range r.zones {
+		if z.Lat == 0 && z.Lon == 0 {
+			continue
+		}
+		if z.Timezone != timezone {
+			continue
+		}
+		d := haversine(lat, lon, z.Lat, z.Lon)
+		if d < bestDist {
+			bestDist = d
+			best = z
+		}
+	}
+	return best, bestDist
+}
+
+// haversine returns the great-circle distance in km between two points.
+func haversine(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371 // Earth radius in km
+	dLat := (lat2 - lat1) * math.Pi / 180
+	dLon := (lon2 - lon1) * math.Pi / 180
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	return R * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }

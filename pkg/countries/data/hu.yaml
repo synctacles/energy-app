@@ -7,3 +7,5 @@ zones:
   name: Hungary
   country: HU
   timezone: Europe/Budapest
+  lat: 47.16
+  lon: 19.5

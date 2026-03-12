@@ -37,3 +37,5 @@ zones:
   name: Spain
   country: ES
   timezone: Europe/Madrid
+  lat: 40.42
+  lon: -3.7

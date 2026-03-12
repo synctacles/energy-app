@@ -13,3 +13,5 @@ zones:
 - code: GR
   name: Greece
   timezone: Europe/Athens
+  lat: 39.07
+  lon: 21.82

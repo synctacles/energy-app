@@ -25,3 +25,5 @@ zones:
   name: Belgium
   country: BE
   timezone: Europe/Brussels
+  lat: 50.5
+  lon: 4.47

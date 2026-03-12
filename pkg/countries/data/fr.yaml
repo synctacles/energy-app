@@ -32,3 +32,5 @@ zones:
   name: France
   country: FR
   timezone: Europe/Paris
+  lat: 46.23
+  lon: 2.21

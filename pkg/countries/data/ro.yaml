@@ -13,3 +13,5 @@ zones:
 - code: RO
   name: Romania
   timezone: Europe/Bucharest
+  lat: 45.94
+  lon: 24.97

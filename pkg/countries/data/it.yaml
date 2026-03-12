@@ -34,28 +34,40 @@ zones:
   name: Northern Italy
   country: IT
   timezone: Europe/Rome
+  lat: 45.46
+  lon: 10.95
 - code: IT-Centre-North
   eic: 10Y1001A1001A70O
   name: Central North Italy
   country: IT
   timezone: Europe/Rome
+  lat: 43.5
+  lon: 11.5
 - code: IT-Centre-South
   eic: 10Y1001A1001A71M
   name: Central South Italy
   country: IT
   timezone: Europe/Rome
+  lat: 41.3
+  lon: 15.0
 - code: IT-South
   eic: 10Y1001A1001A788
   name: Southern Italy
   country: IT
   timezone: Europe/Rome
+  lat: 40.0
+  lon: 16.5
 - code: IT-Sicily
   eic: 10Y1001A1001A74G
   name: Sicily
   country: IT
   timezone: Europe/Rome
+  lat: 37.6
+  lon: 14.02
 - code: IT-Sardinia
   eic: 10Y1001A1001A75E
   name: Sardinia
   country: IT
   timezone: Europe/Rome
+  lat: 40.12
+  lon: 9.01

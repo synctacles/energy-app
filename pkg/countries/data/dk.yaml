@@ -13,8 +13,12 @@ zones:
   name: West Denmark (Jutland)
   country: DK
   timezone: Europe/Copenhagen
+  lat: 56.26
+  lon: 9.5
 - code: DK2
   eic: 10YDK-2--------M
   name: East Denmark (Zealand)
   country: DK
   timezone: Europe/Copenhagen
+  lat: 55.46
+  lon: 11.72

@@ -740,34 +740,44 @@ func (s *Server) handleZoneDetect(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"detected": false, "reason": "could not read HA config"})
 		return
 	}
+
+	lat, _ := haConfig["latitude"].(float64)
+	lon, _ := haConfig["longitude"].(float64)
 	tz, _ := haConfig["time_zone"].(string)
-	if tz == "" {
-		writeJSON(w, map[string]any{"detected": false, "reason": "no timezone in HA config"})
+	haCountry, _ := haConfig["country"].(string)
+
+	result := s.zoneRegistry.DetectZone(lat, lon, tz, haCountry)
+	if result == nil {
+		writeJSON(w, map[string]any{
+			"detected":           false,
+			"unsupported_region": true,
+			"timezone":           tz,
+			"ha_country":         haCountry,
+			"reason":             "no supported zone found for this location",
+		})
 		return
 	}
-	// Match timezone to a zone
-	for _, code := range s.zoneRegistry.AllZones() {
-		z, ok := s.zoneRegistry.GetZone(code)
-		if !ok {
-			continue
-		}
-		if z.Timezone == tz {
-			writeJSON(w, map[string]any{
-				"detected": true,
-				"zone":     z.Code,
-				"name":     z.Name,
-				"timezone": tz,
-			})
-			return
+
+	resp := map[string]any{
+		"detected":   true,
+		"zone":       result.Zone.Code,
+		"name":       result.Zone.Name,
+		"country":    result.Country,
+		"method":     result.Method,
+		"timezone":   tz,
+		"ha_country": result.HACountry,
+	}
+	if result.Mismatch {
+		resp["mismatch"] = true
+		cc, _ := s.zoneRegistry.GetCountry(result.Country)
+		if cc != nil {
+			resp["detected_country_name"] = cc.Name
 		}
 	}
-	// No exact match — region is not supported
-	writeJSON(w, map[string]any{
-		"detected":           false,
-		"unsupported_region": true,
-		"timezone":           tz,
-		"reason":             "no zone matches timezone " + tz,
-	})
+	if result.Distance > 0 {
+		resp["distance_km"] = int(result.Distance)
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {

@@ -5,3 +5,5 @@ zones:
 - code: SK
   name: Slovakia
   timezone: Europe/Bratislava
+  lat: 48.67
+  lon: 19.7

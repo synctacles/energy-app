@@ -5,3 +5,5 @@ zones:
 - code: LT
   name: Lithuania
   timezone: Europe/Vilnius
+  lat: 55.17
+  lon: 23.88

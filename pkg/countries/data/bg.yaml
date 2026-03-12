@@ -13,3 +13,5 @@ zones:
 - code: BG
   name: Bulgaria
   timezone: Europe/Sofia
+  lat: 42.73
+  lon: 25.49

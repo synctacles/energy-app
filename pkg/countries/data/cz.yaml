@@ -15,3 +15,5 @@ zones:
   name: Czech Republic
   country: CZ
   timezone: Europe/Prague
+  lat: 49.82
+  lon: 15.47

@@ -23,3 +23,5 @@ zones:
   name: Germany/Luxembourg
   country: DE
   timezone: Europe/Berlin
+  lat: 51.16
+  lon: 10.45

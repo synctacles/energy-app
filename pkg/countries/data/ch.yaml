@@ -7,3 +7,5 @@ zones:
   name: Switzerland
   country: CH
   timezone: Europe/Zurich
+  lat: 46.82
+  lon: 8.23

@@ -5,3 +5,5 @@ zones:
 - code: LV
   name: Latvia
   timezone: Europe/Riga
+  lat: 56.88
+  lon: 24.6
