@@ -1227,9 +1227,30 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Inject default i18n (English) inline to eliminate browser/ingress cache issues.
-	// The separate static/i18n/*.json fetch suffered from stale browser cache: old JSON
-	// (missing new keys) was served even after app updates, causing raw keys in the UI.
+	// Inject ALL i18n bundles inline to eliminate browser/ingress cache issues.
+	// Previous approach (fetch /static/i18n/<lang>.json) suffered from stale browser
+	// cache: old JSON (missing new keys) caused English fallback text in NL installs.
+	var allI18n []byte
+	allI18n = append(allI18n, '{')
+	langs := []string{"en", "nl", "de", "da", "es", "fi", "fr", "pt"}
+	first := true
+	for _, lang := range langs {
+		langJSON, err2 := staticFS.ReadFile("static/i18n/" + lang + ".json")
+		if err2 != nil {
+			continue
+		}
+		if !first {
+			allI18n = append(allI18n, ',')
+		}
+		allI18n = append(allI18n, '"')
+		allI18n = append(allI18n, lang...)
+		allI18n = append(allI18n, '"', ':')
+		allI18n = append(allI18n, langJSON...)
+		first = false
+	}
+	allI18n = append(allI18n, '}')
+	data = bytes.Replace(data, []byte("var _i18nAll = null;"), []byte("var _i18nAll = "+string(allI18n)+";"), 1)
+	// Also inject English as default _i18n for immediate rendering
 	if enJSON, err2 := staticFS.ReadFile("static/i18n/en.json"); err2 == nil {
 		data = bytes.Replace(data, []byte("var _i18n = {};"), []byte("var _i18n = "+string(enJSON)+";"), 1)
 	}

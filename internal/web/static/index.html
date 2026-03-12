@@ -704,6 +704,7 @@
     <script>
     // --- i18n ---
     var _i18n = {};
+    var _i18nAll = null;
     var _lang = 'en';
     var _detectedLocale = 'en';
 
@@ -743,21 +744,22 @@
 
     async function initI18n(lang) {
         _lang = lang || 'en';
-        // English i18n is injected inline by the server (var _i18n = {...}) to prevent
-        // browser/ingress cache issues. Only fetch if a different language is needed.
-        if (_lang !== 'en' || Object.keys(_i18n).length === 0) {
+        // All i18n bundles are injected inline by the server (_i18nAll) to prevent
+        // browser/ingress cache issues that caused stale JSON and English fallback text.
+        if (_i18nAll && _i18nAll[_lang]) {
+            _i18n = _i18nAll[_lang];
+        } else if (_lang !== 'en' || Object.keys(_i18n).length === 0) {
+            // Fallback: fetch from static files (should rarely happen)
             var cb = '?v=' + (window._appVersion || Date.now());
             try {
                 var resp = await fetch('static/i18n/' + _lang + '.json' + cb);
                 if (resp.ok) {
                     _i18n = await resp.json();
                 } else if (_lang !== 'en') {
-                    // Non-English fetch failed — English already available from inline injection
                     console.warn('i18n: ' + _lang + ' not found, using English');
                 }
             } catch (e) {
                 console.warn('i18n load failed:', e.message);
-                // English is still available from inline injection
             }
         }
         // Apply to data-i18n elements
