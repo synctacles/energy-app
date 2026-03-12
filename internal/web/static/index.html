@@ -1134,8 +1134,10 @@
                 '<div class="grid">' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.current_price', 'Current Price') +
-                            (d.resolution === 'PT15M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>' :
-                             d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '') +
+                            (d.source_info && d.source_info.chart_source
+                                ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.sensor_price', 'sensor price') + ')</span>'
+                                : (d.resolution === 'PT15M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>' :
+                                   d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '')) +
                         '</div>' +
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
@@ -1163,7 +1165,10 @@
                 '<div class="card chart-card">' +
                     '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' +
                         (d.source_info ? ' <span class="chart-source">&mdash; ' +
-                            sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone) +
+                            (d.source_info.chart_source
+                                ? t('dashboard.chart_source_enever', 'Enever prices') +
+                                  (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
+                                : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
                             '</span>' : '') +
                     '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +

@@ -373,11 +373,17 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Source info for chart attribution
-	dashboard["source_info"] = map[string]any{
+	sourceInfo := map[string]any{
 		"source":      data.Source,
 		"quality":     data.Quality,
 		"leverancier": data.Leverancier,
 	}
+	// Enever+sensor: candles are Enever, current price is sensor
+	if data.EneverPrice > 0 {
+		sourceInfo["chart_source"] = "enever"
+		sourceInfo["chart_leverancier"] = data.Leverancier
+	}
+	dashboard["source_info"] = sourceInfo
 
 	// Tax data source: "worker", "consumer", "embedded", "none"
 	// "consumer" = prices already include taxes (Enever, Worker consumer prices)
@@ -932,41 +938,20 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 
 // calculatePriceDelta compares the active price source with an alternative.
 // Returns nil if no alternative is available or not applicable.
-func (s *Server) calculatePriceDelta(ctx context.Context, activePrice float64) map[string]any {
+func (s *Server) calculatePriceDelta(_ context.Context, activePrice float64) map[string]any {
 	mode := s.cfg.PricingMode
+	data := s.sensorData.Get()
 
-	if mode == "enever" {
-		// Active = Enever, alternative = sensor
-		sensorEntity := s.cfg.P1SensorEntity
-		if sensorEntity == "" {
-			sensorEntity = s.detectedTariffSensor
-		}
-		if sensorEntity == "" {
-			return nil
-		}
-		sensorPrice := s.readSensorPrice(ctx, sensorEntity)
-		if sensorPrice <= 0 {
-			return nil
-		}
-		delta := sensorPrice - activePrice
+	if mode == "enever" && data != nil && data.EneverPrice > 0 {
+		// Enever+sensor mode: active = sensor, alternative = Enever
+		// EneverPrice is set when sensor overrides CurrentPrice in main.go
+		delta := data.EneverPrice - activePrice
 		return map[string]any{
-			"active_source": "enever",
-			"alt_source":    "sensor",
-			"alt_entity":    sensorEntity,
-			"alt_price":     sensorPrice,
+			"active_source": "sensor",
+			"alt_source":    "enever",
+			"alt_price":     data.EneverPrice,
 			"delta":         delta,
 		}
-	}
-
-	if mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff" {
-		// Active = sensor, alternative = Enever (only if token configured)
-		if s.cfg.EneverToken == "" {
-			return nil
-		}
-		// We don't have a separate Enever price readily available here.
-		// The fallback manager may have wholesale prices; skip for now
-		// unless we can read the Enever price from the fallback chain.
-		return nil
 	}
 
 	return nil

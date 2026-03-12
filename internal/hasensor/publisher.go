@@ -20,6 +20,7 @@ type Publisher interface {
 type SensorSet struct {
 	Zone           string
 	CurrentPrice   float64
+	EneverPrice    float64 // Original Enever price when sensor overrides CurrentPrice (for delta display)
 	Action         models.ActionResult
 	Stats          models.PriceStats
 	BestWindow     *models.BestWindow

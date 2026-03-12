@@ -49,7 +49,9 @@
     "zone": "Zone",
     "vs_avg": "vs avg",
     "degraded_no_tax": "Limited price calculation — tax data not yet available. Price shown is wholesale excl. taxes.",
-    "degraded_embedded": "Using estimated tax data. Prices may differ slightly from your actual tariff."
+    "degraded_embedded": "Using estimated tax data. Prices may differ slightly from your actual tariff.",
+    "chart_source_enever": "Enever prices",
+    "sensor_price": "sensor price"
   },
   "actions": {
     "go": "GO",

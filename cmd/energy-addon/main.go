@@ -356,12 +356,21 @@ func main() {
 			cfg.BestWindowHours,
 		)
 
-		// External sensor mode: override consumer price with HA sensor reading
-		if cfg.IsExternalSensorMode() && supervisor != nil {
-			if extPrice, err := readExternalSensorPrice(ctx, supervisor, cfg.P1SensorEntity); err == nil {
-				sensorSet.CurrentPrice = extPrice
+		// Sensor override: use HA sensor reading as CurrentPrice when available.
+		// Works in both explicit sensor mode AND Enever+sensor (complementary) mode.
+		sensorEntity := cfg.P1SensorEntity
+		if sensorEntity != "" && supervisor != nil {
+			if extPrice, err := readExternalSensorPrice(ctx, supervisor, sensorEntity); err == nil {
+				if cfg.IsEneverMode() {
+					// Enever+sensor: sensor becomes CurrentPrice, preserve Enever for delta
+					sensorSet.EneverPrice = sensorSet.CurrentPrice
+					sensorSet.CurrentPrice = extPrice
+					sensorSet.Source = "sensor"
+				} else if cfg.IsExternalSensorMode() {
+					sensorSet.CurrentPrice = extPrice
+				}
 			} else {
-				slog.Warn("external sensor read failed, using calculated price", "entity", cfg.P1SensorEntity, "error", err)
+				slog.Warn("sensor read failed, using calculated price", "entity", sensorEntity, "error", err)
 			}
 		}
 

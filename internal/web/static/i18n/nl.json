@@ -49,7 +49,9 @@
     "zone": "Zone",
     "vs_avg": "vs gem",
     "degraded_no_tax": "Beperkte prijsberekening — belastingdata nog niet beschikbaar. Getoonde prijs is de groothandelsprijs excl. belastingen.",
-    "degraded_embedded": "Geschatte belastingdata wordt gebruikt. Prijzen kunnen iets afwijken van je werkelijke tarief."
+    "degraded_embedded": "Geschatte belastingdata wordt gebruikt. Prijzen kunnen iets afwijken van je werkelijke tarief.",
+    "chart_source_enever": "Enever-prijzen",
+    "sensor_price": "sensorprijs"
   },
   "actions": {
     "go": "GA",
