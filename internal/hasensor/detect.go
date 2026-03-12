@@ -120,8 +120,9 @@ func matchTariffSensor(states []map[string]any) string {
 
 		lower := strings.ToLower(eid)
 
-		// Exclude non-tariff sensors
-		if strings.Contains(lower, "gas") || strings.Contains(lower, "standing") ||
+		// Exclude non-tariff sensors and our own sensors
+		if strings.Contains(lower, "synctacles") ||
+			strings.Contains(lower, "gas") || strings.Contains(lower, "standing") ||
 			strings.Contains(lower, "daily") || strings.Contains(lower, "monthly") ||
 			strings.Contains(lower, "cost") || strings.Contains(lower, "yesterday") {
 			continue
