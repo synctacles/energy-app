@@ -638,6 +638,7 @@
                     </ol>
                 </div>
                 <p style="font-size:0.78em;color:var(--text-faint);margin-bottom:10px;line-height:1.4" id="wizEneverSupport">Enever is een onafhankelijk platform dat deze data gratis beschikbaar stelt. Overweeg supporter te worden als je de dienst waardeert.</p>
+                <div id="wizEneverSensorAdvice" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5"></div>
                 <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API-sleutel</label>
                 <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Plak hier je API-sleutel" autocomplete="off">
                 <div id="wizEneverSupplierWrap" style="margin-top:10px">
@@ -954,6 +955,7 @@
             var data = await resp.json();
             var result = data.breakdown;
             if (result && data.markup_estimated) result._markup_estimated = true;
+            if (result && data.price_delta) result._price_delta = data.price_delta;
             _taxBreakdownCache[zone] = result;
             return result;
         } catch (e) { return null; }
@@ -1008,6 +1010,22 @@
         // Consumer total
         html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.consumer_price', 'Consumer price') + '</div>' +
                 '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + formatPrice(bd.consumer_total) + ' ' + ct + '</div>';
+
+        // Sensor vs Enever delta (NL-only, when both sources are available)
+        if (bd._price_delta) {
+            var delta = bd._price_delta;
+            var deltaCt = (delta.delta * 100).toFixed(2);
+            var altPriceCt = (delta.alt_price * 100).toFixed(2);
+            var isPositive = delta.delta > 0;
+            var sign = isPositive ? '+' : '';
+            var deltaColor = Math.abs(delta.delta) < 0.0005 ? 'var(--text-muted)' : (isPositive ? '#ef4444' : 'var(--success)');
+            var altLabel = delta.alt_source === 'sensor'
+                ? t('tax.delta_sensor', 'Sensor price')
+                : t('tax.delta_enever', 'Enever price');
+            html += '<div style="grid-column:1/-1;padding-top:8px;margin-top:4px;border-top:1px dashed var(--border);font-size:0.85em;color:var(--text-muted)">' +
+                    altLabel + ': <strong>' + altPriceCt + '</strong> ' + ct +
+                    ' <span style="color:' + deltaColor + ';font-weight:600">(' + sign + deltaCt + ' ' + ct + ')</span></div>';
+        }
 
         // Network tariff info (separate from price calculation)
         if (bd.network_tariff > 0.0001) {
@@ -1087,8 +1105,30 @@
                 degradedBanner = '<div style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:0.85em;line-height:1.4">' + degradedMsg + '</div>';
             }
 
+            var hintsBanner = '';
+            if (d.setup_hints && d.setup_hints.length > 0) {
+                d.setup_hints.forEach(function(hint) {
+                    if (sessionStorage.getItem('hint_dismissed_' + hint.id)) return;
+                    var msg = '';
+                    if (hint.id === 'sensor_available') {
+                        msg = t('hints.sensor_available',
+                            'A tariff sensor was detected (' + hint.sensor + '). This may provide more accurate prices than your current setup.');
+                    } else if (hint.id === 'enever_available') {
+                        msg = t('hints.enever_available',
+                            'Enever.nl provides free exact supplier prices for Dutch energy providers. Add an API key in Settings for more accurate pricing.');
+                    }
+                    if (msg) {
+                        hintsBanner += '<div class="setup-hint" data-hint-id="' + hint.id + '" style="background:rgba(13,148,136,0.08);color:var(--text);border:1px solid rgba(13,148,136,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.85em;line-height:1.4;display:flex;align-items:flex-start;gap:8px">' +
+                            '<div style="flex:1">' + msg + ' <a href="#" onclick="showSettings();return false" style="color:var(--accent);font-weight:500">' +
+                            t('hints.go_to_settings', 'Go to Settings') + ' &rarr;</a></div>' +
+                            '<button onclick="this.parentElement.style.display=\'none\';sessionStorage.setItem(\'hint_dismissed_' + hint.id + '\',\'1\')" ' +
+                            'style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:1.1em;padding:0 4px;line-height:1" title="Dismiss">&times;</button></div>';
+                    }
+                });
+            }
+
             document.getElementById('content').innerHTML =
-                degradedBanner +
+                degradedBanner + hintsBanner +
                 '<div class="grid">' +
                     '<div class="card">' +
                         '<div class="card-label">' + t('dashboard.current_price', 'Current Price') +
@@ -1470,7 +1510,7 @@
                     renderModeRadio('external_sensor', t('settings.mode_external_sensor', 'External Sensor'), t('settings.mode_external_sensor_hint', 'Use any HA sensor that provides your electricity tariff (Zonneplan, Tibber, Octopus, P1 meter, etc.).'), mode) +
                     renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
                     renderModeRadio('tou', t('settings.mode_tou', 'Time-of-Use'), t('settings.mode_tou_hint', 'Bi-horário / tri-horário: set peak and off-peak rates with a schedule. GO/WAIT/AVOID follows your schedule.'), mode) +
-                    renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) +
+                    (c.zone === 'NL' ? renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) : '') +
                 '</div>' +
             '</div>' +
 
@@ -1570,7 +1610,8 @@
                 '</div>' +
             '</div>' +
 
-            // Enever mode section
+            // Enever mode section (NL only)
+            (c.zone === 'NL' ?
             '<div id="mode-enever-section" style="' + (mode === 'enever' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.mode_enever', 'Enever') + '</h3>' +
@@ -1588,7 +1629,7 @@
                         '<div class="form-hint">' + t('settings.enever_leverancier_hint', 'Select your energy supplier.') + '</div>' +
                     '</div>' +
                 '</div>' +
-            '</div>' +
+            '</div>' : '') +
 
             // Fixed rate section
             '<div id="mode-fixed-section" style="' + (mode === 'fixed' ? '' : 'display:none') + '">' +
@@ -3026,6 +3067,73 @@
             opt.textContent = supplierNames[key] || key;
             sel.appendChild(opt);
         });
+
+        // Show sensor advice when a day-ahead sensor is detected
+        var adviceDiv = document.getElementById('wizEneverSensorAdvice');
+        var sensor = _wizardData && _wizardData.detected_sensor;
+        if (sensor && sensor.has_forecast) {
+            var sensorName = sensor.name || sensor.entity_id;
+            var sensorPrice = (sensor.state * 100).toFixed(2);
+            var forecastLabel = sensor.forecast_hours ? sensor.forecast_hours + 'h' : '';
+            var supplierHint = sensor.supplier_hint
+                ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
+                : '';
+
+            var html = '<strong style="color:var(--accent)">' +
+                t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
+                tReplace('wizard.sensor_enever_advice',
+                    { sensor: sensorName, supplier: supplierHint, hours: forecastLabel, price: sensorPrice },
+                    '<strong>' + sensorName + '</strong> provides day-ahead prices' +
+                    (supplierHint ? ' from ' + supplierHint : '') +
+                    (forecastLabel ? ' (' + forecastLabel + ' forecast)' : '') +
+                    '. Current price: <strong>' + sensorPrice + ' ct/kWh</strong>.' +
+                    ' This sensor delivers more accurate prices directly from your supplier than Enever.') +
+                '<div style="margin-top:8px">' +
+                '<button id="wizEneverUseSensorBtn" class="wizard-btn-primary" style="padding:8px 16px;font-size:0.82em;width:auto;display:inline-block;margin-right:8px">' +
+                t('wizard.sensor_use_instead', 'Use sensor prices') + '</button>' +
+                '<span style="font-size:0.82em;color:var(--text-faint)">' +
+                t('wizard.sensor_or_enever', 'or enter Enever API key below') + '</span></div>';
+            adviceDiv.innerHTML = html;
+            adviceDiv.style.display = '';
+
+            // Bind click after innerHTML is set
+            document.getElementById('wizEneverUseSensorBtn').onclick = function() {
+                _wizardUseSensor = true;
+                _wizardSensorEntity = sensor.entity_id;
+                _wizardEneverMode = false;
+                // Build sensor summary
+                wizardPopulateSensorSummary(sensor);
+                wizardShowStep(4);
+            };
+        } else {
+            adviceDiv.style.display = 'none';
+        }
+    }
+
+    function wizardPopulateSensorSummary(sensor) {
+        var rows = document.getElementById('wizSummaryRows');
+        rows.innerHTML = '';
+        var sensorName = sensor.name || sensor.entity_id;
+        var supplierHint = sensor.supplier_hint
+            ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
+            : '';
+        var items = [
+            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '\u2014' },
+            { label: t('wizard.summary_mode', 'Pricing mode'), value: t('settings.mode_external_sensor', 'External Sensor') },
+            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierHint ? supplierHint + ' (sensor)' : sensorName },
+            { label: t('wizard.summary_sensor', 'Sensor'), value: sensorName }
+        ];
+        items.forEach(function(item) {
+            var row = document.createElement('div');
+            row.className = 'wizard-summary-row';
+            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
+            row.querySelector('.wizard-summary-label').textContent = item.label;
+            row.querySelector('.wizard-summary-value').textContent = item.value;
+            rows.appendChild(row);
+        });
+        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
+        document.getElementById('wizSummaryThanks').textContent = t('wizard.sensor_summary_thanks',
+            'Your sensor provides real-time prices directly from your supplier \u2014 no manual configuration needed.');
     }
 
     // Show leverancier dropdown when token is entered, update Next button
@@ -3068,7 +3176,7 @@
         if (step === 1) wizardPopulateEnever();
         if (step === 2) wizardPopulateSuppliers();
         if (step === 3) wizardPopulateTax();
-        if (step === 4 && !_wizardEneverMode) wizardPopulateSummary();
+        if (step === 4 && !_wizardEneverMode && !_wizardUseSensor) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
@@ -3129,7 +3237,9 @@
             wizardShowStep(1); // Back to Enever
         } else if (_wizardStep === 2) {
             wizardShowStep(0); // Back to Region (non-NL)
-        } else if (_wizardStep === 4 && _wizardEneverMode) {
+        } else if (_wizardStep === 4 && (_wizardEneverMode || _wizardUseSensor)) {
+            _wizardUseSensor = false;
+            _wizardSensorEntity = null;
             wizardShowStep(1); // Back to Enever
         } else if (_wizardStep > 0) {
             wizardShowStep(_wizardStep - 1);

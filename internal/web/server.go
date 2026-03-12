@@ -393,7 +393,39 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Setup hints: suggest configuration improvements
+	if hints := s.buildSetupHints(); len(hints) > 0 {
+		dashboard["setup_hints"] = hints
+	}
+
 	writeJSON(w, dashboard)
+}
+
+// buildSetupHints returns actionable hints when the user's config can be improved.
+func (s *Server) buildSetupHints() []map[string]string {
+	var hints []map[string]string
+	mode := s.cfg.PricingMode
+
+	// Hint: day-ahead sensor available but not used
+	isSensorMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+	if !isSensorMode && s.detectedTariffSensor != "" && s.cfg.P1SensorEntity != s.detectedTariffSensor {
+		hints = append(hints, map[string]string{
+			"id":      "sensor_available",
+			"sensor":  s.detectedTariffSensor,
+			"action":  "settings",
+			"section": "external_sensor",
+		})
+	}
+
+	// Hint: NL zone without Enever (and not using a sensor)
+	if s.cfg.BiddingZone == "NL" && !isSensorMode && mode != "enever" && s.cfg.EneverToken == "" {
+		hints = append(hints, map[string]string{
+			"id":     "enever_available",
+			"action": "settings",
+		})
+	}
+
+	return hints
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -882,7 +914,91 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	if markupEstimated {
 		resp["markup_estimated"] = true
 	}
+
+	// Delta: compare active price source with alternative source (NL-only).
+	// Shows in tax breakdown when user has both sensor AND Enever configured.
+	if zone == "NL" && s.supervisor != nil && data != nil && data.CurrentPrice > 0 {
+		delta := s.calculatePriceDelta(r.Context(), data.CurrentPrice)
+		if delta != nil {
+			resp["price_delta"] = delta
+		}
+	}
+
 	writeJSON(w, resp)
+}
+
+// calculatePriceDelta compares the active price source with an alternative.
+// Returns nil if no alternative is available or not applicable.
+func (s *Server) calculatePriceDelta(ctx context.Context, activePrice float64) map[string]any {
+	mode := s.cfg.PricingMode
+
+	if mode == "enever" {
+		// Active = Enever, alternative = sensor
+		sensorEntity := s.cfg.P1SensorEntity
+		if sensorEntity == "" {
+			sensorEntity = s.detectedTariffSensor
+		}
+		if sensorEntity == "" {
+			return nil
+		}
+		sensorPrice := s.readSensorPrice(ctx, sensorEntity)
+		if sensorPrice <= 0 {
+			return nil
+		}
+		delta := sensorPrice - activePrice
+		return map[string]any{
+			"active_source": "enever",
+			"alt_source":    "sensor",
+			"alt_entity":    sensorEntity,
+			"alt_price":     sensorPrice,
+			"delta":         delta,
+		}
+	}
+
+	if mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff" {
+		// Active = sensor, alternative = Enever (only if token configured)
+		if s.cfg.EneverToken == "" {
+			return nil
+		}
+		// We don't have a separate Enever price readily available here.
+		// The fallback manager may have wholesale prices; skip for now
+		// unless we can read the Enever price from the fallback chain.
+		return nil
+	}
+
+	return nil
+}
+
+// readSensorPrice reads the current price from an HA sensor entity.
+// Returns 0 if the sensor is unavailable or has no valid state.
+func (s *Server) readSensorPrice(ctx context.Context, entityID string) float64 {
+	if s.supervisor == nil || entityID == "" {
+		return 0
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	state, err := s.supervisor.GetState(ctx, entityID)
+	if err != nil {
+		return 0
+	}
+	stateStr, _ := state["state"].(string)
+	val, err := strconv.ParseFloat(stateStr, 64)
+	if err != nil || val <= 0 {
+		return 0
+	}
+
+	// Check unit — sensor might be in ct/kWh or EUR/kWh
+	attrs, _ := state["attributes"].(map[string]any)
+	if attrs != nil {
+		unit, _ := attrs["unit_of_measurement"].(string)
+		unitLower := strings.ToLower(unit)
+		// If unit contains "ct" or "cent", it's already in cents — convert to EUR
+		if strings.Contains(unitLower, "ct") || strings.Contains(unitLower, "cent") {
+			val = val / 100
+		}
+	}
+	return val
 }
 
 func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {
