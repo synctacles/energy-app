@@ -87,6 +87,7 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		Zones       []zoneEntry `json:"zones"`
 		Suppliers   []any       `json:"suppliers"`
 		TaxDefaults any         `json:"tax_defaults"`
+		TOUPresets  []any       `json:"tou_presets"`
 	}
 
 	// Build countries list from zone registry
@@ -114,6 +115,10 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 			if cc.TaxDefaults != nil {
 				taxDefaults = cc.TaxDefaults
 			}
+			touPresets := make([]any, 0, len(cc.TOUPresets))
+			for _, p := range cc.TOUPresets {
+				touPresets = append(touPresets, p)
+			}
 			entry = &countryEntry{
 				Code:        cc.Country,
 				Name:        cc.Name,
@@ -121,6 +126,7 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 				Zones:       []zoneEntry{},
 				Suppliers:   suppliers,
 				TaxDefaults: taxDefaults,
+				TOUPresets:  touPresets,
 			}
 			countriesMap[z.Country] = entry
 		}

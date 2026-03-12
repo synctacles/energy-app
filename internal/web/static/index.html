@@ -408,6 +408,23 @@
             border-radius: var(--radius-sm); margin-bottom: 10px;
         }
         .wizard-check { color: var(--success); margin-right: 4px; }
+        .wizard-tariff-card {
+            padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
+            cursor: pointer; transition: border-color 0.15s, background 0.15s;
+        }
+        .wizard-tariff-card:hover { border-color: var(--accent); }
+        .wizard-tariff-card.active { border-color: var(--accent); background: rgba(13,148,136,0.06); }
+        .wizard-tariff-radio {
+            display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid var(--border); position: relative; flex-shrink: 0;
+        }
+        .wizard-tariff-card.active .wizard-tariff-radio {
+            border-color: var(--accent);
+        }
+        .wizard-tariff-card.active .wizard-tariff-radio::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 6px; height: 6px;
+            border-radius: 50%; background: var(--accent);
+        }
 
         /* Pricing mode radio cards */
         label[for^="mode-"]:has(input:checked) {
@@ -606,14 +623,13 @@
             <h2 id="wizardTitle">Welcome to Synctacles Energy</h2>
             <p class="wizard-subtitle" id="wizardSubtitle">Let's set up your energy prices in a few steps.</p>
             <ul class="wizard-steps" id="wizardSteps">
-                <li class="active" data-step="0" id="wizStep0">Region</li>
-                <li data-step="1" id="wizStep1" style="display:none">Enever</li>
-                <li data-step="2" id="wizStep2">Supplier</li>
-                <li data-step="3" id="wizStep3">Verify</li>
-                <li data-step="4" id="wizStep4">Done</li>
+                <li class="active" data-step="0" id="wizStep0">Zone</li>
+                <li data-step="1" id="wizStep1">Supplier</li>
+                <li data-step="2" id="wizStep2">Tariff</li>
+                <li data-step="3" id="wizStep3">Summary</li>
             </ul>
 
-            <!-- Step 0: Region -->
+            <!-- Step 0: Zone -->
             <div class="wizard-step active" id="wizardStep0">
                 <h3 id="wizRegionTitle">Select your country</h3>
                 <p id="wizRegionWhy" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:10px">Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.</p>
@@ -625,32 +641,8 @@
                 </div>
             </div>
 
-            <!-- Step 1: Enever (NL only) -->
+            <!-- Step 1: Supplier (with Enever section for NL) -->
             <div class="wizard-step" id="wizardStep1">
-                <h3 id="wizEneverTitle">Exacte prijzen van jouw leverancier</h3>
-                <p id="wizEneverIntro" style="line-height:1.5">Enever.nl levert gratis real-time energieprijzen voor 23 Nederlandse leveranciers — per kwartier, inclusief alle belastingen en toeslagen. Met een gratis API-sleutel zie je exact wat jij per kWh betaalt.</p>
-                <div style="margin:12px 0;padding:10px 12px;background:rgba(13,148,136,0.08);border-radius:8px;font-size:0.82em;line-height:1.5">
-                    <strong style="color:var(--accent)" id="wizEneverHowTitle">Hoe werkt het?</strong>
-                    <ol style="margin:6px 0 0 16px;padding:0;color:var(--text-muted)" id="wizEneverHowList">
-                        <li>Vraag een gratis API-sleutel aan op <a href="https://enever.nl" target="_blank" rel="noopener" style="color:var(--accent)">enever.nl</a></li>
-                        <li>Vul de sleutel hieronder in en kies je leverancier</li>
-                        <li>Klaar — je ziet direct je exacte leveranciersprijs</li>
-                    </ol>
-                </div>
-                <p style="font-size:0.78em;color:var(--text-faint);margin-bottom:10px;line-height:1.4" id="wizEneverSupport">Enever is een onafhankelijk platform dat deze data gratis beschikbaar stelt. Overweeg supporter te worden als je de dienst waardeert.</p>
-                <div id="wizEneverSensorAdvice" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5"></div>
-                <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API-sleutel</label>
-                <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Plak hier je API-sleutel" autocomplete="off">
-                <div id="wizEneverSupplierWrap" style="margin-top:10px">
-                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Jouw leverancier</label>
-                    <select class="wizard-select" id="wizEneverSupplier">
-                        <option value="">Kies je leverancier</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Step 2: Supplier -->
-            <div class="wizard-step" id="wizardStep2">
                 <h3 id="wizSupplierTitle">Select your energy supplier</h3>
                 <div id="wizSensorDetected" class="wizard-detected" style="display:none">
                     <span id="wizSensorName"></span>
@@ -664,24 +656,105 @@
                     </select>
                     <div id="wizEmaHint" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)"></div>
                     <div id="wizMarkupWrap" style="display:none">
+                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizCustomNameLabel">Supplier name</label>
+                        <input type="text" class="wizard-input" id="wizCustomNameInput" placeholder="e.g. Vattenfall" autocomplete="off" style="margin-bottom:8px">
                         <label style="font-size:0.82em;color:var(--text-muted)" id="wizMarkupLabel">Supplier markup (EUR/kWh)</label>
                         <input type="number" class="wizard-input" id="wizMarkupInput" step="0.001" min="0" max="0.2" value="0" placeholder="0.000">
                         <p style="font-size:0.78em;color:var(--text-faint)" id="wizMarkupHint"></p>
                     </div>
                 </div>
+                <!-- Enever section (NL only) -->
+                <div id="wizEneverSection" style="display:none;margin-top:16px;padding:14px;background:rgba(13,148,136,0.05);border:1px solid rgba(13,148,136,0.15);border-radius:8px">
+                    <h4 style="margin:0 0 8px 0;font-size:0.92em;color:var(--accent)" id="wizEneverTitle">Exact supplier prices via Enever (optional)</h4>
+                    <p id="wizEneverIntro" style="font-size:0.82em;line-height:1.5;margin-bottom:10px;color:var(--text-muted)">Enever.nl provides free real-time prices for Dutch suppliers — per quarter hour, including all taxes. With a free API key you see exactly what you pay per kWh.</p>
+                    <div style="margin:8px 0;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.78em;line-height:1.5">
+                        <strong style="color:var(--accent)" id="wizEneverHowTitle">How does it work?</strong>
+                        <ol style="margin:4px 0 0 16px;padding:0;color:var(--text-muted)" id="wizEneverHowList">
+                            <li>Get a free API key at <a href="https://enever.nl" target="_blank" rel="noopener" style="color:var(--accent)">enever.nl</a></li>
+                            <li>Enter the key below and select your supplier</li>
+                            <li>Done — you'll see your exact supplier price</li>
+                        </ol>
+                    </div>
+                    <div id="wizEneverSensorAdvice" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:6px;font-size:0.82em;line-height:1.5"></div>
+                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API key</label>
+                    <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Paste your API key here" autocomplete="off">
+                    <div id="wizEneverSupplierWrap" style="margin-top:8px">
+                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Your supplier</label>
+                        <select class="wizard-select" id="wizEneverSupplier">
+                            <option value="">Select your supplier</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            <!-- Step 3: Verify prices -->
+            <!-- Step 2: Tariff Type -->
+            <div class="wizard-step" id="wizardStep2">
+                <h3 id="wizTariffTitle">Choose your tariff type</h3>
+                <p id="wizTariffIntro" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">How does your energy supplier bill you?</p>
+                <div id="wizTariffEneverBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5;color:var(--text-muted)"></div>
+                <div id="wizTariffCards" style="display:flex;flex-direction:column;gap:8px">
+                    <div class="wizard-tariff-card active" data-tariff="variable" id="wizTariffVariable">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span class="wizard-tariff-radio"></span>
+                            <strong id="wizTariffVariableLabel">Variable (dynamic pricing)</strong>
+                        </div>
+                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffVariableDesc">Spot prices from the energy market, adjusted with your supplier's markup and taxes.</p>
+                    </div>
+                    <div class="wizard-tariff-card" data-tariff="fixed" id="wizTariffFixed">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span class="wizard-tariff-radio"></span>
+                            <strong id="wizTariffFixedLabel">Fixed rate</strong>
+                        </div>
+                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffFixedDesc">A flat rate per kWh, regardless of market prices.</p>
+                        <div id="wizFixedInputWrap" style="display:none;margin:10px 0 0 24px">
+                            <label style="font-size:0.82em;color:var(--text-muted)" id="wizFixedRateLabel">Your fixed rate (ct/kWh)</label>
+                            <input type="number" class="wizard-input" id="wizFixedRateInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 28.50" style="max-width:160px">
+                        </div>
+                    </div>
+                    <div class="wizard-tariff-card" data-tariff="tou" id="wizTariffTOU">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span class="wizard-tariff-radio"></span>
+                            <strong id="wizTariffTOULabel">Time-of-Use</strong>
+                        </div>
+                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffTOUDesc">Different rates for peak and off-peak hours.</p>
+                        <div id="wizTOUInputWrap" style="display:none;margin:10px 0 0 24px">
+                            <div id="wizTOUPresetWrap" style="margin-bottom:8px">
+                                <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUPresetLabel">Select schedule</label>
+                                <select class="wizard-select" id="wizTOUPreset" style="max-width:280px">
+                                    <option value="">---</option>
+                                </select>
+                            </div>
+                            <div id="wizTOURatesWrap" style="display:flex;gap:10px;flex-wrap:wrap">
+                                <div>
+                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUPeakLabel">Peak (ct/kWh)</label>
+                                    <input type="number" class="wizard-input" id="wizTOUPeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 35.00" style="max-width:120px">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUOffpeakLabel">Off-peak (ct/kWh)</label>
+                                    <input type="number" class="wizard-input" id="wizTOUOffpeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 22.00" style="max-width:120px">
+                                </div>
+                                <div id="wizTOUMidpeakWrap" style="display:none">
+                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUMidpeakLabel">Mid-peak (ct/kWh)</label>
+                                    <input type="number" class="wizard-input" id="wizTOUMidpeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 28.00" style="max-width:120px">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Summary -->
             <div class="wizard-step" id="wizardStep3">
-                <h3 id="wizVerifyTitle">Verify tax data</h3>
-                <p id="wizVerifyIntro"></p>
-                <div id="wizTaxRows" style="margin: 12px 0;"></div>
-            </div>
-
-            <!-- Step 4: Confirmation -->
-            <div class="wizard-step" id="wizardStep4">
                 <h3 id="wizSummaryTitle">You're all set!</h3>
                 <div id="wizSummaryRows" style="margin: 12px 0;"></div>
+                <div id="wizSummaryTaxSection" style="margin-top:12px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                        <span style="font-size:0.85em;font-weight:600;color:var(--text-muted)" id="wizSummaryTaxLabel">Taxes (auto-applied)</span>
+                        <a href="#" id="wizTaxAdjustLink" style="font-size:0.78em;color:var(--accent);text-decoration:none">Adjust</a>
+                    </div>
+                    <div id="wizSummaryTaxRows" style="margin-bottom:6px"></div>
+                    <p id="wizSummaryTaxHint" style="font-size:0.78em;color:var(--text-faint);line-height:1.4;margin:0">Based on your region. You can adjust these in Settings.</p>
+                </div>
                 <p id="wizSummaryThanks" style="font-size:0.82em;color:var(--success);margin-top:12px"></p>
             </div>
 
@@ -2723,31 +2796,54 @@
     // --- Onboarding wizard ---
     var _wizardData = null;
     var _wizardStep = 0;
-    var _wizardTaxVerified = false;
     var _wizardSelectedCountry = null;
     var _wizardSelectedZone = null;
     var _wizardSelectedSupplier = null;
     var _wizardMarkup = 0;
     var _wizardUseSensor = false;
     var _wizardSensorEntity = null;
-    var _wizardEneverMode = false;
     var _wizardIsNL = false;
+    var _wizardTariffType = 'variable'; // 'variable', 'fixed', 'tou'
+    var _wizardFixedRate = 0;
+    var _wizardTOUPreset = null;
+    var _wizardTOURates = { peak: 0, offpeak: 0, midpeak: 0 };
+    var _wizardTaxOverrides = null; // null = use defaults, object = user overrides
+    var _wizardEneverToken = '';
+    var _wizardEneverLeverancier = '';
 
     function wizardPopulateI18n() {
         document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
         document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
-        document.getElementById('wizStep0').textContent = t('wizard.step_region', 'Region');
-        document.getElementById('wizStep1').textContent = 'Enever';
-        document.getElementById('wizStep2').textContent = t('wizard.step_supplier', 'Supplier');
-        document.getElementById('wizStep3').textContent = t('wizard.step_verify', 'Verify');
-        document.getElementById('wizStep4').textContent = t('wizard.step_confirm', 'Done');
+        document.getElementById('wizStep0').textContent = t('wizard.step_zone', 'Zone');
+        document.getElementById('wizStep1').textContent = t('wizard.step_supplier', 'Supplier');
+        document.getElementById('wizStep2').textContent = t('wizard.step_tariff', 'Tariff');
+        document.getElementById('wizStep3').textContent = t('wizard.step_summary', 'Summary');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
         document.getElementById('wizRegionWhy').textContent = t('wizard.region_why', 'Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.');
         document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
+        document.getElementById('wizCustomNameLabel').textContent = t('wizard.custom_name_label', 'Supplier name');
         document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
         document.getElementById('wizMarkupHint').textContent = t('wizard.markup_hint', "Your supplier's per-kWh markup on top of wholesale prices.");
-        document.getElementById('wizVerifyTitle').textContent = t('wizard.step_verify', 'Verify Prices');
-        document.getElementById('wizVerifyIntro').textContent = t('wizard.verify_intro', 'We have tax data for your region. Does this look correct?');
+        document.getElementById('wizTariffTitle').textContent = t('wizard.tariff_title', 'Choose your tariff type');
+        document.getElementById('wizTariffIntro').textContent = t('wizard.tariff_intro', 'How does your energy supplier bill you?');
+        document.getElementById('wizTariffVariableLabel').textContent = t('wizard.tariff_variable', 'Variable (dynamic pricing)');
+        document.getElementById('wizTariffVariableDesc').textContent = t('wizard.tariff_variable_desc', "Spot prices from the energy market, adjusted with your supplier's markup and taxes.");
+        document.getElementById('wizTariffFixedLabel').textContent = t('wizard.tariff_fixed', 'Fixed rate');
+        document.getElementById('wizTariffFixedDesc').textContent = t('wizard.tariff_fixed_desc', 'A flat rate per kWh, regardless of market prices.');
+        document.getElementById('wizFixedRateLabel').textContent = t('wizard.tariff_fixed_input', 'Your fixed rate (ct/kWh)');
+        document.getElementById('wizTariffTOULabel').textContent = t('wizard.tariff_tou', 'Time-of-Use');
+        document.getElementById('wizTariffTOUDesc').textContent = t('wizard.tariff_tou_desc', 'Different rates for peak and off-peak hours.');
+        document.getElementById('wizTOUPresetLabel').textContent = t('wizard.tariff_tou_preset', 'Select schedule');
+        document.getElementById('wizTOUPeakLabel').textContent = t('wizard.tariff_tou_peak', 'Peak (ct/kWh)');
+        document.getElementById('wizTOUOffpeakLabel').textContent = t('wizard.tariff_tou_offpeak', 'Off-peak (ct/kWh)');
+        document.getElementById('wizTOUMidpeakLabel').textContent = t('wizard.tariff_tou_midpeak', 'Mid-peak (ct/kWh)');
+        document.getElementById('wizEneverTitle').textContent = t('wizard.enever_section_title', 'Exact supplier prices via Enever (optional)');
+        document.getElementById('wizEneverIntro').textContent = t('wizard.enever_section_desc', 'Enever.nl provides free real-time prices for Dutch suppliers \u2014 per quarter hour, including all taxes. With a free API key you see exactly what you pay per kWh.');
+        document.getElementById('wizEneverTokenLabel').textContent = t('wizard.enever_token_label', 'Enever API key');
+        document.getElementById('wizEneverSupplierLabel').textContent = t('wizard.enever_supplier_label', 'Your supplier');
+        document.getElementById('wizSummaryTaxLabel').textContent = t('wizard.summary_taxes', 'Taxes (auto-applied)');
+        document.getElementById('wizTaxAdjustLink').textContent = t('wizard.tax_adjust', 'Adjust');
+        document.getElementById('wizSummaryTaxHint').textContent = t('wizard.summary_taxes_hint', 'Based on your region. You can adjust these in Settings.');
         document.getElementById('wizPrevBtn').textContent = t('wizard.btn_prev', 'Back');
         document.getElementById('wizNextBtn').textContent = t('wizard.btn_next', 'Next');
         document.getElementById('wizSkipBtn').textContent = t('wizard.btn_skip', 'Skip setup');
@@ -2972,6 +3068,47 @@
         this.style.background = 'var(--success)';
     };
 
+    // Show/populate Enever section for NL users in Supplier step
+    function wizardPopulateEnever() {
+        var section = document.getElementById('wizEneverSection');
+        if (!_wizardIsNL) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+        // Populate Enever leverancier dropdown
+        var sel = document.getElementById('wizEneverSupplier');
+        sel.innerHTML = '<option value="">' + t('wizard.enever_select_supplier', 'Select your supplier') + '</option>';
+        var sortedKeys = Object.keys(supplierNames).sort(function(a, b) {
+            return (supplierNames[a] || a).localeCompare(supplierNames[b] || b);
+        });
+        sortedKeys.forEach(function(key) {
+            var opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = supplierNames[key] || key;
+            sel.appendChild(opt);
+        });
+
+        // Show sensor info when a day-ahead sensor is detected (complementary to Enever)
+        var adviceDiv = document.getElementById('wizEneverSensorAdvice');
+        var sensor = _wizardData && _wizardData.detected_sensor;
+        if (sensor && sensor.has_forecast) {
+            var sensorName = sensor.name || sensor.entity_id;
+            var sensorPrice = (sensor.state * 100).toFixed(2);
+            var html = '<strong style="color:var(--accent)">' +
+                t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
+                tReplace('wizard.sensor_enever_info',
+                    { sensor: sensorName, price: sensorPrice },
+                    '<strong>' + sensorName + '</strong> detected (current: <strong>' + sensorPrice + ' ct/kWh</strong>). ' +
+                    'When you also configure Enever below, the dashboard will show the price difference between your sensor and Enever.');
+            adviceDiv.innerHTML = html;
+            adviceDiv.style.display = '';
+            _wizardSensorEntity = sensor.entity_id;
+        } else {
+            adviceDiv.style.display = 'none';
+        }
+    }
+
     document.getElementById('wizSupplier').onchange = function() {
         var val = this.value;
         var markupWrap = document.getElementById('wizMarkupWrap');
@@ -2993,65 +3130,112 @@
     document.getElementById('wizMarkupInput').oninput = function() {
         _wizardMarkup = parseFloat(this.value) || 0;
     };
+    document.getElementById('wizCustomNameInput').oninput = function() {
+        _wizardSelectedSupplier = (this.value || '').trim() || null;
+    };
 
-    function wizardPopulateTax() {
-        var rows = document.getElementById('wizTaxRows');
-        rows.innerHTML = '';
-        var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
+    // Tariff Type step — card selection + type-specific inputs
+    function wizardPopulateTariffType() {
+        var cards = document.querySelectorAll('.wizard-tariff-card');
+        var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
+        var banner = document.getElementById('wizTariffEneverBanner');
 
-        // Show selected supplier as confirmation from step 2
-        if (_wizardSelectedSupplier || _wizardUseSensor) {
-            var supRow = document.createElement('div');
-            supRow.className = 'wizard-tax-row';
-            supRow.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value" style="color:var(--success)"></span>';
-            supRow.querySelector('.wizard-tax-label').textContent = t('wizard.summary_supplier', 'Supplier');
-            var supName = _wizardUseSensor
-                ? (_wizardData.detected_sensor && _wizardData.detected_sensor.supplier_hint
-                    ? _wizardData.detected_sensor.supplier_hint.charAt(0).toUpperCase() + _wizardData.detected_sensor.supplier_hint.slice(1) + ' (sensor)'
-                    : t('settings.mode_external_sensor', 'External Sensor'))
-                : _wizardSelectedSupplier;
-            if (!_wizardUseSensor && _wizardMarkup > 0) {
-                supName += ' (+' + (_wizardMarkup * 100).toFixed(2) + ' ct/kWh)';
-            }
-            supRow.querySelector('.wizard-tax-value').textContent = supName;
-            rows.appendChild(supRow);
+        // If Enever configured, lock to variable and show banner
+        if (hasEnever) {
+            _wizardTariffType = 'variable';
+            banner.textContent = t('wizard.enever_auto_variable', 'Enever provides exact supplier prices \u2014 tariff type is set to Variable automatically.');
+            banner.style.display = '';
+        } else {
+            banner.style.display = 'none';
         }
 
-        if (!tax) {
-            rows.innerHTML += '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
-            return;
+        // Hide TOU option if country has no presets
+        var touCard = document.getElementById('wizTariffTOU');
+        var hasPresets = _wizardSelectedCountry && _wizardSelectedCountry.tou_presets && _wizardSelectedCountry.tou_presets.length > 0;
+        touCard.style.display = hasPresets ? '' : 'none';
+
+        // Populate TOU preset dropdown
+        if (hasPresets) {
+            var presetSel = document.getElementById('wizTOUPreset');
+            presetSel.innerHTML = '<option value="">' + t('wizard.tariff_tou_preset', 'Select schedule') + '</option>';
+            _wizardSelectedCountry.tou_presets.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                opt.dataset.preset = JSON.stringify(p);
+                presetSel.appendChild(opt);
+            });
+            // Check if any preset has midpeak rate
+            var hasMidpeak = _wizardSelectedCountry.tou_presets.some(function(p) {
+                return p.periods && p.periods.some(function(pd) { return pd.rate === 'midpeak'; });
+            });
+            document.getElementById('wizTOUMidpeakWrap').style.display = hasMidpeak ? '' : 'none';
         }
-        // Only show non-zero tax items
-        var items = [
-            { label: t('wizard.verify_vat', 'VAT rate'), value: (tax.vat_rate * 100).toFixed(0) + '%', show: tax.vat_rate > 0 },
-            { label: t('wizard.verify_energy_tax', 'Energy tax'), value: (tax.energy_tax * 100).toFixed(3) + ' ct/kWh', show: tax.energy_tax > 0 },
-            { label: t('wizard.verify_surcharges', 'Surcharges'), value: (tax.surcharges * 100).toFixed(3) + ' ct/kWh', show: tax.surcharges > 0 },
-            { label: t('wizard.verify_network', 'Network tariff (avg.)'), value: (tax.network_tariff_avg * 100).toFixed(2) + ' ct/kWh', show: tax.network_tariff_avg > 0 }
-        ];
-        items.forEach(function(item) {
-            if (!item.show) return;
-            var row = document.createElement('div');
-            row.className = 'wizard-tax-row';
-            row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
-            row.querySelector('.wizard-tax-label').textContent = item.label;
-            row.querySelector('.wizard-tax-value').textContent = item.value;
-            rows.appendChild(row);
+
+        // Update active state
+        wizardUpdateTariffCards();
+
+        // Disable cards if Enever locked
+        cards.forEach(function(card) {
+            card.style.opacity = hasEnever && card.dataset.tariff !== 'variable' ? '0.5' : '';
+            card.style.pointerEvents = hasEnever && card.dataset.tariff !== 'variable' ? 'none' : '';
         });
     }
 
+    function wizardUpdateTariffCards() {
+        var cards = document.querySelectorAll('.wizard-tariff-card');
+        cards.forEach(function(card) {
+            var isActive = card.dataset.tariff === _wizardTariffType;
+            card.classList.toggle('active', isActive);
+        });
+        document.getElementById('wizFixedInputWrap').style.display = _wizardTariffType === 'fixed' ? '' : 'none';
+        document.getElementById('wizTOUInputWrap').style.display = _wizardTariffType === 'tou' ? '' : 'none';
+    }
+
+    // Tariff card click handlers
+    document.querySelectorAll('.wizard-tariff-card').forEach(function(card) {
+        card.onclick = function() {
+            _wizardTariffType = this.dataset.tariff;
+            wizardUpdateTariffCards();
+        };
+    });
+
+    // TOU preset selection
+    document.getElementById('wizTOUPreset').onchange = function() {
+        if (!this.value) { _wizardTOUPreset = null; return; }
+        var opt = this.options[this.selectedIndex];
+        try {
+            _wizardTOUPreset = JSON.parse(opt.dataset.preset);
+            // Check if this preset has midpeak
+            var hasMidpeak = _wizardTOUPreset.periods && _wizardTOUPreset.periods.some(function(p) { return p.rate === 'midpeak'; });
+            document.getElementById('wizTOUMidpeakWrap').style.display = hasMidpeak ? '' : 'none';
+        } catch(e) { _wizardTOUPreset = null; }
+    };
+
+    // Summary step — zone, supplier, tariff type, taxes with override
     function wizardPopulateSummary() {
         var rows = document.getElementById('wizSummaryRows');
         rows.innerHTML = '';
-        var modeLabel = _wizardUseSensor
-            ? t('settings.mode_external_sensor', 'External Sensor')
-            : t('settings.mode_auto', 'Synctacles Auto');
+
+        // Determine labels
         var supplierLabel = _wizardUseSensor
             ? (_wizardData.detected_sensor ? _wizardData.detected_sensor.name : 'Sensor')
             : (_wizardSelectedSupplier || t('settings.supplier_none', 'None'));
+        var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
+        if (hasEnever && !_wizardUseSensor) {
+            supplierLabel = (supplierNames[_wizardEneverLeverancier] || _wizardEneverLeverancier) + ' (Enever)';
+        }
+
+        var tariffLabel = _wizardUseSensor
+            ? t('settings.mode_external_sensor', 'External Sensor')
+            : _wizardTariffType === 'fixed' ? t('wizard.tariff_fixed', 'Fixed rate')
+            : _wizardTariffType === 'tou' ? t('wizard.tariff_tou', 'Time-of-Use')
+            : t('wizard.tariff_variable', 'Variable (dynamic pricing)');
+
         var items = [
-            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
+            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '\u2014' },
             { label: t('wizard.summary_supplier', 'Supplier'), value: supplierLabel },
-            { label: t('wizard.summary_mode', 'Pricing mode'), value: modeLabel }
+            { label: t('wizard.summary_tariff', 'Tariff type'), value: tariffLabel }
         ];
         items.forEach(function(item) {
             var row = document.createElement('div');
@@ -3061,75 +3245,122 @@
             row.querySelector('.wizard-summary-value').textContent = item.value;
             rows.appendChild(row);
         });
-        var thanks = document.getElementById('wizSummaryThanks');
-        if (_wizardTaxVerified) {
-            thanks.textContent = t('wizard.summary_thanks', 'Thank you for verifying your price data.');
+
+        // Tax section
+        var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
+        var taxRows = document.getElementById('wizSummaryTaxRows');
+        taxRows.innerHTML = '';
+        _wizardTaxOverrides = null; // Reset on each populate
+
+        if (tax) {
+            var taxItems = [
+                { key: 'vat_rate', label: t('wizard.verify_vat', 'VAT rate'), value: tax.vat_rate, fmt: function(v) { return (v * 100).toFixed(0) + '%'; }, step: '1', max: '50' },
+                { key: 'energy_tax', label: t('wizard.verify_energy_tax', 'Energy tax'), value: tax.energy_tax, fmt: function(v) { return (v * 100).toFixed(3) + ' ct/kWh'; }, step: '0.001', max: '0.50' },
+                { key: 'surcharges', label: t('wizard.verify_surcharges', 'Surcharges'), value: tax.surcharges, fmt: function(v) { return (v * 100).toFixed(3) + ' ct/kWh'; }, step: '0.001', max: '0.50' },
+                { key: 'network_tariff_avg', label: t('wizard.verify_network', 'Network tariff (avg.)'), value: tax.network_tariff_avg, fmt: function(v) { return (v * 100).toFixed(2) + ' ct/kWh'; }, step: '0.01', max: '0.50' }
+            ];
+            taxItems.forEach(function(item) {
+                if (!item.value) return;
+                var row = document.createElement('div');
+                row.className = 'wizard-tax-row';
+                row.dataset.taxKey = item.key;
+                row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
+                row.querySelector('.wizard-tax-label').textContent = item.label;
+                row.querySelector('.wizard-tax-value').textContent = item.fmt(item.value);
+                row.dataset.taxDefault = item.value;
+                row.dataset.taxStep = item.step;
+                row.dataset.taxMax = item.max;
+                row.dataset.taxFmtType = item.key === 'vat_rate' ? 'pct' : 'ct';
+                taxRows.appendChild(row);
+            });
         } else {
-            thanks.textContent = t('wizard.summary_no_verify', 'You can always verify or adjust your tax data in Settings.');
+            taxRows.innerHTML = '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
         }
+
+        // Adjust link handler
+        document.getElementById('wizTaxAdjustLink').onclick = function(e) {
+            e.preventDefault();
+            wizardToggleTaxEdit();
+        };
+
+        // Tax section visibility — hide for sensor mode (sensor provides consumer price)
+        document.getElementById('wizSummaryTaxSection').style.display = _wizardUseSensor ? 'none' : '';
+
         document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
-    }
-
-    function wizardPopulateEnever() {
-        // Populate Enever leverancier dropdown
-        var sel = document.getElementById('wizEneverSupplier');
-        sel.innerHTML = '<option value="">' + t('wizard.enever_select_supplier', 'Kies je leverancier') + '</option>';
-        var sortedKeys = Object.keys(supplierNames).sort(function(a, b) {
-            return (supplierNames[a] || a).localeCompare(supplierNames[b] || b);
-        });
-        sortedKeys.forEach(function(key) {
-            var opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = supplierNames[key] || key;
-            sel.appendChild(opt);
-        });
-
-        // Show sensor info when a day-ahead sensor is detected (complementary to Enever)
-        var adviceDiv = document.getElementById('wizEneverSensorAdvice');
-        var sensor = _wizardData && _wizardData.detected_sensor;
-        if (sensor && sensor.has_forecast) {
-            var sensorName = sensor.name || sensor.entity_id;
-            var sensorPrice = (sensor.state * 100).toFixed(2);
-
-            var html = '<strong style="color:var(--accent)">' +
-                t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
-                tReplace('wizard.sensor_enever_info',
-                    { sensor: sensorName, price: sensorPrice },
-                    '<strong>' + sensorName + '</strong> detected (current: <strong>' + sensorPrice + ' ct/kWh</strong>). ' +
-                    'When you also configure Enever below, the dashboard will show the price difference between your sensor and Enever.');
-            adviceDiv.innerHTML = html;
-            adviceDiv.style.display = '';
-            // Store sensor entity for delta tracking (saved alongside Enever config)
-            _wizardSensorEntity = sensor.entity_id;
+        var thanks = document.getElementById('wizSummaryThanks');
+        if (hasEnever) {
+            thanks.textContent = t('wizard.enever_thanks', 'Enever provides exact supplier prices \u2014 no manual tax setup needed.');
         } else {
-            adviceDiv.style.display = 'none';
+            thanks.textContent = '';
         }
     }
 
+    // Toggle tax rows between read-only and editable
+    function wizardToggleTaxEdit() {
+        var taxRows = document.getElementById('wizSummaryTaxRows');
+        var rows = taxRows.querySelectorAll('.wizard-tax-row');
+        var link = document.getElementById('wizTaxAdjustLink');
+        var isEditing = rows.length > 0 && rows[0].querySelector('input');
 
-    // Show leverancier dropdown when token is entered, update Next button
-    function wizEneverUpdateBtn() {
-        var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
-        var hasLev = !!document.getElementById('wizEneverSupplier').value;
-        var nextBtn = document.getElementById('wizNextBtn');
-        if (_wizardStep === 1) {
-            nextBtn.textContent = (hasToken && hasLev)
-                ? t('wizard.btn_start', 'Start using Synctacles')
-                : t('wizard.enever_skip', 'Continue without Enever');
+        if (isEditing) {
+            // Save overrides and switch back to read-only
+            _wizardTaxOverrides = {};
+            rows.forEach(function(row) {
+                var input = row.querySelector('input');
+                if (!input) return;
+                var key = row.dataset.taxKey;
+                var val = parseFloat(input.value) || 0;
+                // Convert percentage back to decimal for vat_rate
+                if (key === 'vat_rate') val = val / 100;
+                _wizardTaxOverrides[key] = val;
+                var valEl = document.createElement('span');
+                valEl.className = 'wizard-tax-value';
+                valEl.textContent = row.dataset.taxFmtType === 'pct'
+                    ? (val * 100).toFixed(0) + '%'
+                    : (val * 100).toFixed(3) + ' ct/kWh';
+                input.parentElement.replaceWith(valEl);
+            });
+            link.textContent = t('wizard.tax_adjust', 'Adjust');
+            document.getElementById('wizSummaryTaxHint').textContent = t('wizard.tax_adjusted', 'Custom tax values will be applied.');
+        } else {
+            // Switch to editable inputs
+            rows.forEach(function(row) {
+                var valEl = row.querySelector('.wizard-tax-value');
+                if (!valEl) return;
+                var key = row.dataset.taxKey;
+                var defVal = parseFloat(row.dataset.taxDefault) || 0;
+                var curVal = _wizardTaxOverrides ? (_wizardTaxOverrides[key] || defVal) : defVal;
+                // For vat_rate, show as percentage in input
+                var inputVal = key === 'vat_rate' ? (curVal * 100).toFixed(0) : curVal;
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.className = 'wizard-input';
+                input.style.cssText = 'max-width:100px;padding:4px 8px;font-size:0.85em';
+                input.step = row.dataset.taxStep;
+                input.min = '0';
+                input.max = row.dataset.taxMax;
+                input.value = inputVal;
+                var wrap = document.createElement('span');
+                wrap.className = 'wizard-tax-value';
+                wrap.appendChild(input);
+                valEl.replaceWith(wrap);
+            });
+            link.textContent = t('wizard.tax_save', 'Save');
+            document.getElementById('wizSummaryTaxHint').textContent = t('wizard.tax_editing', 'Edit tax values as needed.');
         }
     }
+
+    // Track Enever token/supplier changes
     document.getElementById('wizEneverToken').oninput = function() {
-        wizEneverUpdateBtn();
+        _wizardEneverToken = (this.value || '').trim();
     };
     document.getElementById('wizEneverSupplier').onchange = function() {
-        wizEneverUpdateBtn();
+        _wizardEneverLeverancier = this.value || '';
     };
 
     function wizardShowStep(step) {
         _wizardStep = step;
-        // Show/hide Enever step tab for NL only
-        document.getElementById('wizStep1').style.display = _wizardIsNL ? '' : 'none';
-        for (var i = 0; i <= 4; i++) {
+        for (var i = 0; i <= 3; i++) {
             var panel = document.getElementById('wizardStep' + i);
             var stepEl = document.getElementById('wizStep' + i);
             if (i === step) {
@@ -3144,105 +3375,69 @@
             }
         }
         // Populate step-specific data
-        if (step === 1) wizardPopulateEnever();
-        if (step === 2) wizardPopulateSuppliers();
-        if (step === 3) wizardPopulateTax();
-        if (step === 4 && !_wizardEneverMode) wizardPopulateSummary();
+        if (step === 1) { wizardPopulateSuppliers(); wizardPopulateEnever(); }
+        if (step === 2) wizardPopulateTariffType();
+        if (step === 3) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
         var nextBtn = document.getElementById('wizNextBtn');
-        if (step === 1) {
-            // Enever step: show appropriate button
-            var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
-            var hasLev = !!document.getElementById('wizEneverSupplier').value;
-            if (hasToken && hasLev) {
-                nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
-            } else {
-                nextBtn.textContent = t('wizard.enever_skip', 'Continue without Enever');
-            }
-        } else if (step === 3) {
-            nextBtn.textContent = t('wizard.verify_confirm', 'Looks correct');
-        } else if (step === 4) {
+        if (step === 3) {
             nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
         } else {
             nextBtn.textContent = t('wizard.btn_next', 'Next');
         }
-        document.getElementById('wizSkipBtn').style.display = step < 4 ? '' : 'none';
+        document.getElementById('wizSkipBtn').style.display = step < 3 ? '' : 'none';
     }
 
     document.getElementById('wizNextBtn').onclick = function() {
         if (_wizardStep === 0) {
             if (!_wizardSelectedZone) return;
             _wizardIsNL = _wizardSelectedZone === 'NL';
-            if (_wizardIsNL) {
-                wizardShowStep(1); // Enever step
-            } else {
-                wizardShowStep(2); // Skip Enever, go to supplier
-            }
+            wizardShowStep(1); // Always go to Supplier
         } else if (_wizardStep === 1) {
-            // Enever step: check if user entered token + leverancier
-            var token = (document.getElementById('wizEneverToken').value || '').trim();
-            var lev = document.getElementById('wizEneverSupplier').value;
-            if (token.length > 5 && lev) {
-                // Enever complete — skip supplier/verify, go to Done
-                _wizardEneverMode = true;
-                wizardPopulateEneverSummary(token, lev);
-                wizardShowStep(4);
+            // Capture Enever state
+            _wizardEneverToken = (document.getElementById('wizEneverToken').value || '').trim();
+            _wizardEneverLeverancier = document.getElementById('wizEneverSupplier').value;
+            if (_wizardUseSensor) {
+                // Sensor mode — skip tariff type, go to Summary
+                wizardShowStep(3);
             } else {
-                // No Enever — continue normal flow
-                _wizardEneverMode = false;
-                wizardShowStep(2);
+                wizardShowStep(2); // Tariff type
             }
         } else if (_wizardStep === 2) {
-            wizardShowStep(3);
+            // Validate tariff type inputs
+            if (_wizardTariffType === 'fixed') {
+                var rate = parseFloat(document.getElementById('wizFixedRateInput').value);
+                if (!rate || rate <= 0) return;
+                _wizardFixedRate = rate / 100; // ct/kWh → EUR/kWh
+            }
+            if (_wizardTariffType === 'tou') {
+                var peak = parseFloat(document.getElementById('wizTOUPeakInput').value);
+                var offpeak = parseFloat(document.getElementById('wizTOUOffpeakInput').value);
+                if (!peak || peak <= 0 || !offpeak || offpeak <= 0) return;
+                _wizardTOURates.peak = peak / 100;
+                _wizardTOURates.offpeak = offpeak / 100;
+                var midpeakInput = document.getElementById('wizTOUMidpeakInput');
+                if (midpeakInput && midpeakInput.parentElement.style.display !== 'none') {
+                    _wizardTOURates.midpeak = (parseFloat(midpeakInput.value) || 0) / 100;
+                }
+            }
+            wizardShowStep(3); // Summary
         } else if (_wizardStep === 3) {
-            _wizardTaxVerified = true;
-            wizardShowStep(4);
-        } else if (_wizardStep === 4) {
             wizardComplete(true);
         }
     };
     document.getElementById('wizPrevBtn').onclick = function() {
-        if (_wizardStep === 2 && _wizardIsNL) {
-            wizardShowStep(1); // Back to Enever
-        } else if (_wizardStep === 2) {
-            wizardShowStep(0); // Back to Region (non-NL)
-        } else if (_wizardStep === 4 && _wizardEneverMode) {
-            wizardShowStep(1); // Back to Enever
+        if (_wizardStep === 3 && _wizardUseSensor) {
+            wizardShowStep(1); // Back to Supplier (skip tariff type)
         } else if (_wizardStep > 0) {
             wizardShowStep(_wizardStep - 1);
         }
     };
     document.getElementById('wizSkipBtn').onclick = function() {
-        if (_wizardStep === 3) {
-            // Skip tax verification
-            _wizardTaxVerified = false;
-            wizardShowStep(4);
-        } else {
-            wizardComplete(false);
-        }
+        wizardComplete(false);
     };
-
-    function wizardPopulateEneverSummary(token, lev) {
-        var rows = document.getElementById('wizSummaryRows');
-        rows.innerHTML = '';
-        var items = [
-            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
-            { label: t('wizard.summary_mode', 'Pricing mode'), value: 'Enever' },
-            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierNames[lev] || lev }
-        ];
-        items.forEach(function(item) {
-            var row = document.createElement('div');
-            row.className = 'wizard-summary-row';
-            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
-            row.querySelector('.wizard-summary-label').textContent = item.label;
-            row.querySelector('.wizard-summary-value').textContent = item.value;
-            rows.appendChild(row);
-        });
-        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
-        document.getElementById('wizSummaryThanks').textContent = t('wizard.enever_thanks', 'Enever provides exact supplier prices — no manual tax setup needed.');
-    }
 
     async function wizardComplete(saveSettings) {
         document.getElementById('wizardOverlay').classList.remove('visible');
@@ -3250,28 +3445,48 @@
         var configPayload = { onboarding_completed: true };
         if (saveSettings && _wizardSelectedZone) {
             configPayload.zone = _wizardSelectedZone;
-            if (_wizardEneverMode) {
-                // Enever mode — exact supplier prices via enever.nl
+
+            // Determine pricing mode from tariff type + Enever/sensor
+            var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
+            if (_wizardUseSensor && _wizardSensorEntity) {
+                configPayload.pricing_mode = 'external_sensor';
+                configPayload.p1_sensor_entity = _wizardSensorEntity;
+            } else if (hasEnever) {
                 configPayload.pricing_mode = 'enever';
                 configPayload.enever_enabled = true;
-                configPayload.enever_token = (document.getElementById('wizEneverToken').value || '').trim();
-                configPayload.enever_leverancier = document.getElementById('wizEneverSupplier').value;
-                // Also save detected sensor for delta comparison on dashboard
+                configPayload.enever_token = _wizardEneverToken;
+                configPayload.enever_leverancier = _wizardEneverLeverancier;
                 if (_wizardSensorEntity) {
                     configPayload.p1_sensor_entity = _wizardSensorEntity;
                 }
-            } else if (_wizardUseSensor && _wizardSensorEntity) {
-                // External sensor mode — use the detected tariff sensor
-                configPayload.pricing_mode = 'external_sensor';
-                configPayload.p1_sensor_entity = _wizardSensorEntity;
+            } else if (_wizardTariffType === 'fixed') {
+                configPayload.pricing_mode = 'fixed';
+                configPayload.fixed_rate_price = _wizardFixedRate;
+            } else if (_wizardTariffType === 'tou' && _wizardTOUPreset) {
+                configPayload.pricing_mode = 'tou';
+                configPayload.tou_config = JSON.stringify({
+                    preset_id: _wizardTOUPreset.id,
+                    preset_name: _wizardTOUPreset.name,
+                    periods: _wizardTOUPreset.periods,
+                    rates: _wizardTOURates
+                });
             } else {
                 configPayload.pricing_mode = 'auto';
             }
+
             if (_wizardSelectedSupplier) {
                 configPayload.supplier_id = _wizardSelectedSupplier;
             }
             if (_wizardMarkup > 0) {
                 configPayload.supplier_markup = _wizardMarkup;
+            }
+
+            // Tax overrides (if user adjusted them)
+            if (_wizardTaxOverrides) {
+                if (_wizardTaxOverrides.vat_rate != null) configPayload.manual_vat_rate = _wizardTaxOverrides.vat_rate;
+                if (_wizardTaxOverrides.energy_tax != null) configPayload.manual_energy_tax = _wizardTaxOverrides.energy_tax;
+                if (_wizardTaxOverrides.surcharges != null) configPayload.manual_surcharges = _wizardTaxOverrides.surcharges;
+                if (_wizardTaxOverrides.network_tariff_avg != null) configPayload.manual_network_tariff = _wizardTaxOverrides.network_tariff_avg;
             }
         }
 
@@ -3290,27 +3505,26 @@
             restarting = true;
         }
 
-        // Submit crowdsource data if verified
-        if (saveSettings && _wizardTaxVerified && _wizardSelectedZone && _wizardSelectedCountry) {
-            var tax = _wizardSelectedCountry.tax_defaults;
-            if (tax) {
-                try {
-                    await fetch('api/crowdsource-submit', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            zone: _wizardSelectedZone,
-                            contract_type: 'dynamic',
-                            vat_pct: tax.vat_rate,
-                            energy_tax_kwh: tax.energy_tax,
-                            surcharges_kwh: tax.surcharges,
-                            network_cost_kwh: tax.network_tariff_avg || null,
-                            supplier_name: _wizardSelectedSupplier || '',
-                            total_markup_kwh: _wizardMarkup
-                        })
-                    });
-                } catch(e) { /* best-effort */ }
-            }
+        // Submit crowdsource data (best-effort)
+        if (saveSettings && _wizardSelectedZone && _wizardSelectedCountry) {
+            var tax = _wizardTaxOverrides || (_wizardSelectedCountry.tax_defaults || {});
+            var contractType = _wizardTariffType === 'fixed' ? 'fixed' : _wizardTariffType === 'tou' ? 'tou' : 'dynamic';
+            try {
+                await fetch('api/crowdsource-submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        zone: _wizardSelectedZone,
+                        contract_type: contractType,
+                        vat_pct: tax.vat_rate || 0,
+                        energy_tax_kwh: tax.energy_tax || 0,
+                        surcharges_kwh: tax.surcharges || 0,
+                        network_cost_kwh: tax.network_tariff_avg || null,
+                        supplier_name: _wizardSelectedSupplier || '',
+                        total_markup_kwh: _wizardMarkup
+                    })
+                });
+            } catch(e) { /* best-effort */ }
         }
 
         // If app is restarting, show waiting message and auto-reload
