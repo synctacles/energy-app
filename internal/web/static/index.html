@@ -2439,6 +2439,20 @@
                 status.style.color = '#dc2626';
             }
         } catch (err) {
+            // If zone changed, the app likely restarted — treat as success and reload
+            var savedZone = document.getElementById('cfg-zone') ? document.getElementById('cfg-zone').value : '';
+            if (savedZone !== (currentConfig.zone || '')) {
+                status.textContent = t('settings.restarting', 'Applying new settings...');
+                status.style.color = '#0d9488';
+                var pollRestart2 = function() {
+                    fetch('api/version').then(function(r) {
+                        if (r.ok) setTimeout(function() { location.reload(); }, 500);
+                        else setTimeout(pollRestart2, 2000);
+                    }).catch(function() { setTimeout(pollRestart2, 2000); });
+                };
+                setTimeout(pollRestart2, 3000);
+                return;
+            }
             status.textContent = t('settings.connection_error', 'Connection error');
             status.style.color = '#dc2626';
         }
