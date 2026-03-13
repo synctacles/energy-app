@@ -1926,16 +1926,11 @@
                 this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF';
                 var touSection = document.getElementById('mode-tou-section');
                 if (touSection) touSection.style.display = this.classList.contains('on') ? '' : 'none';
-                // Pre-fill TOU rates from regulated tariffs when toggling on
-                if (this.classList.contains('on') && _settingsRegulatedTariffs && _settingsRegulatedTariffs.tou) {
-                    var regTOU = _settingsRegulatedTariffs.tou;
-                    var firstKey = Object.keys(regTOU)[0];
-                    if (firstKey && regTOU[firstKey]) {
-                        var peakEl = document.getElementById('cfg-tou-peak');
-                        var offpeakEl = document.getElementById('cfg-tou-offpeak');
-                        if (peakEl && !parseFloat(peakEl.value)) peakEl.value = regTOU[firstKey].peak || '';
-                        if (offpeakEl && !parseFloat(offpeakEl.value)) offpeakEl.value = regTOU[firstKey].offpeak || '';
-                    }
+                // Pre-fill TOU rates + schedule from first preset when toggling on
+                if (this.classList.contains('on')) {
+                    // Click the first preset button to apply schedule + pre-fill rates
+                    var firstPresetBtn = document.querySelector('.tou-preset-btn');
+                    if (firstPresetBtn) firstPresetBtn.click();
                 }
             };
         }
