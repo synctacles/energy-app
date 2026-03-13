@@ -933,8 +933,7 @@
 
     async function loadSources() {
         try {
-            var resp = await fetch('api/sources');
-            var d = await resp.json();
+            var d = await fetchAPI('api/sources');
             if (!d.sources || d.sources.length === 0) {
                 document.getElementById('sourceBar').innerHTML = '';
                 return;
@@ -1023,8 +1022,7 @@
 
     async function loadVersion() {
         try {
-            var resp = await fetch('api/version');
-            var d = await resp.json();
+            var d = await fetchAPI('api/version');
             if (d.addon_slug) window._addonSlug = d.addon_slug;
             if (d.version) {
                 window._appVersion = d.version;
@@ -1040,6 +1038,14 @@
     var _dashboardBuilt = false;
     var _isNonWholesale = false; // single source of truth — set by loadDashboard, read by settings/cache
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(2); }
+
+    // fetchAPI — fetch wrapper that throws on non-OK responses.
+    // Ensures all API calls surface errors instead of silently returning bad data.
+    async function fetchAPI(endpoint) {
+        var resp = await fetch(endpoint);
+        if (!resp.ok) throw new Error(endpoint + ': ' + resp.status + ' ' + resp.statusText);
+        return resp.json();
+    }
 
     // persistConfig — fire-and-forget config save with error logging.
     // Used for non-critical saves (disclaimer, privacy, supplier) where we don't
@@ -1076,9 +1082,7 @@
     async function loadTaxBreakdown(zone, forceRefresh) {
         if (!forceRefresh && _taxBreakdownCache[zone]) return _taxBreakdownCache[zone];
         try {
-            var resp = await fetch('api/tax-breakdown?zone=' + encodeURIComponent(zone));
-            if (!resp.ok) return null;
-            var data = await resp.json();
+            var data = await fetchAPI('api/tax-breakdown?zone=' + encodeURIComponent(zone));
             var result = data.breakdown;
             if (result && data.markup_estimated) result._markup_estimated = true;
             if (result && data.price_delta) result._price_delta = data.price_delta;
@@ -1261,8 +1265,7 @@
         // Cancel any pending refresh to prevent duplicate loops
         if (_dashboardTimer) { clearTimeout(_dashboardTimer); _dashboardTimer = null; }
         try {
-            var resp = await fetch('api/dashboard');
-            var d = await resp.json();
+            var d = await fetchAPI('api/dashboard');
 
             if (d.status === 'waiting') {
                 _dashboardBuilt = false;
@@ -1592,9 +1595,9 @@
     async function loadSettings() {
         try {
             var results = await Promise.all([
-                fetch('api/config').then(function(r) { return r.json(); }),
-                fetch('api/zones').then(function(r) { return r.json(); }),
-                fetch('api/sensors/tariff').then(function(r) { return r.json(); }).catch(function() { return {sensors:[]}; })
+                fetchAPI('api/config'),
+                fetchAPI('api/zones'),
+                fetchAPI('api/sensors/tariff').catch(function() { return {sensors:[]}; })
             ]);
             currentConfig = results[0];
             zoneData = results[1];
@@ -1661,8 +1664,7 @@
         loadSupplierDropdown('');
         if (!zone) return;
         try {
-            var resp = await fetch('api/country-defaults?zone=' + encodeURIComponent(zone));
-            var defaults = await resp.json();
+            var defaults = await fetchAPI('api/country-defaults?zone=' + encodeURIComponent(zone));
             if (defaults.error) return;
 
             // Pre-fill manual tax fields from country defaults
@@ -2083,8 +2085,7 @@
             if (curZone && curZone.value) {
                 // Try GPS zone detection — overrides saved zone if GPS gives a more specific match
                 try {
-                    var detectResp = await fetch('api/zone-detect');
-                    var detectData = await detectResp.json();
+                    var detectData = await fetchAPI('api/zone-detect');
                     if (detectData.detected && detectData.zone && detectData.zone !== curZone.value) {
                         curZone.value = detectData.zone;
                         var detectResult = document.getElementById('detectZoneResult');
@@ -2120,8 +2121,7 @@
             var result = document.getElementById('detectZoneResult');
             result.textContent = '...';
             try {
-                var resp = await fetch('api/zone-detect');
-                var data = await resp.json();
+                var data = await fetchAPI('api/zone-detect');
                 if (data.detected) {
                     document.getElementById('cfg-zone').value = data.zone;
                     result.style.color = '#0d9488';
@@ -2383,8 +2383,7 @@
         var zoneEl = document.getElementById('cfg-zone');
         var zone = zoneEl ? zoneEl.value : '';
         try {
-            var resp = await fetch('api/suppliers' + (zone ? '?zone=' + encodeURIComponent(zone) : ''));
-            _supplierList = await resp.json();
+            _supplierList = await fetchAPI('api/suppliers' + (zone ? '?zone=' + encodeURIComponent(zone) : ''));
         } catch(e) { _supplierList = []; }
         if (!_supplierList || _supplierList.length === 0) {
             section.style.display = 'none';
@@ -2598,8 +2597,7 @@
     async function loadFeedbackSysInfo() {
         feedbackLoaded = true;
         try {
-            var resp = await fetch('api/feedback/sysinfo');
-            var info = await resp.json();
+            var info = await fetchAPI('api/feedback/sysinfo');
             var html = '<dl>';
             var labelKeys = ['addon_version','zone','tier','ha_version','ha_arch','ha_machine'];
             for (var i = 0; i < labelKeys.length; i++) {
@@ -2690,9 +2688,7 @@
         var msg = document.getElementById('cacheMsg');
         msg.textContent = '';
         try {
-            var resp = await fetch('api/cache');
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            var data = await resp.json();
+            var data = await fetchAPI('api/cache');
             cacheLoaded = true;
 
             // Header meta
@@ -3071,8 +3067,7 @@
     async function showWizard() {
         wizardPopulateI18n();
         try {
-            var resp = await fetch('api/wizard-data');
-            _wizardData = await resp.json();
+            _wizardData = await fetchAPI('api/wizard-data');
         } catch(e) {
             // If wizard data fails, skip wizard entirely
             wizardComplete(false);
