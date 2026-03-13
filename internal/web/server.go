@@ -685,11 +685,11 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 	if cc.Country == "NL" {
 		modes = append(modes, "enever")
 	}
-	// Non-wholesale zones: remove "auto" (no ENTSO-E spot prices available)
+	// Non-wholesale zones: remove "auto" and "manual" (no ENTSO-E spot prices, regulated tariffs apply)
 	if !hasWholesale {
 		filtered := make([]string, 0, len(modes))
 		for _, m := range modes {
-			if m != "auto" {
+			if m != "auto" && m != "manual" {
 				filtered = append(filtered, m)
 			}
 		}

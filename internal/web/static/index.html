@@ -1463,6 +1463,7 @@
     var currentConfig = {};
     var zoneData = null;
     var tariffSensors = null;
+    var _settingsRegulatedTariffs = null; // regulated tariffs for current zone (non-wholesale only)
 
     async function loadSettings() {
         try {
@@ -1546,16 +1547,48 @@
             }
             // Load TOU presets for this zone
             if (defaults.tou_presets) loadTOUPresets(zone);
-            // Hide "auto" pricing mode for non-wholesale zones (no ENTSO-E spot prices)
+            // Hide irrelevant pricing modes for non-wholesale zones
+            var isNonWholesale = defaults.has_wholesale === false;
+            _settingsRegulatedTariffs = isNonWholesale && defaults.regulated_tariffs ? defaults.regulated_tariffs : null;
             var autoRadio = document.getElementById('mode-auto');
+            var manualRadio = document.getElementById('mode-manual');
             if (autoRadio && autoRadio.parentElement) {
                 var autoLabel = autoRadio.closest('label') || autoRadio.parentElement;
-                autoLabel.style.display = defaults.has_wholesale === false ? 'none' : '';
-                // If auto was selected but zone has no wholesale, switch to manual
-                if (defaults.has_wholesale === false && autoRadio.checked) {
-                    var manualRadio = document.getElementById('mode-manual');
-                    if (manualRadio) { manualRadio.checked = true; manualRadio.dispatchEvent(new Event('change', {bubbles: true})); }
+                autoLabel.style.display = isNonWholesale ? 'none' : '';
+            }
+            if (manualRadio && manualRadio.parentElement) {
+                var manualLabel = manualRadio.closest('label') || manualRadio.parentElement;
+                manualLabel.style.display = isNonWholesale ? 'none' : '';
+            }
+            // If current mode is hidden, switch to fixed (best default for regulated zones)
+            if (isNonWholesale && ((autoRadio && autoRadio.checked) || (manualRadio && manualRadio.checked))) {
+                var fixedRadio = document.getElementById('mode-fixed');
+                if (fixedRadio) { fixedRadio.checked = true; fixedRadio.dispatchEvent(new Event('change', {bubbles: true})); }
+            }
+            // Pre-fill fixed rate from regulated tariffs
+            if (isNonWholesale && defaults.regulated_tariffs) {
+                var fixedPriceEl = document.getElementById('cfg-fixed-price');
+                if (fixedPriceEl && defaults.regulated_tariffs.fixed) {
+                    fixedPriceEl.value = defaults.regulated_tariffs.fixed;
                 }
+                // Pre-fill TOU rates if regulated TOU rates are available
+                var touPresetSel = document.getElementById('tou-preset-select');
+                var selectedPreset = touPresetSel ? touPresetSel.value : '';
+                var regTOU = defaults.regulated_tariffs.tou;
+                if (regTOU) {
+                    var presetKey = selectedPreset || Object.keys(regTOU)[0];
+                    if (presetKey && regTOU[presetKey]) {
+                        var peakEl = document.getElementById('cfg-tou-peak');
+                        var offpeakEl = document.getElementById('cfg-tou-offpeak');
+                        if (peakEl && !parseFloat(peakEl.value)) peakEl.value = regTOU[presetKey].peak || '';
+                        if (offpeakEl && !parseFloat(offpeakEl.value)) offpeakEl.value = regTOU[presetKey].offpeak || '';
+                    }
+                }
+            }
+            // Restore visibility when switching back to wholesale zone
+            if (!isNonWholesale) {
+                if (autoRadio) { var al = autoRadio.closest('label') || autoRadio.parentElement; if (al) al.style.display = ''; }
+                if (manualRadio) { var ml = manualRadio.closest('label') || manualRadio.parentElement; if (ml) ml.style.display = ''; }
             }
         } catch(e) {
             // Non-critical — settings still work without pre-fill
@@ -2128,6 +2161,16 @@
         if (hasMidpeak && midRow) {
             midRow.style.display = '';
             if (midToggle) midToggle.textContent = t('settings.tou_remove_midpeak', 'Remove mid-peak rate');
+        }
+        // Pre-fill TOU rates from regulated tariffs when available
+        if (_settingsRegulatedTariffs && _settingsRegulatedTariffs.tou && preset.id) {
+            var regRates = _settingsRegulatedTariffs.tou[preset.id];
+            if (regRates) {
+                var peakEl = document.getElementById('cfg-tou-peak');
+                var offpeakEl = document.getElementById('cfg-tou-offpeak');
+                if (peakEl) peakEl.value = regRates.peak || '';
+                if (offpeakEl) offpeakEl.value = regRates.offpeak || '';
+            }
         }
     }
 
