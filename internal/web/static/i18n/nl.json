@@ -4,7 +4,8 @@
     "automations": "Automatisering",
     "settings": "Instellingen",
     "feedback": "Feedback",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Kosten"
   },
   "automations": {
     "title": "Automatisering instellen",
@@ -384,6 +385,24 @@
     "today": "Vandaag",
     "tomorrow": "Morgen",
     "breakdown_title": "Prijsopbouw"
+  },
+  "costs": {
+    "title": "Energiekostenoverzicht",
+    "subtitle": "Bekijk waaruit je stroomprijs is opgebouwd",
+    "loading": "Kostenoverzicht laden...",
+    "no_data": "Nog geen prijsdata beschikbaar. Probeer het later opnieuw.",
+    "error": "Kan kostendata niet laden. Belastingprofiel is mogelijk niet beschikbaar voor je zone.",
+    "wholesale": "Inkoopprijs",
+    "energy_cost": "Energiekosten",
+    "supplier_markup": "Leveranciersopslag",
+    "energy_tax": "Energiebelasting",
+    "surcharges": "Toeslagen",
+    "vat": "BTW",
+    "consumer_total": "Consumentenprijs",
+    "tax_share": "van je energieprijs bestaat uit belastingen en heffingen",
+    "source": "Bron",
+    "regulated_note": "Gereguleerd tarief — uitsplitsing is indicatief",
+    "network_info": "Netwerkkosten (~{amount} ct/kWh) worden apart gefactureerd door je netbeheerder en zijn hierboven niet meegeteld."
   },
   "purged": {
     "title": "Gegevens verwijderd",

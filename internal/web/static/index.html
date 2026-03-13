@@ -1527,9 +1527,11 @@
 
             _dashboardBuilt = true;
 
-            // Hide cache tab for non-wholesale zones (no external price data to cache)
+            // Hide cache and costs tabs for non-wholesale zones
             var cacheTab = document.querySelector('.tab[data-tab="cache"]');
             if (cacheTab) cacheTab.style.display = _isNonWholesale ? 'none' : '';
+            var costsTab = document.querySelector('.tab[data-tab="costs"]');
+            if (costsTab) costsTab.style.display = _isNonWholesale ? 'none' : '';
 
             // Bind hint settings links to navigate to Settings tab
             document.querySelectorAll('.hint-settings-link').forEach(function(link) {

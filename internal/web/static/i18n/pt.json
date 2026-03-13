@@ -4,7 +4,8 @@
     "automations": "Automatizações",
     "settings": "Definições",
     "feedback": "Comentários",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Custos"
   },
   "automations": {
     "title": "Configurar automatizações",
@@ -364,5 +365,23 @@
     "today": "Hoje",
     "tomorrow": "Amanhã",
     "breakdown_title": "Composição do preço"
+  },
+  "costs": {
+    "title": "Composição do custo energético",
+    "subtitle": "Veja como o preço da eletricidade é composto",
+    "loading": "A carregar custos...",
+    "no_data": "Dados de preço ainda não disponíveis. Tente mais tarde.",
+    "error": "Não foi possível carregar os dados de custo. O perfil fiscal pode não estar disponível para a sua zona.",
+    "wholesale": "Preço grossista",
+    "energy_cost": "Custo energético",
+    "supplier_markup": "Margem do fornecedor",
+    "energy_tax": "Imposto sobre energia",
+    "surcharges": "Sobretaxas",
+    "vat": "IVA",
+    "consumer_total": "Preço ao consumidor",
+    "tax_share": "do preço da energia são impostos e taxas",
+    "source": "Fonte",
+    "regulated_note": "Tarifa regulada — composição é indicativa",
+    "network_info": "Custos de rede (~{amount} ct/kWh) são faturados separadamente pelo operador de rede e não estão incluídos acima."
   }
 }

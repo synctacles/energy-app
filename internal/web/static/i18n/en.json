@@ -4,7 +4,8 @@
     "automations": "Automations",
     "settings": "Settings",
     "feedback": "Feedback",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Costs"
   },
   "automations": {
     "title": "Set Up Automations",
@@ -376,6 +377,24 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "breakdown_title": "Price Breakdown"
+  },
+  "costs": {
+    "title": "Energy Cost Breakdown",
+    "subtitle": "See how your electricity price is composed",
+    "loading": "Loading cost breakdown...",
+    "no_data": "No price data available yet. Check back when prices are loaded.",
+    "error": "Could not load cost data. Tax profile may not be available for your zone.",
+    "wholesale": "Wholesale price",
+    "energy_cost": "Energy cost",
+    "supplier_markup": "Supplier markup",
+    "energy_tax": "Energy tax",
+    "surcharges": "Surcharges",
+    "vat": "VAT",
+    "consumer_total": "Consumer price",
+    "tax_share": "of your energy price is taxes & levies",
+    "source": "Source",
+    "regulated_note": "Regulated tariff — breakdown is indicative",
+    "network_info": "Network costs (~{amount} ct/kWh) are billed separately by your grid operator and not included above."
   },
   "purged": {
     "title": "Data Deleted",

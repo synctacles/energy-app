@@ -4,7 +4,8 @@
     "automations": "Automatisations",
     "settings": "Paramètres",
     "feedback": "Commentaires",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Coûts"
   },
   "automations": {
     "title": "Configurer les automatisations",
@@ -364,5 +365,23 @@
     "today": "Aujourd'hui",
     "tomorrow": "Demain",
     "breakdown_title": "Détail du prix"
+  },
+  "costs": {
+    "title": "Répartition des coûts énergétiques",
+    "subtitle": "Découvrez la composition de votre prix d'électricité",
+    "loading": "Chargement des coûts...",
+    "no_data": "Données de prix pas encore disponibles. Réessayez plus tard.",
+    "error": "Impossible de charger les données de coûts. Le profil fiscal peut ne pas être disponible pour votre zone.",
+    "wholesale": "Prix de gros",
+    "energy_cost": "Coût de l'énergie",
+    "supplier_markup": "Marge fournisseur",
+    "energy_tax": "Taxe sur l'énergie",
+    "surcharges": "Surtaxes",
+    "vat": "TVA",
+    "consumer_total": "Prix consommateur",
+    "tax_share": "de votre prix d'énergie sont des taxes et prélèvements",
+    "source": "Source",
+    "regulated_note": "Tarif réglementé — répartition indicative",
+    "network_info": "Les frais de réseau (~{amount} ct/kWh) sont facturés séparément par votre gestionnaire de réseau et ne sont pas inclus ci-dessus."
   }
 }

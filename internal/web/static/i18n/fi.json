@@ -4,7 +4,8 @@
     "automations": "Automaatiot",
     "settings": "Asetukset",
     "feedback": "Palaute",
-    "cache": "Välimuisti"
+    "cache": "Välimuisti",
+    "costs": "Kustannukset"
   },
   "automations": {
     "title": "Aseta automaatiot",
@@ -364,5 +365,23 @@
     "today": "Tänään",
     "tomorrow": "Huomenna",
     "breakdown_title": "Hintaerittely"
+  },
+  "costs": {
+    "title": "Energiakustannusten erittely",
+    "subtitle": "Katso mistä sähköhintasi koostuu",
+    "loading": "Ladataan kustannuksia...",
+    "no_data": "Hintatietoja ei ole vielä saatavilla. Yritä myöhemmin uudelleen.",
+    "error": "Kustannustietoja ei voitu ladata. Veroprofiili ei ehkä ole saatavilla vyöhykkeellesi.",
+    "wholesale": "Tukkuhinta",
+    "energy_cost": "Energiakustannus",
+    "supplier_markup": "Toimittajan lisä",
+    "energy_tax": "Sähkövero",
+    "surcharges": "Lisämaksut",
+    "vat": "ALV",
+    "consumer_total": "Kuluttajahinta",
+    "tax_share": "energiahinnastasi on veroja ja maksuja",
+    "source": "Lähde",
+    "regulated_note": "Säännelty tarifi — erittely on suuntaa-antava",
+    "network_info": "Verkkokulut (~{amount} ct/kWh) laskutetaan erikseen verkko-operaattorisi toimesta eikä niitä ole sisällytetty yllä olevaan."
   }
 }

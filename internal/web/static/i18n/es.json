@@ -4,7 +4,8 @@
     "automations": "Automatizaciones",
     "settings": "Configuración",
     "feedback": "Comentarios",
-    "cache": "Caché"
+    "cache": "Caché",
+    "costs": "Costes"
   },
   "automations": {
     "title": "Configurar automatizaciones",
@@ -364,5 +365,23 @@
     "today": "Hoy",
     "tomorrow": "Mañana",
     "breakdown_title": "Desglose del precio"
+  },
+  "costs": {
+    "title": "Desglose de costes energéticos",
+    "subtitle": "Vea cómo se compone su precio de electricidad",
+    "loading": "Cargando desglose de costes...",
+    "no_data": "Datos de precios aún no disponibles. Inténtelo más tarde.",
+    "error": "No se pudieron cargar los datos de costes. El perfil fiscal puede no estar disponible para su zona.",
+    "wholesale": "Precio mayorista",
+    "energy_cost": "Coste energético",
+    "supplier_markup": "Margen del proveedor",
+    "energy_tax": "Impuesto sobre la energía",
+    "surcharges": "Recargos",
+    "vat": "IVA",
+    "consumer_total": "Precio al consumidor",
+    "tax_share": "de su precio de energía son impuestos y tasas",
+    "source": "Fuente",
+    "regulated_note": "Tarifa regulada — desglose indicativo",
+    "network_info": "Los costes de red (~{amount} ct/kWh) se facturan por separado por su operador de red y no están incluidos arriba."
   }
 }

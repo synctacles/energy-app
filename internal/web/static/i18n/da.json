@@ -4,7 +4,8 @@
     "automations": "Automatiseringer",
     "settings": "Indstillinger",
     "feedback": "Feedback",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Omkostninger"
   },
   "automations": {
     "title": "Opsæt automatiseringer",
@@ -364,5 +365,23 @@
     "today": "I dag",
     "tomorrow": "I morgen",
     "breakdown_title": "Prissammensætning"
+  },
+  "costs": {
+    "title": "Energiomkostningsoversigt",
+    "subtitle": "Se hvordan din elpris er sammensat",
+    "loading": "Indlæser omkostninger...",
+    "no_data": "Ingen prisdata tilgængelig endnu. Prøv igen senere.",
+    "error": "Kunne ikke indlæse omkostningsdata. Skatteprofilen er muligvis ikke tilgængelig for din zone.",
+    "wholesale": "Engrospris",
+    "energy_cost": "Energiomkostning",
+    "supplier_markup": "Leverandørtillæg",
+    "energy_tax": "Energiafgift",
+    "surcharges": "Tillæg",
+    "vat": "Moms",
+    "consumer_total": "Forbrugerpris",
+    "tax_share": "af din energipris er skatter og afgifter",
+    "source": "Kilde",
+    "regulated_note": "Reguleret tarif — opdeling er vejledende",
+    "network_info": "Netomkostninger (~{amount} ct/kWh) faktureres separat af din netoperatør og er ikke inkluderet ovenfor."
   }
 }

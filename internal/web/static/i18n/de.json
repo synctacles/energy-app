@@ -4,7 +4,8 @@
     "automations": "Automatisierung",
     "settings": "Einstellungen",
     "feedback": "Feedback",
-    "cache": "Cache"
+    "cache": "Cache",
+    "costs": "Kosten"
   },
   "automations": {
     "title": "Automatisierung einrichten",
@@ -364,5 +365,23 @@
     "today": "Heute",
     "tomorrow": "Morgen",
     "breakdown_title": "Preisaufschlüsselung"
+  },
+  "costs": {
+    "title": "Energiekostenübersicht",
+    "subtitle": "So setzt sich Ihr Strompreis zusammen",
+    "loading": "Kostenübersicht wird geladen...",
+    "no_data": "Noch keine Preisdaten verfügbar. Versuchen Sie es später erneut.",
+    "error": "Kostendaten konnten nicht geladen werden. Das Steuerprofil ist möglicherweise für Ihre Zone nicht verfügbar.",
+    "wholesale": "Börsenpreis",
+    "energy_cost": "Energiekosten",
+    "supplier_markup": "Versorgeraufschlag",
+    "energy_tax": "Stromsteuer",
+    "surcharges": "Umlagen",
+    "vat": "MwSt.",
+    "consumer_total": "Verbraucherpreis",
+    "tax_share": "Ihres Energiepreises sind Steuern und Abgaben",
+    "source": "Quelle",
+    "regulated_note": "Regulierter Tarif — Aufschlüsselung ist indikativ",
+    "network_info": "Netzentgelte (~{amount} ct/kWh) werden separat von Ihrem Netzbetreiber berechnet und sind oben nicht enthalten."
   }
 }
