@@ -2,10 +2,14 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
 )
+
+// floatEpsilon is the tolerance for float64 price comparisons.
+const floatEpsilon = 0.0001
 
 // CalculateRegulatedAction computes the action for non-wholesale (regulated) pricing modes.
 // For fixed-rate: always FLAT (every hour is the same price).
@@ -41,10 +45,10 @@ func CalculateRegulatedAction(prices []models.HourlyPrice, now time.Time, pricin
 	// TOU mode: determine if current hour is peak or offpeak
 	// We detect this by comparing current price to min price:
 	// if current == min → offpeak, else → peak (or midpeak treated as peak)
-	isPeak := currentPrice > stats.Min+0.0001 // small epsilon for float comparison
+	isPeak := currentPrice > stats.Min+floatEpsilon
 
 	// Find next transition: scan future hours for price change
-	nextTransition, nextRate := findNextTransition(prices, now, currentPrice)
+	nextTransition, nextRate := findNextTransition(prices, now, currentPrice, stats)
 
 	if isPeak {
 		result := models.ActionResult{
@@ -79,28 +83,19 @@ func CalculateRegulatedAction(prices []models.HourlyPrice, now time.Time, pricin
 
 // findNextTransition scans prices after 'now' to find the first hour where the price
 // differs from the current price. Returns "HH:MM" and rate label, or "" if no change found.
-func findNextTransition(prices []models.HourlyPrice, now time.Time, currentPrice float64) (string, string) {
-	stats := CalcStats(prices)
-
+func findNextTransition(prices []models.HourlyPrice, now time.Time, currentPrice float64, stats models.PriceStats) (string, string) {
 	for _, p := range prices {
 		if !p.Timestamp.After(now) {
 			continue
 		}
 		// Price changed — this is the transition point
-		if abs(p.PriceEUR-currentPrice) > 0.0001 {
+		if math.Abs(p.PriceEUR-currentPrice) > floatEpsilon {
 			label := "offpeak"
-			if p.PriceEUR > stats.Min+0.0001 {
+			if p.PriceEUR > stats.Min+floatEpsilon {
 				label = "peak"
 			}
 			return p.Timestamp.Format("15:04"), label
 		}
 	}
 	return "", ""
-}
-
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
 }

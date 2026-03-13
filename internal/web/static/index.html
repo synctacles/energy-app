@@ -1038,8 +1038,37 @@
     var lastPrices = null, lastAvg = 0;
     var _lastDashJson = '';
     var _dashboardBuilt = false;
-    var _dashboardIsNonWholesale = false; // set by loadDashboard, used to hide cache tab
+    var _isNonWholesale = false; // single source of truth — set by loadDashboard, read by settings/cache
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(2); }
+
+    // persistConfig — fire-and-forget config save with error logging.
+    // Used for non-critical saves (disclaimer, privacy, supplier) where we don't
+    // want to block the UI but do want to surface failures.
+    function persistConfig(payload) {
+        return fetch('api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(function(err) {
+            console.warn('persistConfig failed:', err);
+        });
+    }
+
+    // pollUntilReady — polls api/version until the app responds, then reloads.
+    // Shows a restart spinner in #content. Used after settings/wizard changes that trigger restart.
+    function pollUntilReady() {
+        document.getElementById('content').innerHTML =
+            '<div class="loading"><div class="spinner"></div>' +
+            '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
+            '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
+        var poll = function() {
+            fetch('api/version').then(function(r) {
+                if (r.ok) setTimeout(function() { location.reload(); }, 500);
+                else setTimeout(poll, 2000);
+            }).catch(function() { setTimeout(poll, 2000); });
+        };
+        setTimeout(poll, 3000);
+    }
 
     // Tax breakdown — loaded from API, cached per zone
     var _taxBreakdownCache = {};
@@ -1135,6 +1164,98 @@
         return html;
     }
 
+    // --- Dashboard card builders: separate wholesale from regulated rendering ---
+
+    function buildWholesaleCards(d, actionClass, action) {
+        var deviationText = '';
+        if (d.action && d.action.deviation) {
+            var dev = d.action.deviation;
+            deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
+        }
+
+        var html = '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
+            '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
+            '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
+            (deviationText ? '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' : '') +
+        '</div>';
+
+        html += '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
+            '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+            '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+        '</div>';
+
+        html += '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
+            '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+            '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+        '</div>';
+
+        if (d.best_window) {
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.best_window', 'Best Window') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
+                '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
+        }
+
+        var ts = d.tomorrow && d.tomorrow.status;
+        if (ts && ts !== 'PENDING') {
+            var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
+                '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
+            '</div>';
+        }
+
+        return html;
+    }
+
+    function buildRegulatedCards(d, actionClass, action) {
+        var isFixed = d.pricing_mode === 'fixed';
+        var isTOU = d.pricing_mode === 'tou';
+
+        // Badge: countdown to next transition (TOU) or nothing (fixed)
+        var badgeText = '';
+        if (isTOU && d.action && d.action.next_transition) {
+            var nextLabel = d.action.next_rate === 'peak' ? t('dashboard.peak_at', 'peak at') : t('dashboard.offpeak_at', 'offpeak at');
+            badgeText = nextLabel + ' ' + d.action.next_transition;
+        }
+
+        var html = '<div class="card">' +
+            '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + '</div>' +
+            '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
+            '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
+            (badgeText ? '<span class="action-badge badge-' + actionClass + '">' + badgeText + '</span>' : '') +
+        '</div>';
+
+        // TOU: show offpeak/peak hours + offpeak window
+        if (!isFixed) {
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.offpeak', 'Offpeak') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+                '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+            '</div>';
+
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.peak', 'Peak') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+                '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+            '</div>';
+
+            if (d.best_window) {
+                html += '<div class="card">' +
+                    '<div class="card-label">' + t('dashboard.offpeak_window', 'Offpeak Window') + '</div>' +
+                    '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
+                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
+            }
+        }
+        // Fixed: no extra cards — every hour is the same
+
+        return html;
+    }
+
     var _dashboardTimer = null;
     async function loadDashboard() {
         // Cancel any pending refresh to prevent duplicate loops
@@ -1169,42 +1290,8 @@
             document.getElementById('versionBadge').textContent = 'v' + d.version;
             document.getElementById('meta').textContent = d.zone;
 
-            var isNonWholesale = d.has_wholesale === false;
+            _isNonWholesale = d.has_wholesale === false;
             var isFixed = d.pricing_mode === 'fixed';
-            var isTOU = d.pricing_mode === 'tou';
-
-            var bwHtml = '';
-            if (d.best_window && !isFixed) {
-                var bwLabel = isTOU ? t('dashboard.offpeak_window', 'Offpeak Window') : t('dashboard.best_window', 'Best Window');
-                bwHtml = '<div class="card">' +
-                    '<div class="card-label">' + bwLabel + '</div>' +
-                    '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
-                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
-            }
-
-            var tomorrowHtml = '';
-            if (!isNonWholesale) {
-                var ts = d.tomorrow && d.tomorrow.status;
-                if (ts && ts !== 'PENDING') {
-                    var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
-                    tomorrowHtml = '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
-                        '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
-                        '</div>';
-                }
-            }
-
-            var deviationText = '';
-            if (!isNonWholesale && d.action && d.action.deviation) {
-                var dev = d.action.deviation;
-                deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
-            }
-            // TOU: show countdown to next transition as badge
-            if (isTOU && d.action && d.action.next_transition) {
-                var nextLabel = d.action.next_rate === 'peak' ? t('dashboard.peak_at', 'peak at') : t('dashboard.offpeak_at', 'offpeak at');
-                deviationText = nextLabel + ' ' + d.action.next_transition;
-            }
 
             var degradedBanner = '';
             if (d.degraded) {
@@ -1236,49 +1323,48 @@
                 });
             }
 
+            // Build mode-specific cards via dedicated builders
+            var modeCards = _isNonWholesale
+                ? buildRegulatedCards(d, actionClass, action)
+                : buildWholesaleCards(d, actionClass, action);
+
+            // Shared: current price card (all modes)
+            var priceLabel = t('dashboard.current_price', 'Current Price');
+            if (d.source_info && d.source_info.chart_source) {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.sensor_price', 'sensor price') + ')</span>';
+            } else if (d.resolution === 'PT15M') {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>';
+            } else if (d.resolution === 'PT60M') {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>';
+            }
+            var priceSub = isFixed
+                ? t('dashboard.fixed_rate', 'Fixed rate')
+                : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct';
+
+            // Shared: chart card (all modes)
+            var chartSource = '';
+            if (d.source_info) {
+                chartSource = ' <span class="chart-source">&mdash; ' +
+                    (d.source_info.chart_source
+                        ? t('dashboard.chart_source_enever', 'Enever prices') +
+                          (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
+                        : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
+                    '</span>';
+            }
+
             document.getElementById('content').innerHTML =
                 degradedBanner + hintsBanner +
                 '<div class="grid">' +
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.current_price', 'Current Price') +
-                            (d.source_info && d.source_info.chart_source
-                                ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.sensor_price', 'sensor price') + ')</span>'
-                                : (d.resolution === 'PT15M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>' :
-                                   d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '')) +
-                        '</div>' +
+                        '<div class="card-label">' + priceLabel + '</div>' +
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
-                        '<div class="card-sub">' + (isFixed ? t('dashboard.fixed_rate', 'Fixed rate') : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct') + '</div>' +
+                        '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
-                    '<div class="card">' +
-                        '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + '</div>' +
-                        '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
-                        '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
-                        (deviationText ? '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' : '') +
-                    '</div>' +
-                    (isFixed ? '' :
-                    '<div class="card">' +
-                        '<div class="card-label">' + (isTOU ? t('dashboard.offpeak', 'Offpeak') : t('dashboard.cheapest', 'Cheapest')) + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
-                    '</div>' +
-                    '<div class="card">' +
-                        '<div class="card-label">' + (isTOU ? t('dashboard.peak', 'Peak') : t('dashboard.expensive', 'Expensive')) + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
-                    '</div>') +
-                    bwHtml +
-                    tomorrowHtml +
+                    modeCards +
                 '</div>' +
                 '<div class="card chart-card">' +
-                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' +
-                        (d.source_info ? ' <span class="chart-source">&mdash; ' +
-                            (d.source_info.chart_source
-                                ? t('dashboard.chart_source_enever', 'Enever prices') +
-                                  (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
-                                : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
-                            '</span>' : '') +
-                    '</div>' +
+                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource + '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
                         '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
@@ -1288,7 +1374,6 @@
                 '</div>';
 
             _dashboardBuilt = true;
-            _dashboardIsNonWholesale = isNonWholesale;
 
             // Hide cache tab for non-wholesale zones (no external price data to cache)
             var cacheTab = document.querySelector('.tab[data-tab="cache"]');
@@ -1503,7 +1588,6 @@
     var zoneData = null;
     var tariffSensors = null;
     var _settingsRegulatedTariffs = null; // regulated tariffs for current zone (non-wholesale only)
-    var _settingsIsNonWholesale = false; // true when current zone has no ENTSO-E wholesale market
 
     async function loadSettings() {
         try {
@@ -1550,7 +1634,7 @@
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
         // For non-wholesale zones: Fixed is the only visible mode; show TOU section if toggle is on
-        if (_settingsIsNonWholesale && m === 'fixed') {
+        if (_isNonWholesale && m === 'fixed') {
             var touToggle = document.getElementById('fixed-tou-toggle');
             var touSection = document.getElementById('mode-tou-section');
             if (touToggle && touToggle.classList.contains('on') && touSection) {
@@ -1597,7 +1681,7 @@
             if (defaults.tou_presets) loadTOUPresets(zone);
             // Hide irrelevant pricing modes for non-wholesale zones
             var isNonWholesale = defaults.has_wholesale === false;
-            _settingsIsNonWholesale = isNonWholesale;
+            _isNonWholesale = isNonWholesale;
             _settingsRegulatedTariffs = isNonWholesale && defaults.regulated_tariffs ? defaults.regulated_tariffs : null;
             // Modes to hide/show based on wholesale availability
             var hideModes = isNonWholesale ? ['auto', 'manual', 'external_sensor', 'tou'] : [];
@@ -1871,7 +1955,7 @@
             '</div>' +
 
             // Thresholds — hidden for non-wholesale (fixed/TOU have no dynamic thresholds)
-            '<div class="settings-section" id="settings-thresholds" style="' + (_settingsIsNonWholesale ? 'display:none' : '') + '">' +
+            '<div class="settings-section" id="settings-thresholds" style="' + (_isNonWholesale ? 'display:none' : '') + '">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +
@@ -2018,11 +2102,7 @@
         })();
 
         document.getElementById('btnRestartWizard').onclick = function() {
-            fetch('api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ onboarding_completed: false })
-            }).then(function() {
+            persistConfig({ onboarding_completed: false }).then(function() {
                 localStorage.removeItem('onboarding_completed');
                 showWizard();
             });
@@ -2322,11 +2402,7 @@
         select.onchange = function() {
             var sup = _supplierList.find(function(s) { return s.id === select.value; });
             if (sup) {
-                fetch('api/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ supplier_id: sup.id, supplier_markup: sup.markup })
-                });
+                persistConfig({ supplier_id: sup.id, supplier_markup: sup.markup });
                 currentConfig.supplier_markup = sup.markup;
                 currentConfig.supplier_id = sup.id;
             }
@@ -2454,20 +2530,8 @@
                 if (result.status === 'restarting') {
                     status.textContent = t('settings.restarting', 'Applying new settings...');
                     status.style.color = '#0d9488';
-                    // Show restart indicator and auto-reload
-                    document.getElementById('content').innerHTML =
-                        '<div class="loading"><div class="spinner"></div>' +
-                        '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
-                        '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
-                    // Switch to dashboard tab to show the restart message
                     document.querySelector('.tab-btn[data-tab="dashboard"]').click();
-                    var pollRestart = function() {
-                        fetch('api/version').then(function(r) {
-                            if (r.ok) setTimeout(function() { location.reload(); }, 500);
-                            else setTimeout(pollRestart, 2000);
-                        }).catch(function() { setTimeout(pollRestart, 2000); });
-                    };
-                    setTimeout(pollRestart, 3000);
+                    pollUntilReady();
                     return;
                 }
                 status.textContent = t('settings.saved', 'Settings saved.');
@@ -2486,13 +2550,7 @@
             if (restartLikely) {
                 status.textContent = t('settings.restarting', 'Applying new settings...');
                 status.style.color = '#0d9488';
-                var pollRestart2 = function() {
-                    fetch('api/version').then(function(r) {
-                        if (r.ok) setTimeout(function() { location.reload(); }, 500);
-                        else setTimeout(pollRestart2, 2000);
-                    }).catch(function() { setTimeout(pollRestart2, 2000); });
-                };
-                setTimeout(pollRestart2, 3000);
+                pollUntilReady();
                 return;
             }
             status.textContent = t('settings.connection_error', 'Connection error');
@@ -2830,11 +2888,7 @@
         localStorage.setItem('disclaimer_accepted', 'true');
         document.getElementById('disclaimerOverlay').classList.remove('visible');
         // Persist to backend so it survives HA ingress token changes
-        fetch('api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ disclaimer_accepted: true })
-        });
+        persistConfig({ disclaimer_accepted: true });
         if (localStorage.getItem('privacy_shown') !== 'true') {
             showPrivacyModal();
         } else if (localStorage.getItem('onboarding_completed') !== 'true') {
@@ -2885,11 +2939,7 @@
         localStorage.setItem('privacy_shown', 'true');
         hidePrivacyModal();
         // Persist to backend so it survives HA ingress token changes
-        fetch('api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ privacy_accepted: true })
-        });
+        persistConfig({ privacy_accepted: true });
         // Chain into onboarding wizard if not completed yet
         if (localStorage.getItem('onboarding_completed') !== 'true') {
             showWizard();
@@ -2908,11 +2958,7 @@
         if (e.key === 'Escape' && document.getElementById('privacyOverlay').classList.contains('visible')) {
             localStorage.setItem('privacy_shown', 'true');
             hidePrivacyModal();
-            fetch('api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ privacy_accepted: true })
-            });
+            persistConfig({ privacy_accepted: true });
             if (localStorage.getItem('onboarding_completed') !== 'true') {
                 showWizard();
             }
@@ -3762,18 +3808,7 @@
 
         // If app is restarting, show waiting message and auto-reload
         if (restarting) {
-            document.getElementById('content').innerHTML =
-                '<div class="loading"><div class="spinner"></div>' +
-                '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
-                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
-            // Poll until app is back, then reload
-            var pollRestart = function() {
-                fetch('api/version').then(function(r) {
-                    if (r.ok) setTimeout(function() { location.reload(); }, 500);
-                    else setTimeout(pollRestart, 2000);
-                }).catch(function() { setTimeout(pollRestart, 2000); });
-            };
-            setTimeout(pollRestart, 3000);
+            pollUntilReady();
             return;
         }
 

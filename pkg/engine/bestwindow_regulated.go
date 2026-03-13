@@ -41,7 +41,7 @@ func FindOffpeakWindow(prices []models.HourlyPrice, now time.Time) *models.BestW
 		if p.Timestamp.Before(currentHour) {
 			continue
 		}
-		isOffpeak := p.PriceEUR <= stats.Min+0.0001
+		isOffpeak := p.PriceEUR <= stats.Min+floatEpsilon
 		if isOffpeak {
 			if cur == nil {
 				cur = &block{start: p.Timestamp, end: p.Timestamp.Add(time.Hour), avgPrice: p.PriceEUR, slots: 1}
