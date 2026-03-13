@@ -203,6 +203,27 @@
         .tab-page { display: none; }
         .tab-page.active { display: block; }
 
+        /* Costs tab — stacked bar & breakdown */
+        .cost-bar { display: flex; height: 40px; border-radius: var(--radius-sm); overflow: hidden; margin: 16px 0; }
+        .cost-bar-segment { display: flex; align-items: center; justify-content: center; font-size: 0.72em; font-weight: 700; color: #fff; min-width: 2%; transition: width 0.4s; }
+        .cost-bar-segment.energy { background: #3b82f6; }
+        .cost-bar-segment.markup { background: #8b5cf6; }
+        .cost-bar-segment.tax { background: #f59e0b; }
+        .cost-bar-segment.surcharges { background: #6366f1; }
+        .cost-bar-segment.vat { background: #ef4444; }
+        .cost-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; font-size: 0.8em; }
+        .cost-legend-item { display: flex; align-items: center; gap: 6px; }
+        .cost-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .cost-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85em; align-items: center; }
+        .cost-row:last-child { border-bottom: none; }
+        .cost-row-label { color: var(--text-muted); }
+        .cost-row-value { text-align: right; font-weight: 600; }
+        .cost-row-pct { text-align: right; color: var(--text-faint); font-size: 0.9em; min-width: 50px; }
+        .cost-total-row { border-top: 2px solid var(--accent); padding-top: 10px; margin-top: 4px; font-weight: 700; font-size: 1em; }
+        .cost-tax-summary { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.15); border-radius: var(--radius-sm); padding: 12px 16px; margin-top: 16px; text-align: center; }
+        .cost-tax-pct { font-size: 2em; font-weight: 800; color: var(--danger); }
+        .cost-tax-label { font-size: 0.82em; color: var(--text-muted); margin-top: 2px; }
+
         @media (max-width: 600px) {
             .grid { grid-template-columns: repeat(2, 1fr); }
             .card-value { font-size: 1.4em; }
@@ -467,6 +488,7 @@
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
             <div class="tab" data-tab="automations" data-i18n="nav.automations">Automations</div>
+            <div class="tab" data-tab="costs" data-i18n="nav.costs">Costs</div>
             <div class="tab" data-tab="cache" data-i18n="nav.cache">Cache</div>
             <div class="tab" data-tab="feedback" data-i18n="nav.feedback">Feedback</div>
             <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
@@ -500,6 +522,15 @@
                     </a>
                 </div>
                 <p style="font-size:0.75em;color:var(--text-faint);margin-top:12px" data-i18n="automations.help">Click a button to import the blueprint into Home Assistant. You can then configure which devices to control.</p>
+            </div>
+        </div>
+
+        <div id="page-costs" class="tab-page">
+            <div id="costsContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p data-i18n="costs.loading">Loading cost breakdown...</p>
+                </div>
             </div>
         </div>
 
@@ -1017,6 +1048,7 @@
             if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
             if (tab.getAttribute('data-tab') === 'feedback' && !feedbackLoaded) loadFeedbackSysInfo();
             if (tab.getAttribute('data-tab') === 'cache' && !cacheLoaded) loadCache();
+            if (tab.getAttribute('data-tab') === 'costs') loadCosts();
         };
     });
 
@@ -1166,6 +1198,123 @@
 
         html += '</div></div>';
         return html;
+    }
+
+    // --- Costs tab: visual tax breakdown with percentages ---
+    async function loadCosts() {
+        var container = document.getElementById('costsContent');
+        if (!container) return;
+
+        container.innerHTML = '<div class="loading"><div class="spinner"></div><p>' + t('costs.loading', 'Loading cost breakdown...') + '</p></div>';
+
+        try {
+            var data = await fetchAPI('api/tax-breakdown');
+            var bd = data.breakdown;
+            if (!bd || bd.consumer_total <= 0) {
+                container.innerHTML = '<div class="card"><p style="color:var(--text-muted);text-align:center;padding:20px">' +
+                    t('costs.no_data', 'No price data available yet. Check back when prices are loaded.') + '</p></div>';
+                return;
+            }
+
+            var isRegulated = !!data.regulated;
+            var ct = t('dashboard.ct_kwh', 'ct/kWh');
+            var total = bd.consumer_total;
+
+            // Calculate components and percentages
+            var components = [];
+            if (isRegulated) {
+                // Regulated: energy cost + energy tax + surcharges + VAT
+                components.push({ id: 'energy', label: t('costs.energy_cost', 'Energy cost'), value: bd.wholesale, cls: 'energy', color: '#3b82f6' });
+                if (bd.energy_tax > 0.00005) components.push({ id: 'tax', label: t('costs.energy_tax', 'Energy tax'), value: bd.energy_tax, cls: 'tax', color: '#f59e0b' });
+                if (bd.surcharges > 0.00005) components.push({ id: 'surcharges', label: t('costs.surcharges', 'Surcharges'), value: bd.surcharges, cls: 'surcharges', color: '#6366f1' });
+                components.push({ id: 'vat', label: t('costs.vat', 'VAT') + ' (' + (bd.vat_rate * 100).toFixed(0) + '%)', value: bd.vat_amount, cls: 'vat', color: '#ef4444' });
+            } else {
+                // Wholesale: wholesale + supplier markup + energy tax + surcharges + VAT
+                components.push({ id: 'energy', label: t('costs.wholesale', 'Wholesale price'), value: bd.wholesale, cls: 'energy', color: '#3b82f6' });
+                if (bd.supplier_markup > 0.00005) components.push({ id: 'markup', label: t('costs.supplier_markup', 'Supplier markup'), value: bd.supplier_markup, cls: 'markup', color: '#8b5cf6' });
+                if (bd.energy_tax > 0.00005) components.push({ id: 'tax', label: t('costs.energy_tax', 'Energy tax'), value: bd.energy_tax, cls: 'tax', color: '#f59e0b' });
+                if (bd.surcharges > 0.00005) components.push({ id: 'surcharges', label: t('costs.surcharges', 'Surcharges'), value: bd.surcharges, cls: 'surcharges', color: '#6366f1' });
+                components.push({ id: 'vat', label: t('costs.vat', 'VAT') + ' (' + (bd.vat_rate * 100).toFixed(0) + '%)', value: bd.vat_amount, cls: 'vat', color: '#ef4444' });
+            }
+
+            // Total tax = everything except energy cost (wholesale)
+            var totalTax = total - bd.wholesale;
+            var taxPct = total > 0 ? (totalTax / total * 100) : 0;
+
+            // Build stacked bar
+            var barHtml = '<div class="cost-bar">';
+            components.forEach(function(c) {
+                var pct = total > 0 ? (c.value / total * 100) : 0;
+                if (pct < 1) pct = 1; // minimum visible width
+                barHtml += '<div class="cost-bar-segment ' + c.cls + '" style="width:' + pct.toFixed(1) + '%" title="' + c.label + ': ' + formatPrice(c.value) + ' ' + ct + '">';
+                if (pct > 8) barHtml += (c.value / total * 100).toFixed(0) + '%';
+                barHtml += '</div>';
+            });
+            barHtml += '</div>';
+
+            // Legend
+            var legendHtml = '<div class="cost-legend">';
+            components.forEach(function(c) {
+                legendHtml += '<div class="cost-legend-item"><div class="cost-legend-dot" style="background:' + c.color + '"></div>' + c.label + '</div>';
+            });
+            legendHtml += '</div>';
+
+            // Breakdown rows
+            var rowsHtml = '';
+            components.forEach(function(c) {
+                var pct = total > 0 ? (c.value / total * 100) : 0;
+                rowsHtml += '<div class="cost-row">' +
+                    '<div class="cost-row-label">' + c.label + '</div>' +
+                    '<div class="cost-row-value">' + formatPrice(c.value) + ' ' + ct + '</div>' +
+                    '<div class="cost-row-pct">' + pct.toFixed(1) + '%</div>' +
+                '</div>';
+            });
+
+            // Total row
+            rowsHtml += '<div class="cost-row cost-total-row">' +
+                '<div class="cost-row-label">' + t('costs.consumer_total', 'Consumer price') + '</div>' +
+                '<div class="cost-row-value">' + formatPrice(total) + ' ' + ct + '</div>' +
+                '<div class="cost-row-pct">100%</div>' +
+            '</div>';
+
+            // Network tariff info
+            var networkHtml = '';
+            if (bd.network_tariff > 0.0001) {
+                networkHtml = '<div style="margin-top:12px;padding:10px 14px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);border-radius:var(--radius-sm);font-size:0.82em;color:var(--text-muted)">' +
+                    tReplace('costs.network_info', {amount: formatPrice(bd.network_tariff)},
+                        'Network costs (~' + formatPrice(bd.network_tariff) + ' ct/kWh) are billed separately by your grid operator and not included above.') +
+                    '</div>';
+            }
+
+            // Tax summary highlight
+            var summaryHtml = '<div class="cost-tax-summary">' +
+                '<div class="cost-tax-pct">' + taxPct.toFixed(1) + '%</div>' +
+                '<div class="cost-tax-label">' + t('costs.tax_share', 'of your energy price is taxes & levies') + '</div>' +
+            '</div>';
+
+            // Version info
+            var versionHtml = '<div style="margin-top:12px;font-size:0.72em;color:var(--text-faint);text-align:right">' +
+                t('costs.source', 'Source') + ': ' + (data.version || 'embedded') +
+                (isRegulated ? ' | ' + t('costs.regulated_note', 'Regulated tariff — breakdown is indicative') : '') +
+            '</div>';
+
+            container.innerHTML =
+                '<div class="card">' +
+                    '<h3 style="color:var(--accent);margin-bottom:4px">' + t('costs.title', 'Energy Cost Breakdown') + '</h3>' +
+                    '<p style="font-size:0.82em;color:var(--text-muted);margin-bottom:16px">' +
+                        t('costs.subtitle', 'See how your electricity price is composed') + '</p>' +
+                    summaryHtml +
+                    barHtml +
+                    legendHtml +
+                    '<div style="margin-top:8px">' + rowsHtml + '</div>' +
+                    networkHtml +
+                    versionHtml +
+                '</div>';
+        } catch (err) {
+            console.error('loadCosts error:', err);
+            container.innerHTML = '<div class="card"><p style="color:var(--text-muted);text-align:center;padding:20px">' +
+                t('costs.error', 'Could not load cost data. Tax profile may not be available for your zone.') + '</p></div>';
+        }
     }
 
     // --- Dashboard card builders: separate wholesale from regulated rendering ---

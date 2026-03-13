@@ -823,11 +823,26 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		zone = s.cfg.BiddingZone
 	}
 
-	if s.taxCache == nil {
-		writeError(w, http.StatusServiceUnavailable, "tax cache not available")
-		return
+	// Resolve tax data: Worker cache first, then zone config fallback.
+	var override *engine.WorkerTaxOverride
+	if s.taxCache != nil {
+		override = s.taxCache.Get(zone)
 	}
-	override := s.taxCache.Get(zone)
+
+	// For non-wholesale zones (fixed/TOU): build override from embedded zone tax_defaults.
+	// This enables tax insight for regulated zones that never get Worker tax profiles.
+	if override == nil && s.zoneRegistry != nil {
+		if defaults := s.zoneRegistry.GetTaxDefaults(zone); defaults != nil {
+			override = &engine.WorkerTaxOverride{
+				VATRate:          defaults.VATRate,
+				EnergyTax:        defaults.EnergyTax,
+				Surcharges:       defaults.Surcharges,
+				NetworkTariffAvg: defaults.NetworkTariffAvg,
+				Version:          "embedded-" + defaults.ValidFrom,
+			}
+		}
+	}
+
 	if override == nil {
 		writeError(w, http.StatusNotFound, "no tax profile for zone "+zone)
 		return
@@ -838,8 +853,42 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	var markupEstimated bool
 	data := s.sensorData.Get()
 	mode := s.cfg.PricingMode
+	isRegulated := mode == "fixed" || mode == "tou"
 
-	// Try to find the actual wholesale price for the current hour.
+	// For regulated modes: reverse-calculate from the all-in consumer price.
+	// Consumer price = (energy_cost + energy_tax + surcharges) × (1 + VAT)
+	// So: energy_cost = consumer / (1 + VAT) - energy_tax - surcharges
+	if isRegulated && data != nil && data.CurrentPrice > 0 {
+		subtotal := data.CurrentPrice / (1 + override.VATRate)
+		energyCost := subtotal - override.EnergyTax - override.Surcharges
+		if energyCost < 0 {
+			energyCost = 0
+		}
+		vatAmount := data.CurrentPrice - subtotal
+
+		breakdown := models.PriceBreakdown{
+			Wholesale:      energyCost, // For regulated: this is the base energy cost (no wholesale market)
+			SupplierMarkup: 0,          // Included in the regulated tariff, not separable
+			EnergyTax:      override.EnergyTax,
+			Surcharges:     override.Surcharges,
+			NetworkTariff:  override.NetworkTariffAvg,
+			Subtotal:       subtotal,
+			VATRate:        override.VATRate,
+			VATAmount:      vatAmount,
+			ConsumerTotal:  data.CurrentPrice,
+		}
+
+		resp := map[string]any{
+			"zone":      zone,
+			"breakdown": breakdown,
+			"version":   override.Version,
+			"regulated": true, // Signal to frontend: this is a regulated breakdown
+		}
+		writeJSON(w, resp)
+		return
+	}
+
+	// Wholesale path: try to find the actual wholesale price for the current hour.
 	// This enables exact markup calculation: markup = consumer_excl_tax - taxes - wholesale.
 	if s.fallback != nil && data != nil && data.CurrentPrice > 0 {
 		now := time.Now().UTC()
