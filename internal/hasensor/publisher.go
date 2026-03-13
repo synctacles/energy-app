@@ -291,10 +291,12 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 
 func actionIcon(a models.Action) string {
 	switch a {
-	case models.ActionGo:
+	case models.ActionGo, models.ActionOffpeak:
 		return "mdi:lightning-bolt"
-	case models.ActionAvoid:
+	case models.ActionAvoid, models.ActionPeak:
 		return "mdi:hand-back-left"
+	case models.ActionFlat:
+		return "mdi:minus-circle-outline"
 	default:
 		return "mdi:clock-outline"
 	}
@@ -303,6 +305,7 @@ func actionIcon(a models.Action) string {
 // ComputeSensorSet builds a SensorSet from fetched prices and engine results.
 // leverancier is the Enever supplier name (empty string when not using Enever).
 // bestWindowHours controls the best window duration (default 3, range 1-8).
+// pricingMode controls action calculation: "fixed"/"tou" use regulated logic, others use wholesale.
 func ComputeSensorSet(
 	zone string,
 	todayPrices []models.HourlyPrice,
@@ -312,24 +315,44 @@ func ComputeSensorSet(
 	now time.Time,
 	leverancier string,
 	bestWindowHours int,
+	pricingMode string,
 ) *SensorSet {
 	stats := engine.CalcStats(todayPrices)
 
 	// Current slot price (works for both PT60 hourly and PT15 quarter-hourly data)
 	currentPrice, _, _ := engine.CurrentSlotPrice(todayPrices, now)
 
-	// Action
-	actionResult := actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())
+	// Action: use regulated engine for fixed/tou, wholesale engine for dynamic modes
+	var actionResult models.ActionResult
+	if pricingMode == "fixed" || pricingMode == "tou" {
+		actionResult = engine.CalculateRegulatedAction(todayPrices, now, pricingMode)
+	} else {
+		actionResult = actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())
+	}
 	actionResult.Quality = fetchResult.Quality
 
-	// Best window (configurable duration)
+	// Best window: skip for fixed (all hours equal), use full offpeak block for TOU
 	if bestWindowHours < 1 {
 		bestWindowHours = 3
 	}
-	bestWindow := engine.FindBestWindow(todayPrices, now, bestWindowHours)
+	var bestWindow *models.BestWindow
+	if pricingMode == "fixed" {
+		// No best window for fixed rate — every hour is identical
+		bestWindow = nil
+	} else if pricingMode == "tou" {
+		// TOU: find the full offpeak block instead of arbitrary N-hour window
+		bestWindow = engine.FindOffpeakWindow(todayPrices, now)
+	} else {
+		bestWindow = engine.FindBestWindow(todayPrices, now, bestWindowHours)
+	}
 
-	// Tomorrow preview
-	tomorrow := engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)
+	// Tomorrow preview: skip for fixed/tou (always identical)
+	var tomorrow models.TomorrowResult
+	if pricingMode == "fixed" || pricingMode == "tou" {
+		tomorrow = models.TomorrowResult{Status: models.PreviewPending}
+	} else {
+		tomorrow = engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)
+	}
 
 	// Only set leverancier when Enever is the active source
 	lev := ""

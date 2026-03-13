@@ -142,7 +142,7 @@ func TestComputeSensorSet(t *testing.T) {
 	ae := engine.NewActionEngine(-15, 20)
 	fr := &engine.FetchResult{Source: "easyenergy", Tier: 1, Quality: "live"}
 
-	ss := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3)
+	ss := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3, "auto")
 
 	assert.Equal(t, "NL", ss.Zone)
 	assert.InDelta(t, 0.10, ss.CurrentPrice, 0.001)
@@ -170,17 +170,17 @@ func TestComputeSensorSet_BestWindowHours(t *testing.T) {
 	fr := &engine.FetchResult{Source: "easyenergy", Tier: 1, Quality: "live"}
 
 	// 3-hour window
-	ss3 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3)
+	ss3 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 3, "auto")
 	require.NotNil(t, ss3.BestWindow)
 	assert.Equal(t, 3, ss3.BestWindow.Duration)
 
 	// 5-hour window
-	ss5 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 5)
+	ss5 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 5, "auto")
 	require.NotNil(t, ss5.BestWindow)
 	assert.Equal(t, 5, ss5.BestWindow.Duration)
 
 	// Default (0 falls back to 3)
-	ss0 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 0)
+	ss0 := ComputeSensorSet("NL", prices, nil, ae, fr, now, "", 0, "auto")
 	require.NotNil(t, ss0.BestWindow)
 	assert.Equal(t, 3, ss0.BestWindow.Duration)
 }

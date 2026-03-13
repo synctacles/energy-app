@@ -129,16 +129,18 @@
         .card-value { font-size: 1.8em; font-weight: 700; }
         .card-sub { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
 
-        .action-go { color: var(--success); }
+        .action-go, .action-offpeak { color: var(--success); }
         .action-wait { color: var(--warning); }
-        .action-avoid { color: var(--danger); }
+        .action-avoid, .action-peak { color: var(--danger); }
+        .action-flat { color: var(--text-muted); }
         .action-badge {
             display: inline-block; padding: 2px 10px; border-radius: 20px;
             font-size: 0.7em; font-weight: 600; margin-top: 4px;
         }
-        .badge-go { background: var(--success-bg); color: var(--success-text); }
+        .badge-go, .badge-offpeak { background: var(--success-bg); color: var(--success-text); }
         .badge-wait { background: var(--warning-bg); color: var(--warning-text); }
-        .badge-avoid { background: var(--danger-bg); color: var(--danger-text); }
+        .badge-avoid, .badge-peak { background: var(--danger-bg); color: var(--danger-text); }
+        .badge-flat { background: var(--bg-card); color: var(--text-muted); }
 
         .chart-card { grid-column: 1 / -1; }
         .chart-container { position: relative; height: 200px; margin-top: 8px; }
@@ -808,7 +810,15 @@
         if (reason === 'price near daily average') return t('actions.reason_near_avg', reason);
         if (reason === 'cheapest 4 hours of the day') return t('actions.reason_cheapest_4h', reason);
         if (reason === 'waiting for data') return t('actions.reason_waiting', reason);
+        if (reason === 'fixed rate — all hours equal') return t('actions.reason_flat', reason);
         if (reason.indexOf('not fresh enough') !== -1) return t('actions.reason_stale', reason);
+        // Regulated TOU reasons: "offpeak rate — peak starts at HH:MM"
+        var offpeakMatch = reason.match(/^offpeak rate — peak starts at (\d{2}:\d{2})$/);
+        if (offpeakMatch) return tReplace('actions.reason_offpeak_until', {time: offpeakMatch[1]}, reason);
+        var peakMatch = reason.match(/^peak rate — offpeak starts at (\d{2}:\d{2})$/);
+        if (peakMatch) return tReplace('actions.reason_peak_until', {time: peakMatch[1]}, reason);
+        if (reason === 'offpeak rate') return t('actions.reason_offpeak', reason);
+        if (reason === 'peak rate') return t('actions.reason_peak', reason);
         var belowMatch = reason.match(/^([\d.]+)% below/);
         if (belowMatch) return tReplace('actions.reason_below_avg', {pct: belowMatch[1]}, reason);
         var aboveMatch = reason.match(/^([\d.]+)% above/);
@@ -1028,6 +1038,7 @@
     var lastPrices = null, lastAvg = 0;
     var _lastDashJson = '';
     var _dashboardBuilt = false;
+    var _dashboardIsNonWholesale = false; // set by loadDashboard, used to hide cache tab
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(2); }
 
     // Tax breakdown — loaded from API, cached per zone
@@ -1158,29 +1169,41 @@
             document.getElementById('versionBadge').textContent = 'v' + d.version;
             document.getElementById('meta').textContent = d.zone;
 
+            var isNonWholesale = d.has_wholesale === false;
+            var isFixed = d.pricing_mode === 'fixed';
+            var isTOU = d.pricing_mode === 'tou';
+
             var bwHtml = '';
-            if (d.best_window) {
+            if (d.best_window && !isFixed) {
+                var bwLabel = isTOU ? t('dashboard.offpeak_window', 'Offpeak Window') : t('dashboard.best_window', 'Best Window');
                 bwHtml = '<div class="card">' +
-                    '<div class="card-label">' + t('dashboard.best_window', 'Best Window') + '</div>' +
+                    '<div class="card-label">' + bwLabel + '</div>' +
                     '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
                     '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
             }
 
             var tomorrowHtml = '';
-            var ts = d.tomorrow && d.tomorrow.status;
-            if (ts && ts !== 'PENDING') {
-                var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
-                tomorrowHtml = '<div class="card">' +
-                    '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
-                    '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
-                    '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
-                    '</div>';
+            if (!isNonWholesale) {
+                var ts = d.tomorrow && d.tomorrow.status;
+                if (ts && ts !== 'PENDING') {
+                    var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
+                    tomorrowHtml = '<div class="card">' +
+                        '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
+                        '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
+                        '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
+                        '</div>';
+                }
             }
 
             var deviationText = '';
-            if (d.action && d.action.deviation) {
+            if (!isNonWholesale && d.action && d.action.deviation) {
                 var dev = d.action.deviation;
                 deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
+            }
+            // TOU: show countdown to next transition as badge
+            if (isTOU && d.action && d.action.next_transition) {
+                var nextLabel = d.action.next_rate === 'peak' ? t('dashboard.peak_at', 'peak at') : t('dashboard.offpeak_at', 'offpeak at');
+                deviationText = nextLabel + ' ' + d.action.next_transition;
             }
 
             var degradedBanner = '';
@@ -1224,25 +1247,26 @@
                                    d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '')) +
                         '</div>' +
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
-                        '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
+                        '<div class="card-sub">' + (isFixed ? t('dashboard.fixed_rate', 'Fixed rate') : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct') + '</div>' +
                     '</div>' +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
+                        '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + '</div>' +
                         '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
                         '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
-                        '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
+                        (deviationText ? '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' : '') +
                     '</div>' +
+                    (isFixed ? '' :
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
+                        '<div class="card-label">' + (isTOU ? t('dashboard.offpeak', 'Offpeak') : t('dashboard.cheapest', 'Cheapest')) + '</div>' +
                         '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
                         '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
                     '</div>' +
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
+                        '<div class="card-label">' + (isTOU ? t('dashboard.peak', 'Peak') : t('dashboard.expensive', 'Expensive')) + '</div>' +
                         '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
                         '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
-                    '</div>' +
+                    '</div>') +
                     bwHtml +
                     tomorrowHtml +
                 '</div>' +
@@ -1264,6 +1288,11 @@
                 '</div>';
 
             _dashboardBuilt = true;
+            _dashboardIsNonWholesale = isNonWholesale;
+
+            // Hide cache tab for non-wholesale zones (no external price data to cache)
+            var cacheTab = document.querySelector('.tab[data-tab="cache"]');
+            if (cacheTab) cacheTab.style.display = isNonWholesale ? 'none' : '';
 
             // Bind hint settings links to navigate to Settings tab
             document.querySelectorAll('.hint-settings-link').forEach(function(link) {
@@ -1841,8 +1870,8 @@
                 '</div>' +
             '</div>' +
 
-            // Thresholds
-            '<div class="settings-section">' +
+            // Thresholds — hidden for non-wholesale (fixed/TOU have no dynamic thresholds)
+            '<div class="settings-section" id="settings-thresholds" style="' + (_settingsIsNonWholesale ? 'display:none' : '') + '">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +

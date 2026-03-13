@@ -353,7 +353,7 @@ func main() {
 		sensorSet := hasensor.ComputeSensorSet(
 			cfg.BiddingZone, todayPrices, tomorrowPrices,
 			actionEngine, result, now, cfg.EneverLeverancier,
-			cfg.BestWindowHours,
+			cfg.BestWindowHours, cfg.PricingMode,
 		)
 
 		// Sensor override: use HA sensor reading as CurrentPrice when available.
@@ -635,7 +635,7 @@ func main() {
 			fetchResult := &engine.FetchResult{Source: "regulated", Tier: 1, Quality: "live"}
 			ss := hasensor.ComputeSensorSet(
 				cfg.BiddingZone, todayPrices, tomorrowPrices,
-				actionEngine, fetchResult, now, "", cfg.BestWindowHours,
+				actionEngine, fetchResult, now, "", cfg.BestWindowHours, cfg.PricingMode,
 			)
 			ss.Source = "regulated"
 			ss.Quality = "static"

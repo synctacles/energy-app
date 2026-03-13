@@ -322,10 +322,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Determine if zone has wholesale market data
+	zoneInfo, _ := s.zoneRegistry.GetZone(data.Zone)
+	hasWholesale := zoneInfo.HasWholesale()
+
 	dashboard := map[string]any{
-		"status":  "ok",
-		"version": s.version,
-		"zone":    data.Zone,
+		"status":        "ok",
+		"version":       s.version,
+		"zone":          data.Zone,
+		"pricing_mode":  s.cfg.PricingMode,
+		"has_wholesale": hasWholesale,
 		"current_price": map[string]any{
 			"price":       fmt.Sprintf("%.4f", data.CurrentPrice),
 			"unit":        "EUR/kWh",
@@ -333,9 +339,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"leverancier": data.Leverancier,
 		},
 		"action": map[string]any{
-			"action":    data.Action.Action,
-			"reason":    data.Action.Reason,
-			"deviation": data.Action.DeviationPct,
+			"action":          data.Action.Action,
+			"reason":          data.Action.Reason,
+			"deviation":       data.Action.DeviationPct,
+			"next_transition": data.Action.NextTransition,
+			"next_rate":       data.Action.NextRate,
 		},
 		"stats": map[string]any{
 			"average":        data.Stats.Average,
