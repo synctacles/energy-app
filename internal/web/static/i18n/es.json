@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Añadir tarifa llano",
     "tou_toggle": "Tarifa por franjas horarias (bi-horário)",
     "tou_toggle_hint": "Activar para usar tarifas diferentes en horas punta y valle en lugar de una tarifa fija.",
+    "tou_preset_ciclo_diario": "Ciclo diario",
+    "tou_preset_ciclo_semanal": "Ciclo semanal",
     "tou_remove_midpeak": "Eliminar tarifa llano",
     "tou_schedule": "Horario",
     "tou_add_period": "+ Añadir período",

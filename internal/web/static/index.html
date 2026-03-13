@@ -2180,9 +2180,13 @@
                 var html = '<label class="form-label" style="margin-bottom:6px">' + t('settings.tou_presets', 'Presets') + '</label>' +
                     '<div style="display:flex;gap:6px;flex-wrap:wrap">';
                 data.tou_presets.forEach(function(preset) {
+                    var translatedName = t('settings.tou_preset_' + preset.id, '');
+                    var displayName = translatedName && translatedName !== preset.name
+                        ? translatedName + ' (' + preset.name + ')'
+                        : preset.name;
                     html += '<button type="button" class="tou-preset-btn" data-preset=\'' + JSON.stringify(preset).replace(/'/g, '&#39;') + '\' ' +
                         'style="background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:0.82em;color:var(--accent);cursor:pointer">' +
-                        esc(preset.name) + '</button>';
+                        esc(displayName) + '</button>';
                 });
                 html += '</div>';
                 presetsRow.innerHTML = html;

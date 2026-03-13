@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Lisää välihinta",
     "tou_toggle": "Aikaperusteinen hinta (bi-horário)",
     "tou_toggle_hint": "Ota käyttöön eri hinnat huippu- ja hiljaisten tuntien aikana kiinteän hinnan sijaan.",
+    "tou_preset_ciclo_diario": "Päiväsykli",
+    "tou_preset_ciclo_semanal": "Viikkosykli",
     "tou_remove_midpeak": "Poista välihinta",
     "tou_schedule": "Aikataulu",
     "tou_add_period": "+ Lisää jakso",

@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Ajouter tarif intermédiaire",
     "tou_toggle": "Tarif heures creuses/pleines (bi-horário)",
     "tou_toggle_hint": "Activer pour utiliser des tarifs différents en heures pleines et creuses au lieu d'un tarif fixe.",
+    "tou_preset_ciclo_diario": "Cycle journalier",
+    "tou_preset_ciclo_semanal": "Cycle hebdomadaire",
     "tou_remove_midpeak": "Supprimer tarif intermédiaire",
     "tou_schedule": "Horaire",
     "tou_add_period": "+ Ajouter une période",

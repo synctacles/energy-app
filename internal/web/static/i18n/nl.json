@@ -109,6 +109,8 @@
     "tou_add_midpeak": "+ Tussentarief toevoegen",
     "tou_toggle": "Dag-/nachttarief (bi-horário)",
     "tou_toggle_hint": "Activeer om verschillende tarieven te gebruiken voor piek- en daluren in plaats van één vast tarief.",
+    "tou_preset_ciclo_diario": "Dagcyclus",
+    "tou_preset_ciclo_semanal": "Weekcyclus",
     "tou_remove_midpeak": "Tussentarief verwijderen",
     "tou_schedule": "Schema",
     "tou_add_period": "+ Periode toevoegen",

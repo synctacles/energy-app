@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Adicionar tarifa cheia (tri-horário)",
     "tou_toggle": "Horário bi-horário / tri-horário",
     "tou_toggle_hint": "Ativar para usar tarifas diferentes em horas de ponta e vazio em vez de uma tarifa fixa.",
+    "tou_preset_ciclo_diario": "Ciclo diário",
+    "tou_preset_ciclo_semanal": "Ciclo semanal",
     "tou_remove_midpeak": "Remover tarifa cheia",
     "tou_schedule": "Horário",
     "tou_add_period": "+ Adicionar período",

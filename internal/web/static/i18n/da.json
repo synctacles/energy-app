@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Tilføj mellempris",
     "tou_toggle": "Tidsbaseret tarif (bi-horário)",
     "tou_toggle_hint": "Aktiver for at bruge forskellige tariffer i spids- og lavlasttimer i stedet for en fast pris.",
+    "tou_preset_ciclo_diario": "Dagscyklus",
+    "tou_preset_ciclo_semanal": "Ugecyklus",
     "tou_remove_midpeak": "Fjern mellempris",
     "tou_schedule": "Tidsplan",
     "tou_add_period": "+ Tilføj periode",

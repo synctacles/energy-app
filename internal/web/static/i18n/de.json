@@ -105,6 +105,8 @@
     "tou_add_midpeak": "+ Mitteltarif hinzufügen",
     "tou_toggle": "Zeitabhängiger Tarif (bi-horário)",
     "tou_toggle_hint": "Aktivieren für unterschiedliche Tarife zu Hoch- und Niedriglastzeiten statt eines Festpreises.",
+    "tou_preset_ciclo_diario": "Tageszyklus",
+    "tou_preset_ciclo_semanal": "Wochenzyklus",
     "tou_remove_midpeak": "Mitteltarif entfernen",
     "tou_schedule": "Zeitplan",
     "tou_add_period": "+ Zeitraum hinzufügen",

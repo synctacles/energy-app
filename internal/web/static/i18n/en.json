@@ -107,6 +107,8 @@
     "tou_add_midpeak": "+ Add mid-peak rate (tri-horário)",
     "tou_toggle": "Time-of-use schedule (bi-horário)",
     "tou_toggle_hint": "Enable to use different rates for peak and off-peak hours instead of a flat rate.",
+    "tou_preset_ciclo_diario": "Daily cycle",
+    "tou_preset_ciclo_semanal": "Weekly cycle",
     "tou_remove_midpeak": "Remove mid-peak rate",
     "tou_schedule": "Schedule",
     "tou_add_period": "+ Add period",
