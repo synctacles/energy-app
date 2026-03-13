@@ -1546,6 +1546,17 @@
             }
             // Load TOU presets for this zone
             if (defaults.tou_presets) loadTOUPresets(zone);
+            // Hide "auto" pricing mode for non-wholesale zones (no ENTSO-E spot prices)
+            var autoRadio = document.getElementById('mode-auto');
+            if (autoRadio && autoRadio.parentElement) {
+                var autoLabel = autoRadio.closest('label') || autoRadio.parentElement;
+                autoLabel.style.display = defaults.has_wholesale === false ? 'none' : '';
+                // If auto was selected but zone has no wholesale, switch to manual
+                if (defaults.has_wholesale === false && autoRadio.checked) {
+                    var manualRadio = document.getElementById('mode-manual');
+                    if (manualRadio) { manualRadio.checked = true; manualRadio.dispatchEvent(new Event('change', {bubbles: true})); }
+                }
+            }
         } catch(e) {
             // Non-critical — settings still work without pre-fill
         }
@@ -1917,7 +1928,7 @@
                         result.style.color = '#d97706';
                         result.innerHTML = detectText +
                             '<div style="margin-top:6px;padding:8px 12px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.9em">' +
-                            '⚠️ ' + tReplace('settings.zone_mismatch',
+                            '⚠️ ' + tReplace('wizard.zone_mismatch',
                                 {detected: data.detected_country_name || data.country, ha_country: data.ha_country},
                                 'Your location appears to be in ' + (data.detected_country_name || data.country) +
                                 ', but your HA is configured for ' + data.ha_country +
