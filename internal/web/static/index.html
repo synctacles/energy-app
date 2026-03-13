@@ -1959,12 +1959,29 @@
             touAddBtn.onclick = function() { addTOUPeriod(); };
         }
         renderTOUPeriods();
-        // Load presets and zone defaults for current zone
+        // Auto-detect zone from GPS on settings load, then apply zone defaults
         var curZone = document.getElementById('cfg-zone');
-        if (curZone && curZone.value) {
-            loadTOUPresets(curZone.value);
-            onZoneChange(curZone.value);
-        }
+        (async function() {
+            if (curZone && curZone.value) {
+                // Try GPS zone detection — overrides saved zone if GPS gives a more specific match
+                try {
+                    var detectResp = await fetch('api/zone-detect');
+                    var detectData = await detectResp.json();
+                    if (detectData.detected && detectData.zone && detectData.zone !== curZone.value) {
+                        curZone.value = detectData.zone;
+                        var detectResult = document.getElementById('detectZoneResult');
+                        if (detectResult) {
+                            detectResult.style.color = '#0d9488';
+                            var detectText = detectData.name + ' (' + detectData.zone + ')';
+                            if (detectData.distance_km) detectText += ' — ' + detectData.distance_km + ' km';
+                            detectResult.textContent = detectText;
+                        }
+                    }
+                } catch(e) { /* GPS detect failed — use saved zone */ }
+                loadTOUPresets(curZone.value);
+                onZoneChange(curZone.value);
+            }
+        })();
 
         document.getElementById('btnRestartWizard').onclick = function() {
             fetch('api/config', {
