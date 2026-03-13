@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -603,36 +602,46 @@ func main() {
 		scheduler.SetZoneInfo(zoneHasWholesale, cfg.PricingMode)
 	}
 
-	// Non-wholesale zones with fixed/TOU: seed dashboard with the configured rate
+	// Non-wholesale zones with fixed/TOU: seed dashboard with full synthetic prices
 	if !zoneHasWholesale && (cfg.PricingMode == config.ModeFixed || cfg.PricingMode == config.ModeTOU) {
-		staticPrice := cfg.FixedRatePrice
-		// For TOU, parse the rates from the JSON config
+		now := time.Now().UTC()
+		var todayPrices, tomorrowPrices []models.HourlyPrice
+
 		if cfg.PricingMode == config.ModeTOU && cfg.TOUConfigJSON != "" {
-			var touParsed struct {
-				Rates []struct {
-					ID    string  `json:"id"`
-					Price float64 `json:"price"`
-				} `json:"rates"`
-			}
-			if err := json.Unmarshal([]byte(cfg.TOUConfigJSON), &touParsed); err == nil {
-				for _, r := range touParsed.Rates {
-					if r.ID == "offpeak" && r.Price > 0 {
-						staticPrice = r.Price
-						break
-					}
+			if touCfg, err := engine.ParseTOUConfig(cfg.TOUConfigJSON); err == nil {
+				todayPrices, tomorrowPrices = engine.GenerateTOUPrices(touCfg, zoneLoc)
+				for i := range todayPrices {
+					todayPrices[i].Zone = cfg.BiddingZone
+				}
+				for i := range tomorrowPrices {
+					tomorrowPrices[i].Zone = cfg.BiddingZone
 				}
 			}
 		}
-		if staticPrice > 0 {
-			sensorData.Update(&hasensor.SensorSet{
-				Zone:         cfg.BiddingZone,
-				CurrentPrice: staticPrice,
-				Source:       "regulated",
-				Quality:      "static",
-				UpdatedAt:    time.Now().UTC(),
-				Action:       models.ActionResult{Action: "WAIT", Reason: "regulated tariff"},
-			})
-			slog.Info("seeded dashboard with regulated tariff", "zone", cfg.BiddingZone, "price", staticPrice)
+		// Fixed mode or TOU parse failed: flat 24h at the fixed rate
+		if len(todayPrices) == 0 && cfg.FixedRatePrice > 0 {
+			localNow := now.In(zoneLoc)
+			dayStart := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, zoneLoc)
+			for h := 0; h < 24; h++ {
+				ts := dayStart.Add(time.Duration(h) * time.Hour)
+				todayPrices = append(todayPrices, models.HourlyPrice{
+					Timestamp: ts.UTC(), PriceEUR: cfg.FixedRatePrice,
+					Unit: models.UnitKWh, Source: "fixed", Quality: "live",
+					Zone: cfg.BiddingZone, IsConsumer: true,
+				})
+			}
+		}
+		if len(todayPrices) > 0 {
+			fetchResult := &engine.FetchResult{Source: "regulated", Tier: 1, Quality: "live"}
+			ss := hasensor.ComputeSensorSet(
+				cfg.BiddingZone, todayPrices, tomorrowPrices,
+				actionEngine, fetchResult, now, "", cfg.BestWindowHours,
+			)
+			ss.Source = "regulated"
+			ss.Quality = "static"
+			sensorData.Update(ss)
+			slog.Info("seeded dashboard with regulated tariff", "zone", cfg.BiddingZone,
+				"mode", cfg.PricingMode, "prices", len(todayPrices), "price", ss.CurrentPrice)
 		}
 	}
 

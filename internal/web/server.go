@@ -393,7 +393,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if s.normalizer != nil {
 		taxSource := s.normalizer.TaxSource()
 		dashboard["tax_source"] = taxSource
-		if taxSource == "none" {
+		// Regulated tariffs are all-in consumer prices — no tax gap possible
+		isRegulated := data.Source == "regulated"
+		if taxSource == "none" && !isRegulated {
 			dashboard["degraded"] = true
 			dashboard["degraded_reason"] = "no_tax_data"
 		}
