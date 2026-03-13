@@ -24,7 +24,8 @@
     "just_now": "zojuist",
     "m_ago": "{n}m geleden",
     "h_ago": "{n}u geleden",
-    "d_ago": "{n}d geleden"
+    "d_ago": "{n}d geleden",
+    "regulated_tariff": "Gereguleerd tarief"
   },
   "dashboard": {
     "current_price": "Huidige Prijs",

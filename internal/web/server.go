@@ -1164,6 +1164,19 @@ func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
+	// Non-wholesale zones with fixed/TOU pricing use regulated tariffs — no wholesale sources to show
+	if z, ok := s.zoneRegistry.GetZone(s.cfg.BiddingZone); ok && !z.HasWholesale() {
+		if s.cfg.PricingMode == "fixed" || s.cfg.PricingMode == "tou" {
+			writeJSON(w, map[string]any{
+				"sources":      []any{},
+				"zone":         s.cfg.BiddingZone,
+				"pricing_mode": s.cfg.PricingMode,
+				"regulated":    true,
+			})
+			return
+		}
+	}
+
 	activeSource := ""
 	leverancier := ""
 	quality := ""

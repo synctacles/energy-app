@@ -24,7 +24,8 @@
     "just_now": "juuri nyt",
     "m_ago": "{n}m sitten",
     "h_ago": "{n}h sitten",
-    "d_ago": "{n}p sitten"
+    "d_ago": "{n}p sitten",
+    "regulated_tariff": "Säännelty hinta"
   },
   "dashboard": {
     "current_price": "Nykyinen hinta",

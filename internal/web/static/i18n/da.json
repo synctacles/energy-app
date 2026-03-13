@@ -24,7 +24,8 @@
     "just_now": "lige nu",
     "m_ago": "for {n}m siden",
     "h_ago": "for {n}t siden",
-    "d_ago": "for {n}d siden"
+    "d_ago": "for {n}d siden",
+    "regulated_tariff": "Reguleret tarif"
   },
   "dashboard": {
     "current_price": "Aktuell pris",

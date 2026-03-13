@@ -24,7 +24,8 @@
     "just_now": "gerade eben",
     "m_ago": "vor {n}m",
     "h_ago": "vor {n}h",
-    "d_ago": "vor {n}d"
+    "d_ago": "vor {n}d",
+    "regulated_tariff": "Regulierter Tarif"
   },
   "dashboard": {
     "current_price": "Aktueller Preis",
