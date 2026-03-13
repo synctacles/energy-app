@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -596,6 +597,45 @@ func main() {
 
 	// Start scheduler
 	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn, featureGate)
+	zoneHasWholesale := true
+	if z, ok := registry.GetZone(cfg.BiddingZone); ok {
+		zoneHasWholesale = z.HasWholesale()
+		scheduler.SetZoneInfo(zoneHasWholesale, cfg.PricingMode)
+	}
+
+	// Non-wholesale zones with fixed/TOU: seed dashboard with the configured rate
+	if !zoneHasWholesale && (cfg.PricingMode == config.ModeFixed || cfg.PricingMode == config.ModeTOU) {
+		staticPrice := cfg.FixedRatePrice
+		// For TOU, parse the rates from the JSON config
+		if cfg.PricingMode == config.ModeTOU && cfg.TOUConfigJSON != "" {
+			var touParsed struct {
+				Rates []struct {
+					ID    string  `json:"id"`
+					Price float64 `json:"price"`
+				} `json:"rates"`
+			}
+			if err := json.Unmarshal([]byte(cfg.TOUConfigJSON), &touParsed); err == nil {
+				for _, r := range touParsed.Rates {
+					if r.ID == "offpeak" && r.Price > 0 {
+						staticPrice = r.Price
+						break
+					}
+				}
+			}
+		}
+		if staticPrice > 0 {
+			sensorData.Update(&hasensor.SensorSet{
+				Zone:         cfg.BiddingZone,
+				CurrentPrice: staticPrice,
+				Source:       "regulated",
+				Quality:      "static",
+				UpdatedAt:    time.Now().UTC(),
+				Action:       models.ActionResult{Action: "WAIT", Reason: "regulated tariff"},
+			})
+			slog.Info("seeded dashboard with regulated tariff", "zone", cfg.BiddingZone, "price", staticPrice)
+		}
+	}
+
 	go scheduler.Run(ctx)
 
 	// Detect addon slug for dynamic HA UI navigation
