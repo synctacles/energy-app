@@ -563,66 +563,36 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update in-memory config for immediate effect
-	if v, ok := incoming["pricing_mode"].(string); ok {
-		s.cfg.PricingMode = v
-	}
-	if v, ok := incoming["zone"].(string); ok {
-		s.cfg.BiddingZone = v
-	}
+	applyStringField(incoming, "pricing_mode", &s.cfg.PricingMode)
+	applyStringField(incoming, "zone", &s.cfg.BiddingZone)
+	applyStringField(incoming, "enever_token", &s.cfg.EneverToken)
+	applyStringField(incoming, "enever_leverancier", &s.cfg.EneverLeverancier)
+	applyStringField(incoming, "supplier_id", &s.cfg.SupplierID)
+	applyStringField(incoming, "p1_sensor_entity", &s.cfg.P1SensorEntity)
+	applyStringField(incoming, "tou_config", &s.cfg.TOUConfigJSON)
+
+	applyFloatField(incoming, "manual_vat_rate", &s.cfg.ManualVATRate)
+	applyFloatField(incoming, "manual_energy_tax", &s.cfg.ManualEnergyTax)
+	applyFloatField(incoming, "manual_surcharges", &s.cfg.ManualSurcharges)
+	applyFloatField(incoming, "manual_network_tariff", &s.cfg.ManualNetworkTariff)
+	applyFloatField(incoming, "fixed_rate_price", &s.cfg.FixedRatePrice)
+
+	applyBoolField(incoming, "onboarding_completed", &s.cfg.OnboardingCompleted)
+	applyBoolField(incoming, "disclaimer_accepted", &s.cfg.DisclaimerAccepted)
+	applyBoolField(incoming, "privacy_accepted", &s.cfg.PrivacyAccepted)
+	applyBoolField(incoming, "telemetry_enabled", &s.cfg.TelemetryEnabled)
+
 	if v, ok := incoming["best_window_hours"].(float64); ok {
 		s.cfg.BestWindowHours = int(v)
-	}
-	if v, ok := incoming["enever_token"].(string); ok {
-		s.cfg.EneverToken = v
-	}
-	if v, ok := incoming["enever_leverancier"].(string); ok {
-		s.cfg.EneverLeverancier = v
 	}
 	if v, ok := incoming["supplier_markup"].(float64); ok {
 		s.cfg.SupplierMarkup = v
 		if s.normalizer != nil {
 			s.normalizer.SetSupplierMarkup(v)
 		}
-		// Trigger re-fetch so cached prices are re-normalized with new markup
 		if s.scheduler != nil {
 			s.scheduler.TriggerFetch()
 		}
-	}
-	if v, ok := incoming["supplier_id"].(string); ok {
-		s.cfg.SupplierID = v
-	}
-	if v, ok := incoming["manual_vat_rate"].(float64); ok {
-		s.cfg.ManualVATRate = v
-	}
-	if v, ok := incoming["manual_energy_tax"].(float64); ok {
-		s.cfg.ManualEnergyTax = v
-	}
-	if v, ok := incoming["manual_surcharges"].(float64); ok {
-		s.cfg.ManualSurcharges = v
-	}
-	if v, ok := incoming["manual_network_tariff"].(float64); ok {
-		s.cfg.ManualNetworkTariff = v
-	}
-	if v, ok := incoming["p1_sensor_entity"].(string); ok {
-		s.cfg.P1SensorEntity = v
-	}
-	if v, ok := incoming["fixed_rate_price"].(float64); ok {
-		s.cfg.FixedRatePrice = v
-	}
-	if v, ok := incoming["tou_config"].(string); ok {
-		s.cfg.TOUConfigJSON = v
-	}
-	if v, ok := incoming["onboarding_completed"].(bool); ok {
-		s.cfg.OnboardingCompleted = v
-	}
-	if v, ok := incoming["disclaimer_accepted"].(bool); ok {
-		s.cfg.DisclaimerAccepted = v
-	}
-	if v, ok := incoming["privacy_accepted"].(bool); ok {
-		s.cfg.PrivacyAccepted = v
-	}
-	if v, ok := incoming["telemetry_enabled"].(bool); ok {
-		s.cfg.TelemetryEnabled = v
 	}
 
 	// Save consent flags to dedicated file (survives Supervisor options resets)
@@ -1736,6 +1706,27 @@ func utcHourToLocal(utcHour string, loc *time.Location) string {
 }
 
 // toFloat64 extracts a float64 from a map value (handles both float64 and json.Number).
+// applyStringField sets *dst if key exists in incoming as a string.
+func applyStringField(incoming map[string]any, key string, dst *string) {
+	if v, ok := incoming[key].(string); ok {
+		*dst = v
+	}
+}
+
+// applyFloatField sets *dst if key exists in incoming as a float64.
+func applyFloatField(incoming map[string]any, key string, dst *float64) {
+	if v, ok := incoming[key].(float64); ok {
+		*dst = v
+	}
+}
+
+// applyBoolField sets *dst if key exists in incoming as a bool.
+func applyBoolField(incoming map[string]any, key string, dst *bool) {
+	if v, ok := incoming[key].(bool); ok {
+		*dst = v
+	}
+}
+
 func toFloat64(v any) (float64, bool) {
 	switch val := v.(type) {
 	case float64:
