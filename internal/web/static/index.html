@@ -1464,6 +1464,7 @@
     var zoneData = null;
     var tariffSensors = null;
     var _settingsRegulatedTariffs = null; // regulated tariffs for current zone (non-wholesale only)
+    var _settingsIsNonWholesale = false; // true when current zone has no ENTSO-E wholesale market
 
     async function loadSettings() {
         try {
@@ -1509,6 +1510,14 @@
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
+        // For non-wholesale zones: Fixed is the only visible mode; show TOU section if toggle is on
+        if (_settingsIsNonWholesale && m === 'fixed') {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            var touSection = document.getElementById('mode-tou-section');
+            if (touToggle && touToggle.classList.contains('on') && touSection) {
+                touSection.style.display = '';
+            }
+        }
         // Enever radio: completely hidden when zone ≠ NL
         var eneverRadio = document.getElementById('mode-enever');
         var eneverLabel = document.querySelector('label[for="mode-enever"]');
@@ -1549,19 +1558,33 @@
             if (defaults.tou_presets) loadTOUPresets(zone);
             // Hide irrelevant pricing modes for non-wholesale zones
             var isNonWholesale = defaults.has_wholesale === false;
+            _settingsIsNonWholesale = isNonWholesale;
             _settingsRegulatedTariffs = isNonWholesale && defaults.regulated_tariffs ? defaults.regulated_tariffs : null;
-            var autoRadio = document.getElementById('mode-auto');
-            var manualRadio = document.getElementById('mode-manual');
-            if (autoRadio && autoRadio.parentElement) {
-                var autoLabel = autoRadio.closest('label') || autoRadio.parentElement;
-                autoLabel.style.display = isNonWholesale ? 'none' : '';
-            }
-            if (manualRadio && manualRadio.parentElement) {
-                var manualLabel = manualRadio.closest('label') || manualRadio.parentElement;
-                manualLabel.style.display = isNonWholesale ? 'none' : '';
+            // Modes to hide/show based on wholesale availability
+            var hideModes = isNonWholesale ? ['auto', 'manual', 'external_sensor', 'tou'] : [];
+            ['auto', 'manual', 'external_sensor', 'tou'].forEach(function(m) {
+                var radio = document.getElementById('mode-' + m);
+                if (radio) {
+                    var label = radio.closest('label') || radio.parentElement;
+                    if (label) label.style.display = hideModes.indexOf(m) >= 0 ? 'none' : '';
+                }
+            });
+            // Capture original mode before switching
+            var checkedMode = document.querySelector('input[name="pricing-mode"]:checked');
+            var originalMode = checkedMode ? checkedMode.value : '';
+            // Show/hide TOU toggle inside Fixed section for non-wholesale zones
+            var touToggleWrap = document.getElementById('fixed-tou-toggle-wrap');
+            if (touToggleWrap) touToggleWrap.style.display = isNonWholesale ? '' : 'none';
+            // If user was on TOU mode in a non-wholesale zone, activate the inline toggle
+            if (isNonWholesale && originalMode === 'tou') {
+                var touToggleEl = document.getElementById('fixed-tou-toggle');
+                if (touToggleEl && !touToggleEl.classList.contains('on')) {
+                    touToggleEl.classList.add('on');
+                    touToggleEl.innerHTML = '&#10003; ON';
+                }
             }
             // If current mode is hidden, switch to fixed (best default for regulated zones)
-            if (isNonWholesale && ((autoRadio && autoRadio.checked) || (manualRadio && manualRadio.checked))) {
+            if (isNonWholesale && checkedMode && hideModes.indexOf(checkedMode.value) >= 0) {
                 var fixedRadio = document.getElementById('mode-fixed');
                 if (fixedRadio) { fixedRadio.checked = true; fixedRadio.dispatchEvent(new Event('change', {bubbles: true})); }
             }
@@ -1571,24 +1594,6 @@
                 if (fixedPriceEl && defaults.regulated_tariffs.fixed) {
                     fixedPriceEl.value = defaults.regulated_tariffs.fixed;
                 }
-                // Pre-fill TOU rates if regulated TOU rates are available
-                var touPresetSel = document.getElementById('tou-preset-select');
-                var selectedPreset = touPresetSel ? touPresetSel.value : '';
-                var regTOU = defaults.regulated_tariffs.tou;
-                if (regTOU) {
-                    var presetKey = selectedPreset || Object.keys(regTOU)[0];
-                    if (presetKey && regTOU[presetKey]) {
-                        var peakEl = document.getElementById('cfg-tou-peak');
-                        var offpeakEl = document.getElementById('cfg-tou-offpeak');
-                        if (peakEl && !parseFloat(peakEl.value)) peakEl.value = regTOU[presetKey].peak || '';
-                        if (offpeakEl && !parseFloat(offpeakEl.value)) offpeakEl.value = regTOU[presetKey].offpeak || '';
-                    }
-                }
-            }
-            // Restore visibility when switching back to wholesale zone
-            if (!isNonWholesale) {
-                if (autoRadio) { var al = autoRadio.closest('label') || autoRadio.parentElement; if (al) al.style.display = ''; }
-                if (manualRadio) { var ml = manualRadio.closest('label') || manualRadio.parentElement; if (ml) ml.style.display = ''; }
             }
         } catch(e) {
             // Non-critical — settings still work without pre-fill
@@ -1766,13 +1771,23 @@
             '</div>' : '') +
 
             // Fixed rate section
-            '<div id="mode-fixed-section" style="' + (mode === 'fixed' ? '' : 'display:none') + '">' +
+            '<div id="mode-fixed-section" style="' + (mode === 'fixed' || mode === 'tou' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.mode_fixed', 'Fixed Rate') + '</h3>' +
                     '<div class="form-group">' +
                         '<label class="form-label">' + t('settings.fixed_rate_price', 'Your all-in price (EUR/kWh incl. VAT)') + '</label>' +
                         '<input class="form-input" id="cfg-fixed-price" type="number" step="0.001" min="0.01" max="2.00" value="' + (c.fixed_rate_price || 0) + '">' +
                         '<div class="form-hint">' + t('settings.fixed_rate_hint', 'The fixed consumer price from your contract. GO/WAIT/AVOID signals are disabled in fixed-rate mode.') + '</div>' +
+                    '</div>' +
+                    // TOU toggle — only shown for non-wholesale zones (regulated tariffs)
+                    '<div id="fixed-tou-toggle-wrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">' +
+                        '<div class="toggle-row">' +
+                            '<div>' +
+                                '<div style="font-weight:500;font-size:0.85em">' + t('settings.tou_toggle', 'Time-of-use schedule (bi-horário)') + '</div>' +
+                                '<div style="font-size:0.72em;color:var(--text-faint)">' + t('settings.tou_toggle_hint', 'Enable to use different rates for peak and off-peak hours instead of a flat rate.') + '</div>' +
+                            '</div>' +
+                            '<button class="toggle-btn' + (mode === 'tou' ? ' on' : '') + '" id="fixed-tou-toggle">' + (mode === 'tou' ? '&#10003; ON' : 'OFF') + '</button>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -1903,6 +1918,28 @@
         };
         document.getElementById('btnSave').onclick = saveSettings;
 
+        // Fixed-section TOU toggle for non-wholesale zones
+        var fixedTouToggle = document.getElementById('fixed-tou-toggle');
+        if (fixedTouToggle) {
+            fixedTouToggle.onclick = function() {
+                this.classList.toggle('on');
+                this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF';
+                var touSection = document.getElementById('mode-tou-section');
+                if (touSection) touSection.style.display = this.classList.contains('on') ? '' : 'none';
+                // Pre-fill TOU rates from regulated tariffs when toggling on
+                if (this.classList.contains('on') && _settingsRegulatedTariffs && _settingsRegulatedTariffs.tou) {
+                    var regTOU = _settingsRegulatedTariffs.tou;
+                    var firstKey = Object.keys(regTOU)[0];
+                    if (firstKey && regTOU[firstKey]) {
+                        var peakEl = document.getElementById('cfg-tou-peak');
+                        var offpeakEl = document.getElementById('cfg-tou-offpeak');
+                        if (peakEl && !parseFloat(peakEl.value)) peakEl.value = regTOU[firstKey].peak || '';
+                        if (offpeakEl && !parseFloat(offpeakEl.value)) offpeakEl.value = regTOU[firstKey].offpeak || '';
+                    }
+                }
+            };
+        }
+
         // TOU event bindings
         var touToggle = document.getElementById('tou-toggle-midpeak');
         if (touToggle) {
@@ -1922,9 +1959,12 @@
             touAddBtn.onclick = function() { addTOUPeriod(); };
         }
         renderTOUPeriods();
-        // Load presets for current zone
+        // Load presets and zone defaults for current zone
         var curZone = document.getElementById('cfg-zone');
-        if (curZone && curZone.value) loadTOUPresets(curZone.value);
+        if (curZone && curZone.value) {
+            loadTOUPresets(curZone.value);
+            onZoneChange(curZone.value);
+        }
 
         document.getElementById('btnRestartWizard').onclick = function() {
             fetch('api/config', {
@@ -2295,6 +2335,11 @@
         var mode = 'auto';
         var modeEl = document.querySelector('input[name="pricing-mode"]:checked');
         if (modeEl) mode = modeEl.value;
+        // For non-wholesale zones: Fixed + TOU toggle on → save as 'tou' mode
+        var touToggle = document.getElementById('fixed-tou-toggle');
+        if (mode === 'fixed' && touToggle && touToggle.classList.contains('on')) {
+            mode = 'tou';
+        }
 
         var payload = {
             pricing_mode: mode,

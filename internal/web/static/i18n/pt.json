@@ -103,6 +103,8 @@
     "tou_peak_rate": "Tarifa ponta (EUR/kWh)",
     "tou_midpeak_rate": "Tarifa cheia (EUR/kWh)",
     "tou_add_midpeak": "+ Adicionar tarifa cheia (tri-horário)",
+    "tou_toggle": "Horário bi-horário / tri-horário",
+    "tou_toggle_hint": "Ativar para usar tarifas diferentes em horas de ponta e vazio em vez de uma tarifa fixa.",
     "tou_remove_midpeak": "Remover tarifa cheia",
     "tou_schedule": "Horário",
     "tou_add_period": "+ Adicionar período",

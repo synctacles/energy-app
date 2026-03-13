@@ -103,6 +103,8 @@
     "tou_peak_rate": "Hochtarif (EUR/kWh)",
     "tou_midpeak_rate": "Mitteltarif (EUR/kWh)",
     "tou_add_midpeak": "+ Mitteltarif hinzufügen",
+    "tou_toggle": "Zeitabhängiger Tarif (bi-horário)",
+    "tou_toggle_hint": "Aktivieren für unterschiedliche Tarife zu Hoch- und Niedriglastzeiten statt eines Festpreises.",
     "tou_remove_midpeak": "Mitteltarif entfernen",
     "tou_schedule": "Zeitplan",
     "tou_add_period": "+ Zeitraum hinzufügen",

@@ -103,6 +103,8 @@
     "tou_peak_rate": "Tarifa punta (EUR/kWh)",
     "tou_midpeak_rate": "Tarifa llano (EUR/kWh)",
     "tou_add_midpeak": "+ Añadir tarifa llano",
+    "tou_toggle": "Tarifa por franjas horarias (bi-horário)",
+    "tou_toggle_hint": "Activar para usar tarifas diferentes en horas punta y valle en lugar de una tarifa fija.",
     "tou_remove_midpeak": "Eliminar tarifa llano",
     "tou_schedule": "Horario",
     "tou_add_period": "+ Añadir período",
