@@ -2449,9 +2449,12 @@
                 status.style.color = '#dc2626';
             }
         } catch (err) {
-            // If zone changed, the app likely restarted — treat as success and reload
+            // Connection failed — likely the app restarted (zone/mode change triggers restart).
+            // Check if any restart-triggering field changed; if so, poll for restart completion.
             var savedZone = document.getElementById('cfg-zone') ? document.getElementById('cfg-zone').value : '';
-            if (savedZone !== (currentConfig.zone || '')) {
+            var savedMode = mode;
+            var restartLikely = savedZone !== (currentConfig.zone || '') || savedMode !== (currentConfig.pricing_mode || '');
+            if (restartLikely) {
                 status.textContent = t('settings.restarting', 'Applying new settings...');
                 status.style.color = '#0d9488';
                 var pollRestart2 = function() {
