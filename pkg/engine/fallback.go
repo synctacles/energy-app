@@ -103,6 +103,9 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 	}
 
 	// Try live sources (Tier 1-3)
+	// If a source returns estimated data, we park it and try the next source.
+	// If no better source succeeds, we fall back to the estimated data.
+	var estimatedFallback *FetchResult
 	for i, src := range f.sources {
 		if !supportsZone(src, zone) {
 			continue
@@ -114,6 +117,20 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 
 		prices, err := src.FetchDayAhead(ctx, zone, date)
 		if err != nil {
+			// Estimated data: park it and try next source for real prices
+			var estimated *collector.ErrEstimatedData
+			if errors.As(err, &estimated) {
+				slog.Info("source returned estimated data, trying next", "source", src.Name(), "zone", zone)
+				if estimatedFallback == nil && len(estimated.Prices) > 0 {
+					estimatedFallback = &FetchResult{
+						Prices:  estimated.Prices,
+						Source:  "estimated",
+						Tier:    i + 1,
+						Quality: "live",
+					}
+				}
+				continue
+			}
 			slog.Warn("source failed", "source", src.Name(), "zone", zone, "error", err)
 			// Use Retry-After duration from 429 responses as circuit breaker cooldown
 			var rateLimited *collector.ErrRateLimited
@@ -161,6 +178,13 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		f.memCache[cacheKey] = &memCacheEntry{result: result, fetchedAt: time.Now()}
 
 		return result, nil
+	}
+
+	// All live sources failed — use estimated data if available (better than cache)
+	if estimatedFallback != nil {
+		slog.Info("using estimated data as last resort", "zone", zone, "source", estimatedFallback.Source)
+		f.memCache[cacheKey] = &memCacheEntry{result: estimatedFallback, fetchedAt: time.Now()}
+		return estimatedFallback, nil
 	}
 
 	// Tier 4: Try cache

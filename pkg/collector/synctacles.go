@@ -192,6 +192,13 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 		return nil, fmt.Errorf("synctacles: no prices for zone %s on %s", zone, dateStr)
 	}
 
+	// If the Worker returned estimated prices (cross-zone correlation fallback),
+	// reject so the fallback chain tries EnergyCharts (Tier 3) for real prices.
+	// Carry the prices along so they can be used as last resort.
+	if resp.Source == "estimated" {
+		return nil, &ErrEstimatedData{Zone: zone, Prices: prices}
+	}
+
 	return prices, nil
 }
 

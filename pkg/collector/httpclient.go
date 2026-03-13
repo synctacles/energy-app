@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/synctacles/energy-app/pkg/models"
 )
 
 // defaultClient is a shared HTTP client with sensible defaults.
@@ -24,6 +26,18 @@ type ErrRateLimited struct {
 
 func (e *ErrRateLimited) Error() string {
 	return fmt.Sprintf("%s: rate limited (retry after %s)", e.URL, e.RetryAfter)
+}
+
+// ErrEstimatedData is returned when a source returns estimated (non-direct) prices.
+// The fallback chain should skip to the next source WITHOUT triggering the circuit breaker.
+// Carries the parsed prices so they can be used as a last resort if all other sources fail.
+type ErrEstimatedData struct {
+	Zone   string
+	Prices []models.HourlyPrice
+}
+
+func (e *ErrEstimatedData) Error() string {
+	return fmt.Sprintf("zone %s: only estimated data available", e.Zone)
 }
 
 // parseRetryAfter parses the Retry-After header value.
