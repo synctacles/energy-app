@@ -197,6 +197,73 @@ func matchTariffSensor(states []map[string]any) string {
 	return best.entityID
 }
 
+// DetectedTariffSensor represents a detected tariff sensor with its supplier hint.
+type DetectedTariffSensor struct {
+	EntityID string
+	Supplier string // supplier hint from entity ID (may be empty)
+}
+
+// DetectAllTariffSensors finds all tariff sensors in HA, each with its supplier hint.
+// Used by the delta submitter to submit deltas for multiple suppliers from one install.
+func DetectAllTariffSensors(ctx context.Context, supervisor *ha.SupervisorClient) []DetectedTariffSensor {
+	states, err := supervisor.GetAllStates(ctx)
+	if err != nil {
+		slog.Warn("detect all tariff sensors: failed to get states", "error", err)
+		return nil
+	}
+
+	best := matchTariffSensor(states)
+	if best == "" {
+		return nil
+	}
+
+	// Collect all candidates by re-running detection and extracting all matches
+	var result []DetectedTariffSensor
+	seen := make(map[string]bool)
+
+	for _, s := range states {
+		eid, _ := s["entity_id"].(string)
+		if !strings.HasPrefix(eid, "sensor.") {
+			continue
+		}
+		supplier := SupplierHintFromEntity(eid)
+		if supplier == "" {
+			continue
+		}
+		if seen[supplier] {
+			continue
+		}
+
+		// Verify it has a price-like unit and numeric state
+		attrs, _ := s["attributes"].(map[string]any)
+		unit := ""
+		if attrs != nil {
+			if u, ok := attrs["unit_of_measurement"].(string); ok {
+				unit = u
+			}
+		}
+		unitLower := strings.ToLower(unit)
+		isPriceUnit := strings.Contains(unitLower, "/kwh") ||
+			strings.Contains(unitLower, "/wh") ||
+			unitLower == "eur" || unitLower == "gbp" ||
+			unitLower == "nok" || unitLower == "sek" ||
+			unitLower == "dkk"
+		if unit != "" && !isPriceUnit {
+			continue
+		}
+		stateStr, _ := s["state"].(string)
+		if _, err := strconv.ParseFloat(stateStr, 64); err != nil {
+			continue
+		}
+
+		seen[supplier] = true
+		result = append(result, DetectedTariffSensor{EntityID: eid, Supplier: supplier})
+	}
+
+	slog.Debug("detected tariff sensors for delta", "count", len(result))
+	return result
+}
+
 // supplierPatterns maps entity ID substrings to supplier names.
 var supplierPatterns = []struct {
 	pattern  string

@@ -779,15 +779,13 @@ func main() {
 			slog.Info("delta submitter started (enever)", "suppliers", len(collector.Leveranciers))
 		}
 
-		// Sensor mode: submit deltas for detected supplier
-		if cfg.IsExternalSensorMode() && supervisor != nil && cfg.P1SensorEntity != "" {
-			sensorSupplierDelta := cfg.SupplierID
-			if sensorSupplierDelta == "" && detectedTariffSensor != "" {
-				sensorSupplierDelta = hasensor.SupplierHintFromEntity(detectedTariffSensor)
-			}
-			if sensorSupplierDelta != "" {
-				sensorEntityDelta := cfg.P1SensorEntity
-				svDelta := supervisor
+		// Sensor mode: submit deltas for ALL detected tariff sensors
+		if supervisor != nil {
+			allSensors := hasensor.DetectAllTariffSensors(ctx, supervisor)
+			svDelta := supervisor
+			for _, ds := range allSensors {
+				entityID := ds.EntityID
+				supplier := ds.Supplier
 				go delta.NewSubmitter(delta.SubmitterConfig{
 					InstallUUID: installUUID,
 					Zone:        cfg.BiddingZone,
@@ -796,8 +794,8 @@ func main() {
 					GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
 						return delta.FetchWholesalePrices(ctx, zone)
 					},
-					GetDayAheadPrices: func(ctx context.Context, supplier string) ([]delta.HourlyConsumerPrice, error) {
-						forecast, err := delta.ReadSensorForecast(ctx, svDelta, sensorEntityDelta)
+					GetDayAheadPrices: func(ctx context.Context, _ string) ([]delta.HourlyConsumerPrice, error) {
+						forecast, err := delta.ReadSensorForecast(ctx, svDelta, entityID)
 						if err != nil {
 							return nil, err
 						}
@@ -812,9 +810,9 @@ func main() {
 						}
 						return result, nil
 					},
-					Suppliers: func() []string { return []string{sensorSupplierDelta} },
+					Suppliers: func() []string { return []string{supplier} },
 				}).Run(ctx)
-				slog.Info("delta submitter started (sensor)", "supplier", sensorSupplierDelta)
+				slog.Info("delta submitter started (sensor)", "supplier", supplier, "entity", entityID)
 			}
 		}
 	}
