@@ -738,8 +738,8 @@ func main() {
 
 	// Start delta submitter for per-hour supplier correction factors (ADR_010)
 	if cfg.BiddingZone != "" {
-		// Enever mode: submit deltas for all 23 NL suppliers
-		if cfg.IsEneverMode() && cfg.BiddingZone == "NL" && cfg.EneverToken != "" {
+		// Enever: submit deltas for all 23 NL suppliers (any mode, as long as token is available)
+		if cfg.BiddingZone == "NL" && cfg.EneverToken != "" {
 			go delta.NewSubmitter(delta.SubmitterConfig{
 				InstallUUID: installUUID,
 				Zone:        cfg.BiddingZone,
