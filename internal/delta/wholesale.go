@@ -38,8 +38,8 @@ func FetchWholesalePrices(ctx context.Context, zone string) ([]WholesalePrice, e
 
 	var result struct {
 		Prices []struct {
-			TS    int64   `json:"ts"`
-			Price float64 `json:"price"` // EUR/MWh
+			Timestamp string  `json:"timestamp"` // ISO 8601
+			Price     float64 `json:"price"`     // EUR/MWh
 		} `json:"prices"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -48,10 +48,16 @@ func FetchWholesalePrices(ctx context.Context, zone string) ([]WholesalePrice, e
 
 	prices := make([]WholesalePrice, 0, len(result.Prices))
 	for _, p := range result.Prices {
+		t, err := time.Parse(time.RFC3339, p.Timestamp)
+		if err != nil {
+			t, err = time.Parse("2006-01-02T15:04:05.000Z", p.Timestamp)
+			if err != nil {
+				continue
+			}
+		}
 		// Snap to hour boundary and convert MWh → kWh
-		t := time.Unix(p.TS, 0).UTC().Truncate(time.Hour)
 		prices = append(prices, WholesalePrice{
-			Timestamp: t,
+			Timestamp: t.UTC().Truncate(time.Hour),
 			PriceKWh:  p.Price / 1000.0,
 		})
 	}

@@ -127,8 +127,12 @@ func parseMapEntry(m map[string]any) (time.Time, float64, bool) {
 	}
 
 	// Find price
-	for _, key := range []string{"value", "price", "tariff", "rate"} {
+	for _, key := range []string{"value", "price", "tariff", "rate", "electricity_price"} {
 		if p, ok := m[key].(float64); ok {
+			// Zonneplan uses microcents (e.g. 2713472 = 0.2713472 EUR/kWh)
+			if key == "electricity_price" && p > 100 {
+				p = p / 10000000.0
+			}
 			return ts, p, true
 		}
 	}
