@@ -140,9 +140,9 @@ func main() {
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
 
-	// Auto-detect bidding zone from HA timezone when zone is empty or default.
-	// Triggers on first run (empty zone) or legacy default ("NL").
-	if (cfg.BiddingZone == "" || cfg.BiddingZone == "NL") && cfg.HasSupervisor() {
+	// Auto-detect bidding zone from HA timezone only when zone is empty (first run).
+	// Never override an explicitly chosen zone — the user's selection takes priority.
+	if cfg.BiddingZone == "" && cfg.HasSupervisor() {
 		sup := ha.NewSupervisorClient(cfg.SupervisorToken)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		haConfig, err := sup.GetConfig(ctx)
