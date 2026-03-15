@@ -117,7 +117,13 @@ func (s *Submitter) submitForSupplier(ctx context.Context, supplier string, tax 
 		return
 	}
 
-	var deltas []deltaEntry
+	// Collect deltas per hour (PT15M data may have multiple entries per hour)
+	type hourAccum struct {
+		sum   float64
+		count int
+	}
+	hourMap := make(map[string]*hourAccum)
+	var hourOrder []string
 
 	for _, cp := range consumer {
 		hourKey := cp.Timestamp.UTC().Format("2006-01-02T15")
@@ -130,11 +136,22 @@ func (s *Submitter) submitForSupplier(ctx context.Context, supplier string, tax 
 		exclVAT := cp.PriceKWh / (1 + tax.VATRate)
 		d := exclVAT - ws - tax.EnergyTax - tax.Surcharges
 
-		// Round to 6 decimals
-		d = float64(int(d*1000000+0.5)) / 1000000
+		hourTS := cp.Timestamp.UTC().Truncate(time.Hour).Format("2006-01-02T15:04:05Z")
+		if _, exists := hourMap[hourTS]; !exists {
+			hourMap[hourTS] = &hourAccum{}
+			hourOrder = append(hourOrder, hourTS)
+		}
+		hourMap[hourTS].sum += d
+		hourMap[hourTS].count++
+	}
 
-		ts := cp.Timestamp.UTC().Format("2006-01-02T15:04:05Z")
-		deltas = append(deltas, deltaEntry{TS: ts, Delta: d})
+	var deltas []deltaEntry
+	for _, ts := range hourOrder {
+		acc := hourMap[ts]
+		avg := acc.sum / float64(acc.count)
+		// Round to 6 decimals
+		avg = float64(int(avg*1000000+0.5)) / 1000000
+		deltas = append(deltas, deltaEntry{TS: ts, Delta: avg})
 	}
 
 	if len(deltas) == 0 {
