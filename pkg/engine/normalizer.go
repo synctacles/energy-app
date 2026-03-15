@@ -7,6 +7,10 @@ import (
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
+// DeltaLookup returns the per-hour supplier delta for a given timestamp.
+// Returns (delta, true) when available, (0, false) when not.
+type DeltaLookup func(t time.Time) (float64, bool)
+
 // Normalizer converts wholesale prices to consumer prices.
 // Behavior depends on PricingMode:
 //   - "auto":     Worker consumer prices pass through; wholesale normalized via tax cache
@@ -20,6 +24,7 @@ type Normalizer struct {
 	pricingMode           string                 // "auto", "manual", "p1_meter", "enever"
 	manualTaxProfile      *models.TaxProfile     // User-defined components for manual mode
 	lastTaxSource         string                 // "worker", "embedded", "none" — for degraded banner
+	deltaLookup           DeltaLookup            // ADR_010: per-hour supplier delta (replaces fixed markup)
 }
 
 // NewNormalizer creates a normalizer backed by the Worker tax profile cache.
@@ -50,6 +55,12 @@ func (n *Normalizer) SetManualTaxProfile(tp *models.TaxProfile) {
 // SetSupplierMarkup updates the supplier markup override at runtime.
 func (n *Normalizer) SetSupplierMarkup(markup float64) {
 	n.supplierMarkupOverride = markup
+}
+
+// SetDeltaLookup sets the per-hour delta lookup function (ADR_010).
+// When set, deltas are preferred over supplierMarkupOverride for wholesale→consumer conversion.
+func (n *Normalizer) SetDeltaLookup(fn DeltaLookup) {
+	n.deltaLookup = fn
 }
 
 // TaxSource returns the tax data source used for the last normalization.
@@ -119,7 +130,14 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 			Surcharges:       override.Surcharges,
 			NetworkTariffAvg: override.NetworkTariffAvg,
 		}
-		if n.supplierMarkupOverride > 0 {
+		// ADR_010: per-hour delta preferred over fixed markup
+		if n.deltaLookup != nil {
+			if d, ok := n.deltaLookup(p.Timestamp); ok {
+				tp.SupplierMarkup = d
+			} else if n.supplierMarkupOverride > 0 {
+				tp.SupplierMarkup = n.supplierMarkupOverride
+			}
+		} else if n.supplierMarkupOverride > 0 {
 			tp.SupplierMarkup = n.supplierMarkupOverride
 		}
 		p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)

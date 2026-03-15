@@ -819,6 +819,14 @@ func main() {
 		}
 	}
 
+	// ADR_010: delta cache for non-sensor installs using ENTSO-E + supplier deltas
+	if cfg.PricingMode == config.ModeAuto && cfg.SupplierID != "" && cfg.BiddingZone != "" {
+		dc := delta.NewCache()
+		go dc.RunFetcher(ctx, cfg.BiddingZone, cfg.SupplierID)
+		normalizer.SetDeltaLookup(dc.Get)
+		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", cfg.SupplierID)
+	}
+
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
 	httpSrv := &http.Server{
 		Addr:         addr,
