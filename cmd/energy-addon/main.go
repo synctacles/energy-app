@@ -737,48 +737,9 @@ func main() {
 	}
 
 	// Start delta submitter for per-hour supplier correction factors (ADR_010)
+	// NOTE: Enever deltas are computed server-side by the harvest Worker (analytics DB).
+	// HA installs only submit SENSOR deltas — never Enever data (TOS + privacy).
 	if cfg.BiddingZone != "" {
-		// Enever: submit deltas for all 23 NL suppliers (any mode, as long as token is available)
-		if cfg.BiddingZone == "NL" && cfg.EneverToken != "" {
-			go delta.NewSubmitter(delta.SubmitterConfig{
-				InstallUUID: installUUID,
-				Zone:        cfg.BiddingZone,
-				Source:      "enever",
-				TaxCache:    taxCache,
-				GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
-					return delta.FetchWholesalePrices(ctx, zone)
-				},
-				GetDayAheadPrices: func(ctx context.Context, supplier string) ([]delta.HourlyConsumerPrice, error) {
-					enever := &collector.Enever{Token: cfg.EneverToken, Leverancier: supplier}
-					today, err := enever.FetchDayAhead(ctx, "NL", time.Now())
-					if err != nil {
-						return nil, err
-					}
-					// Also try tomorrow
-					tomorrow, _ := enever.FetchDayAhead(ctx, "NL", time.Now().Add(24*time.Hour))
-					all := append(today, tomorrow...)
-					result := make([]delta.HourlyConsumerPrice, 0, len(all))
-					for _, p := range all {
-						if p.IsConsumer && p.PriceEUR > 0 {
-							result = append(result, delta.HourlyConsumerPrice{
-								Timestamp: p.Timestamp,
-								PriceKWh:  p.PriceEUR,
-							})
-						}
-					}
-					return result, nil
-				},
-				Suppliers: func() []string {
-					suppliers := make([]string, 0, len(collector.Leveranciers))
-					for k := range collector.Leveranciers {
-						suppliers = append(suppliers, k)
-					}
-					return suppliers
-				},
-			}).Run(ctx)
-			slog.Info("delta submitter started (enever)", "suppliers", len(collector.Leveranciers))
-		}
-
 		// Sensor mode: submit deltas for ALL detected tariff sensors
 		if supervisor != nil {
 			allSensors := hasensor.DetectAllTariffSensors(ctx, supervisor)
