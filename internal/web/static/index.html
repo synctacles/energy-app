@@ -1492,6 +1492,12 @@
             var priceSub = isFixed
                 ? t('dashboard.fixed_rate', 'Fixed rate')
                 : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct';
+            // ADR_010: calibration indicator
+            if (d.price_calibration && d.price_calibration.active) {
+                priceSub += ' <span style="color:#22c55e;font-size:0.85em" title="' +
+                    t('dashboard.calibrated_tooltip', 'Price calibrated with real supplier data') +
+                    '">\u2713 ' + t('dashboard.calibrated', 'calibrated') + '</span>';
+            }
 
             // Shared: chart card (all modes)
             var chartSource = '';

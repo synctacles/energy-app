@@ -822,6 +822,7 @@ func main() {
 		dc := delta.NewCache()
 		go dc.RunFetcher(ctx, cfg.BiddingZone, cfg.SupplierID)
 		normalizer.SetDeltaLookup(dc.Get)
+		srv.SetDeltaCache(dc)
 		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", cfg.SupplierID)
 	}
 

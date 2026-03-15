@@ -56,6 +56,19 @@ type Server struct {
 	installUUID         string
 	kbClient            *kb.Client
 	dataPath            string
+	deltaCache          deltaLenStale // ADR_010: optional delta cache for calibration indicator
+}
+
+// SetDeltaCache sets the delta cache for the calibration indicator (ADR_010).
+func (s *Server) SetDeltaCache(dc deltaLenStale) {
+	s.deltaCache = dc
+}
+
+// deltaLenStale is the interface for the delta cache used in the calibration indicator.
+type deltaLenStale interface {
+	Len() int
+	IsStale() bool
+	Get(t time.Time) (float64, bool)
 }
 
 // Deps holds dependencies for the web server.
@@ -77,6 +90,7 @@ type Deps struct {
 	SQLiteCache         *store.SQLiteCache
 	InstallUUID         string
 	DataPath            string
+	DeltaCache          deltaLenStale // ADR_010
 }
 
 // NewServer creates a new energy addon web server.
@@ -100,6 +114,7 @@ func NewServer(deps Deps) *Server {
 		installUUID:         deps.InstallUUID,
 		kbClient:            kb.NewClient("", deps.InstallUUID),
 		dataPath:            deps.DataPath,
+		deltaCache:          deps.DeltaCache,
 	}
 
 	r := chi.NewRouter()
@@ -406,6 +421,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if taxSource == "none" && !isRegulated {
 			dashboard["degraded"] = true
 			dashboard["degraded_reason"] = "no_tax_data"
+		}
+	}
+
+	// ADR_010: indicate if price is calibrated with supplier deltas
+	if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
+		dashboard["price_calibration"] = map[string]any{
+			"active":  true,
+			"hours":   s.deltaCache.Len(),
+			"source":  "crowdsourced",
 		}
 	}
 
