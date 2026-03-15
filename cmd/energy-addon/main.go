@@ -16,6 +16,7 @@ import (
 
 	"github.com/synctacles/energy-app/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/delta"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
 	"github.com/synctacles/energy-app/internal/markup"
@@ -732,6 +733,89 @@ func main() {
 				TaxCache: taxCache,
 			}).Run(ctx)
 			slog.Info("markup submitter started (sensor)", "supplier", sensorSupplier, "entity", cfg.P1SensorEntity)
+		}
+	}
+
+	// Start delta submitter for per-hour supplier correction factors (ADR_010)
+	if cfg.BiddingZone != "" {
+		// Enever mode: submit deltas for all 23 NL suppliers
+		if cfg.IsEneverMode() && cfg.BiddingZone == "NL" && cfg.EneverToken != "" {
+			go delta.NewSubmitter(delta.SubmitterConfig{
+				InstallUUID: installUUID,
+				Zone:        cfg.BiddingZone,
+				Source:      "enever",
+				TaxCache:    taxCache,
+				GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
+					return delta.FetchWholesalePrices(ctx, zone)
+				},
+				GetDayAheadPrices: func(ctx context.Context, supplier string) ([]delta.HourlyConsumerPrice, error) {
+					enever := &collector.Enever{Token: cfg.EneverToken, Leverancier: supplier}
+					today, err := enever.FetchDayAhead(ctx, "NL", time.Now())
+					if err != nil {
+						return nil, err
+					}
+					// Also try tomorrow
+					tomorrow, _ := enever.FetchDayAhead(ctx, "NL", time.Now().Add(24*time.Hour))
+					all := append(today, tomorrow...)
+					result := make([]delta.HourlyConsumerPrice, 0, len(all))
+					for _, p := range all {
+						if p.IsConsumer && p.PriceEUR > 0 {
+							result = append(result, delta.HourlyConsumerPrice{
+								Timestamp: p.Timestamp,
+								PriceKWh:  p.PriceEUR,
+							})
+						}
+					}
+					return result, nil
+				},
+				Suppliers: func() []string {
+					suppliers := make([]string, 0, len(collector.Leveranciers))
+					for k := range collector.Leveranciers {
+						suppliers = append(suppliers, k)
+					}
+					return suppliers
+				},
+			}).Run(ctx)
+			slog.Info("delta submitter started (enever)", "suppliers", len(collector.Leveranciers))
+		}
+
+		// Sensor mode: submit deltas for detected supplier
+		if cfg.IsExternalSensorMode() && supervisor != nil && cfg.P1SensorEntity != "" {
+			sensorSupplierDelta := cfg.SupplierID
+			if sensorSupplierDelta == "" && detectedTariffSensor != "" {
+				sensorSupplierDelta = hasensor.SupplierHintFromEntity(detectedTariffSensor)
+			}
+			if sensorSupplierDelta != "" {
+				sensorEntityDelta := cfg.P1SensorEntity
+				svDelta := supervisor
+				go delta.NewSubmitter(delta.SubmitterConfig{
+					InstallUUID: installUUID,
+					Zone:        cfg.BiddingZone,
+					Source:      "sensor",
+					TaxCache:    taxCache,
+					GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
+						return delta.FetchWholesalePrices(ctx, zone)
+					},
+					GetDayAheadPrices: func(ctx context.Context, supplier string) ([]delta.HourlyConsumerPrice, error) {
+						forecast, err := delta.ReadSensorForecast(ctx, svDelta, sensorEntityDelta)
+						if err != nil {
+							return nil, err
+						}
+						result := make([]delta.HourlyConsumerPrice, 0, len(forecast))
+						for _, f := range forecast {
+							if f.PriceKWh > 0 {
+								result = append(result, delta.HourlyConsumerPrice{
+									Timestamp: f.Timestamp,
+									PriceKWh:  f.PriceKWh,
+								})
+							}
+						}
+						return result, nil
+					},
+					Suppliers: func() []string { return []string{sensorSupplierDelta} },
+				}).Run(ctx)
+				slog.Info("delta submitter started (sensor)", "supplier", sensorSupplierDelta)
+			}
 		}
 	}
 
