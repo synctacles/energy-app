@@ -1794,6 +1794,29 @@
         return sel && sel.value === 'NL';
     }
 
+    function updateContractType() {
+        var sel = document.getElementById('cfg-contract-type');
+        if (!sel) return;
+        var isDynamic = sel.value === 'dynamic';
+        // Show/hide supplier (dynamic only)
+        var supplierSection = document.getElementById('supplier-select-section');
+        if (supplierSection) supplierSection.style.display = isDynamic ? '' : 'none';
+        // Show/hide external sensor (dynamic + sensors available)
+        var sensorSection = document.getElementById('mode-external_sensor-section');
+        if (sensorSection) sensorSection.style.display = isDynamic ? '' : 'none';
+        // Show/hide fixed rate + TOU (fixed only)
+        var fixedSection = document.getElementById('mode-fixed-section');
+        if (fixedSection) fixedSection.style.display = isDynamic ? 'none' : '';
+        var touSection = document.getElementById('mode-tou-section');
+        if (touSection) {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            touSection.style.display = (!isDynamic && touToggle && touToggle.classList.contains('on')) ? '' : 'none';
+        }
+        // Show/hide thresholds (dynamic only)
+        var thresholds = document.getElementById('settings-thresholds');
+        if (thresholds) thresholds.style.display = isDynamic ? '' : 'none';
+    }
+
     function updateModeVisibility() {
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
@@ -1851,33 +1874,23 @@
             var isNonWholesale = defaults.has_wholesale === false;
             _isNonWholesale = isNonWholesale;
             _settingsRegulatedTariffs = isNonWholesale && defaults.regulated_tariffs ? defaults.regulated_tariffs : null;
-            // Modes to hide/show based on wholesale availability
-            var hideModes = isNonWholesale ? ['auto', 'manual', 'external_sensor', 'tou'] : [];
-            ['auto', 'manual', 'external_sensor', 'tou'].forEach(function(m) {
-                var radio = document.getElementById('mode-' + m);
-                if (radio) {
-                    var label = radio.closest('label') || radio.parentElement;
-                    if (label) label.style.display = hideModes.indexOf(m) >= 0 ? 'none' : '';
-                }
-            });
-            // Capture original mode before switching
-            var checkedMode = document.querySelector('input[name="pricing-mode"]:checked');
-            var originalMode = checkedMode ? checkedMode.value : '';
+            // For non-wholesale zones: auto-select fixed contract type
+            var contractTypeEl = document.getElementById('cfg-contract-type');
+            if (isNonWholesale && contractTypeEl && contractTypeEl.value === 'dynamic') {
+                contractTypeEl.value = 'fixed';
+                updateContractType();
+            }
             // Show/hide TOU toggle inside Fixed section for non-wholesale zones
             var touToggleWrap = document.getElementById('fixed-tou-toggle-wrap');
             if (touToggleWrap) touToggleWrap.style.display = isNonWholesale ? '' : 'none';
-            // If user was on TOU mode in a non-wholesale zone, activate the inline toggle
-            if (isNonWholesale && originalMode === 'tou') {
+            // If pricing_mode was TOU, activate the inline toggle
+            var currentMode = currentConfig.pricing_mode || 'auto';
+            if (isNonWholesale && currentMode === 'tou') {
                 var touToggleEl = document.getElementById('fixed-tou-toggle');
                 if (touToggleEl && !touToggleEl.classList.contains('on')) {
                     touToggleEl.classList.add('on');
                     touToggleEl.innerHTML = '&#10003; ON';
                 }
-            }
-            // If current mode is hidden, switch to fixed (best default for regulated zones)
-            if (isNonWholesale && checkedMode && hideModes.indexOf(checkedMode.value) >= 0) {
-                var fixedRadio = document.getElementById('mode-fixed');
-                if (fixedRadio) { fixedRadio.checked = true; fixedRadio.dispatchEvent(new Event('change', {bubbles: true})); }
             }
             // Pre-fill fixed rate from regulated tariffs
             if (isNonWholesale && defaults.regulated_tariffs) {
@@ -1930,23 +1943,25 @@
                 '</div>' +
             '</div>' +
 
-            // Pricing mode radio
-            '<div class="settings-section">' +
-                '<h3>' + t('settings.pricing_mode', 'Pricing Mode') + '</h3>' +
-                '<div class="form-hint" style="margin-bottom:12px">' + t('settings.pricing_mode_hint', 'How your consumer price is determined.') + '</div>' +
-                '<div style="display:flex;flex-direction:column;gap:8px">' +
-                    renderModeRadio('auto', t('settings.mode_auto', 'Synctacles Auto'), t('settings.mode_auto_hint'), mode) +
-                    renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
-                    renderModeRadio('external_sensor', t('settings.mode_external_sensor', 'External Sensor'), t('settings.mode_external_sensor_hint', 'Use any HA sensor that provides your electricity tariff (Zonneplan, Tibber, Octopus, P1 meter, etc.).'), mode) +
-                    renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
-                    renderModeRadio('tou', t('settings.mode_tou', 'Time-of-Use'), t('settings.mode_tou_hint', 'Bi-horário / tri-horário: set peak and off-peak rates with a schedule. GO/WAIT/AVOID follows your schedule.'), mode) +
-                    (c.zone === 'NL' ? renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) : '') +
-                '</div>' +
-            '</div>' +
+            // Contract type selector
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                return '<div class="settings-section">' +
+                    '<h3>' + t('settings.contract_type', 'Contract type') + '</h3>' +
+                    '<div class="form-group">' +
+                        '<label class="form-label">' + t('settings.contract_type', 'Contract type') + '</label>' +
+                        '<select class="form-input" id="cfg-contract-type" onchange="updateContractType()">' +
+                            '<option value="dynamic"' + (isDynamic ? ' selected' : '') + '>' + t('settings.contract_dynamic', 'Dynamic (variable price per hour)') + '</option>' +
+                            '<option value="fixed"' + (!isDynamic ? ' selected' : '') + '>' + t('settings.contract_fixed', 'Fixed rate / Time-of-Use') + '</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>';
+            })() +
 
-            // Auto mode section — supplier select + calibration
-            '<div id="mode-auto-section" style="' + (mode === 'auto' ? '' : 'display:none') + '">' +
-                '<div class="settings-section" id="supplier-select-section">' +
+            // Supplier select (visible for dynamic contract type)
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                return '<div class="settings-section" id="supplier-select-section" style="' + (isDynamic ? '' : 'display:none') + '">' +
                     '<h3>' + t('settings.supplier', 'Your Supplier') + '</h3>' +
                     '<div class="form-group">' +
                         '<select class="form-select" id="cfg-supplier">' +
@@ -1954,114 +1969,36 @@
                         '</select>' +
                         '<div class="form-hint">' + t('settings.supplier_hint', 'Select your supplier to automatically set the correct markup.') + '</div>' +
                     '</div>' +
-                '</div>' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.calibration', 'Calibration') + '</h3>' +
-                    '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_or', 'Or calibrate manually if your supplier is not listed.') + '</div>' +
-                    '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
-                    '<div style="display:flex;gap:8px;align-items:center">' +
-                        '<input class="form-input" id="cfg-cal-price" type="number" step="0.001" min="0.01" max="2.00" placeholder="0.350" style="flex:1">' +
-                        '<button class="btn-save" id="btnCalibrate" style="white-space:nowrap;margin:0">' + t('settings.calibrate_btn', 'Calibrate') + '</button>' +
-                    '</div>' +
-                    '<div class="form-hint" style="margin-top:4px">' + t('settings.calibration_input_hint', 'Check your supplier app for the current price.') + '</div>' +
-                    '<div id="calibrateResult" style="font-size:0.82em;margin-top:8px;min-height:1.2em"></div>' +
-                    '<div class="form-hint" style="margin-top:8px;font-style:italic">' + t('settings.calibration_note', 'Re-calibrate when you switch suppliers.') + '</div>' +
-                    (c.supplier_markup ? '<div class="form-hint" style="margin-top:4px">' + t('settings.supplier_markup', 'Supplier Markup') + ': ' + (c.supplier_markup * 100).toFixed(2) + ' ct/kWh</div>' : '') +
-                    (c.ema_markup && c.ema_markup.available && c.ema_markup.markup_kwh != null ? (function() {
-                        var emaCt = (c.ema_markup.markup_kwh * 100).toFixed(2);
-                        var confLabel = c.ema_markup.confidence === 'high' ? t('settings.ema_confidence_high', 'high confidence')
-                                     : c.ema_markup.confidence === 'medium' ? t('settings.ema_confidence_medium', 'medium confidence')
-                                     : t('settings.ema_confidence_low', 'limited data');
-                        var hint = '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)">' +
-                            '<span style="color:var(--success)">&#x2139;</span> ' +
-                            tReplace('settings.ema_hint', {markup: emaCt, confidence: confLabel, reporters: c.ema_markup.reporters},
-                                'Community average: ' + emaCt + ' ct/kWh (' + confLabel + ', ' + c.ema_markup.reporters + ' users)') +
-                            '</div>';
-                        // Show recalibration suggestion if current markup diverges significantly
-                        if (c.supplier_markup && Math.abs(c.supplier_markup - c.ema_markup.markup_kwh) > 0.005 && c.ema_markup.confidence !== 'low') {
-                            hint += '<div class="form-hint" style="margin-top:4px;color:var(--warning)">' +
-                                t('settings.ema_recalibrate', 'Your markup differs from the community average. Consider re-calibrating.') +
-                                '</div>';
-                        }
-                        return hint;
-                    })() : '') +
-                '</div>' +
-            '</div>' +
+                '</div>';
+            })() +
 
-            // Manual mode section
-            '<div id="mode-manual-section" style="' + (mode === 'manual' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_manual', 'Manual') + '</h3>' +
-                    '<div class="form-row">' +
+            // (Manual mode removed — simplified)
+
+            // External sensor section (visible when dynamic + sensors detected, or when sensor was previously configured)
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                var hasSensors = tariffSensors && tariffSensors.length > 0;
+                var hasSensorConfig = c.p1_sensor_entity;
+                var showSensor = isDynamic && (hasSensors || hasSensorConfig);
+                return '<div id="mode-external_sensor-section" style="' + (showSensor ? '' : 'display:none') + '">' +
+                    '<div class="settings-section">' +
+                        '<h3>' + t('settings.mode_external_sensor', 'Tariff Sensor') + '</h3>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_vat_rate', 'VAT Rate') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-vat" type="number" step="0.01" value="' + (c.manual_vat_rate || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_vat_rate_hint', 'e.g. 0.21 for 21%') + '</div>' +
+                            '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
+                            '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
+                            '<div class="form-hint">' + t('settings.p1_sensor_hint', 'Select the HA sensor that provides your current electricity tariff.') + '</div>' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_energy_tax', 'Energy Tax (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-etax" type="number" step="0.00001" value="' + (c.manual_energy_tax || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_energy_tax_hint', 'Excise tax on energy consumption') + '</div>' +
+                            '<label class="form-label">' + t('settings.p1_manual_input', 'Or enter entity ID manually:') + '</label>' +
+                            '<input class="form-input" id="cfg-p1-manual" type="text" placeholder="sensor.your_tariff" value="' + esc(c.p1_sensor_entity || '') + '">' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-row">' +
-                        '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_surcharges', 'Surcharges (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-surcharges" type="number" step="0.00001" value="' + (c.manual_surcharges || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_surcharges_hint', 'Additional levies on energy') + '</div>' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_network_tariff', 'Network Tariff (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-network" type="number" step="0.00001" value="' + (c.manual_network_tariff || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_network_tariff_hint', 'For future True Cost mode. Not included in real-time price.') + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.supplier_markup', 'Supplier Markup (EUR/kWh)') + '</label>' +
-                        '<input class="form-input" id="cfg-manual-markup" type="number" step="0.001" value="' + (c.supplier_markup || 0) + '">' +
-                        '<div class="form-hint">' + t('settings.supplier_markup_hint', 'Fixed markup added by your supplier (0 = none)') + '</div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
+                '</div>';
+            })() +
 
-            // External sensor mode section
-            '<div id="mode-external_sensor-section" style="' + (mode === 'external_sensor' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_external_sensor', 'External Sensor') + '</h3>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
-                        '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
-                        '<div class="form-hint">' + t('settings.p1_sensor_hint', 'Select the HA sensor that provides your current electricity tariff.') + '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.p1_manual_input', 'Or enter entity ID manually:') + '</label>' +
-                        '<input class="form-input" id="cfg-p1-manual" type="text" placeholder="sensor.your_tariff" value="' + esc(c.p1_sensor_entity || '') + '">' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
+            // (Enever mode removed — simplified)
 
-            // Enever mode section (NL only)
-            (c.zone === 'NL' ?
-            '<div id="mode-enever-section" style="' + (mode === 'enever' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_enever', 'Enever') + '</h3>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.enever_token', 'Enever API Token') + '</label>' +
-                        '<input class="form-input" id="cfg-enever-token" type="text" value="' + esc(c.enever_token || '') + '">' +
-                        '<div class="form-hint">' + t('settings.enever_token_hint', 'Free API key from enever.nl.') +
-                            ' <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a></div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.enever_leverancier', 'Supplier') + '</label>' +
-                        '<select class="form-select" id="cfg-enever-lev">' +
-                            renderEneverSupplierOptions(c.enever_leverancier || 'frank') +
-                        '</select>' +
-                        '<div class="form-hint">' + t('settings.enever_leverancier_hint', 'Select your energy supplier.') + '</div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' : '') +
-
-            // Fixed rate section
+            // Fixed rate section (visible when contract type = fixed)
             '<div id="mode-fixed-section" style="' + (mode === 'fixed' || mode === 'tou' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.mode_fixed', 'Fixed Rate') + '</h3>' +
@@ -2122,8 +2059,8 @@
                 '</div>' +
             '</div>' +
 
-            // Thresholds — hidden for non-wholesale (fixed/TOU have no dynamic thresholds)
-            '<div class="settings-section" id="settings-thresholds" style="' + (_isNonWholesale ? 'display:none' : '') + '">' +
+            // Thresholds — hidden for non-wholesale or fixed/TOU contract
+            '<div class="settings-section" id="settings-thresholds" style="' + (_isNonWholesale || mode === 'fixed' || mode === 'tou' ? 'display:none' : '') + '">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +
@@ -2190,8 +2127,7 @@
             '</div>';
 
         // Bind events
-        var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
-        modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
+        // Contract type dropdown replaces old radio buttons
         document.getElementById('cfg-zone').onchange = function() { onZoneChange(this.value); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF'; };
         document.getElementById('cfg-telemetry-toggle').onclick = function() {
@@ -2329,10 +2265,6 @@
             }).catch(function() {});
         }
 
-        // Calibrate button
-        var calBtn = document.getElementById('btnCalibrate');
-        if (calBtn) calBtn.onclick = doCalibrate;
-
         // Supplier dropdown — fetch and populate
         loadSupplierDropdown(c.supplier_id || '');
 
@@ -2344,8 +2276,6 @@
             };
         }
 
-        // Initial Enever visibility
-        updateModeVisibility();
     }
 
     // --- TOU Schedule Builder ---
@@ -2628,13 +2558,20 @@
         status.textContent = t('settings.saving', 'Saving...');
         status.style.color = 'var(--text-muted)';
 
+        // Determine pricing_mode from contract type dropdown
+        var contractType = document.getElementById('cfg-contract-type');
         var mode = 'auto';
-        var modeEl = document.querySelector('input[name="pricing-mode"]:checked');
-        if (modeEl) mode = modeEl.value;
-        // For non-wholesale zones: Fixed + TOU toggle on → save as 'tou' mode
-        var touToggle = document.getElementById('fixed-tou-toggle');
-        if (mode === 'fixed' && touToggle && touToggle.classList.contains('on')) {
-            mode = 'tou';
+        if (contractType && contractType.value === 'fixed') {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            mode = (touToggle && touToggle.classList.contains('on')) ? 'tou' : 'fixed';
+        } else {
+            // Dynamic: check if external sensor is configured
+            var p1Manual = document.getElementById('cfg-p1-manual');
+            if (p1Manual && p1Manual.value.trim()) {
+                mode = 'external_sensor';
+            } else {
+                mode = 'auto';
+            }
         }
 
         var payload = {
@@ -2654,15 +2591,12 @@
             if (supplierEl) {
                 payload.supplier_id = supplierEl.value;
             }
-        } else if (mode === 'manual') {
-            payload.manual_vat_rate = parseFloat(document.getElementById('cfg-manual-vat').value) || 0;
-            payload.manual_energy_tax = parseFloat(document.getElementById('cfg-manual-etax').value) || 0;
-            payload.manual_surcharges = parseFloat(document.getElementById('cfg-manual-surcharges').value) || 0;
-            payload.manual_network_tariff = parseFloat(document.getElementById('cfg-manual-network').value) || 0;
-            payload.supplier_markup = parseFloat(document.getElementById('cfg-manual-markup').value) || 0;
         } else if (mode === 'external_sensor') {
-            var p1Manual = document.getElementById('cfg-p1-manual');
-            payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
+            var p1ManualSave = document.getElementById('cfg-p1-manual');
+            payload.p1_sensor_entity = p1ManualSave ? p1ManualSave.value.trim() : '';
+            // Also save supplier for external_sensor mode
+            var supplierEl2 = document.getElementById('cfg-supplier');
+            if (supplierEl2) payload.supplier_id = supplierEl2.value;
         } else if (mode === 'fixed') {
             payload.fixed_rate_price = parseFloat(document.getElementById('cfg-fixed-price').value) || 0;
         } else if (mode === 'tou') {
@@ -2677,11 +2611,6 @@
             var touPeriods = collectTOUPeriods();
             var touCfg = {rates: touRates, periods: touPeriods, default: 'offpeak'};
             payload.tou_config = JSON.stringify(touCfg);
-        } else if (mode === 'enever') {
-            var tokenEl = document.getElementById('cfg-enever-token');
-            var levEl = document.getElementById('cfg-enever-lev');
-            payload.enever_token = tokenEl ? tokenEl.value.trim() : '';
-            payload.enever_leverancier = levEl ? levEl.value : 'frank';
         }
 
         try {
