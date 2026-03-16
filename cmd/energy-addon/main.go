@@ -248,8 +248,18 @@ func main() {
 	if cfg.P1SensorEntity == "" && supervisor != nil {
 		if detected := hasensor.DetectTariffSensor(context.Background(), supervisor); detected != "" {
 			detectedTariffSensor = detected
+			cfg.P1SensorEntity = detected
+			// Auto-promote to external_sensor mode when a tariff sensor is found
+			if cfg.PricingMode == config.ModeAuto {
+				cfg.PricingMode = config.ModeExternalSensor
+				slog.Info("auto-promoted to external_sensor mode", "entity", detected)
+			}
 			slog.Info("tariff sensor auto-detected", "entity", detected)
 		}
+	} else if cfg.P1SensorEntity != "" && cfg.PricingMode == config.ModeAuto {
+		// User configured a sensor entity but mode is auto (e.g. after Settings simplification)
+		cfg.PricingMode = config.ModeExternalSensor
+		slog.Info("auto-promoted to external_sensor mode (configured sensor)", "entity", cfg.P1SensorEntity)
 	}
 	var powerTracker *hasensor.PowerTracker
 	if cfg.HasPowerSensor() && supervisor != nil {
