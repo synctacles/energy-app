@@ -780,7 +780,7 @@ func main() {
 
 	// ADR_010: delta cache for non-sensor installs using ENTSO-E + supplier deltas
 	if cfg.PricingMode == config.ModeAuto && cfg.SupplierID != "" && cfg.BiddingZone != "" {
-		dc := delta.NewCache()
+		dc := delta.NewCache(dataPath)
 		go dc.RunFetcher(ctx, cfg.BiddingZone, cfg.SupplierID)
 		normalizer.SetDeltaLookup(dc.Get)
 		srv.SetDeltaCache(dc)
