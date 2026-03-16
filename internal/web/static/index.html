@@ -658,8 +658,7 @@
             <ul class="wizard-steps" id="wizardSteps">
                 <li class="active" data-step="0" id="wizStep0">Zone</li>
                 <li data-step="1" id="wizStep1">Supplier</li>
-                <li data-step="2" id="wizStep2">Tariff</li>
-                <li data-step="3" id="wizStep3">Summary</li>
+                <li data-step="2" id="wizStep2">Done</li>
             </ul>
 
             <!-- Step 0: Zone -->
@@ -687,108 +686,14 @@
                     <select class="wizard-select" id="wizSupplier">
                         <option value="">---</option>
                     </select>
-                    <div id="wizEmaHint" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)"></div>
-                    <div id="wizMarkupWrap" style="display:none">
-                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizCustomNameLabel">Supplier name</label>
-                        <input type="text" class="wizard-input" id="wizCustomNameInput" placeholder="e.g. Vattenfall" autocomplete="off" style="margin-bottom:8px">
-                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizMarkupLabel">Supplier markup (EUR/kWh)</label>
-                        <input type="number" class="wizard-input" id="wizMarkupInput" step="0.001" min="0" max="0.2" value="0" placeholder="0.000">
-                        <p style="font-size:0.78em;color:var(--text-faint)" id="wizMarkupHint"></p>
-                    </div>
-                </div>
-                <!-- Enever section (NL only) -->
-                <div id="wizEneverSection" style="display:none;margin-top:16px;padding:14px;background:rgba(13,148,136,0.05);border:1px solid rgba(13,148,136,0.15);border-radius:8px">
-                    <h4 style="margin:0 0 8px 0;font-size:0.92em;color:var(--accent)" id="wizEneverTitle">Exact supplier prices via Enever (optional)</h4>
-                    <p id="wizEneverIntro" style="font-size:0.82em;line-height:1.5;margin-bottom:10px;color:var(--text-muted)">Enever.nl provides free real-time prices for Dutch suppliers — per quarter hour, including all taxes. With a free API key you see exactly what you pay per kWh.</p>
-                    <div style="margin:8px 0;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.78em;line-height:1.5">
-                        <strong style="color:var(--accent)" id="wizEneverHowTitle">How does it work?</strong>
-                        <ol style="margin:4px 0 0 16px;padding:0;color:var(--text-muted)" id="wizEneverHowList">
-                            <li>Get a free API key at <a href="https://enever.nl" target="_blank" rel="noopener" style="color:var(--accent)">enever.nl</a></li>
-                            <li>Enter the key below and select your supplier</li>
-                            <li>Done — you'll see your exact supplier price</li>
-                        </ol>
-                    </div>
-                    <div id="wizEneverSensorAdvice" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:6px;font-size:0.82em;line-height:1.5"></div>
-                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API key</label>
-                    <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Paste your API key here" autocomplete="off">
-                    <div id="wizEneverSupplierWrap" style="margin-top:8px">
-                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Your supplier</label>
-                        <select class="wizard-select" id="wizEneverSupplier">
-                            <option value="">Select your supplier</option>
-                        </select>
-                    </div>
                 </div>
             </div>
 
-            <!-- Step 2: Tariff Type -->
+            <!-- Step 2: Done -->
             <div class="wizard-step" id="wizardStep2">
-                <h3 id="wizTariffTitle">Choose your tariff type</h3>
-                <p id="wizTariffIntro" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">How does your energy supplier bill you?</p>
-                <div id="wizTariffEneverBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5;color:var(--text-muted)"></div>
-                <div id="wizTariffRegulatedBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:0.85em;line-height:1.5;color:var(--text-muted)"></div>
-                <div id="wizTariffCards" style="display:flex;flex-direction:column;gap:8px">
-                    <div class="wizard-tariff-card active" data-tariff="variable" id="wizTariffVariable">
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span class="wizard-tariff-radio"></span>
-                            <strong id="wizTariffVariableLabel">Variable (dynamic pricing)</strong>
-                        </div>
-                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffVariableDesc">Spot prices from the energy market, adjusted with your supplier's markup and taxes.</p>
-                    </div>
-                    <div class="wizard-tariff-card" data-tariff="fixed" id="wizTariffFixed">
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span class="wizard-tariff-radio"></span>
-                            <strong id="wizTariffFixedLabel">Fixed rate</strong>
-                        </div>
-                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffFixedDesc">A flat rate per kWh, regardless of market prices.</p>
-                        <div id="wizFixedInputWrap" style="display:none;margin:10px 0 0 24px">
-                            <label style="font-size:0.82em;color:var(--text-muted)" id="wizFixedRateLabel">Your fixed rate (ct/kWh)</label>
-                            <input type="number" class="wizard-input" id="wizFixedRateInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 28.50" style="max-width:160px">
-                        </div>
-                    </div>
-                    <div class="wizard-tariff-card" data-tariff="tou" id="wizTariffTOU">
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span class="wizard-tariff-radio"></span>
-                            <strong id="wizTariffTOULabel">Time-of-Use</strong>
-                        </div>
-                        <p style="font-size:0.82em;color:var(--text-muted);margin:6px 0 0 24px;line-height:1.4" id="wizTariffTOUDesc">Different rates for peak and off-peak hours.</p>
-                        <div id="wizTOUInputWrap" style="display:none;margin:10px 0 0 24px">
-                            <div id="wizTOUPresetWrap" style="margin-bottom:8px">
-                                <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUPresetLabel">Select schedule</label>
-                                <select class="wizard-select" id="wizTOUPreset" style="max-width:280px">
-                                    <option value="">---</option>
-                                </select>
-                            </div>
-                            <div id="wizTOURatesWrap" style="display:flex;gap:10px;flex-wrap:wrap">
-                                <div>
-                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUPeakLabel">Peak (ct/kWh)</label>
-                                    <input type="number" class="wizard-input" id="wizTOUPeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 35.00" style="max-width:120px">
-                                </div>
-                                <div>
-                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUOffpeakLabel">Off-peak (ct/kWh)</label>
-                                    <input type="number" class="wizard-input" id="wizTOUOffpeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 22.00" style="max-width:120px">
-                                </div>
-                                <div id="wizTOUMidpeakWrap" style="display:none">
-                                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizTOUMidpeakLabel">Mid-peak (ct/kWh)</label>
-                                    <input type="number" class="wizard-input" id="wizTOUMidpeakInput" step="0.01" min="0" max="200" value="" placeholder="e.g. 28.00" style="max-width:120px">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 3: Summary -->
-            <div class="wizard-step" id="wizardStep3">
                 <h3 id="wizSummaryTitle">You're all set!</h3>
                 <div id="wizSummaryRows" style="margin: 12px 0;"></div>
-                <div id="wizSummaryTaxSection" style="margin-top:12px">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <span style="font-size:0.85em;font-weight:600;color:var(--text-muted)" id="wizSummaryTaxLabel">Taxes (auto-applied)</span>
-                        <a href="#" id="wizTaxAdjustLink" style="font-size:0.78em;color:var(--accent);text-decoration:none">Adjust</a>
-                    </div>
-                    <div id="wizSummaryTaxRows" style="margin-bottom:6px"></div>
-                    <p id="wizSummaryTaxHint" style="font-size:0.78em;color:var(--text-faint);line-height:1.4;margin:0">Based on your region. You can adjust these in Settings.</p>
-                </div>
+                <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin:12px 0" id="wizSummaryPriceLevel"></p>
                 <p id="wizSummaryThanks" style="font-size:0.82em;color:var(--success);margin-top:12px"></p>
             </div>
 
