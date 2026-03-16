@@ -630,11 +630,22 @@
 
     <!-- Unsupported region modal -->
     <div class="privacy-overlay" id="unsupportedRegionOverlay">
-        <div class="privacy-modal" id="unsupportedRegionModal">
-            <h2 id="unsupportedRegionTitle">Region Not Supported</h2>
-            <p id="unsupportedRegionBody"></p>
-            <p id="unsupportedRegionContact" style="font-size:0.85em;margin-top:12px"></p>
-            <button class="btn-ok" id="unsupportedRegionOkBtn">OK</button>
+        <div class="privacy-modal" id="unsupportedRegionModal" style="max-width:480px">
+            <h2 id="unsupportedRegionTitle" style="margin-bottom:8px">Region Not Yet Supported</h2>
+            <p id="unsupportedRegionBody" style="font-size:0.85em;line-height:1.5;color:var(--text-muted)"></p>
+            <div style="margin:16px 0;padding:12px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.15);border-radius:8px">
+                <p style="font-size:0.85em;color:var(--text);margin:0 0 8px 0;font-weight:600" id="unsupportedRegionHelpTitle">Help us add your region</p>
+                <p style="font-size:0.82em;color:var(--text-muted);margin:0 0 10px 0;line-height:1.5" id="unsupportedRegionHelpBody">Share any of these and we'll prioritize your region:</p>
+                <ul style="list-style:none;padding:0;margin:0;font-size:0.82em;color:var(--text-muted)">
+                    <li style="padding:3px 0">&#x2610; Wholesale electricity market / API</li>
+                    <li style="padding:3px 0">&#x2610; Tax rates (VAT, energy tax, levies)</li>
+                    <li style="padding:3px 0">&#x2610; Energy supplier with public API or HA integration</li>
+                </ul>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <a href="https://github.com/synctacles/ha-apps/issues/new?title=Region+request:+[your+country]&labels=region-request" target="_blank" rel="noopener" class="btn-ok" style="flex:1;text-decoration:none;text-align:center" id="unsupportedRegionSubmitBtn">Submit your region</a>
+                <button class="btn-ok" style="flex:1;background:var(--input-bg);color:var(--text)" id="unsupportedRegionOkBtn">Continue anyway</button>
+            </div>
         </div>
     </div>
 
