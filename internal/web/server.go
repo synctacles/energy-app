@@ -424,13 +424,19 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ADR_010: indicate if price is calibrated with supplier deltas
-	if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
+	// ADR_010: price accuracy level
+	// "exact"      = sensor (real supplier price)
+	// "calibrated" = ENTSO-E + per-hour delta (crowdsourced average)
+	// "estimated"  = ENTSO-E + static tax only (no supplier markup data)
+	if s.cfg.IsExternalSensorMode() || s.cfg.PricingMode == "enever" {
+		dashboard["price_accuracy"] = "exact"
+	} else if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
+		dashboard["price_accuracy"] = "calibrated"
 		dashboard["price_calibration"] = map[string]any{
-			"active":  true,
-			"hours":   s.deltaCache.Len(),
-			"source":  "crowdsourced",
+			"hours": s.deltaCache.Len(),
 		}
+	} else {
+		dashboard["price_accuracy"] = "estimated"
 	}
 
 	// Setup hints: suggest configuration improvements

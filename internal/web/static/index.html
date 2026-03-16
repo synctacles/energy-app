@@ -1492,11 +1492,19 @@
             var priceSub = isFixed
                 ? t('dashboard.fixed_rate', 'Fixed rate')
                 : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct';
-            // ADR_010: calibration indicator
-            if (d.price_calibration && d.price_calibration.active) {
+            // ADR_010: price accuracy indicator
+            if (d.price_accuracy === 'exact') {
                 priceSub += ' <span style="color:#22c55e;font-size:0.85em" title="' +
-                    t('dashboard.calibrated_tooltip', 'Price calibrated with real supplier data') +
-                    '">\u2713 ' + t('dashboard.calibrated', 'calibrated') + '</span>';
+                    t('dashboard.exact_tooltip', 'Exact price from your energy supplier') +
+                    '">\u2713 ' + t('dashboard.exact', 'exact') + '</span>';
+            } else if (d.price_accuracy === 'calibrated') {
+                priceSub += ' <span style="color:#0ea5e9;font-size:0.85em" title="' +
+                    t('dashboard.calibrated_tooltip', 'Price calibrated with real supplier data (average across providers)') +
+                    '">\u2248 ' + t('dashboard.calibrated', 'calibrated') + '</span>';
+            } else if (d.price_accuracy === 'estimated') {
+                priceSub += ' <span style="color:#f59e0b;font-size:0.85em" title="' +
+                    t('dashboard.estimated_tooltip', 'Estimated price — install a sensor integration for exact prices') +
+                    '">\u007e ' + t('dashboard.estimated', 'estimated') + '</span>';
             }
 
             // Shared: chart card (all modes)

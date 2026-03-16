@@ -779,12 +779,17 @@ func main() {
 	}
 
 	// ADR_010: delta cache for non-sensor installs using ENTSO-E + supplier deltas
-	if cfg.PricingMode == config.ModeAuto && cfg.SupplierID != "" && cfg.BiddingZone != "" {
+	// Uses per-supplier delta if supplier is configured, otherwise per-zone average.
+	if cfg.PricingMode == config.ModeAuto && cfg.BiddingZone != "" {
+		deltaSupplier := cfg.SupplierID
+		if deltaSupplier == "" {
+			deltaSupplier = "_average" // per-zone average delta (no supplier needed)
+		}
 		dc := delta.NewCache(dataPath)
-		go dc.RunFetcher(ctx, cfg.BiddingZone, cfg.SupplierID)
+		go dc.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
 		normalizer.SetDeltaLookup(dc.Get)
 		srv.SetDeltaCache(dc)
-		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", cfg.SupplierID)
+		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", deltaSupplier)
 	}
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
