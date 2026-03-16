@@ -21,7 +21,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/synctacles/energy-app/internal/config"
-	"github.com/synctacles/energy-app/internal/markup"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -145,7 +144,6 @@ func NewServer(deps Deps) *Server {
 		r.Get("/zones", s.handleZones)
 		r.Get("/zone-detect", s.handleZoneDetect)
 		r.Get("/tax-breakdown", s.handleTaxBreakdown)
-		r.Post("/calibrate", s.handleCalibrate)
 		r.Get("/sensors/tariff", s.handleTariffSensors)
 		r.Get("/suppliers", s.handleSuppliers)
 		r.Get("/country-defaults", s.handleCountryDefaults)
@@ -1062,79 +1060,6 @@ func (s *Server) readSensorPrice(ctx context.Context, entityID string) float64 {
 		}
 	}
 	return val
-}
-
-func (s *Server) handleCalibrate(w http.ResponseWriter, r *http.Request) {
-	if s.supervisor == nil {
-		writeError(w, http.StatusServiceUnavailable, "not running inside HA app")
-		return
-	}
-
-	var req struct {
-		UserPrice float64 `json:"user_price"` // EUR/kWh incl VAT
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
-		return
-	}
-
-	// Validate input range
-	if req.UserPrice < 0.01 || req.UserPrice > 2.0 {
-		writeError(w, http.StatusBadRequest, "price must be between 0.01 and 2.00 EUR/kWh")
-		return
-	}
-
-	// Get current Synctacles-computed price
-	data := s.sensorData.Get()
-	if data == nil || data.CurrentPrice <= 0 {
-		writeError(w, http.StatusServiceUnavailable, "no current price available for calibration")
-		return
-	}
-
-	// Calculate margin
-	margin := req.UserPrice - data.CurrentPrice
-
-	// Warn if margin is outside normal range but allow it
-	warning := ""
-	if margin < -0.05 || margin > 0.10 {
-		warning = "Margin is outside the normal range (-0.05 to 0.10). Double-check your input."
-	}
-
-	// Save as supplier_markup via Supervisor options
-	current, err := s.supervisor.GetAddonOptions(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to read current options")
-		return
-	}
-	current["supplier_markup"] = margin
-	if err := s.supervisor.SetAddonOptions(r.Context(), current); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save calibration")
-		return
-	}
-	s.cfg.SupplierMarkup = margin
-
-	// Update settings backup
-	if s.dataPath != "" {
-		settingsMap := config.BuildSettingsMap(s.cfg)
-		_ = config.SaveSettingsFile(config.SettingsFilePath(s.dataPath), settingsMap)
-	}
-
-	// Submit markup to crowdsource EMA (fire-and-forget, energy-app#40 stap 3)
-	supplier := s.cfg.SupplierID
-	if supplier == "" {
-		supplier = s.cfg.EneverLeverancier
-	}
-	if supplier != "" && s.installUUID != "" {
-		markup.SubmitOnce(s.installUUID, s.cfg.BiddingZone, supplier, margin)
-	}
-
-	writeJSON(w, map[string]any{
-		"status":           "calibrated",
-		"synctacles_price": data.CurrentPrice,
-		"user_price":       req.UserPrice,
-		"margin":           margin,
-		"warning":          warning,
-	})
 }
 
 func (s *Server) handleTariffSensors(w http.ResponseWriter, r *http.Request) {
