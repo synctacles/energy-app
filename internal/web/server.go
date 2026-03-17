@@ -599,6 +599,12 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	applyStringField(incoming, "p1_sensor_entity", &s.cfg.P1SensorEntity)
 	applyStringField(incoming, "tou_config", &s.cfg.TOUConfigJSON)
 
+	applyFloatField(incoming, "go_threshold", &s.cfg.GoThreshold)
+	applyFloatField(incoming, "avoid_threshold", &s.cfg.AvoidThreshold)
+	if v, ok := incoming["best_window_hours"].(float64); ok && int(v) >= 1 && int(v) <= 8 {
+		s.cfg.BestWindowHours = int(v)
+	}
+
 	applyFloatField(incoming, "manual_vat_rate", &s.cfg.ManualVATRate)
 	applyFloatField(incoming, "manual_energy_tax", &s.cfg.ManualEnergyTax)
 	applyFloatField(incoming, "manual_surcharges", &s.cfg.ManualSurcharges)
