@@ -842,10 +842,16 @@
         localStorage.setItem('synctacles_energy_lang', lang);
         _detectedLocale = lang;
         initI18n(lang).then(function() {
-            // Force full rebuild of dynamic content
+            // Force full rebuild of all dynamic content
             _dashboardBuilt = false;
             _lastDashJson = '';
-            loadDashboard();
+            settingsLoaded = false;
+            feedbackLoaded = false;
+            cacheLoaded = false;
+            // Re-render active tab
+            var activeTab = document.querySelector('.tab.active');
+            if (activeTab) activeTab.click();
+            else loadDashboard();
         });
     };
 
