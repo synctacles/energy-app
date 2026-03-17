@@ -2420,50 +2420,8 @@
         };
     }
 
-    async function doCalibrate() {
-        var btn = document.getElementById('btnCalibrate');
-        var result = document.getElementById('calibrateResult');
-        var priceInput = document.getElementById('cfg-cal-price');
-        var userPrice = parseFloat(priceInput.value);
-
-        if (!userPrice || userPrice < 0.01 || userPrice > 2.0) {
-            result.innerHTML = '<span style="color:var(--danger)">Enter a price between 0.01 and 2.00 EUR/kWh</span>';
-            return;
-        }
-
-        btn.disabled = true;
-        result.textContent = t('settings.calibrating', 'Calibrating...');
-
-        try {
-            var resp = await fetch('api/calibrate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_price: userPrice })
-            });
-            var data = await resp.json();
-            if (!resp.ok) {
-                result.innerHTML = '<span style="color:var(--danger)">' + (data.error || t('settings.calibration_no_price')) + '</span>';
-                btn.disabled = false;
-                return;
-            }
-
-            var html = '<span style="color:var(--success)">' +
-                tReplace('settings.calibration_result', {
-                    synctacles: formatPrice(data.synctacles_price),
-                    user: formatPrice(data.user_price),
-                    margin: (data.margin >= 0 ? '+' : '') + formatPrice(data.margin)
-                }) + '</span><br>' +
-                '<span style="color:var(--success);font-weight:500">' + t('settings.calibration_saved') + '</span>';
-            if (data.warning) {
-                html += '<br><span style="color:var(--warning)">' + t('settings.calibration_warning') + '</span>';
-            }
-            result.innerHTML = html;
-            currentConfig.supplier_markup = data.margin;
-        } catch (e) {
-            result.innerHTML = '<span style="color:var(--danger)">' + t('settings.connection_error') + '</span>';
-        }
-        btn.disabled = false;
-    }
+    // Calibration UI removed — elements no longer in HTML
+    async function doCalibrate() { /* no-op */ }
 
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -3042,34 +3000,10 @@
         document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
         document.getElementById('wizStep0').textContent = t('wizard.step_zone', 'Zone');
         document.getElementById('wizStep1').textContent = t('wizard.step_supplier', 'Supplier');
-        document.getElementById('wizStep2').textContent = t('wizard.step_tariff', 'Tariff');
-        document.getElementById('wizStep3').textContent = t('wizard.step_summary', 'Summary');
+        document.getElementById('wizStep2').textContent = t('wizard.step_summary', 'Summary');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
         document.getElementById('wizRegionWhy').textContent = t('wizard.region_why', 'Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.');
         document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
-        document.getElementById('wizCustomNameLabel').textContent = t('wizard.custom_name_label', 'Supplier name');
-        document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
-        document.getElementById('wizMarkupHint').textContent = t('wizard.markup_hint', "Your supplier's per-kWh markup on top of wholesale prices.");
-        document.getElementById('wizTariffTitle').textContent = t('wizard.tariff_title', 'Choose your tariff type');
-        document.getElementById('wizTariffIntro').textContent = t('wizard.tariff_intro', 'How does your energy supplier bill you?');
-        document.getElementById('wizTariffVariableLabel').textContent = t('wizard.tariff_variable', 'Variable (dynamic pricing)');
-        document.getElementById('wizTariffVariableDesc').textContent = t('wizard.tariff_variable_desc', "Spot prices from the energy market, adjusted with your supplier's markup and taxes.");
-        document.getElementById('wizTariffFixedLabel').textContent = t('wizard.tariff_fixed', 'Fixed rate');
-        document.getElementById('wizTariffFixedDesc').textContent = t('wizard.tariff_fixed_desc', 'A flat rate per kWh, regardless of market prices.');
-        document.getElementById('wizFixedRateLabel').textContent = t('wizard.tariff_fixed_input', 'Your fixed rate (ct/kWh)');
-        document.getElementById('wizTariffTOULabel').textContent = t('wizard.tariff_tou', 'Time-of-Use');
-        document.getElementById('wizTariffTOUDesc').textContent = t('wizard.tariff_tou_desc', 'Different rates for peak and off-peak hours.');
-        document.getElementById('wizTOUPresetLabel').textContent = t('wizard.tariff_tou_preset', 'Select schedule');
-        document.getElementById('wizTOUPeakLabel').textContent = t('wizard.tariff_tou_peak', 'Peak (ct/kWh)');
-        document.getElementById('wizTOUOffpeakLabel').textContent = t('wizard.tariff_tou_offpeak', 'Off-peak (ct/kWh)');
-        document.getElementById('wizTOUMidpeakLabel').textContent = t('wizard.tariff_tou_midpeak', 'Mid-peak (ct/kWh)');
-        document.getElementById('wizEneverTitle').textContent = t('wizard.enever_section_title', 'Exact supplier prices via Enever (optional)');
-        document.getElementById('wizEneverIntro').textContent = t('wizard.enever_section_desc', 'Enever.nl provides free real-time prices for Dutch suppliers \u2014 per quarter hour, including all taxes. With a free API key you see exactly what you pay per kWh.');
-        document.getElementById('wizEneverTokenLabel').textContent = t('wizard.enever_token_label', 'Enever API key');
-        document.getElementById('wizEneverSupplierLabel').textContent = t('wizard.enever_supplier_label', 'Your supplier');
-        document.getElementById('wizSummaryTaxLabel').textContent = t('wizard.summary_taxes', 'Taxes (auto-applied)');
-        document.getElementById('wizTaxAdjustLink').textContent = t('wizard.tax_adjust', 'Adjust');
-        document.getElementById('wizSummaryTaxHint').textContent = t('wizard.summary_taxes_hint', 'Based on your region. You can adjust these in Settings.');
         document.getElementById('wizPrevBtn').textContent = t('wizard.btn_prev', 'Back');
         document.getElementById('wizNextBtn').textContent = t('wizard.btn_next', 'Next');
         document.getElementById('wizSkipBtn').textContent = t('wizard.btn_skip', 'Skip setup');
@@ -3276,21 +3210,7 @@
             }
         }
 
-        // Show EMA community markup hint if available
-        var emaHint = document.getElementById('wizEmaHint');
-        var ema = _wizardData.ema_markup;
-        if (ema && ema.available && ema.markup_kwh != null) {
-            var emaCt = (ema.markup_kwh * 100).toFixed(2);
-            var confLabel = ema.confidence === 'high' ? t('wizard.ema_confidence_high', 'high confidence')
-                         : ema.confidence === 'medium' ? t('wizard.ema_confidence_medium', 'medium confidence')
-                         : t('wizard.ema_confidence_low', 'limited data');
-            emaHint.innerHTML = '<span style="color:var(--success)">\u2139</span> ' +
-                tReplace('wizard.ema_hint', {markup: emaCt, confidence: confLabel, reporters: ema.reporters},
-                    'Community data suggests ' + emaCt + ' ct/kWh markup (' + confLabel + ', ' + ema.reporters + ' users)');
-            emaHint.style.display = '';
-        } else {
-            emaHint.style.display = 'none';
-        }
+        // EMA hint removed — element no longer in HTML
     }
 
     // "Use this sensor" button — sets pricing to external_sensor mode
@@ -3305,195 +3225,33 @@
         this.style.background = 'var(--success)';
     };
 
-    // Show/populate Enever section for NL users in Supplier step
-    function wizardPopulateEnever() {
-        var section = document.getElementById('wizEneverSection');
-        if (!_wizardIsNL) {
-            section.style.display = 'none';
-            return;
-        }
-        section.style.display = '';
-        // Populate Enever leverancier dropdown
-        var sel = document.getElementById('wizEneverSupplier');
-        sel.innerHTML = '<option value="">' + t('wizard.enever_select_supplier', 'Select your supplier') + '</option>';
-        var sortedKeys = Object.keys(supplierNames).sort(function(a, b) {
-            return (supplierNames[a] || a).localeCompare(supplierNames[b] || b);
-        });
-        sortedKeys.forEach(function(key) {
-            var opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = supplierNames[key] || key;
-            sel.appendChild(opt);
-        });
-
-        // Show sensor info when a day-ahead sensor is detected (complementary to Enever)
-        var adviceDiv = document.getElementById('wizEneverSensorAdvice');
-        var sensor = _wizardData && _wizardData.detected_sensor;
-        if (sensor && sensor.has_forecast) {
-            var sensorName = sensor.name || sensor.entity_id;
-            var sensorPrice = (sensor.state * 100).toFixed(2);
-            var html = '<strong style="color:var(--accent)">' +
-                t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
-                tReplace('wizard.sensor_enever_info',
-                    { sensor: sensorName, price: sensorPrice },
-                    '<strong>' + sensorName + '</strong> detected (current: <strong>' + sensorPrice + ' ct/kWh</strong>). ' +
-                    'When you also configure Enever below, the dashboard will show the price difference between your sensor and Enever.');
-            adviceDiv.innerHTML = html;
-            adviceDiv.style.display = '';
-            _wizardSensorEntity = sensor.entity_id;
-        } else {
-            adviceDiv.style.display = 'none';
-        }
-    }
+    // Enever section removed — elements no longer in HTML
+    function wizardPopulateEnever() { /* no-op */ }
 
     document.getElementById('wizSupplier').onchange = function() {
         var val = this.value;
-        var markupWrap = document.getElementById('wizMarkupWrap');
         if (val === '__custom') {
-            markupWrap.style.display = 'block';
             _wizardSelectedSupplier = null;
-            _wizardMarkup = parseFloat(document.getElementById('wizMarkupInput').value) || 0;
+            _wizardMarkup = 0;
         } else if (val) {
-            markupWrap.style.display = 'none';
             _wizardSelectedSupplier = val;
             var opt = this.options[this.selectedIndex];
             _wizardMarkup = parseFloat(opt.dataset.markup) || 0;
         } else {
-            markupWrap.style.display = 'none';
             _wizardSelectedSupplier = null;
             _wizardMarkup = 0;
         }
     };
-    document.getElementById('wizMarkupInput').oninput = function() {
-        _wizardMarkup = parseFloat(this.value) || 0;
-    };
-    document.getElementById('wizCustomNameInput').oninput = function() {
-        _wizardSelectedSupplier = (this.value || '').trim() || null;
-    };
 
-    // Tariff Type step — card selection + type-specific inputs
-    function wizardPopulateTariffType() {
-        var cards = document.querySelectorAll('.wizard-tariff-card');
-        var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
-        var eneverBanner = document.getElementById('wizTariffEneverBanner');
-        var regulatedBanner = document.getElementById('wizTariffRegulatedBanner');
-        var variableCard = document.getElementById('wizTariffVariable');
+    // Tariff Type step removed — wizard simplified to 3 steps
+    function wizardPopulateTariffType() { /* no-op — tariff step removed */ }
 
-        // Check if zone has wholesale market
-        var hasWholesale = !_wizardSelectedZoneData || _wizardSelectedZoneData.has_wholesale !== false;
-        var regulated = _wizardSelectedZoneData && _wizardSelectedZoneData.regulated_tariffs;
+    function wizardUpdateTariffCards() { /* no-op — tariff cards removed */ }
 
-        // Non-wholesale zone: hide Variable, show regulated banner
-        if (!hasWholesale) {
-            variableCard.style.display = 'none';
-            regulatedBanner.textContent = t('wizard.no_wholesale_desc', 'This zone has regulated tariffs (no wholesale market). Choose a fixed or time-of-use tariff.');
-            regulatedBanner.style.display = '';
-            if (_wizardTariffType === 'variable') {
-                _wizardTariffType = 'fixed';
-            }
-            // Pre-fill rates from regulated tariffs
-            if (regulated) {
-                if (regulated.fixed) {
-                    document.getElementById('wizFixedRateInput').value = (regulated.fixed * 100).toFixed(2);
-                    _wizardFixedRate = regulated.fixed * 100;
-                }
-            }
-        } else {
-            variableCard.style.display = '';
-            regulatedBanner.style.display = 'none';
-        }
-
-        // If Enever configured, lock to variable and show banner
-        if (hasEnever && hasWholesale) {
-            _wizardTariffType = 'variable';
-            eneverBanner.textContent = t('wizard.enever_auto_variable', 'Enever provides exact supplier prices \u2014 tariff type is set to Variable automatically.');
-            eneverBanner.style.display = '';
-        } else {
-            eneverBanner.style.display = 'none';
-        }
-
-        // Hide TOU option if country has no presets
-        // Zone-level TOU presets override country-level (e.g. Madeira has different peak hours)
-        var touCard = document.getElementById('wizTariffTOU');
-        var zonePresets = _wizardSelectedZoneData && _wizardSelectedZoneData.tou_presets && _wizardSelectedZoneData.tou_presets.length > 0
-            ? _wizardSelectedZoneData.tou_presets : null;
-        var countryPresets = _wizardSelectedCountry && _wizardSelectedCountry.tou_presets && _wizardSelectedCountry.tou_presets.length > 0
-            ? _wizardSelectedCountry.tou_presets : null;
-        var activePresets = zonePresets || countryPresets;
-        var hasPresets = !!activePresets;
-        touCard.style.display = hasPresets ? '' : 'none';
-
-        // Populate TOU preset dropdown
-        if (hasPresets) {
-            var presetSel = document.getElementById('wizTOUPreset');
-            presetSel.innerHTML = '<option value="">' + t('wizard.tariff_tou_preset', 'Select schedule') + '</option>';
-            activePresets.forEach(function(p) {
-                var opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.name;
-                opt.dataset.preset = JSON.stringify(p);
-                presetSel.appendChild(opt);
-            });
-            // Check if any preset has midpeak rate
-            var hasMidpeak = activePresets.some(function(p) {
-                return p.periods && p.periods.some(function(pd) { return pd.rate === 'midpeak'; });
-            });
-            document.getElementById('wizTOUMidpeakWrap').style.display = hasMidpeak ? '' : 'none';
-        }
-
-        // Update active state
-        wizardUpdateTariffCards();
-
-        // Disable cards if Enever locked
-        cards.forEach(function(card) {
-            if (card.style.display === 'none') return;
-            card.style.opacity = hasEnever && hasWholesale && card.dataset.tariff !== 'variable' ? '0.5' : '';
-            card.style.pointerEvents = hasEnever && hasWholesale && card.dataset.tariff !== 'variable' ? 'none' : '';
-        });
+    // Legacy tariff code removed (wizTariffEneverBanner, wizTariffRegulatedBanner, wizTariffVariable,
+    // wizFixedInputWrap, wizTOUInputWrap, wizTOUPreset, wizTOUMidpeakWrap, etc.)
+    if (false) {
     }
-
-    function wizardUpdateTariffCards() {
-        var cards = document.querySelectorAll('.wizard-tariff-card');
-        cards.forEach(function(card) {
-            var isActive = card.dataset.tariff === _wizardTariffType;
-            card.classList.toggle('active', isActive);
-        });
-        document.getElementById('wizFixedInputWrap').style.display = _wizardTariffType === 'fixed' ? '' : 'none';
-        document.getElementById('wizTOUInputWrap').style.display = _wizardTariffType === 'tou' ? '' : 'none';
-    }
-
-    // Tariff card click handlers
-    document.querySelectorAll('.wizard-tariff-card').forEach(function(card) {
-        card.onclick = function() {
-            _wizardTariffType = this.dataset.tariff;
-            wizardUpdateTariffCards();
-        };
-    });
-
-    // TOU preset selection
-    document.getElementById('wizTOUPreset').onchange = function() {
-        if (!this.value) { _wizardTOUPreset = null; return; }
-        var opt = this.options[this.selectedIndex];
-        try {
-            _wizardTOUPreset = JSON.parse(opt.dataset.preset);
-            // Check if this preset has midpeak
-            var hasMidpeak = _wizardTOUPreset.periods && _wizardTOUPreset.periods.some(function(p) { return p.rate === 'midpeak'; });
-            document.getElementById('wizTOUMidpeakWrap').style.display = hasMidpeak ? '' : 'none';
-            // Pre-fill TOU rates from regulated tariffs if available
-            var regulated = _wizardSelectedZoneData && _wizardSelectedZoneData.regulated_tariffs;
-            if (regulated && regulated.tou && regulated.tou[this.value]) {
-                var rates = regulated.tou[this.value];
-                if (rates.peak) {
-                    document.getElementById('wizTOUPeakInput').value = (rates.peak * 100).toFixed(2);
-                    _wizardTOURates.peak = rates.peak * 100;
-                }
-                if (rates.offpeak) {
-                    document.getElementById('wizTOUOffpeakInput').value = (rates.offpeak * 100).toFixed(2);
-                    _wizardTOURates.offpeak = rates.offpeak * 100;
-                }
-            }
-        } catch(e) { _wizardTOUPreset = null; }
-    };
 
     // Summary step — zone, supplier, tariff type, taxes with override
     function wizardPopulateSummary() {
@@ -3529,123 +3287,17 @@
             rows.appendChild(row);
         });
 
-        // Tax section — zone-level overrides take precedence over country-level
-        var tax = (_wizardSelectedZoneData && _wizardSelectedZoneData.tax_defaults)
-            ? _wizardSelectedZoneData.tax_defaults
-            : (_wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null);
-        var taxRows = document.getElementById('wizSummaryTaxRows');
-        taxRows.innerHTML = '';
-        _wizardTaxOverrides = null; // Reset on each populate
-
-        if (tax) {
-            var taxItems = [
-                { key: 'vat_rate', label: t('wizard.verify_vat', 'VAT rate'), value: tax.vat_rate, fmt: function(v) { return (v * 100).toFixed(0) + '%'; }, step: '1', max: '50' },
-                { key: 'energy_tax', label: t('wizard.verify_energy_tax', 'Energy tax'), value: tax.energy_tax, fmt: function(v) { return (v * 100).toFixed(3) + ' ct/kWh'; }, step: '0.001', max: '0.50' },
-                { key: 'surcharges', label: t('wizard.verify_surcharges', 'Surcharges'), value: tax.surcharges, fmt: function(v) { return (v * 100).toFixed(3) + ' ct/kWh'; }, step: '0.001', max: '0.50' },
-                { key: 'network_tariff_avg', label: t('wizard.verify_network', 'Network tariff (avg.)'), value: tax.network_tariff_avg, fmt: function(v) { return (v * 100).toFixed(2) + ' ct/kWh'; }, step: '0.01', max: '0.50' }
-            ];
-            taxItems.forEach(function(item) {
-                if (!item.value) return;
-                var row = document.createElement('div');
-                row.className = 'wizard-tax-row';
-                row.dataset.taxKey = item.key;
-                row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
-                row.querySelector('.wizard-tax-label').textContent = item.label;
-                row.querySelector('.wizard-tax-value').textContent = item.fmt(item.value);
-                row.dataset.taxDefault = item.value;
-                row.dataset.taxStep = item.step;
-                row.dataset.taxMax = item.max;
-                row.dataset.taxFmtType = item.key === 'vat_rate' ? 'pct' : 'ct';
-                taxRows.appendChild(row);
-            });
-        } else {
-            taxRows.innerHTML = '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
-        }
-
-        // Adjust link handler
-        document.getElementById('wizTaxAdjustLink').onclick = function(e) {
-            e.preventDefault();
-            wizardToggleTaxEdit();
-        };
-
-        // Tax section visibility — hide for sensor mode (sensor provides consumer price)
-        document.getElementById('wizSummaryTaxSection').style.display = _wizardUseSensor ? 'none' : '';
+        // Tax section removed — elements no longer in HTML
+        _wizardTaxOverrides = null;
 
         document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
         var thanks = document.getElementById('wizSummaryThanks');
-        if (hasEnever) {
-            thanks.textContent = t('wizard.enever_thanks', 'Enever provides exact supplier prices \u2014 no manual tax setup needed.');
-        } else {
-            thanks.textContent = '';
-        }
+        thanks.textContent = '';
     }
-
-    // Toggle tax rows between read-only and editable
-    function wizardToggleTaxEdit() {
-        var taxRows = document.getElementById('wizSummaryTaxRows');
-        var rows = taxRows.querySelectorAll('.wizard-tax-row');
-        var link = document.getElementById('wizTaxAdjustLink');
-        var isEditing = rows.length > 0 && rows[0].querySelector('input');
-
-        if (isEditing) {
-            // Save overrides and switch back to read-only
-            _wizardTaxOverrides = {};
-            rows.forEach(function(row) {
-                var input = row.querySelector('input');
-                if (!input) return;
-                var key = row.dataset.taxKey;
-                var val = parseFloat(input.value) || 0;
-                // Convert percentage back to decimal for vat_rate
-                if (key === 'vat_rate') val = val / 100;
-                _wizardTaxOverrides[key] = val;
-                var valEl = document.createElement('span');
-                valEl.className = 'wizard-tax-value';
-                valEl.textContent = row.dataset.taxFmtType === 'pct'
-                    ? (val * 100).toFixed(0) + '%'
-                    : (val * 100).toFixed(3) + ' ct/kWh';
-                input.parentElement.replaceWith(valEl);
-            });
-            link.textContent = t('wizard.tax_adjust', 'Adjust');
-            document.getElementById('wizSummaryTaxHint').textContent = t('wizard.tax_adjusted', 'Custom tax values will be applied.');
-        } else {
-            // Switch to editable inputs
-            rows.forEach(function(row) {
-                var valEl = row.querySelector('.wizard-tax-value');
-                if (!valEl) return;
-                var key = row.dataset.taxKey;
-                var defVal = parseFloat(row.dataset.taxDefault) || 0;
-                var curVal = _wizardTaxOverrides ? (_wizardTaxOverrides[key] || defVal) : defVal;
-                // For vat_rate, show as percentage in input
-                var inputVal = key === 'vat_rate' ? (curVal * 100).toFixed(0) : curVal;
-                var input = document.createElement('input');
-                input.type = 'number';
-                input.className = 'wizard-input';
-                input.style.cssText = 'max-width:100px;padding:4px 8px;font-size:0.85em';
-                input.step = row.dataset.taxStep;
-                input.min = '0';
-                input.max = row.dataset.taxMax;
-                input.value = inputVal;
-                var wrap = document.createElement('span');
-                wrap.className = 'wizard-tax-value';
-                wrap.appendChild(input);
-                valEl.replaceWith(wrap);
-            });
-            link.textContent = t('wizard.tax_save', 'Save');
-            document.getElementById('wizSummaryTaxHint').textContent = t('wizard.tax_editing', 'Edit tax values as needed.');
-        }
-    }
-
-    // Track Enever token/supplier changes
-    document.getElementById('wizEneverToken').oninput = function() {
-        _wizardEneverToken = (this.value || '').trim();
-    };
-    document.getElementById('wizEneverSupplier').onchange = function() {
-        _wizardEneverLeverancier = this.value || '';
-    };
 
     function wizardShowStep(step) {
         _wizardStep = step;
-        for (var i = 0; i <= 3; i++) {
+        for (var i = 0; i <= 2; i++) {
             var panel = document.getElementById('wizardStep' + i);
             var stepEl = document.getElementById('wizStep' + i);
             if (i === step) {
@@ -3661,62 +3313,32 @@
         }
         // Populate step-specific data
         if (step === 1) { wizardPopulateSuppliers(); wizardPopulateEnever(); }
-        if (step === 2) wizardPopulateTariffType();
-        if (step === 3) wizardPopulateSummary();
+        if (step === 2) wizardPopulateSummary();
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
         var nextBtn = document.getElementById('wizNextBtn');
-        if (step === 3) {
+        if (step === 2) {
             nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
         } else {
             nextBtn.textContent = t('wizard.btn_next', 'Next');
         }
-        document.getElementById('wizSkipBtn').style.display = step < 3 ? '' : 'none';
+        document.getElementById('wizSkipBtn').style.display = step < 2 ? '' : 'none';
     }
 
     document.getElementById('wizNextBtn').onclick = function() {
         if (_wizardStep === 0) {
             if (!_wizardSelectedZone) return;
             _wizardIsNL = _wizardSelectedZone === 'NL';
-            wizardShowStep(1); // Always go to Supplier
+            wizardShowStep(1); // Go to Supplier
         } else if (_wizardStep === 1) {
-            // Capture Enever state
-            _wizardEneverToken = (document.getElementById('wizEneverToken').value || '').trim();
-            _wizardEneverLeverancier = document.getElementById('wizEneverSupplier').value;
-            if (_wizardUseSensor) {
-                // Sensor mode — skip tariff type, go to Summary
-                wizardShowStep(3);
-            } else {
-                wizardShowStep(2); // Tariff type
-            }
+            wizardShowStep(2); // Go to Summary (final step)
         } else if (_wizardStep === 2) {
-            // Validate tariff type inputs
-            if (_wizardTariffType === 'fixed') {
-                var rate = parseFloat(document.getElementById('wizFixedRateInput').value);
-                if (!rate || rate <= 0) return;
-                _wizardFixedRate = rate / 100; // ct/kWh → EUR/kWh
-            }
-            if (_wizardTariffType === 'tou') {
-                var peak = parseFloat(document.getElementById('wizTOUPeakInput').value);
-                var offpeak = parseFloat(document.getElementById('wizTOUOffpeakInput').value);
-                if (!peak || peak <= 0 || !offpeak || offpeak <= 0) return;
-                _wizardTOURates.peak = peak / 100;
-                _wizardTOURates.offpeak = offpeak / 100;
-                var midpeakInput = document.getElementById('wizTOUMidpeakInput');
-                if (midpeakInput && midpeakInput.parentElement.style.display !== 'none') {
-                    _wizardTOURates.midpeak = (parseFloat(midpeakInput.value) || 0) / 100;
-                }
-            }
-            wizardShowStep(3); // Summary
-        } else if (_wizardStep === 3) {
             wizardComplete(true);
         }
     };
     document.getElementById('wizPrevBtn').onclick = function() {
-        if (_wizardStep === 3 && _wizardUseSensor) {
-            wizardShowStep(1); // Back to Supplier (skip tariff type)
-        } else if (_wizardStep > 0) {
+        if (_wizardStep > 0) {
             wizardShowStep(_wizardStep - 1);
         }
     };
