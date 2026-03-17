@@ -925,8 +925,14 @@
                     '</div>';
             }
 
-            // Other sources — show non-active sources with health dots
-            var others = d.sources.filter(function(s) { return !s.active && s.name !== 'enever'; });
+            // Other sources — show non-active + wholesale sources with health dots
+            // In sensor mode, ENTSO-E (synctacles) is technically active but user sees "Sensor" as primary
+            var isExtSensorMode = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter';
+            var others = d.sources.filter(function(s) {
+                if (s.name === 'enever') return false;
+                if (isExtSensorMode) return true; // show all sources as fallback indicators
+                return !s.active;
+            });
             if (others.length > 0) {
                 html += '<div class="source-chain" style="font-size:0.82em">';
                 others.forEach(function(s, idx) {
