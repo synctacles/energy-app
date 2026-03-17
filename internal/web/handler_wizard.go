@@ -347,9 +347,6 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	if supplierName == "" && harvestedProfile != nil {
 		supplierName = harvestedProfile.SupplierName
 	}
-	if supplierName == "" {
-		supplierName = s.cfg.EneverLeverancier
-	}
 	var emaMarkup *supplierEMA
 	if supplierName != "" && supplierZone != "" {
 		emaMarkup = fetchSupplierEMA(r.Context(), supplierZone, supplierName)

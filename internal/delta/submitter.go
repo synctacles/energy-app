@@ -18,20 +18,18 @@ const energyDataBaseURL = "https://energy-data.synctacles.com"
 type SubmitterConfig struct {
 	InstallUUID string
 	Zone        string
-	Source      string // "sensor" or "enever"
+	Source      string // "sensor"
 	TaxCache    *engine.TaxProfileCache
 
 	// GetDayAheadPrices returns all known consumer prices with their timestamps.
-	// For sensor mode: reads forecast from HA sensor attributes.
-	// For Enever mode: returns prices from Enever API for a specific supplier.
+	// Reads forecast from HA sensor attributes.
 	GetDayAheadPrices func(ctx context.Context, supplier string) ([]HourlyConsumerPrice, error)
 
 	// GetWholesalePrices returns ENTSO-E day-ahead wholesale prices (EUR/kWh).
 	GetWholesalePrices func(ctx context.Context, zone string) ([]WholesalePrice, error)
 
 	// Suppliers returns the list of suppliers to submit deltas for.
-	// For sensor mode: returns a single supplier.
-	// For Enever mode: returns all 23 NL suppliers.
+	// Returns a single supplier for sensor mode.
 	Suppliers func() []string
 }
 

@@ -171,8 +171,6 @@ func main() {
 		slog.Warn("no zone configured and auto-detect failed, falling back to NL")
 	}
 
-	// Enever removed from UI (ADR_010 / #62) — no longer derive Enever settings
-
 	slog.Info("pricing mode", "mode", cfg.PricingMode, "zone", cfg.BiddingZone)
 
 	// Initialize HA Supervisor client
@@ -349,9 +347,8 @@ func main() {
 			}
 		}
 
-		// Midnight gap mitigation: if no prices classified as "today" yet
-		// (e.g. Enever data for new day not available until ~01:00), use all
-		// available prices so the current slot can still be found.
+		// Midnight gap mitigation: if no prices classified as "today" yet,
+		// use all available prices so the current slot can still be found.
 		if len(todayPrices) == 0 && len(consumerPrices) > 0 {
 			todayPrices = consumerPrices
 			slog.Info("midnight gap: using all cached prices for current slot")
@@ -360,21 +357,15 @@ func main() {
 		// Compute sensor values
 		sensorSet := hasensor.ComputeSensorSet(
 			cfg.BiddingZone, todayPrices, tomorrowPrices,
-			actionEngine, result, now, cfg.EneverLeverancier,
+			actionEngine, result, now, "",
 			cfg.BestWindowHours, cfg.PricingMode,
 		)
 
 		// Sensor override: use HA sensor reading as CurrentPrice when available.
-		// Works in both explicit sensor mode AND Enever+sensor (complementary) mode.
 		sensorEntity := cfg.P1SensorEntity
 		if sensorEntity != "" && supervisor != nil {
 			if extPrice, err := readExternalSensorPrice(ctx, supervisor, sensorEntity); err == nil {
-				if cfg.IsEneverMode() {
-					// Enever+sensor: sensor becomes CurrentPrice, preserve Enever for delta
-					sensorSet.EneverPrice = sensorSet.CurrentPrice
-					sensorSet.CurrentPrice = extPrice
-					sensorSet.Source = "sensor"
-				} else if cfg.IsExternalSensorMode() {
+				if cfg.IsExternalSensorMode() {
 					sensorSet.CurrentPrice = extPrice
 				}
 			} else {
@@ -520,7 +511,6 @@ func main() {
 				"pricing_mode":     cfg.PricingMode,
 				"supplier_id":     cfg.SupplierID,
 				"supplier_markup": cfg.SupplierMarkup,
-				"enever_enabled":  cfg.EneverEnabled,
 				"go_threshold":   cfg.GoThreshold,
 				"avoid_threshold": cfg.AvoidThreshold,
 				"best_window_h":  cfg.BestWindowHours,
@@ -699,10 +689,8 @@ func main() {
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 
 	// Start delta submitter for per-hour supplier correction factors (ADR_010)
-	// NOTE: Enever deltas are computed server-side by the harvest Worker (analytics DB).
-	// HA installs only submit SENSOR deltas — never Enever data (TOS + privacy).
 	if cfg.BiddingZone != "" {
-		// Sensor mode: submit deltas for ALL detected tariff sensors
+		// Submit deltas for ALL detected tariff sensors
 		if supervisor != nil {
 			allSensors := hasensor.DetectAllTariffSensors(ctx, supervisor)
 			svDelta := supervisor
@@ -800,14 +788,10 @@ func main() {
 // Fallback chain (ADR_008):
 //
 //	Tier 0: Synctacles Worker (primary — wholesale + consumer prices for all zones)
-//	Tier 1: Enever (NL only, when configured — exact supplier prices)
-//	Tier 2: Energy-Charts (fallback if Worker offline)
-//	Tier 3: SQLite cache (offline safety net — handled by FallbackManager)
+//	Tier 1: Energy-Charts (fallback if Worker offline)
+//	Tier 2: SQLite cache (offline safety net — handled by FallbackManager)
 func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI) []collector.PriceSource {
 	var chain []collector.PriceSource
-
-	// Enever removed from source chain (ADR_010 / #62).
-	// Enever data is now harvested server-side and applied as per-hour deltas.
 
 	// Synctacles Worker — wholesale + per-hour delta correction
 	chain = append(chain, synctaclesAPI)

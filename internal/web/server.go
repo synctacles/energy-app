@@ -349,8 +349,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"price":       fmt.Sprintf("%.4f", data.CurrentPrice),
 			"unit":        "EUR/kWh",
 			"source":      data.Source,
-			"leverancier": data.Leverancier,
-		},
+			},
 		"action": map[string]any{
 			"action":          data.Action.Action,
 			"reason":          data.Action.Reason,
@@ -397,17 +396,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	sourceInfo := map[string]any{
 		"source":      data.Source,
 		"quality":     data.Quality,
-		"leverancier": data.Leverancier,
-	}
-	// Enever+sensor: candles are Enever, current price is sensor
-	if data.EneverPrice > 0 {
-		sourceInfo["chart_source"] = "enever"
-		sourceInfo["chart_leverancier"] = data.Leverancier
 	}
 	dashboard["source_info"] = sourceInfo
 
 	// Tax data source: "worker", "consumer", "embedded", "none"
-	// "consumer" = prices already include taxes (Enever, Worker consumer prices)
+	// "consumer" = prices already include taxes (Worker consumer prices)
 	// "worker"   = live Worker tax profile applied to wholesale
 	// "embedded" = fallback tax defaults (less accurate)
 	// "none"     = no tax data at all (wholesale only)
@@ -426,7 +419,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// "exact"      = sensor (real supplier price)
 	// "calibrated" = ENTSO-E + per-hour delta (crowdsourced average)
 	// "estimated"  = ENTSO-E + static tax only (no supplier markup data)
-	if s.cfg.IsExternalSensorMode() || s.cfg.P1SensorEntity != "" || s.cfg.PricingMode == "enever" {
+	if s.cfg.IsExternalSensorMode() || s.cfg.P1SensorEntity != "" {
 		dashboard["price_accuracy"] = "exact"
 	} else if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
 		dashboard["price_accuracy"] = "calibrated"
@@ -464,14 +457,6 @@ func (s *Server) buildSetupHints() []map[string]string {
 		})
 	}
 
-	// Hint: NL zone without Enever (and not using a sensor)
-	if s.cfg.BiddingZone == "NL" && !isSensorMode && mode != "enever" && s.cfg.EneverToken == "" {
-		hints = append(hints, map[string]string{
-			"id":     "enever_available",
-			"action": "settings",
-		})
-	}
-
 	return hints
 }
 
@@ -485,8 +470,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"best_window_hours":       s.cfg.BestWindowHours,
 		"has_power_sensor":        s.cfg.HasPowerSensor(),
 		"power_sensor":            s.cfg.PowerSensorEntity,
-		"enever_token":            s.cfg.EneverToken,
-		"enever_leverancier":      s.cfg.EneverLeverancier,
 		"supplier_markup":         s.cfg.SupplierMarkup,
 		"supplier_id":             s.cfg.SupplierID,
 		"manual_vat_rate":         s.cfg.ManualVATRate,
@@ -508,9 +491,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Include crowdsourced EMA markup if available (energy-app#40)
 	supplier := s.cfg.SupplierID
-	if supplier == "" {
-		supplier = s.cfg.EneverLeverancier
-	}
 	if supplier != "" && s.cfg.BiddingZone != "" {
 		if ema := fetchSupplierEMA(r.Context(), s.cfg.BiddingZone, supplier); ema != nil {
 			resp["ema_markup"] = ema
@@ -542,7 +522,7 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	// Merge allowed fields
 	allowed := []string{
 		"pricing_mode", "zone", "go_threshold", "avoid_threshold", "best_window_hours",
-		"enever_token", "enever_leverancier", "supplier_markup", "supplier_id",
+		"supplier_markup", "supplier_id",
 		"manual_vat_rate", "manual_energy_tax", "manual_surcharges", "manual_network_tariff",
 		"p1_sensor_entity", "fixed_rate_price", "tou_config", "power_sensor", "debug_mode",
 		"disclaimer_accepted", "privacy_accepted", "onboarding_completed", "telemetry_enabled",
@@ -551,11 +531,6 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		if val, ok := incoming[key]; ok {
 			current[key] = val
 		}
-	}
-
-	// Derive enever_enabled from pricing_mode
-	if mode, ok := incoming["pricing_mode"].(string); ok {
-		current["enever_enabled"] = (mode == config.ModeEnever)
 	}
 
 	// Validate manual tax inputs (CC_INSTRUCTION §10 ranges)
@@ -593,8 +568,6 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	// Update in-memory config for immediate effect
 	applyStringField(incoming, "pricing_mode", &s.cfg.PricingMode)
 	applyStringField(incoming, "zone", &s.cfg.BiddingZone)
-	applyStringField(incoming, "enever_token", &s.cfg.EneverToken)
-	applyStringField(incoming, "enever_leverancier", &s.cfg.EneverLeverancier)
 	applyStringField(incoming, "supplier_id", &s.cfg.SupplierID)
 	applyStringField(incoming, "p1_sensor_entity", &s.cfg.P1SensorEntity)
 	applyStringField(incoming, "tou_config", &s.cfg.TOUConfigJSON)
@@ -687,7 +660,6 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 		"country":  cc.Country,
 		"name":     cc.Name,
 		"currency": cc.Currency,
-		"has_enever": cc.Country == "NL",
 	}
 
 	// Check if zone has ENTSO-E wholesale data
@@ -696,9 +668,6 @@ func (s *Server) handleCountryDefaults(w http.ResponseWriter, r *http.Request) {
 
 	// Available pricing modes for this country/zone
 	modes := []string{"auto", "manual", "external_sensor", "fixed", "tou"}
-	if cc.Country == "NL" {
-		modes = append(modes, "enever")
-	}
 	// Non-wholesale zones: only allow fixed and tou (no ENTSO-E spot prices, regulated tariffs apply)
 	if !hasWholesale {
 		modes = []string{"fixed", "tou"}
@@ -940,11 +909,11 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	// 4. Fallback: 2% of wholesale (estimated, consumer price modes only)
 	// 5. Reverse-calculate wholesale from consumer (only for non-consumer-price modes like auto/manual)
 	var supplierMarkup float64
-	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
 	// Reverse-calculate wholesale from consumer price as fallback.
 	// Only valid for auto/manual modes where consumer = wholesale + known taxes.
-	// In consumer-price modes (enever, sensor), this would be circular.
+	// In consumer-price modes (sensor), this would be circular.
 	if wholesaleKWh == 0 && !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
@@ -1004,7 +973,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delta: compare active price source with alternative source (NL-only).
-	// Shows in tax breakdown when user has both sensor AND Enever configured.
+	// Price delta indicator (for future use with multiple sources)
 	if zone == "NL" && s.supervisor != nil && data != nil && data.CurrentPrice > 0 {
 		delta := s.calculatePriceDelta(r.Context(), data.CurrentPrice)
 		if delta != nil {
@@ -1018,21 +987,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 // calculatePriceDelta compares the active price source with an alternative.
 // Returns nil if no alternative is available or not applicable.
 func (s *Server) calculatePriceDelta(_ context.Context, activePrice float64) map[string]any {
-	mode := s.cfg.PricingMode
-	data := s.sensorData.Get()
-
-	if mode == "enever" && data != nil && data.EneverPrice > 0 {
-		// Enever+sensor mode: active = sensor, alternative = Enever
-		// EneverPrice is set when sensor overrides CurrentPrice in main.go
-		delta := data.EneverPrice - activePrice
-		return map[string]any{
-			"active_source": "sensor",
-			"alt_source":    "enever",
-			"alt_price":     data.EneverPrice,
-			"delta":         delta,
-		}
-	}
-
+	// Enever removed — no alternative source comparison available
 	return nil
 }
 
@@ -1168,11 +1123,9 @@ func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeSource := ""
-	leverancier := ""
 	quality := ""
 	if data := s.sensorData.Get(); data != nil {
 		activeSource = data.Source
-		leverancier = data.Leverancier
 		quality = data.Quality
 	}
 	var statuses []engine.SourceHealth
@@ -1190,7 +1143,6 @@ func (s *Server) handleSources(w http.ResponseWriter, r *http.Request) {
 		"sources":      statuses,
 		"zone":         s.cfg.BiddingZone,
 		"pricing_mode": s.cfg.PricingMode,
-		"leverancier":  leverancier,
 		"quality":      quality,
 		"active_info":  activeInfo,
 	})
@@ -1506,7 +1458,7 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mode := s.cfg.PricingMode
-	isConsumerPriceMode := mode == "enever" || mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 	taxSource := ""
 	if s.normalizer != nil {
 		taxSource = s.normalizer.TaxSource()
@@ -1525,7 +1477,7 @@ func (s *Server) handleCacheView(w http.ResponseWriter, r *http.Request) {
 		Breakdown   *models.PriceBreakdown `json:"breakdown,omitempty"`
 	}
 
-	// When entries lack wholesale data (Enever mode), fetch from Worker for comparison
+	// When entries lack wholesale data, fetch from Worker for comparison
 	var wholesaleMap map[time.Time]float64
 	needsWholesale := false
 	for _, row := range rows {
@@ -1669,8 +1621,6 @@ func deriveSourceLabel(mode, source, taxSource string, isConsumer bool) string {
 		switch source {
 		case "synctacles":
 			return "Worker (wholesale + tax)"
-		case "enever":
-			return "Enever (consumer price)"
 		default:
 			return source + " (consumer)"
 		}

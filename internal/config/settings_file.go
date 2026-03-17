@@ -77,19 +77,6 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 		restored++
 	}
 
-	// Enever (NL only)
-	if v, ok := settings["enever_token"].(string); ok && v != "null" {
-		cfg.EneverToken = v
-		restored++
-	}
-	if v, ok := settings["enever_leverancier"].(string); ok && v != "null" {
-		cfg.EneverLeverancier = v
-		restored++
-	}
-	if v, ok := settings["enever_enabled"].(bool); ok {
-		cfg.EneverEnabled = v
-	}
-
 	// Supplier
 	if v, ok := settings["supplier_id"].(string); ok && v != "null" {
 		cfg.SupplierID = v
@@ -177,9 +164,6 @@ func BuildSettingsMap(cfg *Config) map[string]any {
 		"go_threshold":         cfg.GoThreshold,
 		"avoid_threshold":      cfg.AvoidThreshold,
 		"best_window_hours":    cfg.BestWindowHours,
-		"enever_enabled":       cfg.EneverEnabled,
-		"enever_token":         cfg.EneverToken,
-		"enever_leverancier":   cfg.EneverLeverancier,
 		"supplier_id":          cfg.SupplierID,
 		"supplier_markup":      cfg.SupplierMarkup,
 		"manual_vat_rate":      cfg.ManualVATRate,

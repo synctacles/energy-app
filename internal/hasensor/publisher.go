@@ -20,7 +20,6 @@ type Publisher interface {
 type SensorSet struct {
 	Zone           string
 	CurrentPrice   float64
-	EneverPrice    float64 // Original Enever price when sensor overrides CurrentPrice (for delta display)
 	Action         models.ActionResult
 	Stats          models.PriceStats
 	BestWindow     *models.BestWindow
@@ -28,9 +27,8 @@ type SensorSet struct {
 	TodayPrices    []models.HourlyPrice
 	TomorrowPrices []models.HourlyPrice
 	Source         string
-	SourceTier     string // "worker", "enever", "energy_charts", "cache"
+	SourceTier     string // "worker", "energy_charts", "cache"
 	Quality        string
-	Leverancier    string // Enever supplier name (e.g. "zonneplan"), empty when not using Enever
 	UpdatedAt      time.Time
 }
 
@@ -50,9 +48,6 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		"icon":                "mdi:currency-eur",
 		"device_class":        "monetary",
 		"last_updated":        now,
-	}
-	if s.Leverancier != "" {
-		priceAttrs["leverancier"] = s.Leverancier
 	}
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_energy_price",
 		fmt.Sprintf("%.4f", s.CurrentPrice), priceAttrs,
@@ -303,7 +298,6 @@ func actionIcon(a models.Action) string {
 }
 
 // ComputeSensorSet builds a SensorSet from fetched prices and engine results.
-// leverancier is the Enever supplier name (empty string when not using Enever).
 // bestWindowHours controls the best window duration (default 3, range 1-8).
 // pricingMode controls action calculation: "fixed"/"tou" use regulated logic, others use wholesale.
 func ComputeSensorSet(
@@ -313,7 +307,7 @@ func ComputeSensorSet(
 	actionEngine *engine.ActionEngine,
 	fetchResult *engine.FetchResult,
 	now time.Time,
-	leverancier string,
+	_ string, // deprecated: leverancier parameter (kept for backward compat)
 	bestWindowHours int,
 	pricingMode string,
 ) *SensorSet {
@@ -354,12 +348,6 @@ func ComputeSensorSet(
 		tomorrow = engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)
 	}
 
-	// Only set leverancier when Enever is the active source
-	lev := ""
-	if fetchResult.Source == "enever" {
-		lev = leverancier
-	}
-
 	// Map source tier to human-readable label for HA sensor attribute
 	sourceTier := fetchResult.Source
 	switch {
@@ -383,7 +371,6 @@ func ComputeSensorSet(
 		Source:         fetchResult.Source,
 		SourceTier:     sourceTier,
 		Quality:        fetchResult.Quality,
-		Leverancier:    lev,
 		UpdatedAt:      now,
 	}
 }

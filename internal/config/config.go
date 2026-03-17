@@ -13,7 +13,7 @@ type Config struct {
 	SupervisorToken string `env:"SUPERVISOR_TOKEN"`
 	IngressPort     int    `env:"INGRESS_PORT" envDefault:"8098"`
 
-	// Pricing mode: "auto", "manual", "external_sensor", "enever", "fixed"
+	// Pricing mode: "auto", "manual", "external_sensor", "fixed"
 	PricingMode string `env:"PRICING_MODE" envDefault:"auto"`
 
 	// Zone
@@ -23,11 +23,6 @@ type Config struct {
 	// Thresholds (user configurable via app options)
 	GoThreshold    float64 `env:"ENERGY_GO_THRESHOLD" envDefault:"-15"`
 	AvoidThreshold float64 `env:"ENERGY_AVOID_THRESHOLD" envDefault:"20"`
-
-	// Enever (pricing mode "enever", NL only)
-	EneverEnabled     bool   `env:"ENEVER_ENABLED" envDefault:"false"`
-	EneverToken       string `env:"ENEVER_TOKEN"`
-	EneverLeverancier string `env:"ENEVER_LEVERANCIER" envDefault:"frank"`
 
 	// Supplier markup in EUR/kWh (used in auto + manual modes)
 	SupplierMarkup float64 `env:"ENERGY_SUPPLIER_MARKUP" envDefault:"0"`
@@ -79,7 +74,6 @@ const (
 	ModeExternalSensor = "external_sensor" // Canonical: any HA sensor with EUR/kWh tariff
 	ModeP1Meter        = "p1_meter"        // Legacy, kept for backward compat
 	ModeMeterTariff    = "meter_tariff"    // Legacy, kept for backward compat
-	ModeEnever         = "enever"
 	ModeFixed          = "fixed"           // User-defined flat rate, no dynamic pricing
 	ModeTOU            = "tou"             // Time-of-use schedule (bi-horário / tri-horário)
 )
@@ -103,18 +97,12 @@ func Load() (*Config, error) {
 	if cfg.PowerSensorEntity == "null" {
 		cfg.PowerSensorEntity = ""
 	}
-	if cfg.EneverToken == "null" {
-		cfg.EneverToken = ""
-	}
-	if cfg.EneverLeverancier == "null" {
-		cfg.EneverLeverancier = ""
-	}
 	if cfg.SupplierID == "null" {
 		cfg.SupplierID = ""
 	}
 	// Validate pricing mode
 	switch cfg.PricingMode {
-	case ModeAuto, ModeManual, ModeExternalSensor, ModeP1Meter, ModeMeterTariff, ModeEnever, ModeFixed, ModeTOU:
+	case ModeAuto, ModeManual, ModeExternalSensor, ModeP1Meter, ModeMeterTariff, ModeFixed, ModeTOU:
 		// OK
 	default:
 		cfg.PricingMode = ModeAuto
@@ -125,11 +113,6 @@ func Load() (*Config, error) {
 // HasSupervisor returns true if running inside HA with Supervisor access.
 func (c *Config) HasSupervisor() bool {
 	return c.SupervisorToken != ""
-}
-
-// HasEnever returns true if Enever is enabled with a valid token.
-func (c *Config) HasEnever() bool {
-	return c.EneverEnabled && c.EneverToken != ""
 }
 
 // HasPowerSensor returns true if a power sensor is configured for live cost.
@@ -145,11 +128,6 @@ func (c *Config) HasAlerts() bool {
 // IsFixedMode returns true if pricing mode is fixed-rate with a configured price.
 func (c *Config) IsFixedMode() bool {
 	return c.PricingMode == ModeFixed && c.FixedRatePrice > 0
-}
-
-// IsEneverMode returns true if pricing mode is Enever with valid credentials.
-func (c *Config) IsEneverMode() bool {
-	return c.PricingMode == ModeEnever && c.EneverToken != ""
 }
 
 // IsTOUMode returns true if pricing mode is time-of-use with a valid config.
