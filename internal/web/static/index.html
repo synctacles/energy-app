@@ -899,9 +899,11 @@
             var ai = d.active_info;
             var html = '';
 
-            // Active source summary — compact: "Prices from: ENTSO-E (NL) • cached locally"
+            // Active source summary — show sensor as source when in exact mode
             if (ai) {
-                var srcLabel = sourceLabel(ai.source, d.leverancier, d.zone);
+                var srcLabel = d.price_accuracy === 'exact'
+                    ? t('source.sensor_price', 'Sensor') + ' (' + d.zone + ')'
+                    : sourceLabel(ai.source, d.leverancier, d.zone);
                 var cacheNote = '';
                 if (ai.from_mem_cache || ai.from_disk_cache) {
                     cacheNote = ' <span class="source-cached-note">' + t('source.cached_locally', '• cached locally') + '</span>';
@@ -3170,8 +3172,7 @@
             _wizardSelectedCountry.suppliers.forEach(function(s) {
                 var opt = document.createElement('option');
                 opt.value = s.id;
-                opt.textContent = s.name + (s.markup > 0 ? ' (+' + (s.markup * 100).toFixed(2) + ' ct/kWh)' : '');
-                opt.dataset.markup = s.markup;
+                opt.textContent = s.name;
                 sel.appendChild(opt);
             });
         }
