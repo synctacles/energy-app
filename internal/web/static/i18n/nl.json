@@ -192,8 +192,8 @@
     "delete_data_success": "Je gegevens zijn verwijderd.",
     "delete_data_error": "Verwijderen mislukt. Probeer het opnieuw.",
     "contract_type": "Contract type",
-    "contract_dynamic": "Dynamic (variable price per hour)",
-    "contract_fixed": "Fixed rate / Time-of-Use"
+    "contract_dynamic": "Dynamisch (variabele uurprijs)",
+    "contract_fixed": "Vast tarief / Tijdsvariabel tarief"
   },
   "feedback": {
     "rate_app": "Beoordeel deze app",
@@ -373,7 +373,7 @@
     "regulated_note": "Gereguleerd tarief — uitsplitsing is indicatief",
     "network_info": "Netwerkkosten (~{amount} ct/kWh) worden apart gefactureerd door je netbeheerder en zijn hierboven niet meegeteld."
   },
-    "zones": {
+  "zones": {
     "nl": "Nederland",
     "be": "Belgium",
     "de": "Duitsland",

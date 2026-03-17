@@ -184,8 +184,8 @@
     "delete_data_success": "Os seus dados foram eliminados.",
     "delete_data_error": "Falha ao eliminar. Tente novamente.",
     "contract_type": "Contract type",
-    "contract_dynamic": "Dynamic (variable price per hour)",
-    "contract_fixed": "Fixed rate / Time-of-Use"
+    "contract_dynamic": "Dinâmico (preço variável por hora)",
+    "contract_fixed": "Taxa fixa / Tarifa por horário"
   },
   "feedback": {
     "rate_app": "Classificar esta aplicação",

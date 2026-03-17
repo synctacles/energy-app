@@ -184,8 +184,8 @@
     "delete_data_success": "Dine data er blevet slettet.",
     "delete_data_error": "Sletning mislykkedes. Prøv igen.",
     "contract_type": "Contract type",
-    "contract_dynamic": "Dynamic (variable price per hour)",
-    "contract_fixed": "Fixed rate / Time-of-Use"
+    "contract_dynamic": "Dynamisk (variabel timepris)",
+    "contract_fixed": "Fastpris / Tidsvariabel tarif"
   },
   "feedback": {
     "rate_app": "Bedøm denne app",

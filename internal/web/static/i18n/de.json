@@ -184,8 +184,8 @@
     "delete_data_success": "Ihre Daten wurden gelöscht.",
     "delete_data_error": "Löschen fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "contract_type": "Contract type",
-    "contract_dynamic": "Dynamic (variable price per hour)",
-    "contract_fixed": "Fixed rate / Time-of-Use"
+    "contract_dynamic": "Dynamisch (variable Stundenpreis)",
+    "contract_fixed": "Festtarif / Zeitvariabler Tarif"
   },
   "feedback": {
     "rate_app": "Diese App bewerten",
