@@ -1879,20 +1879,7 @@
             })() +
 
             // Supplier select (visible for dynamic contract type)
-            (function() {
-                var isDynamic = mode !== 'fixed' && mode !== 'tou';
-                return '<div class="settings-section" id="supplier-select-section" style="' + (isDynamic ? '' : 'display:none') + '">' +
-                    '<h3>' + t('settings.supplier', 'Your Supplier') + '</h3>' +
-                    '<div class="form-group">' +
-                        '<select class="form-select" id="cfg-supplier">' +
-                            '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>' +
-                        '</select>' +
-                        '<div class="form-hint">' + t('settings.supplier_hint', 'Select your supplier to automatically set the correct markup.') + '</div>' +
-                    '</div>' +
-                '</div>';
-            })() +
-
-            // (Manual mode removed — simplified)
+            // Supplier dropdown removed — delta system replaces static markups
 
             // External sensor section (visible when dynamic + sensors detected, or when sensor was previously configured)
             (function() {
