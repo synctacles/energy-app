@@ -357,5 +357,32 @@
     "source": "Quelle",
     "regulated_note": "Regulierter Tarif — Aufschlüsselung ist indikativ",
     "network_info": "Netzentgelte (~{amount} ct/kWh) werden separat von Ihrem Netzbetreiber berechnet und sind oben nicht enthalten."
+  },
+  "zones": {
+    "nl": "Niederlande",
+    "be": "Belgien",
+    "de": "Deutschland",
+    "at": "Österreich",
+    "ch": "Schweiz",
+    "cz": "Tschechien",
+    "dk": "Dänemark",
+    "ee": "Estland",
+    "es": "Spanien",
+    "fr": "Frankreich",
+    "gb": "Großbritannien",
+    "hr": "Kroatien",
+    "hu": "Ungarn",
+    "ie": "Irland",
+    "it": "Italien",
+    "lt": "Litauen",
+    "lv": "Lettland",
+    "no": "Norwegen",
+    "pl": "Polen",
+    "pt": "Portugal",
+    "ro": "Rumänien",
+    "rs": "Serbien",
+    "se": "Schweden",
+    "si": "Slowenien",
+    "sk": "Slowakei"
   }
 }

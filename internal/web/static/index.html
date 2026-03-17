@@ -971,10 +971,12 @@
             tab.classList.add('active');
             document.querySelectorAll('.tab-page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
+            if (tab.getAttribute('data-tab') === 'dashboard' && !_dashboardBuilt) loadDashboard();
             if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
             if (tab.getAttribute('data-tab') === 'feedback' && !feedbackLoaded) loadFeedbackSysInfo();
             if (tab.getAttribute('data-tab') === 'cache' && !cacheLoaded) loadCache();
             if (tab.getAttribute('data-tab') === 'costs') loadCosts();
+            localStorage.setItem('synctacles_energy_active_tab', tab.getAttribute('data-tab'));
         };
     });
 
@@ -1625,23 +1627,6 @@
             }
         }
 
-        // Arrow indicator above current candle
-        for (var ci = 0; ci < chartBars.length; ci++) {
-            if (hours[ci] === currentSlot) {
-                var b = chartBars[ci];
-                var arrowX = b.x + b.w / 2;
-                var arrowY = b.y - 4;
-                ctx.fillStyle = barCurrent;
-                ctx.beginPath();
-                ctx.moveTo(arrowX, arrowY);
-                ctx.lineTo(arrowX - 4, arrowY - 7);
-                ctx.lineTo(arrowX + 4, arrowY - 7);
-                ctx.closePath();
-                ctx.fill();
-                break;
-            }
-        }
-
         // Y-axis labels
         ctx.fillStyle = labelColor;
         ctx.font = '10px sans-serif';
@@ -1715,13 +1700,30 @@
         }
     }
 
+    // Zone name translations map (zone code -> i18n key)
+    var zoneNameKeys = {
+        'NL': 'zones.nl', 'BE': 'zones.be', 'DE': 'zones.de', 'AT': 'zones.at',
+        'CH': 'zones.ch', 'CZ': 'zones.cz', 'DK': 'zones.dk', 'EE': 'zones.ee',
+        'ES': 'zones.es', 'FR': 'zones.fr', 'GB': 'zones.gb', 'HR': 'zones.hr',
+        'HU': 'zones.hu', 'IE': 'zones.ie', 'IT': 'zones.it', 'LT': 'zones.lt',
+        'LV': 'zones.lv', 'NO': 'zones.no', 'PL': 'zones.pl', 'PT': 'zones.pt',
+        'RO': 'zones.ro', 'RS': 'zones.rs', 'SE': 'zones.se', 'SI': 'zones.si', 'SK': 'zones.sk'
+    };
+
+    function getZoneName(zoneCode) {
+        var key = zoneNameKeys[zoneCode];
+        if (key) return t(key, zoneCode); // Fallback to code if translation missing
+        return zoneCode;
+    }
+
     function renderZoneOptions(currentZone) {
         if (!zoneData || !zoneData.groups) return '<option value="">' + t('common.loading', 'Loading...') + '</option>';
         var html = '';
         zoneData.groups.forEach(function(group) {
             html += '<optgroup label="' + esc(group.name) + '">';
             group.zones.forEach(function(z) {
-                html += '<option value="' + esc(z.code) + '"' + (z.code === currentZone ? ' selected' : '') + '>' + esc(z.code + ' — ' + z.name) + '</option>';
+                var zoneName = getZoneName(z.code);
+                html += '<option value="' + esc(z.code) + '"' + (z.code === currentZone ? ' selected' : '') + '>' + esc(z.code + ' — ' + zoneName) + '</option>';
             });
             html += '</optgroup>';
         });
@@ -3327,6 +3329,15 @@
         _dashboardBuilt = false;
         _lastDashJson = '';
         loadDashboard();
+
+        // Restore active tab from localStorage
+        var savedTab = localStorage.getItem('synctacles_energy_active_tab');
+        if (savedTab && savedTab !== 'dashboard') {
+            var tabToRestore = document.querySelector('[data-tab="' + savedTab + '"]');
+            if (tabToRestore) {
+                setTimeout(function() { tabToRestore.click(); }, 100);
+            }
+        }
     }
 
     loadVersion().then(function() {

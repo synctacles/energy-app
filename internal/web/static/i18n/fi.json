@@ -357,5 +357,32 @@
     "source": "Lähde",
     "regulated_note": "Säännelty tarifi — erittely on suuntaa-antava",
     "network_info": "Verkkokulut (~{amount} ct/kWh) laskutetaan erikseen verkko-operaattorisi toimesta eikä niitä ole sisällytetty yllä olevaan."
+  },
+  "zones": {
+    "nl": "Alankomaat",
+    "be": "Belgia",
+    "de": "Saksa",
+    "at": "Itävalta",
+    "ch": "Sveitsi",
+    "cz": "Tšekki",
+    "dk": "Tanska",
+    "ee": "Viro",
+    "es": "Espanja",
+    "fr": "Ranska",
+    "gb": "Iso-Britannia",
+    "hr": "Kroatia",
+    "hu": "Unkari",
+    "ie": "Irlanti",
+    "it": "Italia",
+    "lt": "Liettua",
+    "lv": "Latvia",
+    "no": "Norja",
+    "pl": "Puola",
+    "pt": "Portugali",
+    "ro": "Romania",
+    "rs": "Serbia",
+    "se": "Ruotsi",
+    "si": "Slovenia",
+    "sk": "Slovakia"
   }
 }

@@ -357,5 +357,32 @@
     "source": "Fonte",
     "regulated_note": "Tarifa regulada — composição é indicativa",
     "network_info": "Custos de rede (~{amount} ct/kWh) são faturados separadamente pelo operador de rede e não estão incluídos acima."
+  },
+  "zones": {
+    "nl": "Países Baixos",
+    "be": "Bélgica",
+    "de": "Alemanha",
+    "at": "Áustria",
+    "ch": "Suíça",
+    "cz": "Tchéquia",
+    "dk": "Dinamarca",
+    "ee": "Estônia",
+    "es": "Espanha",
+    "fr": "França",
+    "gb": "Reino Unido",
+    "hr": "Croácia",
+    "hu": "Hungria",
+    "ie": "Irlanda",
+    "it": "Itália",
+    "lt": "Lituânia",
+    "lv": "Letônia",
+    "no": "Noruega",
+    "pl": "Polônia",
+    "pt": "Portugal",
+    "ro": "Romênia",
+    "rs": "Sérvia",
+    "se": "Suécia",
+    "si": "Eslovênia",
+    "sk": "Eslováquia"
   }
 }

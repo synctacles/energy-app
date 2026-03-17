@@ -357,5 +357,32 @@
     "source": "Kilde",
     "regulated_note": "Reguleret tarif — opdeling er vejledende",
     "network_info": "Netomkostninger (~{amount} ct/kWh) faktureres separat af din netoperatør og er ikke inkluderet ovenfor."
+  },
+  "zones": {
+    "nl": "Holland",
+    "be": "Belgien",
+    "de": "Tyskland",
+    "at": "Østrig",
+    "ch": "Schweiz",
+    "cz": "Tjekkiet",
+    "dk": "Danmark",
+    "ee": "Estland",
+    "es": "Spanien",
+    "fr": "Frankrig",
+    "gb": "Storbritannien",
+    "hr": "Kroatien",
+    "hu": "Ungarn",
+    "ie": "Irland",
+    "it": "Italien",
+    "lt": "Litauen",
+    "lv": "Letland",
+    "no": "Norge",
+    "pl": "Polen",
+    "pt": "Portugal",
+    "ro": "Rumænien",
+    "rs": "Serbien",
+    "se": "Sverige",
+    "si": "Slovenien",
+    "sk": "Slovakiet"
   }
 }

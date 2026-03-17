@@ -357,5 +357,32 @@
     "source": "Source",
     "regulated_note": "Tarif réglementé — répartition indicative",
     "network_info": "Les frais de réseau (~{amount} ct/kWh) sont facturés séparément par votre gestionnaire de réseau et ne sont pas inclus ci-dessus."
+  },
+  "zones": {
+    "nl": "Pays-Bas",
+    "be": "Belgique",
+    "de": "Allemagne",
+    "at": "Autriche",
+    "ch": "Suisse",
+    "cz": "Tchéquie",
+    "dk": "Danemark",
+    "ee": "Estonie",
+    "es": "Espagne",
+    "fr": "France",
+    "gb": "Grande-Bretagne",
+    "hr": "Croatie",
+    "hu": "Hongrie",
+    "ie": "Irlande",
+    "it": "Italie",
+    "lt": "Lituanie",
+    "lv": "Lettonie",
+    "no": "Norvege",
+    "pl": "Pologne",
+    "pt": "Portugal",
+    "ro": "Roumanie",
+    "rs": "Serbie",
+    "se": "Suede",
+    "si": "Slovenie",
+    "sk": "Slovaquie"
   }
 }
