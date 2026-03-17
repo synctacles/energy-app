@@ -915,20 +915,13 @@
             }
 
             // Other sources — show non-active sources with health dots
-            var others = d.sources.filter(function(s) { return !s.active; });
-            // For NL: show Enever as primary source even when not configured
-            var hasEnever = d.sources.some(function(s) { return s.name === 'enever'; });
-            if (d.zone === 'NL' && !hasEnever) {
-                others.unshift({ name: 'enever', healthy: false, ghost: true });
-            }
+            var others = d.sources.filter(function(s) { return !s.active && s.name !== 'enever'; });
             if (others.length > 0) {
                 html += '<div class="source-chain" style="font-size:0.82em">';
                 others.forEach(function(s, idx) {
                     var dotCls = s.healthy ? 'healthy' : (s.last_success ? 'unhealthy' : 'unknown');
-                    var label = sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '', d.zone);
-                    var note = '';
-                    if (s.name === 'enever' && (s.ghost || !s.healthy)) note = ' (' + t('source.not_configured', 'not configured') + ')';
-                    else if (s.healthy) note = ' (' + t('source.fallback_ready', 'ready') + ')';
+                    var label = sourceLabel(s.name, '', d.zone);
+                    var note = s.healthy ? ' (' + t('source.fallback_ready', 'ready') + ')' : '';
                     if (idx > 0) html += ' ';
                     html += '<span class="source-chain-item">' +
                         '<span class="source-dot ' + dotCls + '"></span>' +
@@ -939,13 +932,7 @@
 
             // External sensor indicator
             var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
-            if (isExtSensor) {
-                html += '<div class="source-chain" style="font-size:0.82em">' +
-                    '<span class="source-label">' + t('source.mode', 'Mode:') + '</span>' +
-                    '<span class="source-chain-item"><span class="source-dot healthy"></span>' +
-                    '<span class="source-chain-name active">' + t('settings.mode_external_sensor', 'External Sensor') + '</span></span>' +
-                    '</div>';
-            }
+            // Mode indicator removed — price_accuracy (exact/calibrated/estimated) replaces it
 
             document.getElementById('sourceBar').innerHTML = html;
         } catch (e) { console.warn('source health load failed:', e.message); }
