@@ -362,14 +362,15 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		return extractWholesale(entry.result.Prices)
 	}
 
-	// Check primary cache — Enever now populates WholesaleKWh from EPEX "prijs" field.
-	// This avoids an extra API call (Enever has 250/month rate limit).
-	primaryKey := zone + ":" + dateStr
-	if entry, ok := f.memCache[primaryKey]; ok {
-		if result := extractWholesale(entry.result.Prices); len(result) > 0 {
-			return result
-		}
-	}
+	// Check primary cache — Enever WholesaleKWh is EPEX wholesale (raw spot price).
+	// However, for consumer-price calculations, we skip Enever wholesale here because:
+	// 1. Enever prices are already consumer prices (Zonneplan, Frank, etc.)
+	// 2. Using EPEX wholesale for breakdown would decompose the consumer price incorrectly.
+	// Instead, we rely on synctacles/EnergyCharts wholesale below, which matches
+	// the same wholesale sources used before the upscale operation.
+	// This ensures consistency: CurrentPrice matches the breakdown calculation.
+	// TODO (ADR_013): Once Enever WholesaleKWh is validated/calibrated to match
+	// synctacles/EnergyCharts, re-enable this cache check for 1 fewer API call.
 
 	// Fetch from non-Enever sources: synctacles (ENTSO-E PT15M) > EnergyCharts (PT60M)
 	for _, src := range f.sources {
