@@ -668,8 +668,7 @@
             <p class="wizard-subtitle" id="wizardSubtitle">Let's set up your energy prices in a few steps.</p>
             <ul class="wizard-steps" id="wizardSteps">
                 <li class="active" data-step="0" id="wizStep0">Zone</li>
-                <li data-step="1" id="wizStep1">Supplier</li>
-                <li data-step="2" id="wizStep2">Done</li>
+                <li data-step="1" id="wizStep1">Setup</li>
             </ul>
 
             <!-- Step 0: Zone -->
@@ -684,28 +683,37 @@
                 </div>
             </div>
 
-            <!-- Step 1: Supplier (with Enever section for NL) -->
+            <!-- Step 1: Setup (sensor detect + contract type if needed) -->
             <div class="wizard-step" id="wizardStep1">
-                <h3 id="wizSupplierTitle">Select your energy supplier</h3>
                 <div id="wizSensorDetected" class="wizard-detected" style="display:none">
-                    <span id="wizSensorName"></span>
+                    <h3 style="color:var(--success);margin:0 0 8px 0">&#x2713; Sensor detected</h3>
+                    <span id="wizSensorName" style="font-weight:600"></span>
                     <div style="margin-top:6px;font-size:0.88em" id="wizSensorPrice"></div>
-                    <div style="margin-top:4px;font-size:0.82em;color:var(--text-muted)" id="wizSensorCalcResult"></div>
-                    <button class="wizard-btn-primary" id="wizSensorUseBtn" style="margin-top:8px;padding:8px 16px;font-size:0.82em;width:auto;display:inline-block">Use this sensor</button>
+                    <p style="font-size:0.82em;color:var(--text-muted);margin-top:10px;line-height:1.5">Your energy price comes directly from your supplier. Prices are exact.</p>
                 </div>
-                <div id="wizSupplierManual">
-                    <select class="wizard-select" id="wizSupplier">
-                        <option value="">---</option>
-                    </select>
+                <div id="wizNoSensor" style="display:none">
+                    <h3 id="wizSetupTitle">Almost there!</h3>
+                    <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">No energy sensor detected. Prices will be based on ENTSO-E wholesale data with a calibrated average markup for your region.</p>
+                    <div style="padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);border-radius:8px;font-size:0.82em;line-height:1.5;color:var(--text-muted)">
+                        <strong style="color:#f59e0b">Tip:</strong> Install a price sensor integration (e.g. Zonneplan, Tibber, Nord Pool) for exact prices.
+                    </div>
                 </div>
-            </div>
-
-            <!-- Step 2: Done -->
-            <div class="wizard-step" id="wizardStep2">
-                <h3 id="wizSummaryTitle">You're all set!</h3>
-                <div id="wizSummaryRows" style="margin: 12px 0;"></div>
-                <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin:12px 0" id="wizSummaryPriceLevel"></p>
-                <p id="wizSummaryThanks" style="font-size:0.82em;color:var(--success);margin-top:12px"></p>
+                <div id="wizContractTypeWrap" style="display:none;margin-top:16px">
+                    <h3 id="wizContractTitle">What type of contract do you have?</h3>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                        <div class="wizard-tariff-card active" data-contract="dynamic" id="wizContractDynamic" style="cursor:pointer;padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px">
+                            <strong>Dynamic (variable price per hour)</strong>
+                            <p style="font-size:0.82em;color:var(--text-muted);margin:4px 0 0 0">GO/WAIT/AVOID actions based on real-time prices.</p>
+                        </div>
+                        <div class="wizard-tariff-card" data-contract="fixed" id="wizContractFixed" style="cursor:pointer;padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px">
+                            <strong>Fixed rate / Time-of-Use</strong>
+                            <p style="font-size:0.82em;color:var(--text-muted);margin:4px 0 0 0">You pay the same rate per kWh regardless of market prices.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="wizReadyMsg" style="margin-top:16px">
+                    <p style="font-size:0.85em;color:var(--text-muted);line-height:1.5" id="wizPriceLevelHint"></p>
+                </div>
             </div>
 
             <div class="wizard-nav" id="wizardNav">
@@ -901,7 +909,8 @@
 
             // Active source summary — show sensor as source when in exact mode
             if (ai) {
-                var srcLabel = d.price_accuracy === 'exact'
+                var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
+                var srcLabel = isExtSensor
                     ? t('source.sensor_price', 'Sensor') + ' (' + d.zone + ')'
                     : sourceLabel(ai.source, d.leverancier, d.zone);
                 var cacheNote = '';
@@ -2988,11 +2997,9 @@
         document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
         document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
         document.getElementById('wizStep0').textContent = t('wizard.step_zone', 'Zone');
-        document.getElementById('wizStep1').textContent = t('wizard.step_supplier', 'Supplier');
-        document.getElementById('wizStep2').textContent = t('wizard.step_summary', 'Summary');
+        document.getElementById('wizStep1').textContent = t('wizard.step_setup', 'Setup');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
         document.getElementById('wizRegionWhy').textContent = t('wizard.region_why', 'Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.');
-        document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
         document.getElementById('wizPrevBtn').textContent = t('wizard.btn_prev', 'Back');
         document.getElementById('wizNextBtn').textContent = t('wizard.btn_next', 'Next');
         document.getElementById('wizSkipBtn').textContent = t('wizard.btn_skip', 'Skip setup');
@@ -3279,9 +3286,10 @@
 
     function wizardShowStep(step) {
         _wizardStep = step;
-        for (var i = 0; i <= 2; i++) {
+        for (var i = 0; i <= 1; i++) {
             var panel = document.getElementById('wizardStep' + i);
             var stepEl = document.getElementById('wizStep' + i);
+            if (!panel || !stepEl) continue;
             if (i === step) {
                 panel.classList.add('active');
                 stepEl.classList.add('active');
@@ -3293,29 +3301,56 @@
                 else stepEl.classList.remove('done');
             }
         }
-        // Populate step-specific data
-        if (step === 1) { wizardPopulateSuppliers(); wizardPopulateEnever(); }
-        if (step === 2) wizardPopulateSummary();
+
+        // Step 1: populate sensor detect + contract type
+        if (step === 1) {
+            var sensor = _wizardData ? _wizardData.detected_sensor : null;
+            var sensorDiv = document.getElementById('wizSensorDetected');
+            var noSensorDiv = document.getElementById('wizNoSensor');
+            var contractWrap = document.getElementById('wizContractTypeWrap');
+
+            if (sensor) {
+                sensorDiv.style.display = '';
+                noSensorDiv.style.display = 'none';
+                var hint = sensor.supplier_hint || '';
+                document.getElementById('wizSensorName').textContent =
+                    (supplierNames[hint] || hint || sensor.entity_id);
+                var sensorPrice = sensor.price ? (sensor.price * 100).toFixed(2) + ' ct/kWh' : '';
+                document.getElementById('wizSensorPrice').textContent = sensorPrice;
+                _wizardUseSensor = true;
+            } else {
+                sensorDiv.style.display = 'none';
+                noSensorDiv.style.display = '';
+                _wizardUseSensor = false;
+            }
+
+            // Show contract type only for mixed zones (non-wholesale)
+            var zoneInfo = _wizardSelectedCountry;
+            var isNonWholesale = zoneInfo && zoneInfo.eic === '';
+            if (isNonWholesale && !sensor) {
+                contractWrap.style.display = '';
+            } else {
+                contractWrap.style.display = 'none';
+            }
+        }
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
         var nextBtn = document.getElementById('wizNextBtn');
-        if (step === 2) {
+        if (step === 1) {
             nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
         } else {
             nextBtn.textContent = t('wizard.btn_next', 'Next');
         }
-        document.getElementById('wizSkipBtn').style.display = step < 2 ? '' : 'none';
+        document.getElementById('wizSkipBtn').style.display = step === 0 ? '' : 'none';
     }
 
     document.getElementById('wizNextBtn').onclick = function() {
         if (_wizardStep === 0) {
             if (!_wizardSelectedZone) return;
             _wizardIsNL = _wizardSelectedZone === 'NL';
-            wizardShowStep(1); // Go to Supplier
+            wizardShowStep(1);
         } else if (_wizardStep === 1) {
-            wizardShowStep(2); // Go to Summary (final step)
-        } else if (_wizardStep === 2) {
             wizardComplete(true);
         }
     };
