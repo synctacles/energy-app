@@ -3328,15 +3328,21 @@
         // Force full rebuild on next dashboard load
         _dashboardBuilt = false;
         _lastDashJson = '';
-        loadDashboard();
 
-        // Restore active tab from localStorage
+        // Restore active tab from localStorage BEFORE rendering
         var savedTab = localStorage.getItem('synctacles_energy_active_tab');
         if (savedTab && savedTab !== 'dashboard') {
             var tabToRestore = document.querySelector('[data-tab="' + savedTab + '"]');
             if (tabToRestore) {
-                setTimeout(function() { tabToRestore.click(); }, 100);
+                // Click saved tab instead of loading Dashboard
+                tabToRestore.click();
+            } else {
+                // Fallback: load Dashboard if tab not found
+                loadDashboard();
             }
+        } else {
+            // No saved tab or dashboard was saved — load Dashboard
+            loadDashboard();
         }
     }
 
