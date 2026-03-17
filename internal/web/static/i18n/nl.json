@@ -329,7 +329,8 @@
     "ema_confidence_high": "hoge betrouwbaarheid",
     "ema_confidence_medium": "gemiddelde betrouwbaarheid",
     "ema_confidence_low": "beperkte data",
-    "zone_mismatch": "Je locatie lijkt in <strong>{detected}</strong> te zijn, maar je Home Assistant is geconfigureerd voor <strong>{ha_country}</strong>. We hebben de gedetecteerde zone toegepast. Je kunt dit hieronder wijzigen indien nodig."
+    "zone_mismatch": "Je locatie lijkt in <strong>{detected}</strong> te zijn, maar je Home Assistant is geconfigureerd voor <strong>{ha_country}</strong>. We hebben de gedetecteerde zone toegepast. Je kunt dit hieronder wijzigen indien nodig.",
+    "sensor_exact_msg": "Je energieprijs komt direct van je leverancier. Prijzen zijn exact."
   },
   "hints": {
     "sensor_available": "Er is een tariefsensor gedetecteerd ({sensor}). Deze kan nauwkeurigere prijzen leveren dan je huidige configuratie.",

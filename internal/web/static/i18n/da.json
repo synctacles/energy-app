@@ -319,7 +319,8 @@
     "ema_confidence_high": "høj tillid",
     "ema_confidence_medium": "middel tillid",
     "ema_confidence_low": "begrænset data",
-    "zone_mismatch": "Din placering ser ud til at være i <strong>{detected}</strong>, men din Home Assistant er konfigureret til <strong>{ha_country}</strong>. Vi har anvendt den registrerede zone. Du kan ændre dette nedenfor, hvis det er nødvendigt."
+    "zone_mismatch": "Din placering ser ud til at være i <strong>{detected}</strong>, men din Home Assistant er konfigureret til <strong>{ha_country}</strong>. Vi har anvendt den registrerede zone. Du kan ændre dette nedenfor, hvis det er nødvendigt.",
+    "sensor_exact_msg": "Din energipris kommer direkte fra din leverandør. Priserne er nøjagtige."
   },
   "cache": {
     "title": "Pris-cache",

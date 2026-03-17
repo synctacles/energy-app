@@ -319,7 +319,8 @@
     "ema_confidence_high": "hohe Konfidenz",
     "ema_confidence_medium": "mittlere Konfidenz",
     "ema_confidence_low": "begrenzte Daten",
-    "zone_mismatch": "Dein Standort scheint in <strong>{detected}</strong> zu sein, aber dein Home Assistant ist für <strong>{ha_country}</strong> konfiguriert. Wir haben die erkannte Zone angewendet. Du kannst dies unten ändern, falls nötig."
+    "zone_mismatch": "Dein Standort scheint in <strong>{detected}</strong> zu sein, aber dein Home Assistant ist für <strong>{ha_country}</strong> konfiguriert. Wir haben die erkannte Zone angewendet. Du kannst dies unten ändern, falls nötig.",
+    "sensor_exact_msg": "Ihr Energiepreis kommt direkt von Ihrem Anbieter. Preise sind exakt."
   },
   "cache": {
     "title": "Preis-Cache",

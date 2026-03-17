@@ -319,7 +319,8 @@
     "ema_confidence_high": "korkea luotettavuus",
     "ema_confidence_medium": "kohtalainen luotettavuus",
     "ema_confidence_low": "rajallinen data",
-    "zone_mismatch": "Sijaintisi näyttää olevan <strong>{detected}</strong>, mutta Home Assistantisi on määritetty maalle <strong>{ha_country}</strong>. Olemme soveltaneet havaitun alueen. Voit muuttaa tämän alta tarvittaessa."
+    "zone_mismatch": "Sijaintisi näyttää olevan <strong>{detected}</strong>, mutta Home Assistantisi on määritetty maalle <strong>{ha_country}</strong>. Olemme soveltaneet havaitun alueen. Voit muuttaa tämän alta tarvittaessa.",
+    "sensor_exact_msg": "Energiahintasi tulee suoraan toimittajaltasi. Hinnat ovat tarkkoja."
   },
   "cache": {
     "title": "Hintavälimuisti",

@@ -686,10 +686,10 @@
             <!-- Step 1: Setup (sensor detect + contract type if needed) -->
             <div class="wizard-step" id="wizardStep1">
                 <div id="wizSensorDetected" class="wizard-detected" style="display:none">
-                    <h3 style="color:var(--success);margin:0 0 8px 0">&#x2713; Sensor detected</h3>
+                    <h3 style="color:var(--success);margin:0 0 8px 0" id="wizSensorDetectedTitle"></h3>
                     <span id="wizSensorName" style="font-weight:600"></span>
                     <div style="margin-top:6px;font-size:0.88em" id="wizSensorPrice"></div>
-                    <p style="font-size:0.82em;color:var(--text-muted);margin-top:10px;line-height:1.5">Your energy price comes directly from your supplier. Prices are exact.</p>
+                    <p style="font-size:0.82em;color:var(--text-muted);margin-top:10px;line-height:1.5" id="wizSensorExactMsg"></p>
                 </div>
                 <div id="wizNoSensor" style="display:none">
                     <h3 id="wizSetupTitle">Almost there!</h3>
@@ -3175,10 +3175,14 @@
                 sensorDiv.style.display = '';
                 noSensorDiv.style.display = 'none';
                 var hint = sensor.supplier_hint || '';
+                document.getElementById('wizSensorDetectedTitle').textContent =
+                    '\u2713 ' + t('wizard.sensor_detected_title', 'Sensor detected');
                 document.getElementById('wizSensorName').textContent =
                     (supplierNames[hint] || hint || sensor.entity_id);
                 var sensorPrice = sensor.price ? (sensor.price * 100).toFixed(2) + ' ct/kWh' : '';
                 document.getElementById('wizSensorPrice').textContent = sensorPrice;
+                document.getElementById('wizSensorExactMsg').textContent =
+                    t('wizard.sensor_exact_msg', 'Your energy price comes directly from your supplier. Prices are exact.');
                 _wizardUseSensor = true;
             } else {
                 sensorDiv.style.display = 'none';
