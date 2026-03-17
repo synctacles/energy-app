@@ -1589,6 +1589,19 @@
             ctx.fillRect(x, y, w, h);
             chartBars.push({ x: x, y: y, w: w, h: h, val: vals[i], hour: hours[i] });
 
+            // Yellow marker arrow above current bar
+            if (isCurrent) {
+                ctx.fillStyle = '#eab308';
+                var cx = x + w / 2;
+                var ay = y - 4;
+                ctx.beginPath();
+                ctx.moveTo(cx, ay);
+                ctx.lineTo(cx - 4, ay - 7);
+                ctx.lineTo(cx + 4, ay - 7);
+                ctx.closePath();
+                ctx.fill();
+            }
+
             // Show labels at full hours only; for PT60 every 2-3 hours to avoid crowding
             var showLabel = false;
             if (vals.length > 48) {
