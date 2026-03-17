@@ -3339,7 +3339,13 @@
             if (tabToRestore) {
                 // Click saved tab instead of Dashboard
                 tabToRestore.click();
+            } else {
+                // Tab element not found — load Dashboard as fallback
+                loadDashboard();
             }
+        } else {
+            // No saved tab or Dashboard was saved — load Dashboard
+            loadDashboard();
         }
     }
 
