@@ -3163,9 +3163,7 @@
                 addedIds[sid] = true;
                 var opt = document.createElement('option');
                 opt.value = sid;
-                var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
-                opt.textContent = s.name + (mkCt ? ' (+' + mkCt + ' ct/kWh)' : '');
-                opt.dataset.markup = s.markup_kwh || 0;
+                opt.textContent = s.name;
                 sel.appendChild(opt);
             });
             // Add emerging suppliers (unconfirmed, community-detected)
@@ -3176,9 +3174,7 @@
                     addedIds[sid] = true;
                     var opt = document.createElement('option');
                     opt.value = sid;
-                    var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
-                    opt.textContent = s.name + (mkCt ? ' (~' + mkCt + ' ct/kWh)' : '');
-                    opt.dataset.markup = s.markup_kwh || 0;
+                    opt.textContent = s.name;
                     sel.appendChild(opt);
                 });
             }
@@ -3260,12 +3256,10 @@
 
         // Determine labels
         var supplierLabel = _wizardUseSensor
-            ? (_wizardData.detected_sensor ? _wizardData.detected_sensor.name : 'Sensor')
+            ? (_wizardData.detected_sensor
+                ? (supplierNames[_wizardData.detected_sensor.supplier_hint] || _wizardData.detected_sensor.supplier_hint || 'Sensor')
+                : 'Sensor')
             : (_wizardSelectedSupplier || t('settings.supplier_none', 'None'));
-        var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
-        if (hasEnever && !_wizardUseSensor) {
-            supplierLabel = (supplierNames[_wizardEneverLeverancier] || _wizardEneverLeverancier) + ' (Enever)';
-        }
 
         var tariffLabel = _wizardUseSensor
             ? t('settings.mode_external_sensor', 'External Sensor')

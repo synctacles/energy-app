@@ -171,10 +171,7 @@ func main() {
 		slog.Warn("no zone configured and auto-detect failed, falling back to NL")
 	}
 
-	// Derive Enever settings from pricing mode
-	if cfg.PricingMode == config.ModeEnever && cfg.EneverToken != "" && cfg.BiddingZone == "NL" {
-		cfg.EneverEnabled = true
-	}
+	// Enever removed from UI (ADR_010 / #62) — no longer derive Enever settings
 
 	slog.Info("pricing mode", "mode", cfg.PricingMode, "zone", cfg.BiddingZone)
 
@@ -809,23 +806,12 @@ func main() {
 func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI) []collector.PriceSource {
 	var chain []collector.PriceSource
 
-	// When Enever is configured, it provides exact supplier consumer prices —
-	// more accurate than Worker's generic tax calculation. Put it first.
-	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
-		chain = append(chain, &collector.Enever{
-			Token:       cfg.EneverToken,
-			Leverancier: cfg.EneverLeverancier,
-		})
-		slog.Info("Enever enabled as primary source (exact supplier prices)", "leverancier", cfg.EneverLeverancier)
-	}
+	// Enever removed from source chain (ADR_010 / #62).
+	// Enever data is now harvested server-side and applied as per-hour deltas.
 
-	// Synctacles Worker — wholesale + generic tax profile
+	// Synctacles Worker — wholesale + per-hour delta correction
 	chain = append(chain, synctaclesAPI)
-	if len(chain) == 1 {
-		slog.Info("SynctaclesAPI enabled as primary source")
-	} else {
-		slog.Info("SynctaclesAPI enabled as fallback source")
-	}
+	slog.Info("SynctaclesAPI enabled as primary source")
 
 	// Energy-Charts — always present as last resort
 	chain = append(chain, &collector.EnergyCharts{})
