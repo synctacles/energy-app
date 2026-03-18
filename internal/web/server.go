@@ -903,10 +903,11 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	var supplierMarkup float64
 	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
-	// Reverse-calculate wholesale from consumer price as fallback.
-	// Only valid for auto/manual modes where consumer = wholesale + known taxes.
-	// In consumer-price modes (sensor), this would be circular.
-	if wholesaleKWh == 0 && !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
+	// Reverse-calculate wholesale from consumer price.
+	// In auto/manual modes, consumer = wholesale + known taxes + markup.
+	// Reverse-calculating ensures breakdown always matches the displayed price.
+	// In consumer-price modes (sensor), this would be circular — skip.
+	if !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
 	}
