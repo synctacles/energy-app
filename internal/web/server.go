@@ -883,9 +883,8 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wholesale path: try to find the actual wholesale price for the current hour.
-	// This enables exact markup calculation: markup = consumer_excl_tax - taxes - wholesale.
-	if s.fallback != nil && data != nil && data.CurrentPrice > 0 {
+	// Step 1: Get REAL ENTSO-E wholesale for the current slot.
+	if s.fallback != nil {
 		now := time.Now().UTC()
 		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
 		currentHour := now.Truncate(time.Hour)
@@ -894,51 +893,33 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Determine supplier markup. Priority:
-	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
-	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
-	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 4. Reverse-calculate wholesale from consumer (consumer-price modes: markup implicit)
-	// 5. Reverse-calculate wholesale from consumer (auto/manual: uses known tax components)
+	// Step 2: Determine supplier markup.
+	// When we have both wholesale AND consumer price: markup = derived (exact).
+	// When we only have consumer price: reverse-calculate wholesale from known markup.
 	var supplierMarkup float64
-	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
-	// Reverse-calculate wholesale from consumer price.
-	// In auto/manual modes, consumer = wholesale + known taxes + markup.
-	// Reverse-calculating ensures breakdown always matches the displayed price.
-	// In consumer-price modes (sensor), this would be circular — skip.
-	if !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
-		subtotal := data.CurrentPrice / (1 + override.VATRate)
-		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
-	}
-
-	if wholesaleKWh != 0 && data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
-		// Exact: decompose consumer price using known wholesale
+	if wholesaleKWh != 0 && data != nil && data.CurrentPrice > 0 {
+		// Real wholesale available — derive markup as residual.
+		// markup = consumer_excl_vat - wholesale - taxes
+		// This ensures: wholesale is ENTSO-E (real), total = dashboard price.
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		supplierMarkup = subtotal - override.EnergyTax - override.Surcharges - wholesaleKWh
 		if supplierMarkup < 0 {
 			supplierMarkup = 0
 		}
-	} else if s.cfg.SupplierMarkup > 0 {
-		// User selected a supplier (wizard or settings)
-		supplierMarkup = s.cfg.SupplierMarkup
-		// Recalculate wholesale with the correct markup
-		if data != nil && data.CurrentPrice > 0 {
-			subtotal := data.CurrentPrice / (1 + override.VATRate)
-			wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - supplierMarkup
+	} else if data != nil && data.CurrentPrice > 0 {
+		// No wholesale available — reverse-calculate from consumer price.
+		// Use best available markup: user config > Worker crowdsource > 0.
+		if s.cfg.SupplierMarkup > 0 {
+			supplierMarkup = s.cfg.SupplierMarkup
+		} else if override.SupplierMarkup > 0 {
+			supplierMarkup = override.SupplierMarkup
 		}
-	} else if override.SupplierMarkup > 0 {
-		// Calibration data from Worker (crowdsourced) — use as-is
-		supplierMarkup = override.SupplierMarkup
-	} else if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
-		// No live wholesale data: reverse-calculate from consumer price using tax profile
-		// Consumer = (Wholesale + Tax + Surcharges) × (1 + VAT)
-		// Therefore: Wholesale = Consumer / (1 + VAT) - Tax - Surcharges
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
-		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges
-		// In consumer-price modes, supplier markup is implicit in the tariff (not separable)
-		supplierMarkup = 0
-		markupEstimated = true
+		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - supplierMarkup
+		if supplierMarkup == 0 {
+			markupEstimated = true
+		}
 	}
 
 	tp := models.TaxProfile{
