@@ -183,7 +183,8 @@
         "delete_data_error": "Error al eliminar. Inténtalo de nuevo.",
         "contract_type": "Contract type",
         "contract_dynamic": "Dinámico (precio variable por hora)",
-        "contract_fixed": "Tarifa fija / Tarifa por tiempo de uso"
+        "contract_fixed": "Tarifa fija / Tarifa por tiempo de uso",
+        "supplier_label": "Your energy supplier"
     },
     "feedback": {
         "rate_app": "Califica esta app",
@@ -388,6 +389,7 @@
         "action_estimated": "Action based on estimated price (ENTSO-E + standard taxes). Accuracy: ~98% — relative price differences between hours are reliable, but exact thresholds may differ.",
         "chart_exact": "Chart shows your actual consumer prices.\n\nCalculation:\n  ENTSO-E wholesale (per 15 min)\n+ Energy tax & surcharges\n+ Supplier correction (per-hour delta from crowdsource data)\n+ VAT\n= Consumer price\n\nThe current price is verified against your energy sensor — accuracy: 100%.",
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  ENTSO-E wholesale (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
-        "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  ENTSO-E wholesale (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available."
+        "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  ENTSO-E wholesale (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
+        "supplier": "Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill."
     }
 }

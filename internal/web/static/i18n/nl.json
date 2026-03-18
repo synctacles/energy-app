@@ -146,9 +146,9 @@
         "tou_day_6": "Za",
         "detect_zone": "Automatisch detecteren via HA locatie",
         "detect_zone_fail": "Kon zone niet detecteren",
-        "supplier": "Je Leverancier",
-        "supplier_none": "Niet geselecteerd / Anders",
-        "supplier_hint": "Selecteer je leverancier om automatisch de juiste opslag in te stellen.",
+        "supplier": "Energieleverancier",
+        "supplier_none": "Niet geselecteerd / gemiddelde gebruiken",
+        "supplier_hint": "Prijzen worden gekalibreerd met correctiedata per uur voor je leverancier.",
         "p1_sensor": "Tariefsensor",
         "p1_sensor_hint": "Selecteer de HA sensor die je huidige elektriciteitstarief levert.",
         "p1_no_sensors": "Geen tariefsensoren gevonden.",
@@ -189,7 +189,8 @@
         "delete_data_error": "Verwijderen mislukt. Probeer het opnieuw.",
         "contract_type": "Contract type",
         "contract_dynamic": "Dynamisch (variabele uurprijs)",
-        "contract_fixed": "Vast tarief / Tijdsvariabel tarief"
+        "contract_fixed": "Vast tarief / Tijdsvariabel tarief",
+        "supplier_label": "Je energieleverancier"
     },
     "feedback": {
         "rate_app": "Beoordeel deze app",
@@ -399,7 +400,8 @@
         "action_estimated": "Actie is gebaseerd op geschatte prijs (ENTSO-E + standaard belastingen). Nauwkeurigheid: ~98% — relatieve prijsverschillen tussen uren zijn betrouwbaar, maar de exacte drempels kunnen afwijken.",
         "chart_exact": "Grafiek toont je werkelijke consumentenprijzen.\n\nBerekening:\n  ENTSO-E inkoopprijs (per 15 min)\n+ Energiebelasting & heffingen\n+ Leverancierscorrectie (per-uur delta uit crowdsource data)\n+ BTW (21%)\n= Consumentenprijs\n\nDe huidige prijs wordt geverifieerd met je energiesensor — nauwkeurigheid: 100%.",
         "chart_calibrated": "Grafiek toont gekalibreerde consumentenprijzen.\n\nBerekening:\n  ENTSO-E inkoopprijs (per 15 min)\n+ Energiebelasting & heffingen\n+ Gemiddelde leverancierscorrectie ({hours}u aan crowdsource data)\n+ BTW (21%)\n= Consumentenprijs\n\nNauwkeurigheid: ~99%. Prijzen kunnen tot ~1 ct/kWh afwijken van je werkelijke leveranciersprijs.\n\nTip: installeer een prijssensor (Zonneplan, Tibber, Nord Pool) voor exacte prijzen.",
-        "chart_estimated": "Grafiek toont geschatte consumentenprijzen.\n\nBerekening:\n  ENTSO-E inkoopprijs (per 15 min)\n+ Energiebelasting & heffingen\n+ Vaste leveranciersopslag\n+ BTW (21%)\n= Consumentenprijs\n\nNog geen crowdsource data beschikbaar. Relatieve prijsverschillen tussen uren kloppen — exacte bedragen kunnen afwijken.\n\nTip: installeer een prijssensor voor exacte prijzen, of wacht tot community data beschikbaar wordt."
+        "chart_estimated": "Grafiek toont geschatte consumentenprijzen.\n\nBerekening:\n  ENTSO-E inkoopprijs (per 15 min)\n+ Energiebelasting & heffingen\n+ Vaste leveranciersopslag\n+ BTW (21%)\n= Consumentenprijs\n\nNog geen crowdsource data beschikbaar. Relatieve prijsverschillen tussen uren kloppen — exacte bedragen kunnen afwijken.\n\nTip: installeer een prijssensor voor exacte prijzen, of wacht tot community data beschikbaar wordt.",
+        "supplier": "Door je leverancier te selecteren krijg je nauwkeurigere prijzen. De app past per uur een correctie toe op basis van het verschil tussen de ENTSO-E inkoopprijs en de werkelijke leveranciersprijs. Dit kalibreert je chart en breakdown zodat deze beter overeenkomen met je werkelijke energierekening."
     },
     "purged": {
         "title": "Gegevens verwijderd",

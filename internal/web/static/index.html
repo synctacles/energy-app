@@ -1972,8 +1972,24 @@
                 '</div>';
             })() +
 
-            // Supplier select (visible for dynamic contract type)
-            // Supplier dropdown removed — delta system replaces static markups
+            // Supplier select (visible for dynamic contract type, hidden when sensor active)
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                var hasSensor = mode === 'external_sensor' || (c.p1_sensor_entity && c.p1_sensor_entity !== '');
+                var show = isDynamic && !hasSensor;
+                return '<div id="supplier-select-section" style="' + (show ? '' : 'display:none') + '">' +
+                    '<div class="settings-section">' +
+                        '<h3>' + t('settings.supplier', 'Energy supplier') +
+                            ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(t(\'info.supplier\', \'Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill.\'))">i</button>' +
+                        '</h3>' +
+                        '<div class="form-group">' +
+                            '<label class="form-label">' + t('settings.supplier_label', 'Your energy supplier') + '</label>' +
+                            '<select class="form-select" id="cfg-supplier"></select>' +
+                            '<div class="form-hint">' + t('settings.supplier_hint', 'Prices are calibrated using hourly correction data for your supplier.') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            })() +
 
             // External sensor section (visible when dynamic + sensors detected, or when sensor was previously configured)
             (function() {
@@ -2458,6 +2474,13 @@
         var select = document.getElementById('cfg-supplier');
         var section = document.getElementById('supplier-select-section');
         if (!select || !section) return;
+
+        // Hide when sensor is active (sensor auto-detects supplier)
+        if (_lastDashboard && _lastDashboard.pricing_mode === 'external_sensor') {
+            section.style.display = 'none';
+            return;
+        }
+
         var zoneEl = document.getElementById('cfg-zone');
         var zone = zoneEl ? zoneEl.value : '';
         try {
@@ -2468,21 +2491,23 @@
             return;
         }
         section.style.display = '';
-        select.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
+        select.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / use average') + '</option>';
         _supplierList.forEach(function(s) {
             var opt = document.createElement('option');
             opt.value = s.id;
-            opt.textContent = s.name + ' (+' + (s.markup * 100).toFixed(2) + ' ct)';
+            // Capitalize first letter, show avg delta
+            var name = s.id.charAt(0).toUpperCase() + s.id.slice(1);
+            var deltaSign = s.avg_delta >= 0 ? '+' : '';
+            opt.textContent = name + '  \u0394 ' + deltaSign + (s.avg_delta * 100).toFixed(2) + ' ct';
             if (s.id === selectedId) opt.selected = true;
             select.appendChild(opt);
         });
         select.onchange = function() {
             var sup = _supplierList.find(function(s) { return s.id === select.value; });
-            if (sup) {
-                persistConfig({ supplier_id: sup.id, supplier_markup: sup.markup });
-                currentConfig.supplier_markup = sup.markup;
-                currentConfig.supplier_id = sup.id;
-            }
+            persistConfig({
+                supplier_id: sup ? sup.id : '',
+                supplier_markup: sup ? sup.avg_delta : 0,
+            });
         };
     }
 

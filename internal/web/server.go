@@ -701,12 +701,43 @@ func (s *Server) handleSuppliers(w http.ResponseWriter, r *http.Request) {
 	if zone == "" {
 		zone = s.cfg.BiddingZone
 	}
-	cc, ok := s.zoneRegistry.GetCountryForZone(zone)
-	if !ok || len(cc.Suppliers) == 0 {
+	// Fetch suppliers with delta data from Worker
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		"https://energy-data.synctacles.com/api/v1/energy/supplier-deltas?zone="+zone, nil)
+	if err != nil {
 		writeJSON(w, []any{})
 		return
 	}
-	writeJSON(w, cc.Suppliers)
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		// Fallback to static YAML suppliers
+		cc, ok := s.zoneRegistry.GetCountryForZone(zone)
+		if !ok || len(cc.Suppliers) == 0 {
+			writeJSON(w, []any{})
+			return
+		}
+		writeJSON(w, cc.Suppliers)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Suppliers []struct {
+			ID       string  `json:"id"`
+			AvgDelta float64 `json:"avg_delta"`
+			Hours    int     `json:"hours"`
+		} `json:"suppliers"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || len(result.Suppliers) == 0 {
+		writeJSON(w, []any{})
+		return
+	}
+	writeJSON(w, result.Suppliers)
 }
 
 func (s *Server) handleZones(w http.ResponseWriter, r *http.Request) {
