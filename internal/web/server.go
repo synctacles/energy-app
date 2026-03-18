@@ -893,7 +893,10 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 
 	// Wholesale path: try to find the actual wholesale price for the current hour.
 	// This enables exact markup calculation: markup = consumer_excl_tax - taxes - wholesale.
-	if s.fallback != nil && data != nil && data.CurrentPrice > 0 {
+	// ONLY relevant for auto/manual modes. Consumer-price modes (P1, sensor) have the price
+	// already including taxes and markups, so wholesale lookup is not applicable.
+	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
+	if !isConsumerPriceMode && s.fallback != nil && data != nil && data.CurrentPrice > 0 {
 		now := time.Now().UTC()
 		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
 		currentHour := now.Truncate(time.Hour)
@@ -906,10 +909,8 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
 	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
 	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 4. Fallback: 2% of wholesale (estimated, consumer price modes only)
-	// 5. Reverse-calculate wholesale from consumer (only for non-consumer-price modes like auto/manual)
+	// 4. Reverse-calculate wholesale from consumer (consumer-price modes: P1, sensor, meter tariff)
 	var supplierMarkup float64
-	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
 	// Reverse-calculate wholesale from consumer price as fallback.
 	// Only valid for auto/manual modes where consumer = wholesale + known taxes.
