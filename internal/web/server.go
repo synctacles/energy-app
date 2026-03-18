@@ -419,7 +419,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// "exact"      = sensor (real supplier price)
 	// "calibrated" = ENTSO-E + per-hour delta (crowdsourced average)
 	// "estimated"  = ENTSO-E + static tax only (no supplier markup data)
-	if s.cfg.IsExternalSensorMode() || s.cfg.P1SensorEntity != "" {
+	if s.cfg.IsExternalSensorMode() {
 		dashboard["price_accuracy"] = "exact"
 	} else if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
 		dashboard["price_accuracy"] = "calibrated"
