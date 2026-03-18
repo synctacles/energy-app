@@ -112,8 +112,6 @@
         "mode_manual_hint": "Gib deine eigenen Steuerkomponenten ein, um den Verbraucherpreis zu berechnen.",
         "mode_external_sensor": "Externer Sensor",
         "mode_external_sensor_hint": "Verwende einen HA-Sensor, der deinen Stromtarif liefert (Zonneplan, Tibber, Octopus, P1-Zähler usw.).",
-        "mode_enever": "Enever",
-        "mode_enever_hint": "Versorgerspezifische Preise über Enever API (nur Niederlande).",
         "mode_fixed": "Festpreis",
         "mode_fixed_hint": "Geben Sie Ihren eigenen Festpreis ein. Keine dynamische Preisgestaltung — geeignet für Festpreisverträge.",
         "fixed_rate_price": "Ihr All-in-Preis (EUR/kWh inkl. MwSt.)",

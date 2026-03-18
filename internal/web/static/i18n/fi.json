@@ -112,8 +112,6 @@
         "mode_manual_hint": "Anna omat verotekijät laskeaksesi kuluttajahintaa.",
         "mode_external_sensor": "Ulkoinen sensori",
         "mode_external_sensor_hint": "Käytä mitä tahansa HA-sensoria, joka tarjoaa sähkötariffisi (Zonneplan, Tibber, Octopus, P1-mittari jne.).",
-        "mode_enever": "Enever",
-        "mode_enever_hint": "Toimittajakohtaiset hinnat Enever API:n kautta (vain Alankomaat).",
         "mode_fixed": "Kiinteä hinta",
         "mode_fixed_hint": "Syötä oma kiinteä hintasi. Ei dynaamista hinnoittelua — sopii kiinteähintaisiin sopimuksiin.",
         "fixed_rate_price": "Kokonaishintasi (EUR/kWh sis. ALV)",

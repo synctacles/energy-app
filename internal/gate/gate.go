@@ -17,4 +17,4 @@ func (g *Gate) CanUseFallback() bool  { return true }
 func (g *Gate) Status() string        { return "full" }
 func (g *Gate) HeartbeatOK() bool     { return true }
 func (g *Gate) SetHeartbeatOK(_ bool) {}
-func (g *Gate) IsEneverOnly() bool    { return false }
+

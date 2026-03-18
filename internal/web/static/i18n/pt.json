@@ -112,8 +112,6 @@
         "mode_manual_hint": "Introduza os seus próprios componentes fiscais para calcular o preço ao consumidor.",
         "mode_external_sensor": "Sensor externo",
         "mode_external_sensor_hint": "Use qualquer sensor HA que forneça a sua tarifa de eletricidade (Zonneplan, Tibber, Octopus, contador P1, etc.).",
-        "mode_enever": "Enever",
-        "mode_enever_hint": "Preços específicos do fornecedor via API Enever (apenas Países Baixos).",
         "mode_fixed": "Tarifa fixa",
         "mode_fixed_hint": "Insira a sua própria tarifa fixa. Sem preços dinâmicos — ideal para contratos a preço fixo.",
         "fixed_rate_price": "O seu preço total (EUR/kWh com IVA)",

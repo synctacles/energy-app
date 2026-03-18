@@ -967,23 +967,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		resp["markup_estimated"] = true
 	}
 
-	// Delta: compare active price source with alternative source (NL-only).
-	// Price delta indicator (for future use with multiple sources)
-	if zone == "NL" && s.supervisor != nil && data != nil && data.CurrentPrice > 0 {
-		delta := s.calculatePriceDelta(r.Context(), data.CurrentPrice)
-		if delta != nil {
-			resp["price_delta"] = delta
-		}
-	}
-
 	writeJSON(w, resp)
-}
-
-// calculatePriceDelta compares the active price source with an alternative.
-// Returns nil if no alternative is available or not applicable.
-func (s *Server) calculatePriceDelta(_ context.Context, activePrice float64) map[string]any {
-	// Enever removed — no alternative source comparison available
-	return nil
 }
 
 // readSensorPrice reads the current price from an HA sensor entity.

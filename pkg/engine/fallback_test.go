@@ -224,7 +224,7 @@ func TestAllowGo_WarmedFromSQLite(t *testing.T) {
 	defer sqlCache.Close()
 
 	date := time.Now().UTC().Truncate(24 * time.Hour)
-	prices := make24Prices(date, "enever", "live")
+	prices := make24Prices(date, "synctacles", "live")
 	_ = sqlCache.PutWithTier("NL", prices, 1)
 
 	fm := NewFallbackManager(nil, sqlCache)
@@ -245,7 +245,7 @@ func TestFetch_SkipsIncompleteSQLite(t *testing.T) {
 	date := time.Now().UTC().Truncate(24 * time.Hour)
 
 	// Store only 12 prices (incomplete — need 24 for warming)
-	prices := make24Prices(date, "enever", "live")[:12]
+	prices := make24Prices(date, "synctacles", "live")[:12]
 	_ = sqlCache.PutWithTier("NL", prices, 1)
 
 	// No live sources → will fail since SQLite warming requires 24 prices
@@ -292,7 +292,7 @@ func TestActiveInfo_ShowsDiskCache(t *testing.T) {
 	defer sqlCache.Close()
 
 	date := time.Now().UTC().Truncate(24 * time.Hour)
-	prices := make24Prices(date, "enever", "live")
+	prices := make24Prices(date, "synctacles", "live")
 	_ = sqlCache.PutWithTier("NL", prices, 1)
 
 	fm := NewFallbackManager(nil, sqlCache)
@@ -308,7 +308,7 @@ func TestActiveInfo_ShowsDiskCache(t *testing.T) {
 	if info.FromMemCache {
 		t.Error("FromMemCache should be false for SQLite-warmed data")
 	}
-	if info.Source != "enever" {
-		t.Errorf("expected source enever, got %s", info.Source)
+	if info.Source != "synctacles" {
+		t.Errorf("expected source synctacles, got %s", info.Source)
 	}
 }
