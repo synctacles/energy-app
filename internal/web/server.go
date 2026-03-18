@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"sort"
@@ -894,10 +893,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 
 	// Wholesale path: try to find the actual wholesale price for the current hour.
 	// This enables exact markup calculation: markup = consumer_excl_tax - taxes - wholesale.
-	// ONLY relevant for auto/manual modes. Consumer-price modes (P1, sensor) have the price
-	// already including taxes and markups, so wholesale lookup is not applicable.
-	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
-	if !isConsumerPriceMode && s.fallback != nil && data != nil && data.CurrentPrice > 0 {
+	if s.fallback != nil && data != nil && data.CurrentPrice > 0 {
 		now := time.Now().UTC()
 		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)
 		currentHour := now.Truncate(time.Hour)
@@ -910,8 +906,10 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	// 1. Exact calculation: consumer/VAT - taxes - wholesale (when both prices available)
 	// 2. User-configured: s.cfg.SupplierMarkup (from wizard/settings supplier selection)
 	// 3. Calibration from Worker (crowdsource): override.SupplierMarkup when > 0
-	// 4. Reverse-calculate wholesale from consumer (consumer-price modes: P1, sensor, meter tariff)
+	// 4. Reverse-calculate wholesale from consumer (consumer-price modes: markup implicit)
+	// 5. Reverse-calculate wholesale from consumer (auto/manual: uses known tax components)
 	var supplierMarkup float64
+	isConsumerPriceMode := mode == "external_sensor" || mode == "p1_meter" || mode == "meter_tariff"
 
 	// Reverse-calculate wholesale from consumer price as fallback.
 	// Only valid for auto/manual modes where consumer = wholesale + known taxes.
@@ -989,58 +987,11 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// calculatePriceDelta compares calculated breakdown with P1 meter sensor (if available).
-// Returns detailed delta analysis showing where discrepancies come from.
-// This helps diagnose: offline APIs, stale tax data, missing supplier markup, etc.
-func (s *Server) calculatePriceDelta(ctx context.Context, calculatedPrice float64) map[string]any {
-	// Try to read P1 meter sensor (DSMR tariff)
-	sensorPrice := s.readSensorPrice(ctx, s.cfg.P1SensorEntity)
-	if sensorPrice == 0 {
-		return nil // No P1 meter available
-	}
-
-	delta := sensorPrice - calculatedPrice
-	deltaPct := 0.0
-	if calculatedPrice > 0 {
-		deltaPct = (delta / calculatedPrice) * 100
-	}
-
-	// Diagnostic hints based on delta magnitude
-	var diagnosis []string
-	absD := math.Abs(delta)
-
-	if absD > 0.05 { // > 0.05 ct/kWh discrepancy
-		if delta > 0 {
-			// Sensor HIGHER than calculated = calculated wholesale too low or taxes too high missing
-			diagnosis = append(diagnosis, "Berekende inkoopprijs lijkt laag (Energy-Charts vs ENTSO-E?)")
-			diagnosis = append(diagnosis, "Controleer: Worker online? Tax profile actueel?")
-		} else {
-			// Sensor LOWER than calculated = calculated wholesale too high or taxes too low
-			diagnosis = append(diagnosis, "Berekende inkoopprijs lijkt hoog (verouderde tax data?)")
-			diagnosis = append(diagnosis, "Controleer: Supplier markup ingesteld?")
-		}
-	}
-
-	return map[string]any{
-		"p1_sensor_price":    sensorPrice,
-		"calculated_price":   calculatedPrice,
-		"delta_ct_kwh":       delta,
-		"delta_percent":      deltaPct,
-		"status":             statusForDelta(absD),
-		"diagnosis":          diagnosis,
-	}
-}
-
-// statusForDelta returns status indicator based on delta magnitude
-func statusForDelta(delta float64) string {
-	if delta < 0.01 {
-		return "exact"      // < 0.01 ct/kWh = exact match
-	} else if delta < 0.05 {
-		return "close"      // < 0.05 = acceptable
-	} else if delta < 0.20 {
-		return "warning"    // < 0.20 = investigate
-	}
-	return "error"          // > 0.20 = serious issue
+// calculatePriceDelta compares the active price source with an alternative.
+// Returns nil if no alternative is available or not applicable.
+func (s *Server) calculatePriceDelta(_ context.Context, activePrice float64) map[string]any {
+	// Enever removed — no alternative source comparison available
+	return nil
 }
 
 // readSensorPrice reads the current price from an HA sensor entity.
