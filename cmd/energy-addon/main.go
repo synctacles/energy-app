@@ -209,7 +209,8 @@ func main() {
 	taxCache := engine.NewTaxProfileCache(dataPath)
 	normalizer := engine.NewNormalizer(taxCache, cfg.SupplierMarkup)
 	normalizer.SetZoneRegistry(registry)
-	normalizer.SetPricingMode(cfg.PricingMode)
+	// NOTE: SetPricingMode is called AFTER auto-promotion (below) to ensure
+	// the normalizer knows the final mode (auto vs external_sensor).
 
 	// Manual mode: build tax profile from user-defined components
 	if cfg.PricingMode == config.ModeManual {
@@ -256,6 +257,10 @@ func main() {
 		cfg.PricingMode = config.ModeExternalSensor
 		slog.Info("auto-promoted to external_sensor mode (configured sensor)", "entity", cfg.P1SensorEntity)
 	}
+
+	// Set pricing mode on normalizer AFTER auto-promotion, so it knows the final mode.
+	normalizer.SetPricingMode(cfg.PricingMode)
+
 	var powerTracker *hasensor.PowerTracker
 	if cfg.HasPowerSensor() && supervisor != nil {
 		powerTracker = hasensor.NewPowerTracker(cfg.PowerSensorEntity, supervisor)
