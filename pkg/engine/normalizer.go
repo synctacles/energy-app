@@ -105,16 +105,21 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		if n.lastTaxSource == "none" {
 			n.lastTaxSource = "consumer"
 		}
-		// Apply supplier correction: per-hour delta (calibrated) > fixed markup (estimated)
-		vatRate := n.vatRateForZone(p.Zone)
-		if n.deltaLookup != nil {
-			if d, ok := n.deltaLookup(p.Timestamp); ok {
-				p.PriceEUR += d * (1 + vatRate)
-				return p
+		// Apply supplier correction to consumer prices.
+		// In sensor mode: sensor provides the truth — don't adjust chart prices
+		// with _average delta (it can make prices LESS accurate for the specific supplier).
+		// In auto mode: delta or fixed markup calibrates chart prices.
+		if n.pricingMode != "external_sensor" && n.pricingMode != "p1_meter" && n.pricingMode != "meter_tariff" {
+			vatRate := n.vatRateForZone(p.Zone)
+			if n.deltaLookup != nil {
+				if d, ok := n.deltaLookup(p.Timestamp); ok {
+					p.PriceEUR += d * (1 + vatRate)
+					return p
+				}
 			}
-		}
-		if n.supplierMarkupOverride > 0 {
-			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
+			if n.supplierMarkupOverride > 0 {
+				p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
+			}
 		}
 		return p
 	}
