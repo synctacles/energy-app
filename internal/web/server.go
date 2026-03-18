@@ -944,14 +944,17 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		// Calibration data from Worker (crowdsourced) — use as-is
 		supplierMarkup = override.SupplierMarkup
 	} else if data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
-		// No data: estimate with 2% of wholesale
+		// No live wholesale data: reverse-calculate from consumer price using tax profile
+		// Consumer = (Wholesale + Tax + Surcharges) × (1 + VAT)
+		// Therefore: Wholesale = Consumer / (1 + VAT) - Tax - Surcharges
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
-		base := subtotal - override.EnergyTax - override.Surcharges
-		if base > 0 {
-			wholesaleKWh = base / 1.02
-			supplierMarkup = base - wholesaleKWh
-			markupEstimated = true
+		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges
+		if wholesaleKWh < 0 {
+			wholesaleKWh = 0
 		}
+		// In consumer-price modes, supplier markup is implicit in the tariff (not separable)
+		supplierMarkup = 0
+		markupEstimated = true
 	}
 
 	tp := models.TaxProfile{

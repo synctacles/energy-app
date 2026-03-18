@@ -375,9 +375,27 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 			fetchedAt: time.Now(),
 		}
 
-		return result
+		// Only return if we extracted wholesale data successfully
+		if len(result) > 0 {
+			slog.Debug("wholesale extraction succeeded", "source", src.Name(), "zone", zone, "prices", len(result))
+			return result
+		}
+		slog.Debug("wholesale extraction empty", "source", src.Name(), "zone", zone, "total_prices", len(prices))
 	}
 
+	// Fallback: try SQLite cache as last resort
+	if f.cache != nil {
+		prices, err := f.cache.Get(zone, date)
+		if err == nil && len(prices) > 0 {
+			result := extractWholesale(prices)
+			if len(result) > 0 {
+				slog.Info("wholesale fallback from SQLite cache", "zone", zone, "prices", len(result))
+				return result
+			}
+		}
+	}
+
+	slog.Warn("FetchWholesaleForZone failed all sources", "zone", zone, "date", date.Format("2006-01-02"))
 	return nil
 }
 
