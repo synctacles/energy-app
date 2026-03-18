@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"sort"
@@ -988,11 +989,58 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// calculatePriceDelta compares the active price source with an alternative.
-// Returns nil if no alternative is available or not applicable.
-func (s *Server) calculatePriceDelta(_ context.Context, activePrice float64) map[string]any {
-	// Enever removed — no alternative source comparison available
-	return nil
+// calculatePriceDelta compares calculated breakdown with P1 meter sensor (if available).
+// Returns detailed delta analysis showing where discrepancies come from.
+// This helps diagnose: offline APIs, stale tax data, missing supplier markup, etc.
+func (s *Server) calculatePriceDelta(ctx context.Context, calculatedPrice float64) map[string]any {
+	// Try to read P1 meter sensor (DSMR tariff)
+	sensorPrice := s.readSensorPrice(ctx, s.cfg.P1SensorEntity)
+	if sensorPrice == 0 {
+		return nil // No P1 meter available
+	}
+
+	delta := sensorPrice - calculatedPrice
+	deltaPct := 0.0
+	if calculatedPrice > 0 {
+		deltaPct = (delta / calculatedPrice) * 100
+	}
+
+	// Diagnostic hints based on delta magnitude
+	var diagnosis []string
+	absD := math.Abs(delta)
+
+	if absD > 0.05 { // > 0.05 ct/kWh discrepancy
+		if delta > 0 {
+			// Sensor HIGHER than calculated = calculated wholesale too low or taxes too high missing
+			diagnosis = append(diagnosis, "Berekende inkoopprijs lijkt laag (Energy-Charts vs ENTSO-E?)")
+			diagnosis = append(diagnosis, "Controleer: Worker online? Tax profile actueel?")
+		} else {
+			// Sensor LOWER than calculated = calculated wholesale too high or taxes too low
+			diagnosis = append(diagnosis, "Berekende inkoopprijs lijkt hoog (verouderde tax data?)")
+			diagnosis = append(diagnosis, "Controleer: Supplier markup ingesteld?")
+		}
+	}
+
+	return map[string]any{
+		"p1_sensor_price":    sensorPrice,
+		"calculated_price":   calculatedPrice,
+		"delta_ct_kwh":       delta,
+		"delta_percent":      deltaPct,
+		"status":             statusForDelta(absD),
+		"diagnosis":          diagnosis,
+	}
+}
+
+// statusForDelta returns status indicator based on delta magnitude
+func statusForDelta(delta float64) string {
+	if delta < 0.01 {
+		return "exact"      // < 0.01 ct/kWh = exact match
+	} else if delta < 0.05 {
+		return "close"      // < 0.05 = acceptable
+	} else if delta < 0.20 {
+		return "warning"    // < 0.20 = investigate
+	}
+	return "error"          // > 0.20 = serious issue
 }
 
 // readSensorPrice reads the current price from an HA sensor entity.
