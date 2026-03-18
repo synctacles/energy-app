@@ -2556,17 +2556,16 @@
             telemetry_enabled: document.getElementById('cfg-telemetry-toggle').classList.contains('on')
         };
 
-        // Supplier (always saved, regardless of mode)
+        // Supplier: preserve current value (saved separately via dropdown onChange).
+        // Only override if the dropdown is visible AND has a non-empty selection.
         var supplierEl = document.getElementById('cfg-supplier');
-        if (supplierEl && supplierEl.value) {
+        var supplierVisible = supplierEl && supplierEl.offsetParent !== null;
+        if (supplierVisible && supplierEl.value) {
             payload.supplier_id = supplierEl.value;
             var sup = _supplierList ? _supplierList.find(function(s) { return s.id === supplierEl.value; }) : null;
-            payload.supplier_markup = sup ? sup.avg_delta : 0;
-        } else if (currentConfig && currentConfig.supplier_id) {
-            // Dropdown not loaded yet or hidden — preserve existing supplier
-            payload.supplier_id = currentConfig.supplier_id;
-            payload.supplier_markup = currentConfig.supplier_markup || 0;
+            if (sup) payload.supplier_markup = sup.avg_delta;
         }
+        // Never send empty supplier_id — let the server keep its current value
 
         // Mode-specific fields
         if (mode === 'external_sensor') {
