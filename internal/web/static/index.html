@@ -978,6 +978,12 @@
     };
 
     function sourceLabel(name, lev, zone) {
+        if (name === 'sensor') {
+            // Show supplier name from sensor entity hint (e.g. "Zonneplan (NL)")
+            var sensorSupplier = _lastDashboard && _lastDashboard.sensor_supplier;
+            var label = sensorSupplier ? (supplierNames[sensorSupplier] || sensorSupplier) : t('source.sensor', 'Sensor');
+            return zone ? label + ' (' + zone + ')' : label;
+        }
         var label = sourceNames[name] || name;
         if (zone) {
             label += ' (' + zone + ')';
@@ -2550,18 +2556,18 @@
             telemetry_enabled: document.getElementById('cfg-telemetry-toggle').classList.contains('on')
         };
 
+        // Supplier (always saved, regardless of mode)
+        var supplierEl = document.getElementById('cfg-supplier');
+        if (supplierEl && supplierEl.value) {
+            payload.supplier_id = supplierEl.value;
+            var sup = _supplierList ? _supplierList.find(function(s) { return s.id === supplierEl.value; }) : null;
+            payload.supplier_markup = sup ? sup.avg_delta : 0;
+        }
+
         // Mode-specific fields
-        if (mode === 'auto') {
-            var supplierEl = document.getElementById('cfg-supplier');
-            if (supplierEl) {
-                payload.supplier_id = supplierEl.value;
-            }
-        } else if (mode === 'external_sensor') {
+        if (mode === 'external_sensor') {
             var p1ManualSave = document.getElementById('cfg-p1-manual');
             payload.p1_sensor_entity = p1ManualSave ? p1ManualSave.value.trim() : '';
-            // Also save supplier for external_sensor mode
-            var supplierEl2 = document.getElementById('cfg-supplier');
-            if (supplierEl2) payload.supplier_id = supplierEl2.value;
         } else if (mode === 'fixed') {
             payload.fixed_rate_price = parseFloat(document.getElementById('cfg-fixed-price').value) || 0;
         } else if (mode === 'tou') {

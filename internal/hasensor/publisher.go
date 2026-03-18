@@ -353,6 +353,8 @@ func ComputeSensorSet(
 	switch {
 	case fetchResult.Tier == 4:
 		sourceTier = "cache"
+	case fetchResult.Source == "sensor":
+		sourceTier = "sensor"
 	case fetchResult.Source == "synctacles":
 		sourceTier = "worker"
 	case fetchResult.Source == "energycharts":

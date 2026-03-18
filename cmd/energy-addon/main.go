@@ -337,6 +337,35 @@ func main() {
 			}
 		}
 
+		// Sensor mode: use real supplier prices from sensor forecast (day-ahead arrays).
+		// This replaces the Worker+normalizer prices with exact supplier data.
+		if cfg.IsExternalSensorMode() && cfg.P1SensorEntity != "" && supervisor != nil {
+			forecast, err := delta.ReadSensorForecast(ctx, supervisor, cfg.P1SensorEntity)
+			if err == nil && len(forecast) >= 12 {
+				sensorPrices := make([]models.HourlyPrice, 0, len(forecast))
+				for _, f := range forecast {
+					sensorPrices = append(sensorPrices, models.HourlyPrice{
+						Timestamp:  f.Timestamp,
+						PriceEUR:   f.PriceKWh,
+						Unit:       models.UnitKWh,
+						Source:      "sensor",
+						Quality:     "live",
+						Zone:        cfg.BiddingZone,
+						IsConsumer:  true,
+					})
+				}
+				consumerPrices = sensorPrices
+				result = &engine.FetchResult{
+					Source:  "sensor",
+					Tier:    1,
+					Quality: "live",
+				}
+				slog.Info("chart using sensor forecast", "entity", cfg.P1SensorEntity, "hours", len(sensorPrices))
+			} else if err != nil {
+				slog.Warn("sensor forecast unavailable, using Worker prices", "error", err)
+			}
+		}
+
 		// Split into today/tomorrow using local midnight (energy day boundary)
 		now := time.Now().UTC()
 		localNow := now.In(zoneLoc)

@@ -399,6 +399,24 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	dashboard["source_info"] = sourceInfo
 
+	// Sensor supplier hint for chart label (e.g. "Zonneplan (NL)")
+	if data.Source == "sensor" {
+		supplier := s.cfg.SupplierID
+		if supplier == "" {
+			// Extract from sensor entity (e.g. "sensor.zonneplan_current..." → "zonneplan")
+			entity := strings.ToLower(s.cfg.P1SensorEntity)
+			for _, s := range []string{"zonneplan", "tibber", "octopus", "nordpool", "easyenergy", "frank"} {
+				if strings.Contains(entity, s) {
+					supplier = s
+					break
+				}
+			}
+		}
+		if supplier != "" {
+			dashboard["sensor_supplier"] = supplier
+		}
+	}
+
 	// Tax data source: "worker", "consumer", "embedded", "none"
 	// "consumer" = prices already include taxes (Worker consumer prices)
 	// "worker"   = live Worker tax profile applied to wholesale
