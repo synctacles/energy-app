@@ -356,6 +356,35 @@
         }
         .privacy-settings-btn:hover { background: var(--bg-card-hover); }
 
+        /* Info popup (accuracy info) */
+        .info-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid currentColor;
+            font-size: 11px; font-weight: 700; font-style: italic; font-family: serif;
+            cursor: pointer; vertical-align: middle; margin-left: 4px;
+            opacity: 0.7; transition: opacity 0.15s; line-height: 1;
+            background: none; padding: 0; color: inherit;
+        }
+        .info-btn:hover { opacity: 1; }
+        .info-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1200;
+            align-items: center; justify-content: center; padding: 16px;
+        }
+        .info-overlay.visible { display: flex; }
+        .info-modal {
+            background: var(--bg-card); border-radius: var(--radius); padding: 24px;
+            max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3); position: relative;
+        }
+        .info-modal p { font-size: 0.88em; color: var(--text); line-height: 1.6; margin: 0; }
+        .info-modal .btn-ok {
+            display: block; width: 100%; margin-top: 16px; padding: 8px 16px;
+            background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+        }
+        .info-modal .btn-ok:hover { opacity: 0.9; }
+
         /* Wizard modal */
         .wizard-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -628,6 +657,14 @@
         </div>
     </div>
 
+    <!-- Info popup (accuracy info) -->
+    <div class="info-overlay" id="infoOverlay" onclick="if(event.target===this)closeInfoPopup()">
+        <div class="info-modal">
+            <p id="infoPopupText"></p>
+            <button class="btn-ok" onclick="closeInfoPopup()">OK</button>
+        </div>
+    </div>
+
     <!-- Unsupported region modal -->
     <div class="privacy-overlay" id="unsupportedRegionOverlay">
         <div class="privacy-modal" id="unsupportedRegionModal" style="max-width:480px">
@@ -758,6 +795,28 @@
             str = str.replace('{' + k + '}', replacements[k]);
         }
         return str;
+    }
+
+    function showInfoPopup(text) {
+        document.getElementById('infoPopupText').textContent = text;
+        document.getElementById('infoOverlay').classList.add('visible');
+    }
+    function closeInfoPopup() {
+        document.getElementById('infoOverlay').classList.remove('visible');
+    }
+
+    function priceAccuracyInfoText(accuracy) {
+        if (accuracy === 'exact') return t('info.price_exact', 'Price comes directly from your energy supplier. GO/WAIT/AVOID actions and price breakdown are 100% accurate.');
+        if (accuracy === 'calibrated') return t('info.price_calibrated', 'Price is calculated: ENTSO-E wholesale + average supplier markup from similar users. GO/WAIT/AVOID actions are >99% correct. Price breakdown may differ by up to ~1 ct/kWh. Install a price sensor (e.g. Zonneplan, Tibber) for exact prices.');
+        if (accuracy === 'estimated') return t('info.price_estimated', 'Price is estimated based on ENTSO-E wholesale + standard taxes. GO/WAIT/AVOID actions are reliable (relative price differences are correct). Exact amounts may differ.');
+        return '';
+    }
+
+    function actionAccuracyInfoText(accuracy) {
+        if (accuracy === 'exact') return t('info.action_exact', 'Action based on exact supplier price. Accuracy: 100%.');
+        if (accuracy === 'calibrated') return t('info.action_calibrated', 'Action based on calibrated price (ENTSO-E + average supplier markup). Accuracy: 99.3% \u2014 in 287 of 8,760 hours per year the action may differ, but only when the price is close to the GO/WAIT threshold.');
+        if (accuracy === 'estimated') return t('info.action_estimated', 'Action based on estimated price (ENTSO-E + standard taxes). Accuracy: ~98% \u2014 relative price differences between hours are reliable, but exact thresholds may differ.');
+        return '';
     }
 
     function translateReason(reason) {
@@ -1236,8 +1295,9 @@
             deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
         }
 
+        var actionInfoBtn = d.price_accuracy ? '<button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(actionAccuracyInfoText(\'' + d.price_accuracy + '\'))">i</button>' : '';
         var html = '<div class="card">' +
-            '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
+            '<div class="card-label">' + t('dashboard.action', 'Action') + actionInfoBtn + '</div>' +
             '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
             '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
             (deviationText ? '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' : '') +
@@ -1286,8 +1346,9 @@
             badgeText = nextLabel + ' ' + d.action.next_transition;
         }
 
+        var regActionInfoBtn = d.price_accuracy ? '<button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(actionAccuracyInfoText(\'' + d.price_accuracy + '\'))">i</button>' : '';
         var html = '<div class="card">' +
-            '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + '</div>' +
+            '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + regActionInfoBtn + '</div>' +
             '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
             '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
             (badgeText ? '<span class="action-badge badge-' + actionClass + '">' + badgeText + '</span>' : '') +
@@ -1403,15 +1464,18 @@
             if (d.price_accuracy === 'exact') {
                 priceSub += ' <span style="color:#22c55e;font-size:0.85em" title="' +
                     t('dashboard.exact_tooltip', 'Exact price from your energy supplier') +
-                    '">\u2713 ' + t('dashboard.exact', 'exact') + '</span>';
+                    '">\u2713 ' + t('dashboard.exact', 'exact') +
+                    '<button class="info-btn" style="color:#22c55e" onclick="showInfoPopup(priceAccuracyInfoText(\'exact\'))">i</button></span>';
             } else if (d.price_accuracy === 'calibrated') {
                 priceSub += ' <span style="color:#0ea5e9;font-size:0.85em" title="' +
                     t('dashboard.calibrated_tooltip', 'Price calibrated with real supplier data (average across providers)') +
-                    '">\u2248 ' + t('dashboard.calibrated', 'calibrated') + '</span>';
+                    '">\u2248 ' + t('dashboard.calibrated', 'calibrated') +
+                    '<button class="info-btn" style="color:#0ea5e9" onclick="showInfoPopup(priceAccuracyInfoText(\'calibrated\'))">i</button></span>';
             } else if (d.price_accuracy === 'estimated') {
                 priceSub += ' <span style="color:#f59e0b;font-size:0.85em" title="' +
                     t('dashboard.estimated_tooltip', 'Estimated price — install a sensor integration for exact prices') +
-                    '">\u007e ' + t('dashboard.estimated', 'estimated') + '</span>';
+                    '">\u007e ' + t('dashboard.estimated', 'estimated') +
+                    '<button class="info-btn" style="color:#f59e0b" onclick="showInfoPopup(priceAccuracyInfoText(\'estimated\'))">i</button></span>';
             }
 
             // Shared: chart card (all modes)

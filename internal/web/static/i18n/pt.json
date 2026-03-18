@@ -378,5 +378,13 @@
         "se": "Suécia",
         "si": "Eslovênia",
         "sk": "Eslováquia"
+    },
+    "info": {
+        "price_exact": "Price comes directly from your energy supplier. GO/WAIT/AVOID actions and price breakdown are 100% accurate.",
+        "price_calibrated": "Price is calculated: ENTSO-E wholesale + average supplier markup from similar users. GO/WAIT/AVOID actions are >99% correct. Price breakdown may differ by up to ~1 ct/kWh. Install a price sensor (e.g. Zonneplan, Tibber) for exact prices.",
+        "price_estimated": "Price is estimated based on ENTSO-E wholesale + standard taxes. GO/WAIT/AVOID actions are reliable (relative price differences are correct). Exact amounts may differ.",
+        "action_exact": "Action based on exact supplier price. Accuracy: 100%.",
+        "action_calibrated": "Action based on calibrated price (ENTSO-E + average supplier markup). Accuracy: 99.3% \u2014 in 287 of 8,760 hours per year the action may differ, but only when the price is close to the GO/WAIT threshold.",
+        "action_estimated": "Action based on estimated price (ENTSO-E + standard taxes). Accuracy: ~98% \u2014 relative price differences between hours are reliable, but exact thresholds may differ."
     }
 }
