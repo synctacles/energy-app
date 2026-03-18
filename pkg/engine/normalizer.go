@@ -24,6 +24,7 @@ type Normalizer struct {
 	manualTaxProfile      *models.TaxProfile     // User-defined components for manual mode
 	lastTaxSource         string                 // "worker", "embedded", "none" — for degraded banner
 	deltaLookup           DeltaLookup            // ADR_010: per-hour supplier delta (replaces fixed markup)
+	deltaIsSupplierSpecific bool                 // true = from known supplier, false = _average (skip in sensor mode)
 }
 
 // NewNormalizer creates a normalizer backed by the Worker tax profile cache.
@@ -58,8 +59,10 @@ func (n *Normalizer) SetSupplierMarkup(markup float64) {
 
 // SetDeltaLookup sets the per-hour delta lookup function (ADR_010).
 // When set, deltas are preferred over supplierMarkupOverride for wholesale→consumer conversion.
-func (n *Normalizer) SetDeltaLookup(fn DeltaLookup) {
+// supplierSpecific indicates whether deltas are from a known supplier (true) or _average (false).
+func (n *Normalizer) SetDeltaLookup(fn DeltaLookup, supplierSpecific bool) {
 	n.deltaLookup = fn
+	n.deltaIsSupplierSpecific = supplierSpecific
 }
 
 // TaxSource returns the tax data source used for the last normalization.
@@ -106,20 +109,19 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 			n.lastTaxSource = "consumer"
 		}
 		// Apply supplier correction to consumer prices.
-		// In sensor mode: sensor provides the truth — don't adjust chart prices
-		// with _average delta (it can make prices LESS accurate for the specific supplier).
-		// In auto mode: delta or fixed markup calibrates chart prices.
-		if n.pricingMode != "external_sensor" && n.pricingMode != "p1_meter" && n.pricingMode != "meter_tariff" {
-			vatRate := n.vatRateForZone(p.Zone)
-			if n.deltaLookup != nil {
-				if d, ok := n.deltaLookup(p.Timestamp); ok {
-					p.PriceEUR += d * (1 + vatRate)
-					return p
-				}
+		// Supplier-specific delta: always apply (feedback loop from own sensor).
+		// _average delta: skip in sensor mode (can make prices LESS accurate).
+		// Fixed markup: skip in sensor mode (sensor is the truth).
+		isSensorMode := n.pricingMode == "external_sensor" || n.pricingMode == "p1_meter" || n.pricingMode == "meter_tariff"
+		vatRate := n.vatRateForZone(p.Zone)
+		if n.deltaLookup != nil && (!isSensorMode || n.deltaIsSupplierSpecific) {
+			if d, ok := n.deltaLookup(p.Timestamp); ok {
+				p.PriceEUR += d * (1 + vatRate)
+				return p
 			}
-			if n.supplierMarkupOverride > 0 {
-				p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
-			}
+		}
+		if !isSensorMode && n.supplierMarkupOverride > 0 {
+			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
 		}
 		return p
 	}
