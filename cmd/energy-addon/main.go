@@ -734,12 +734,16 @@ func main() {
 	}
 
 	// ADR_010: delta cache for chart calibration (all dynamic modes).
-	// Sensor mode: deltas calibrate chart prices to match sensor.
-	// Auto mode: deltas calibrate chart prices with crowdsource data.
+	// Sensor mode: use sensor's supplier for exact deltas (feedback loop).
+	// Auto mode: use configured supplier or _average.
 	if (cfg.PricingMode == config.ModeAuto || cfg.PricingMode == config.ModeExternalSensor) && cfg.BiddingZone != "" {
 		deltaSupplier := cfg.SupplierID
+		// In sensor mode: detect supplier from sensor entity (closes the feedback loop)
+		if deltaSupplier == "" && cfg.P1SensorEntity != "" {
+			deltaSupplier = hasensor.SupplierHintFromEntity(cfg.P1SensorEntity)
+		}
 		if deltaSupplier == "" {
-			deltaSupplier = "_average" // per-zone average delta (no supplier needed)
+			deltaSupplier = "_average"
 		}
 		dc := delta.NewCache(dataPath)
 		go dc.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
