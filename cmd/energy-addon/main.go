@@ -728,9 +728,10 @@ func main() {
 		}
 	}
 
-	// ADR_010: delta cache for non-sensor installs using ENTSO-E + supplier deltas
-	// Uses per-supplier delta if supplier is configured, otherwise per-zone average.
-	if cfg.PricingMode == config.ModeAuto && cfg.BiddingZone != "" {
+	// ADR_010: delta cache for chart calibration (all dynamic modes).
+	// Sensor mode: deltas calibrate chart prices to match sensor.
+	// Auto mode: deltas calibrate chart prices with crowdsource data.
+	if (cfg.PricingMode == config.ModeAuto || cfg.PricingMode == config.ModeExternalSensor) && cfg.BiddingZone != "" {
 		deltaSupplier := cfg.SupplierID
 		if deltaSupplier == "" {
 			deltaSupplier = "_average" // per-zone average delta (no supplier needed)
