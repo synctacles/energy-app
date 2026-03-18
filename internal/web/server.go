@@ -489,14 +489,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"purged":                  false,
 	}
 
-	// Include crowdsourced EMA markup if available (energy-app#40)
-	supplier := s.cfg.SupplierID
-	if supplier != "" && s.cfg.BiddingZone != "" {
-		if ema := fetchSupplierEMA(r.Context(), s.cfg.BiddingZone, supplier); ema != nil {
-			resp["ema_markup"] = ema
-		}
-	}
-
 	writeJSON(w, resp)
 }
 

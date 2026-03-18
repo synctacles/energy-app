@@ -342,16 +342,6 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	// Fetch approved crowdsource suppliers from energy-data Worker (best-effort)
 	crowdsourceSuppliers := fetchCrowdsourceSuppliers(r.Context(), supplierZone, markupParam)
 
-	// Fetch crowdsourced EMA markup for known supplier (energy-app#40 stap 5)
-	supplierName := s.cfg.SupplierID
-	if supplierName == "" && harvestedProfile != nil {
-		supplierName = harvestedProfile.SupplierName
-	}
-	var emaMarkup *supplierEMA
-	if supplierName != "" && supplierZone != "" {
-		emaMarkup = fetchSupplierEMA(r.Context(), supplierZone, supplierName)
-	}
-
 	resp := map[string]any{
 		"countries":     countries,
 		"detected_zone": detectedZone,
@@ -373,9 +363,6 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	}
 	if harvestedProfile != nil {
 		resp["harvested_profile"] = harvestedProfile
-	}
-	if emaMarkup != nil {
-		resp["ema_markup"] = emaMarkup
 	}
 	if detectedCountryName != "" {
 		resp["detected_country_name"] = detectedCountryName
@@ -437,50 +424,6 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, result)
-}
-
-// supplierEMA holds the crowdsourced EMA markup for a supplier.
-type supplierEMA struct {
-	Available  bool    `json:"available"`
-	MarkupKWh  *float64 `json:"markup_kwh"`
-	Reporters  int     `json:"reporters"`
-	Confidence string  `json:"confidence"`
-}
-
-// fetchSupplierEMA fetches the crowdsourced EMA markup for a supplier+zone
-// from the energy-data Worker. Returns nil on any error (best-effort).
-func fetchSupplierEMA(ctx context.Context, zone, supplier string) *supplierEMA {
-	if zone == "" || supplier == "" {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET",
-		energyDataBaseURL+"/api/v1/energy/supplier-markup?zone="+zone+"&supplier="+supplier, nil)
-	if err != nil {
-		return nil
-	}
-	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil
-	}
-
-	var result supplierEMA
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil
-	}
-	if !result.Available {
-		return nil
-	}
-	return &result
 }
 
 // fetchCrowdsourceSuppliers fetches approved crowdsource suppliers for a zone
