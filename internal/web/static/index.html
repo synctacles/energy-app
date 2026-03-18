@@ -859,7 +859,7 @@
     var sourceNames = {
         'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'Energy-Charts',
         'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
-        'synctacles': 'ENTSO-E', 'spothinta': 'spot-hinta.fi', 'enever': 'Enever',
+        'synctacles': 'ENTSO-E', 'spothinta': 'spot-hinta.fi',
         'estimated': 'ENTSO-E (estimated)'
     };
 
@@ -875,9 +875,7 @@
 
     function sourceLabel(name, lev, zone) {
         var label = sourceNames[name] || name;
-        if (name === 'enever' && lev) {
-            label += ' (' + (supplierNames[lev] || lev) + ')';
-        } else if (zone) {
+        if (zone) {
             label += ' (' + zone + ')';
         }
         return label;
@@ -936,7 +934,6 @@
             // In sensor mode, ENTSO-E (synctacles) is technically active but user sees "Sensor" as primary
             var isExtSensorMode = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter';
             var others = d.sources.filter(function(s) {
-                if (s.name === 'enever') return false;
                 if (isExtSensorMode) return true; // show all sources as fallback indicators
                 return !s.active;
             });
@@ -1101,22 +1098,6 @@
         // Consumer total
         html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.consumer_price', 'Consumer price') + '</div>' +
                 '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + formatPrice(bd.consumer_total) + ' ' + ct + '</div>';
-
-        // Sensor vs Enever delta (NL-only, when both sources are available)
-        if (bd._price_delta) {
-            var delta = bd._price_delta;
-            var deltaCt = (delta.delta * 100).toFixed(2);
-            var altPriceCt = (delta.alt_price * 100).toFixed(2);
-            var isPositive = delta.delta > 0;
-            var sign = isPositive ? '+' : '';
-            var deltaColor = Math.abs(delta.delta) < 0.0005 ? 'var(--text-muted)' : (isPositive ? '#ef4444' : 'var(--success)');
-            var altLabel = delta.alt_source === 'sensor'
-                ? t('tax.delta_sensor', 'Sensor price')
-                : t('tax.delta_enever', 'Enever price');
-            html += '<div style="grid-column:1/-1;padding-top:8px;margin-top:4px;border-top:1px dashed var(--border);font-size:0.85em;color:var(--text-muted)">' +
-                    altLabel + ': <strong>' + altPriceCt + '</strong> ' + ct +
-                    ' <span style="color:' + deltaColor + ';font-weight:600">(' + sign + deltaCt + ' ' + ct + ')</span></div>';
-        }
 
         // Network tariff info (separate from price calculation)
         if (bd.network_tariff > 0.0001) {
@@ -1390,9 +1371,6 @@
                     if (hint.id === 'sensor_available') {
                         msg = tReplace('hints.sensor_available', {sensor: hint.sensor},
                             'A tariff sensor was detected (' + hint.sensor + '). This may provide more accurate prices than your current setup.');
-                    } else if (hint.id === 'enever_available') {
-                        msg = t('hints.enever_available',
-                            'Enever.nl provides free exact supplier prices for Dutch energy providers. Add an API key in Settings for more accurate pricing.');
                     }
                     if (msg) {
                         hintsBanner += '<div class="setup-hint" data-hint-id="' + hint.id + '" style="background:rgba(13,148,136,0.08);color:var(--text);border:1px solid rgba(13,148,136,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.85em;line-height:1.4;display:flex;align-items:flex-start;gap:8px">' +
@@ -1440,10 +1418,7 @@
             var chartSource = '';
             if (d.source_info) {
                 chartSource = ' <span class="chart-source">&mdash; ' +
-                    (d.source_info.chart_source
-                        ? t('dashboard.chart_source_enever', 'Enever prices') +
-                          (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
-                        : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
+                    sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone) +
                     '</span>';
             }
 
@@ -1763,7 +1738,7 @@
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
         var m = mode.value;
-        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-external_sensor-section', 'mode-fixed-section', 'mode-tou-section', 'mode-enever-section'];
+        var sections = ['mode-auto-section', 'mode-manual-section', 'mode-external_sensor-section', 'mode-fixed-section', 'mode-tou-section'];
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
@@ -1773,18 +1748,6 @@
             var touSection = document.getElementById('mode-tou-section');
             if (touToggle && touToggle.classList.contains('on') && touSection) {
                 touSection.style.display = '';
-            }
-        }
-        // Enever radio: completely hidden when zone ≠ NL
-        var eneverRadio = document.getElementById('mode-enever');
-        var eneverLabel = document.querySelector('label[for="mode-enever"]');
-        if (eneverRadio) {
-            var isNL = selectedZoneIsNL();
-            eneverRadio.disabled = !isNL;
-            if (eneverLabel) eneverLabel.style.display = isNL ? '' : 'none';
-            if (!isNL && eneverRadio.checked) {
-                document.getElementById('mode-auto').checked = true;
-                updateModeVisibility();
             }
         }
     }
@@ -1924,8 +1887,6 @@
                     '</div>' +
                 '</div>';
             })() +
-
-            // (Enever mode removed — simplified)
 
             // Fixed rate section (visible when contract type = fixed)
             '<div id="mode-fixed-section" style="' + (mode === 'fixed' || mode === 'tou' ? '' : 'display:none') + '">' +
@@ -2381,23 +2342,6 @@
             '<div><div style="font-weight:500;font-size:0.85em">' + label + '</div>' +
             '<div style="font-size:0.72em;color:var(--text-faint)">' + hint + '</div></div>' +
         '</label>';
-    }
-
-    function renderEneverSupplierOptions(current) {
-        var suppliers = [
-            ['anwb','ANWB'],['budget','Budget'],['coolblue','Coolblue'],['easyenergy','EasyEnergy'],
-            ['energiedirect','Energie Direct'],['energievanons','Energie van Ons'],['energiek','Energiek'],
-            ['energyzero','EnergyZero'],['essent','Essent'],['frank','Frank'],['groenestroom','Groene Stroom'],
-            ['hegg','Hegg'],['innova','Innova'],['mijndomein','Mijn Domein'],['nextenergy','NextEnergy'],
-            ['pureenergie','Pure Energie'],['quatt','Quatt'],['samsam','SamSam'],['tibber','Tibber'],
-            ['vandebron','Vandebron'],['vattenfall','Vattenfall'],['vrijopnaam','Vrij op naam'],
-            ['wout','Wout'],['zonneplan','Zonneplan']
-        ];
-        var html = '';
-        suppliers.forEach(function(s) {
-            html += '<option value="' + s[0] + '"' + (s[0] === current ? ' selected' : '') + '>' + s[1] + '</option>';
-        });
-        return html;
     }
 
     var _supplierList = [];
@@ -3005,8 +2949,6 @@
     var _wizardTOUPreset = null;
     var _wizardTOURates = { peak: 0, offpeak: 0, midpeak: 0 };
     var _wizardTaxOverrides = null; // null = use defaults, object = user overrides
-    var _wizardEneverToken = '';
-    var _wizardEneverLeverancier = '';
 
     function wizardPopulateI18n() {
         document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
@@ -3140,10 +3082,9 @@
         return found;
     }
 
-    // Supplier dropdown, Enever, tariff type, EMA — all removed.
+    // Supplier dropdown, tariff type, EMA — all removed.
     // Wizard is now 2 steps: Zone → Setup (sensor detect + contract type).
     function wizardPopulateSuppliers() { /* no-op — handled by wizardShowStep */ }
-    function wizardPopulateEnever() { /* no-op */ }
     function wizardPopulateTariffType() { /* no-op */ }
     function wizardUpdateTariffCards() { /* no-op */ }
 
@@ -3239,19 +3180,10 @@
         if (saveSettings && _wizardSelectedZone) {
             configPayload.zone = _wizardSelectedZone;
 
-            // Determine pricing mode from tariff type + Enever/sensor
-            var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
+            // Determine pricing mode from tariff type + sensor
             if (_wizardUseSensor && _wizardSensorEntity) {
                 configPayload.pricing_mode = 'external_sensor';
                 configPayload.p1_sensor_entity = _wizardSensorEntity;
-            } else if (hasEnever) {
-                configPayload.pricing_mode = 'enever';
-                configPayload.enever_enabled = true;
-                configPayload.enever_token = _wizardEneverToken;
-                configPayload.enever_leverancier = _wizardEneverLeverancier;
-                if (_wizardSensorEntity) {
-                    configPayload.p1_sensor_entity = _wizardSensorEntity;
-                }
             } else if (_wizardTariffType === 'fixed') {
                 configPayload.pricing_mode = 'fixed';
                 configPayload.fixed_rate_price = _wizardFixedRate;
