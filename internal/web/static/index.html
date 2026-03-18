@@ -2562,6 +2562,10 @@
             payload.supplier_id = supplierEl.value;
             var sup = _supplierList ? _supplierList.find(function(s) { return s.id === supplierEl.value; }) : null;
             payload.supplier_markup = sup ? sup.avg_delta : 0;
+        } else if (currentConfig && currentConfig.supplier_id) {
+            // Dropdown not loaded yet or hidden — preserve existing supplier
+            payload.supplier_id = currentConfig.supplier_id;
+            payload.supplier_markup = currentConfig.supplier_markup || 0;
         }
 
         // Mode-specific fields
