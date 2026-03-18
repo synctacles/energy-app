@@ -37,7 +37,7 @@ type SensorSet struct {
 func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*PowerTracker) error {
 	now := s.UpdatedAt.Format(time.RFC3339)
 
-	// 1. Current price (FREE)
+	// 1. Current price
 	priceAttrs := map[string]any{
 		"unit_of_measurement": "EUR/kWh",
 		"source":              s.Source,
@@ -55,7 +55,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish price: %w", err)
 	}
 
-	// 2. Cheapest hour (FREE)
+	// 2. Cheapest hour
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_cheapest_hour",
 		s.Stats.CheapestHour,
 		map[string]any{
@@ -69,7 +69,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish cheapest: %w", err)
 	}
 
-	// 3. Expensive hour (FREE)
+	// 3. Expensive hour
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_expensive_hour",
 		s.Stats.ExpensiveHour,
 		map[string]any{
@@ -83,7 +83,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish expensive: %w", err)
 	}
 
-	// 4. Prices today (FREE) — hourly array in attributes
+	// 4. Prices today — hourly array in attributes
 	todayHourly := make([]map[string]any, 0, len(s.TodayPrices))
 	for _, p := range s.TodayPrices {
 		todayHourly = append(todayHourly, map[string]any{
@@ -107,7 +107,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish prices today: %w", err)
 	}
 
-	// 5. Cheap hour binary sensor (FREE) — ON when action is GO
+	// 5. Cheap hour binary sensor — ON when action is GO
 	cheapState := "off"
 	if s.Action.Action == models.ActionGo {
 		cheapState = "on"
@@ -143,7 +143,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish action: %w", err)
 	}
 
-	// 6. Best window (PRO)
+	// 7. Best window
 	if s.BestWindow != nil {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_best_window",
 			fmt.Sprintf("%s - %s", s.BestWindow.StartHour, s.BestWindow.EndHour),
@@ -160,7 +160,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 7. Tomorrow preview (PRO)
+	// 8. Tomorrow preview
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_tomorrow_preview",
 		string(s.Tomorrow.Status),
 		map[string]any{
@@ -176,7 +176,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish tomorrow: %w", err)
 	}
 
-	// 8. Prices tomorrow (PRO)
+	// 9. Prices tomorrow
 	tomorrowHourly := make([]map[string]any, 0, len(s.TomorrowPrices))
 	for _, p := range s.TomorrowPrices {
 		tomorrowHourly = append(tomorrowHourly, map[string]any{
@@ -197,13 +197,13 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish prices tomorrow: %w", err)
 	}
 
-	// --- Power-based sensors (PRO, only when power sensor available) ---
+	// --- Power-based sensors (needs power sensor) ---
 	if len(power) == 0 || power[0] == nil {
 		return nil
 	}
 	pt := power[0]
 
-	// 9. Live Cost (PRO, needs power sensor)
+	// 10. Live Cost (needs power sensor)
 	if costEUR, powerW, ok := pt.LiveCost(s.CurrentPrice); ok {
 		dailyTotal := float64(0)
 		if savings, totalKWh, ok2 := pt.DailySavings(s.Stats.Average); ok2 {
@@ -227,7 +227,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 10. Savings (PRO, needs power sensor)
+	// 11. Savings (needs power sensor)
 	if savingsEUR, totalKWh, ok := pt.DailySavings(s.Stats.Average); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_savings",
 			fmt.Sprintf("%.2f", savingsEUR),
@@ -245,7 +245,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 11. Usage Score (PRO, needs power sensor)
+	// 12. Usage Score (needs power sensor)
 	if score, cheapPct, avgPct, expPct, ok := pt.UsageScore(s.Stats.Average); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_usage_score",
 			fmt.Sprintf("%d", score),
@@ -263,7 +263,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 12. Daily Cost (PRO, needs power sensor)
+	// 13. Daily Cost (needs power sensor)
 	if costEUR, totalKWh, ok := pt.DailyCost(); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_daily_cost",
 			fmt.Sprintf("%.2f", costEUR),
