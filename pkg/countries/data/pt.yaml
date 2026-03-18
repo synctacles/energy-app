@@ -32,6 +32,12 @@ suppliers:
   - id: coopernico
     name: Coopérnico
     markup: 0.022
+  - id: eem
+    name: EEM (Madeira)
+    markup: 0.020
+  - id: eda
+    name: EDA (Açores)
+    markup: 0.020
 tou_presets:
   - id: ciclo_diario
     name: "Ciclo diário"
@@ -58,8 +64,98 @@ tou_presets:
 zones:
 - code: PT
   eic: 10YPT-REN------W
-  name: Portugal
+  name: Portugal (Continental)
   country: PT
   timezone: Europe/Lisbon
   lat: 39.6
   lon: -8.0
+- code: PT_MA
+  eic: ""
+  name: Madeira
+  country: PT
+  timezone: Atlantic/Madeira
+  lat: 32.65
+  lon: -16.92
+  tax_defaults:
+    vat_rate: 0.05
+    energy_tax: 0.001
+    surcharges: 0.002
+    network_tariff_avg: 0.037
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1659
+    tou:
+      ciclo_diario:
+        peak: 0.1980
+        offpeak: 0.1075
+      ciclo_semanal:
+        peak: 0.1980
+        offpeak: 0.1075
+  tou_presets:
+    - id: ciclo_diario
+      name: "Ciclo diário"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "09:00"
+          end: "23:00"
+          rate: peak
+    - id: ciclo_semanal
+      name: "Ciclo semanal"
+      periods:
+        - days: [1,2,3,4,5]
+          start: "07:00"
+          end: "00:00"
+          rate: peak
+        - days: [6]
+          start: "11:30"
+          end: "14:00"
+          rate: peak
+        - days: [6]
+          start: "18:00"
+          end: "22:30"
+          rate: peak
+- code: PT_AZ
+  eic: ""
+  name: Açores
+  country: PT
+  timezone: Atlantic/Azores
+  lat: 38.72
+  lon: -27.22
+  tax_defaults:
+    vat_rate: 0.04
+    energy_tax: 0.001
+    surcharges: 0.002
+    network_tariff_avg: 0.037
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1683
+    tou:
+      ciclo_diario:
+        peak: 0.2005
+        offpeak: 0.1082
+      ciclo_semanal:
+        peak: 0.2005
+        offpeak: 0.1082
+  tou_presets:
+    - id: ciclo_diario
+      name: "Ciclo diário"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "08:00"
+          end: "22:00"
+          rate: peak
+    - id: ciclo_semanal
+      name: "Ciclo semanal"
+      periods:
+        - days: [1,2,3,4,5]
+          start: "07:00"
+          end: "00:00"
+          rate: peak
+        - days: [6]
+          start: "11:00"
+          end: "14:30"
+          rate: peak
+        - days: [6]
+          start: "19:30"
+          end: "23:00"
+          rate: peak

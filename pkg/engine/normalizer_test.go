@@ -131,26 +131,6 @@ func TestNormalizer_ConsumerPriceNoMarkupWhenZero(t *testing.T) {
 	assert.Equal(t, consumerPrice, result[0].PriceEUR)
 }
 
-func TestNormalizer_EneverModeSkipsSupplierMarkup(t *testing.T) {
-	cache := testTaxCache()
-	// Enever returns exact leverancier prices — markup must NOT be added
-	norm := NewNormalizer(cache, 0.02)
-	norm.SetPricingMode("enever")
-
-	consumerPrice := 0.186728 // Enever prijsZP already includes Zonneplan markup
-	prices := []models.HourlyPrice{{
-		Timestamp:  time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC),
-		PriceEUR:   consumerPrice,
-		Unit:       models.UnitKWh,
-		Source:     "enever",
-		Zone:       "NL",
-		IsConsumer: true,
-	}}
-
-	result := norm.ToConsumer(prices)
-	assert.Equal(t, consumerPrice, result[0].PriceEUR)
-}
-
 func TestNormalizer_MixedConsumerAndWholesale(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)

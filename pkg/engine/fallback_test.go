@@ -185,9 +185,9 @@ func TestFetch_WarmsFromSQLite(t *testing.T) {
 	defer sqlCache.Close()
 
 	date := time.Now().UTC().Truncate(24 * time.Hour)
-	prices := make24Prices(date, "enever", "live")
+	prices := make24Prices(date, "synctacles", "live")
 
-	// Store with tier 1 (Enever is primary live source)
+	// Store with tier 1 (primary live source)
 	if err := sqlCache.PutWithTier("NL", prices, 1); err != nil {
 		t.Fatal(err)
 	}
@@ -202,8 +202,8 @@ func TestFetch_WarmsFromSQLite(t *testing.T) {
 		t.Fatalf("Fetch should succeed from SQLite: %v", err)
 	}
 
-	if result.Source != "enever" {
-		t.Errorf("expected source enever, got %s", result.Source)
+	if result.Source != "synctacles" {
+		t.Errorf("expected source synctacles, got %s", result.Source)
 	}
 	if result.Tier != 1 {
 		t.Errorf("expected tier 1, got %d", result.Tier)

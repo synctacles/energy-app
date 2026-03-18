@@ -15,8 +15,7 @@ import (
 
 // FallbackManager tries multiple price sources in priority order.
 // Tier 1-3: live sources (GO allowed). Tier 4: cache (GO not allowed).
-// Includes an in-memory result cache to prevent excessive API calls
-// (important for rate-limited sources like Enever: max 250 calls/month).
+// Includes an in-memory result cache to prevent excessive API calls.
 type FallbackManager struct {
 	sources     []collector.PriceSource
 	cache       PriceCache
@@ -35,7 +34,6 @@ type memCacheEntry struct {
 
 // memCacheTTL controls how long in-memory results are reused before re-fetching.
 // Day-ahead prices change once per day, so 2 hours is safe.
-// This keeps Enever at ~3 calls/day (well within 250/month free tier).
 const memCacheTTL = 2 * time.Hour
 
 // estimatedCacheTTL is used for estimated/non-live data during the retry window
@@ -149,11 +147,6 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		f.breaker.recordSuccess(src.Name())
 		f.lastSuccess[src.Name()] = time.Now()
 
-		// Upscale hourly Enever prices to PT15M using ENTSO-E wholesale
-		if src.Name() == "enever" {
-			prices = f.upscaleToQuarterHourly(ctx, prices, zone, date)
-		}
-
 		// Cache the result (with tier metadata if supported)
 		if f.cache != nil {
 			if smart, ok := f.cache.(SmartPriceCache); ok {
@@ -221,7 +214,7 @@ func (f *FallbackManager) tryWarmFromDisk(zone string, date time.Time, cacheKey 
 	if entry.OriginalTier < 1 || entry.OriginalTier > 3 {
 		return nil // legacy (tier 0) or cache-tier data — don't trust for warming
 	}
-	// If the primary source changed (e.g. mode switch to Enever), skip disk cache
+	// If the primary source changed, skip disk cache
 	// so the new source gets a chance to provide data.
 	if len(f.sources) > 0 && entry.Prices[0].Source != f.sources[0].Name() {
 		slog.Info("disk cache source mismatch, forcing live fetch",
@@ -372,8 +365,8 @@ func cacheTTLFor(r *FetchResult) time.Duration {
 }
 
 // FetchWholesaleForZone returns wholesale EUR/kWh prices for a zone.
-// Priority: 1) primary cache (Enever WholesaleKWh), 2) synctacles (ENTSO-E PT15M),
-// 3) EnergyCharts (PT60M fallback). Used for breakdown + delta calculations.
+// Priority: 1) synctacles (ENTSO-E PT15M), 2) EnergyCharts (PT60M fallback).
+// Used for breakdown + delta calculations.
 func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string, date time.Time) map[time.Time]float64 {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -386,18 +379,9 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		return extractWholesale(entry.result.Prices)
 	}
 
-	// Check primary cache — Enever now populates WholesaleKWh from EPEX "prijs" field.
-	// This avoids an extra API call (Enever has 250/month rate limit).
-	primaryKey := zone + ":" + dateStr
-	if entry, ok := f.memCache[primaryKey]; ok {
-		if result := extractWholesale(entry.result.Prices); len(result) > 0 {
-			return result
-		}
-	}
-
-	// Fetch from non-Enever sources: synctacles (ENTSO-E PT15M) > EnergyCharts (PT60M)
+	// Fetch wholesale prices from sources: synctacles (ENTSO-E PT15M) > EnergyCharts (PT60M)
 	for _, src := range f.sources {
-		if src.Name() == "enever" || !supportsZone(src, zone) {
+		if !supportsZone(src, zone) {
 			continue
 		}
 
@@ -415,9 +399,27 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 			fetchedAt: time.Now(),
 		}
 
-		return result
+		// Only return if we extracted wholesale data successfully
+		if len(result) > 0 {
+			slog.Debug("wholesale extraction succeeded", "source", src.Name(), "zone", zone, "prices", len(result))
+			return result
+		}
+		slog.Debug("wholesale extraction empty", "source", src.Name(), "zone", zone, "total_prices", len(prices))
 	}
 
+	// Fallback: try SQLite cache as last resort
+	if f.cache != nil {
+		prices, err := f.cache.Get(zone, date)
+		if err == nil && len(prices) > 0 {
+			result := extractWholesale(prices)
+			if len(result) > 0 {
+				slog.Info("wholesale fallback from SQLite cache", "zone", zone, "prices", len(result))
+				return result
+			}
+		}
+	}
+
+	slog.Warn("FetchWholesaleForZone failed all sources", "zone", zone, "date", date.Format("2006-01-02"))
 	return nil
 }
 
@@ -434,90 +436,6 @@ func extractWholesale(prices []models.HourlyPrice) map[time.Time]float64 {
 			result[p.Timestamp] = kWh.PriceEUR
 		}
 	}
-	return result
-}
-
-// upscaleToQuarterHourly converts hourly Enever prices to PT15M using ENTSO-E
-// quarter-hourly wholesale data. For each hour, the markup (consumer − wholesale)
-// is calculated from Enever, then applied to each of the 4 ENTSO-E PT15M slots.
-// Returns original prices if upscale is not possible.
-func (f *FallbackManager) upscaleToQuarterHourly(ctx context.Context, prices []models.HourlyPrice, zone string, date time.Time) []models.HourlyPrice {
-	// Only upscale hourly data (expect ~24 entries for today, ~48 for today+tomorrow)
-	if len(prices) < 20 {
-		return prices
-	}
-	if len(prices) >= 2 {
-		gap := prices[1].Timestamp.Sub(prices[0].Timestamp)
-		if gap < time.Hour {
-			return prices // Already sub-hourly
-		}
-	}
-
-	// Build hourly markup map: markup = consumer − wholesale (EUR/kWh)
-	hourlyMarkup := make(map[time.Time]float64)
-	for _, p := range prices {
-		if p.IsConsumer && p.WholesaleKWh > 0 {
-			hourlyMarkup[p.Timestamp] = p.PriceEUR - p.WholesaleKWh
-		}
-	}
-	if len(hourlyMarkup) == 0 {
-		return prices
-	}
-
-	// Fetch PT15M wholesale from non-Enever sources (synctacles → EnergyCharts)
-	var pt15Prices []models.HourlyPrice
-	for _, src := range f.sources {
-		if src.Name() == "enever" || !supportsZone(src, zone) {
-			continue
-		}
-		fetched, err := src.FetchDayAhead(ctx, zone, date)
-		if err != nil || len(fetched) < 48 {
-			continue
-		}
-		if len(fetched) >= 2 {
-			gap := fetched[1].Timestamp.Sub(fetched[0].Timestamp)
-			if gap >= time.Hour {
-				continue // Still hourly
-			}
-		}
-		pt15Prices = fetched
-		break
-	}
-	if len(pt15Prices) == 0 {
-		return prices
-	}
-
-	// Upscale: apply hourly markup to each PT15M slot
-	result := make([]models.HourlyPrice, 0, len(pt15Prices))
-	for _, wp := range pt15Prices {
-		hourStart := wp.Timestamp.Truncate(time.Hour)
-		markup, ok := hourlyMarkup[hourStart]
-		if !ok {
-			continue
-		}
-
-		wholesaleKWh := wp.WholesaleKWh
-		if wholesaleKWh == 0 && !wp.IsConsumer {
-			wholesaleKWh = wp.ToKWh().PriceEUR
-		}
-
-		result = append(result, models.HourlyPrice{
-			Timestamp:    wp.Timestamp,
-			PriceEUR:     wholesaleKWh + markup,
-			WholesaleKWh: wholesaleKWh,
-			Unit:         models.UnitKWh,
-			Source:       "enever",
-			Quality:      "live",
-			Zone:         zone,
-			IsConsumer:   true,
-		})
-	}
-
-	if len(result) < len(prices) {
-		return prices // Upscale incomplete, keep original
-	}
-
-	slog.Info("upscaled Enever hourly→PT15M", "zone", zone, "original", len(prices), "upscaled", len(result))
 	return result
 }
 

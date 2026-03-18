@@ -20,7 +20,6 @@ type Publisher interface {
 type SensorSet struct {
 	Zone           string
 	CurrentPrice   float64
-	EneverPrice    float64 // Original Enever price when sensor overrides CurrentPrice (for delta display)
 	Action         models.ActionResult
 	Stats          models.PriceStats
 	BestWindow     *models.BestWindow
@@ -28,9 +27,8 @@ type SensorSet struct {
 	TodayPrices    []models.HourlyPrice
 	TomorrowPrices []models.HourlyPrice
 	Source         string
-	SourceTier     string // "worker", "enever", "energy_charts", "cache"
+	SourceTier     string // "worker", "energy_charts", "cache"
 	Quality        string
-	Leverancier    string // Enever supplier name (e.g. "zonneplan"), empty when not using Enever
 	UpdatedAt      time.Time
 }
 
@@ -50,9 +48,6 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		"icon":                "mdi:currency-eur",
 		"device_class":        "monetary",
 		"last_updated":        now,
-	}
-	if s.Leverancier != "" {
-		priceAttrs["leverancier"] = s.Leverancier
 	}
 	if err := pub.UpdateSensor(ctx, "sensor.synctacles_energy_price",
 		fmt.Sprintf("%.4f", s.CurrentPrice), priceAttrs,
@@ -291,18 +286,20 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 
 func actionIcon(a models.Action) string {
 	switch a {
-	case models.ActionGo:
+	case models.ActionGo, models.ActionOffpeak:
 		return "mdi:lightning-bolt"
-	case models.ActionAvoid:
+	case models.ActionAvoid, models.ActionPeak:
 		return "mdi:hand-back-left"
+	case models.ActionFlat:
+		return "mdi:minus-circle-outline"
 	default:
 		return "mdi:clock-outline"
 	}
 }
 
 // ComputeSensorSet builds a SensorSet from fetched prices and engine results.
-// leverancier is the Enever supplier name (empty string when not using Enever).
 // bestWindowHours controls the best window duration (default 3, range 1-8).
+// pricingMode controls action calculation: "fixed"/"tou" use regulated logic, others use wholesale.
 func ComputeSensorSet(
 	zone string,
 	todayPrices []models.HourlyPrice,
@@ -310,31 +307,45 @@ func ComputeSensorSet(
 	actionEngine *engine.ActionEngine,
 	fetchResult *engine.FetchResult,
 	now time.Time,
-	leverancier string,
+	_ string, // deprecated: leverancier parameter (kept for backward compat)
 	bestWindowHours int,
+	pricingMode string,
 ) *SensorSet {
 	stats := engine.CalcStats(todayPrices)
 
 	// Current slot price (works for both PT60 hourly and PT15 quarter-hourly data)
 	currentPrice, _, _ := engine.CurrentSlotPrice(todayPrices, now)
 
-	// Action
-	actionResult := actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())
+	// Action: use regulated engine for fixed/tou, wholesale engine for dynamic modes
+	var actionResult models.ActionResult
+	if pricingMode == "fixed" || pricingMode == "tou" {
+		actionResult = engine.CalculateRegulatedAction(todayPrices, now, pricingMode)
+	} else {
+		actionResult = actionEngine.Calculate(todayPrices, now, fetchResult.AllowGo())
+	}
 	actionResult.Quality = fetchResult.Quality
 
-	// Best window (configurable duration)
+	// Best window: skip for fixed (all hours equal), use full offpeak block for TOU
 	if bestWindowHours < 1 {
 		bestWindowHours = 3
 	}
-	bestWindow := engine.FindBestWindow(todayPrices, now, bestWindowHours)
+	var bestWindow *models.BestWindow
+	if pricingMode == "fixed" {
+		// No best window for fixed rate — every hour is identical
+		bestWindow = nil
+	} else if pricingMode == "tou" {
+		// TOU: find the full offpeak block instead of arbitrary N-hour window
+		bestWindow = engine.FindOffpeakWindow(todayPrices, now)
+	} else {
+		bestWindow = engine.FindBestWindow(todayPrices, now, bestWindowHours)
+	}
 
-	// Tomorrow preview
-	tomorrow := engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)
-
-	// Only set leverancier when Enever is the active source
-	lev := ""
-	if fetchResult.Source == "enever" {
-		lev = leverancier
+	// Tomorrow preview: skip for fixed/tou (always identical)
+	var tomorrow models.TomorrowResult
+	if pricingMode == "fixed" || pricingMode == "tou" {
+		tomorrow = models.TomorrowResult{Status: models.PreviewPending}
+	} else {
+		tomorrow = engine.DetermineTomorrowPreview(todayPrices, tomorrowPrices)
 	}
 
 	// Map source tier to human-readable label for HA sensor attribute
@@ -360,7 +371,6 @@ func ComputeSensorSet(
 		Source:         fetchResult.Source,
 		SourceTier:     sourceTier,
 		Quality:        fetchResult.Quality,
-		Leverancier:    lev,
 		UpdatedAt:      now,
 	}
 }

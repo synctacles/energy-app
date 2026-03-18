@@ -4,19 +4,24 @@ package models
 type Action string
 
 const (
-	ActionGo    Action = "GO"
-	ActionWait  Action = "WAIT"
-	ActionAvoid Action = "AVOID"
+	ActionGo      Action = "GO"
+	ActionWait    Action = "WAIT"
+	ActionAvoid   Action = "AVOID"
+	ActionOffpeak Action = "OFFPEAK" // non-wholesale TOU: currently in off-peak period
+	ActionPeak    Action = "PEAK"    // non-wholesale TOU: currently in peak period
+	ActionFlat    Action = "FLAT"    // non-wholesale fixed: constant rate, no action needed
 )
 
 // ActionResult holds the computed action with its reasoning.
 type ActionResult struct {
-	Action       Action  `json:"action"`
-	Reason       string  `json:"reason"`
-	DeviationPct float64 `json:"deviation_pct"`
-	CurrentPrice float64 `json:"current_price"`
-	AveragePrice float64 `json:"average_price"`
-	Quality      string  `json:"quality"`
+	Action         Action  `json:"action"`
+	Reason         string  `json:"reason"`
+	DeviationPct   float64 `json:"deviation_pct"`
+	CurrentPrice   float64 `json:"current_price"`
+	AveragePrice   float64 `json:"average_price"`
+	Quality        string  `json:"quality"`
+	NextTransition string  `json:"next_transition,omitempty"` // "HH:MM" — when peak↔offpeak switches (TOU only)
+	NextRate       string  `json:"next_rate,omitempty"`       // rate ID of the next period ("peak", "offpeak")
 }
 
 // BestWindow represents the optimal usage window.

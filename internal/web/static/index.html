@@ -129,16 +129,18 @@
         .card-value { font-size: 1.8em; font-weight: 700; }
         .card-sub { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
 
-        .action-go { color: var(--success); }
+        .action-go, .action-offpeak { color: var(--success); }
         .action-wait { color: var(--warning); }
-        .action-avoid { color: var(--danger); }
+        .action-avoid, .action-peak { color: var(--danger); }
+        .action-flat { color: var(--text-muted); }
         .action-badge {
             display: inline-block; padding: 2px 10px; border-radius: 20px;
             font-size: 0.7em; font-weight: 600; margin-top: 4px;
         }
-        .badge-go { background: var(--success-bg); color: var(--success-text); }
+        .badge-go, .badge-offpeak { background: var(--success-bg); color: var(--success-text); }
         .badge-wait { background: var(--warning-bg); color: var(--warning-text); }
-        .badge-avoid { background: var(--danger-bg); color: var(--danger-text); }
+        .badge-avoid, .badge-peak { background: var(--danger-bg); color: var(--danger-text); }
+        .badge-flat { background: var(--bg-card); color: var(--text-muted); }
 
         .chart-card { grid-column: 1 / -1; }
         .chart-container { position: relative; height: 200px; margin-top: 8px; }
@@ -200,6 +202,27 @@
 
         .tab-page { display: none; }
         .tab-page.active { display: block; }
+
+        /* Costs tab — stacked bar & breakdown */
+        .cost-bar { display: flex; height: 40px; border-radius: var(--radius-sm); overflow: hidden; margin: 16px 0; }
+        .cost-bar-segment { display: flex; align-items: center; justify-content: center; font-size: 0.72em; font-weight: 700; color: #fff; min-width: 2%; transition: width 0.4s; }
+        .cost-bar-segment.energy { background: #3b82f6; }
+        .cost-bar-segment.markup { background: #8b5cf6; }
+        .cost-bar-segment.tax { background: #f59e0b; }
+        .cost-bar-segment.surcharges { background: #6366f1; }
+        .cost-bar-segment.vat { background: #ef4444; }
+        .cost-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; font-size: 0.8em; }
+        .cost-legend-item { display: flex; align-items: center; gap: 6px; }
+        .cost-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .cost-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85em; align-items: center; }
+        .cost-row:last-child { border-bottom: none; }
+        .cost-row-label { color: var(--text-muted); }
+        .cost-row-value { text-align: right; font-weight: 600; }
+        .cost-row-pct { text-align: right; color: var(--text-faint); font-size: 0.9em; min-width: 50px; }
+        .cost-total-row { border-top: 2px solid var(--accent); padding-top: 10px; margin-top: 4px; font-weight: 700; font-size: 1em; }
+        .cost-tax-summary { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.15); border-radius: var(--radius-sm); padding: 12px 16px; margin-top: 16px; text-align: center; }
+        .cost-tax-pct { font-size: 2em; font-weight: 800; color: var(--danger); }
+        .cost-tax-label { font-size: 0.82em; color: var(--text-muted); margin-top: 2px; }
 
         @media (max-width: 600px) {
             .grid { grid-template-columns: repeat(2, 1fr); }
@@ -408,6 +431,23 @@
             border-radius: var(--radius-sm); margin-bottom: 10px;
         }
         .wizard-check { color: var(--success); margin-right: 4px; }
+        .wizard-tariff-card {
+            padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
+            cursor: pointer; transition: border-color 0.15s, background 0.15s;
+        }
+        .wizard-tariff-card:hover { border-color: var(--accent); }
+        .wizard-tariff-card.active { border-color: var(--accent); background: rgba(13,148,136,0.06); }
+        .wizard-tariff-radio {
+            display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid var(--border); position: relative; flex-shrink: 0;
+        }
+        .wizard-tariff-card.active .wizard-tariff-radio {
+            border-color: var(--accent);
+        }
+        .wizard-tariff-card.active .wizard-tariff-radio::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 6px; height: 6px;
+            border-radius: 50%; background: var(--accent);
+        }
 
         /* Pricing mode radio cards */
         label[for^="mode-"]:has(input:checked) {
@@ -448,6 +488,7 @@
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" data-i18n="nav.dashboard">Dashboard</div>
             <div class="tab" data-tab="automations" data-i18n="nav.automations">Automations</div>
+            <div class="tab" data-tab="costs" data-i18n="nav.costs">Costs</div>
             <div class="tab" data-tab="cache" data-i18n="nav.cache">Cache</div>
             <div class="tab" data-tab="feedback" data-i18n="nav.feedback">Feedback</div>
             <div class="tab" data-tab="settings" data-i18n="nav.settings">Settings</div>
@@ -481,6 +522,15 @@
                     </a>
                 </div>
                 <p style="font-size:0.75em;color:var(--text-faint);margin-top:12px" data-i18n="automations.help">Click a button to import the blueprint into Home Assistant. You can then configure which devices to control.</p>
+            </div>
+        </div>
+
+        <div id="page-costs" class="tab-page">
+            <div id="costsContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p data-i18n="costs.loading">Loading cost breakdown...</p>
+                </div>
             </div>
         </div>
 
@@ -580,11 +630,22 @@
 
     <!-- Unsupported region modal -->
     <div class="privacy-overlay" id="unsupportedRegionOverlay">
-        <div class="privacy-modal" id="unsupportedRegionModal">
-            <h2 id="unsupportedRegionTitle">Region Not Supported</h2>
-            <p id="unsupportedRegionBody"></p>
-            <p id="unsupportedRegionContact" style="font-size:0.85em;margin-top:12px"></p>
-            <button class="btn-ok" id="unsupportedRegionOkBtn">OK</button>
+        <div class="privacy-modal" id="unsupportedRegionModal" style="max-width:480px">
+            <h2 id="unsupportedRegionTitle" style="margin-bottom:8px">Region Not Yet Supported</h2>
+            <p id="unsupportedRegionBody" style="font-size:0.85em;line-height:1.5;color:var(--text-muted)"></p>
+            <div style="margin:16px 0;padding:12px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.15);border-radius:8px">
+                <p style="font-size:0.85em;color:var(--text);margin:0 0 8px 0;font-weight:600" id="unsupportedRegionHelpTitle">Help us add your region</p>
+                <p style="font-size:0.82em;color:var(--text-muted);margin:0 0 10px 0;line-height:1.5" id="unsupportedRegionHelpBody">Share any of these and we'll prioritize your region:</p>
+                <ul style="list-style:none;padding:0;margin:0;font-size:0.82em;color:var(--text-muted)">
+                    <li style="padding:3px 0">&#x2610; Wholesale electricity market / API</li>
+                    <li style="padding:3px 0">&#x2610; Tax rates (VAT, energy tax, levies)</li>
+                    <li style="padding:3px 0">&#x2610; Energy supplier with public API or HA integration</li>
+                </ul>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <a href="https://github.com/synctacles/ha-apps/issues/new?title=Region+request:+[your+country]&labels=region-request" target="_blank" rel="noopener" class="btn-ok" style="flex:1;text-decoration:none;text-align:center" id="unsupportedRegionSubmitBtn">Submit your region</a>
+                <button class="btn-ok" style="flex:1;background:var(--input-bg);color:var(--text)" id="unsupportedRegionOkBtn">Continue anyway</button>
+            </div>
         </div>
     </div>
 
@@ -606,14 +667,11 @@
             <h2 id="wizardTitle">Welcome to Synctacles Energy</h2>
             <p class="wizard-subtitle" id="wizardSubtitle">Let's set up your energy prices in a few steps.</p>
             <ul class="wizard-steps" id="wizardSteps">
-                <li class="active" data-step="0" id="wizStep0">Region</li>
-                <li data-step="1" id="wizStep1" style="display:none">Enever</li>
-                <li data-step="2" id="wizStep2">Supplier</li>
-                <li data-step="3" id="wizStep3">Verify</li>
-                <li data-step="4" id="wizStep4">Done</li>
+                <li class="active" data-step="0" id="wizStep0">Zone</li>
+                <li data-step="1" id="wizStep1">Setup</li>
             </ul>
 
-            <!-- Step 0: Region -->
+            <!-- Step 0: Zone -->
             <div class="wizard-step active" id="wizardStep0">
                 <h3 id="wizRegionTitle">Select your country</h3>
                 <p id="wizRegionWhy" style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:10px">Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.</p>
@@ -625,64 +683,37 @@
                 </div>
             </div>
 
-            <!-- Step 1: Enever (NL only) -->
+            <!-- Step 1: Setup (sensor detect + contract type if needed) -->
             <div class="wizard-step" id="wizardStep1">
-                <h3 id="wizEneverTitle">Exacte prijzen van jouw leverancier</h3>
-                <p id="wizEneverIntro" style="line-height:1.5">Enever.nl levert gratis real-time energieprijzen voor 23 Nederlandse leveranciers — per kwartier, inclusief alle belastingen en toeslagen. Met een gratis API-sleutel zie je exact wat jij per kWh betaalt.</p>
-                <div style="margin:12px 0;padding:10px 12px;background:rgba(13,148,136,0.08);border-radius:8px;font-size:0.82em;line-height:1.5">
-                    <strong style="color:var(--accent)" id="wizEneverHowTitle">Hoe werkt het?</strong>
-                    <ol style="margin:6px 0 0 16px;padding:0;color:var(--text-muted)" id="wizEneverHowList">
-                        <li>Vraag een gratis API-sleutel aan op <a href="https://enever.nl" target="_blank" rel="noopener" style="color:var(--accent)">enever.nl</a></li>
-                        <li>Vul de sleutel hieronder in en kies je leverancier</li>
-                        <li>Klaar — je ziet direct je exacte leveranciersprijs</li>
-                    </ol>
-                </div>
-                <p style="font-size:0.78em;color:var(--text-faint);margin-bottom:10px;line-height:1.4" id="wizEneverSupport">Enever is een onafhankelijk platform dat deze data gratis beschikbaar stelt. Overweeg supporter te worden als je de dienst waardeert.</p>
-                <div id="wizEneverSensorAdvice" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:8px;font-size:0.85em;line-height:1.5"></div>
-                <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverTokenLabel">Enever API-sleutel</label>
-                <input type="text" class="wizard-input" id="wizEneverToken" placeholder="Plak hier je API-sleutel" autocomplete="off">
-                <div id="wizEneverSupplierWrap" style="margin-top:10px">
-                    <label style="font-size:0.82em;color:var(--text-muted)" id="wizEneverSupplierLabel">Jouw leverancier</label>
-                    <select class="wizard-select" id="wizEneverSupplier">
-                        <option value="">Kies je leverancier</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Step 2: Supplier -->
-            <div class="wizard-step" id="wizardStep2">
-                <h3 id="wizSupplierTitle">Select your energy supplier</h3>
                 <div id="wizSensorDetected" class="wizard-detected" style="display:none">
-                    <span id="wizSensorName"></span>
+                    <h3 style="color:var(--success);margin:0 0 8px 0" id="wizSensorDetectedTitle"></h3>
+                    <span id="wizSensorName" style="font-weight:600"></span>
                     <div style="margin-top:6px;font-size:0.88em" id="wizSensorPrice"></div>
-                    <div style="margin-top:4px;font-size:0.82em;color:var(--text-muted)" id="wizSensorCalcResult"></div>
-                    <button class="wizard-btn-primary" id="wizSensorUseBtn" style="margin-top:8px;padding:8px 16px;font-size:0.82em;width:auto;display:inline-block">Use this sensor</button>
+                    <p style="font-size:0.82em;color:var(--text-muted);margin-top:10px;line-height:1.5" id="wizSensorExactMsg"></p>
                 </div>
-                <div id="wizSupplierManual">
-                    <select class="wizard-select" id="wizSupplier">
-                        <option value="">---</option>
-                    </select>
-                    <div id="wizEmaHint" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)"></div>
-                    <div id="wizMarkupWrap" style="display:none">
-                        <label style="font-size:0.82em;color:var(--text-muted)" id="wizMarkupLabel">Supplier markup (EUR/kWh)</label>
-                        <input type="number" class="wizard-input" id="wizMarkupInput" step="0.001" min="0" max="0.2" value="0" placeholder="0.000">
-                        <p style="font-size:0.78em;color:var(--text-faint)" id="wizMarkupHint"></p>
+                <div id="wizNoSensor" style="display:none">
+                    <h3 id="wizSetupTitle">Almost there!</h3>
+                    <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">No energy sensor detected. Prices will be based on ENTSO-E wholesale data with a calibrated average markup for your region.</p>
+                    <div style="padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);border-radius:8px;font-size:0.82em;line-height:1.5;color:var(--text-muted)">
+                        <strong style="color:#f59e0b">Tip:</strong> Install a price sensor integration (e.g. Zonneplan, Tibber, Nord Pool) for exact prices.
                     </div>
                 </div>
-            </div>
-
-            <!-- Step 3: Verify prices -->
-            <div class="wizard-step" id="wizardStep3">
-                <h3 id="wizVerifyTitle">Verify tax data</h3>
-                <p id="wizVerifyIntro"></p>
-                <div id="wizTaxRows" style="margin: 12px 0;"></div>
-            </div>
-
-            <!-- Step 4: Confirmation -->
-            <div class="wizard-step" id="wizardStep4">
-                <h3 id="wizSummaryTitle">You're all set!</h3>
-                <div id="wizSummaryRows" style="margin: 12px 0;"></div>
-                <p id="wizSummaryThanks" style="font-size:0.82em;color:var(--success);margin-top:12px"></p>
+                <div id="wizContractTypeWrap" style="display:none;margin-top:16px">
+                    <h3 id="wizContractTitle">What type of contract do you have?</h3>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                        <div class="wizard-tariff-card active" data-contract="dynamic" id="wizContractDynamic" style="cursor:pointer;padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px">
+                            <strong>Dynamic (variable price per hour)</strong>
+                            <p style="font-size:0.82em;color:var(--text-muted);margin:4px 0 0 0">GO/WAIT/AVOID actions based on real-time prices.</p>
+                        </div>
+                        <div class="wizard-tariff-card" data-contract="fixed" id="wizContractFixed" style="cursor:pointer;padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px">
+                            <strong>Fixed rate / Time-of-Use</strong>
+                            <p style="font-size:0.82em;color:var(--text-muted);margin:4px 0 0 0">You pay the same rate per kWh regardless of market prices.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="wizReadyMsg" style="margin-top:16px">
+                    <p style="font-size:0.85em;color:var(--text-muted);line-height:1.5" id="wizPriceLevelHint"></p>
+                </div>
             </div>
 
             <div class="wizard-nav" id="wizardNav">
@@ -734,7 +765,15 @@
         if (reason === 'price near daily average') return t('actions.reason_near_avg', reason);
         if (reason === 'cheapest 4 hours of the day') return t('actions.reason_cheapest_4h', reason);
         if (reason === 'waiting for data') return t('actions.reason_waiting', reason);
+        if (reason === 'fixed rate — all hours equal') return t('actions.reason_flat', reason);
         if (reason.indexOf('not fresh enough') !== -1) return t('actions.reason_stale', reason);
+        // Regulated TOU reasons: "offpeak rate — peak starts at HH:MM"
+        var offpeakMatch = reason.match(/^offpeak rate — peak starts at (\d{2}:\d{2})$/);
+        if (offpeakMatch) return tReplace('actions.reason_offpeak_until', {time: offpeakMatch[1]}, reason);
+        var peakMatch = reason.match(/^peak rate — offpeak starts at (\d{2}:\d{2})$/);
+        if (peakMatch) return tReplace('actions.reason_peak_until', {time: peakMatch[1]}, reason);
+        if (reason === 'offpeak rate') return t('actions.reason_offpeak', reason);
+        if (reason === 'peak rate') return t('actions.reason_peak', reason);
         var belowMatch = reason.match(/^([\d.]+)% below/);
         if (belowMatch) return tReplace('actions.reason_below_avg', {pct: belowMatch[1]}, reason);
         var aboveMatch = reason.match(/^([\d.]+)% above/);
@@ -803,10 +842,16 @@
         localStorage.setItem('synctacles_energy_lang', lang);
         _detectedLocale = lang;
         initI18n(lang).then(function() {
-            // Force full rebuild of dynamic content
+            // Force full rebuild of all dynamic content
             _dashboardBuilt = false;
             _lastDashJson = '';
-            loadDashboard();
+            settingsLoaded = false;
+            feedbackLoaded = false;
+            cacheLoaded = false;
+            // Re-render active tab
+            var activeTab = document.querySelector('.tab.active');
+            if (activeTab) activeTab.click();
+            else loadDashboard();
         });
     };
 
@@ -850,19 +895,31 @@
 
     async function loadSources() {
         try {
-            var resp = await fetch('api/sources');
-            var d = await resp.json();
+            var d = await fetchAPI('api/sources');
             if (!d.sources || d.sources.length === 0) {
                 document.getElementById('sourceBar').innerHTML = '';
+                return;
+            }
+
+            // Non-wholesale zone with regulated tariff — show simple label, no wholesale sources
+            if (d.regulated) {
+                document.getElementById('sourceBar').innerHTML =
+                    '<div class="source-summary">' +
+                    '<span class="source-dot healthy" style="display:inline-block;vertical-align:middle;margin-right:4px"></span>' +
+                    '<span class="source-active-name">' + t('source.regulated_tariff', 'Regulated tariff') + '</span>' +
+                    '</div>';
                 return;
             }
 
             var ai = d.active_info;
             var html = '';
 
-            // Active source summary — compact: "Prices from: ENTSO-E (NL) • cached locally"
+            // Active source summary — show sensor as source when in exact mode
             if (ai) {
-                var srcLabel = sourceLabel(ai.source, d.leverancier, d.zone);
+                var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
+                var srcLabel = isExtSensor
+                    ? t('source.sensor_price', 'Sensor') + ' (' + d.zone + ')'
+                    : sourceLabel(ai.source, d.leverancier, d.zone);
                 var cacheNote = '';
                 if (ai.from_mem_cache || ai.from_disk_cache) {
                     cacheNote = ' <span class="source-cached-note">' + t('source.cached_locally', '• cached locally') + '</span>';
@@ -875,21 +932,20 @@
                     '</div>';
             }
 
-            // Other sources — show non-active sources with health dots
-            var others = d.sources.filter(function(s) { return !s.active; });
-            // For NL: show Enever as primary source even when not configured
-            var hasEnever = d.sources.some(function(s) { return s.name === 'enever'; });
-            if (d.zone === 'NL' && !hasEnever) {
-                others.unshift({ name: 'enever', healthy: false, ghost: true });
-            }
+            // Other sources — show non-active + wholesale sources with health dots
+            // In sensor mode, ENTSO-E (synctacles) is technically active but user sees "Sensor" as primary
+            var isExtSensorMode = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter';
+            var others = d.sources.filter(function(s) {
+                if (s.name === 'enever') return false;
+                if (isExtSensorMode) return true; // show all sources as fallback indicators
+                return !s.active;
+            });
             if (others.length > 0) {
                 html += '<div class="source-chain" style="font-size:0.82em">';
                 others.forEach(function(s, idx) {
                     var dotCls = s.healthy ? 'healthy' : (s.last_success ? 'unhealthy' : 'unknown');
-                    var label = sourceLabel(s.name, s.name === 'enever' ? d.leverancier : '', d.zone);
-                    var note = '';
-                    if (s.name === 'enever' && (s.ghost || !s.healthy)) note = ' (' + t('source.not_configured', 'not configured') + ')';
-                    else if (s.healthy) note = ' (' + t('source.fallback_ready', 'ready') + ')';
+                    var label = sourceLabel(s.name, '', d.zone);
+                    var note = s.healthy ? ' (' + t('source.fallback_ready', 'ready') + ')' : '';
                     if (idx > 0) html += ' ';
                     html += '<span class="source-chain-item">' +
                         '<span class="source-dot ' + dotCls + '"></span>' +
@@ -900,13 +956,7 @@
 
             // External sensor indicator
             var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
-            if (isExtSensor) {
-                html += '<div class="source-chain" style="font-size:0.82em">' +
-                    '<span class="source-label">' + t('source.mode', 'Mode:') + '</span>' +
-                    '<span class="source-chain-item"><span class="source-dot healthy"></span>' +
-                    '<span class="source-chain-name active">' + t('settings.mode_external_sensor', 'External Sensor') + '</span></span>' +
-                    '</div>';
-            }
+            // Mode indicator removed — price_accuracy (exact/calibrated/estimated) replaces it
 
             document.getElementById('sourceBar').innerHTML = html;
         } catch (e) { console.warn('source health load failed:', e.message); }
@@ -922,16 +972,18 @@
             tab.classList.add('active');
             document.querySelectorAll('.tab-page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById('page-' + tab.getAttribute('data-tab')).classList.add('active');
+            if (tab.getAttribute('data-tab') === 'dashboard' && !_dashboardBuilt) loadDashboard();
             if (tab.getAttribute('data-tab') === 'settings' && !settingsLoaded) loadSettings();
             if (tab.getAttribute('data-tab') === 'feedback' && !feedbackLoaded) loadFeedbackSysInfo();
             if (tab.getAttribute('data-tab') === 'cache' && !cacheLoaded) loadCache();
+            if (tab.getAttribute('data-tab') === 'costs') loadCosts();
+            localStorage.setItem('synctacles_energy_active_tab', tab.getAttribute('data-tab'));
         };
     });
 
     async function loadVersion() {
         try {
-            var resp = await fetch('api/version');
-            var d = await resp.json();
+            var d = await fetchAPI('api/version');
             if (d.addon_slug) window._addonSlug = d.addon_slug;
             if (d.version) {
                 window._appVersion = d.version;
@@ -945,7 +997,45 @@
     var lastPrices = null, lastAvg = 0;
     var _lastDashJson = '';
     var _dashboardBuilt = false;
+    var _isNonWholesale = false; // single source of truth — set by loadDashboard, read by settings/cache
     function formatPrice(p) { return (parseFloat(p) * 100).toFixed(2); }
+
+    // fetchAPI — fetch wrapper that throws on non-OK responses.
+    // Ensures all API calls surface errors instead of silently returning bad data.
+    async function fetchAPI(endpoint) {
+        var resp = await fetch(endpoint);
+        if (!resp.ok) throw new Error(endpoint + ': ' + resp.status + ' ' + resp.statusText);
+        return await resp.json();
+    }
+
+    // persistConfig — fire-and-forget config save with error logging.
+    // Used for non-critical saves (disclaimer, privacy, supplier) where we don't
+    // want to block the UI but do want to surface failures.
+    function persistConfig(payload) {
+        return fetch('api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(function(err) {
+            console.warn('persistConfig failed:', err);
+        });
+    }
+
+    // pollUntilReady — polls api/version until the app responds, then reloads.
+    // Shows a restart spinner in #content. Used after settings/wizard changes that trigger restart.
+    function pollUntilReady() {
+        document.getElementById('content').innerHTML =
+            '<div class="loading"><div class="spinner"></div>' +
+            '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
+            '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
+        var poll = function() {
+            fetch('api/version').then(function(r) {
+                if (r.ok) setTimeout(function() { location.reload(); }, 500);
+                else setTimeout(poll, 2000);
+            }).catch(function() { setTimeout(poll, 2000); });
+        };
+        setTimeout(poll, 3000);
+    }
 
     // Tax breakdown — loaded from API, cached per zone
     var _taxBreakdownCache = {};
@@ -953,9 +1043,7 @@
     async function loadTaxBreakdown(zone, forceRefresh) {
         if (!forceRefresh && _taxBreakdownCache[zone]) return _taxBreakdownCache[zone];
         try {
-            var resp = await fetch('api/tax-breakdown?zone=' + encodeURIComponent(zone));
-            if (!resp.ok) return null;
-            var data = await resp.json();
+            var data = await fetchAPI('api/tax-breakdown?zone=' + encodeURIComponent(zone));
             var result = data.breakdown;
             if (result && data.markup_estimated) result._markup_estimated = true;
             if (result && data.price_delta) result._price_delta = data.price_delta;
@@ -1041,13 +1129,221 @@
         return html;
     }
 
+    // --- Costs tab: visual tax breakdown with percentages ---
+    async function loadCosts() {
+        var container = document.getElementById('costsContent');
+        if (!container) return;
+
+        container.innerHTML = '<div class="loading"><div class="spinner"></div><p>' + t('costs.loading', 'Loading cost breakdown...') + '</p></div>';
+
+        try {
+            var data = await fetchAPI('api/tax-breakdown');
+            var bd = data.breakdown;
+            if (!bd || bd.consumer_total <= 0) {
+                container.innerHTML = '<div class="card"><p style="color:var(--text-muted);text-align:center;padding:20px">' +
+                    t('costs.no_data', 'No price data available yet. Check back when prices are loaded.') + '</p></div>';
+                return;
+            }
+
+            var isRegulated = !!data.regulated;
+            var ct = t('dashboard.ct_kwh', 'ct/kWh');
+            var total = bd.consumer_total;
+
+            // Calculate components and percentages
+            var components = [];
+            if (isRegulated) {
+                // Regulated: energy cost + energy tax + surcharges + VAT
+                components.push({ id: 'energy', label: t('costs.energy_cost', 'Energy cost'), value: bd.wholesale, cls: 'energy', color: '#3b82f6' });
+                if (bd.energy_tax > 0.00005) components.push({ id: 'tax', label: t('costs.energy_tax', 'Energy tax'), value: bd.energy_tax, cls: 'tax', color: '#f59e0b' });
+                if (bd.surcharges > 0.00005) components.push({ id: 'surcharges', label: t('costs.surcharges', 'Surcharges'), value: bd.surcharges, cls: 'surcharges', color: '#6366f1' });
+                components.push({ id: 'vat', label: t('costs.vat', 'VAT') + ' (' + (bd.vat_rate * 100).toFixed(0) + '%)', value: bd.vat_amount, cls: 'vat', color: '#ef4444' });
+            } else {
+                // Wholesale: wholesale + supplier markup + energy tax + surcharges + VAT
+                components.push({ id: 'energy', label: t('costs.wholesale', 'Wholesale price'), value: bd.wholesale, cls: 'energy', color: '#3b82f6' });
+                if (bd.supplier_markup > 0.00005) components.push({ id: 'markup', label: t('costs.supplier_markup', 'Supplier markup'), value: bd.supplier_markup, cls: 'markup', color: '#8b5cf6' });
+                if (bd.energy_tax > 0.00005) components.push({ id: 'tax', label: t('costs.energy_tax', 'Energy tax'), value: bd.energy_tax, cls: 'tax', color: '#f59e0b' });
+                if (bd.surcharges > 0.00005) components.push({ id: 'surcharges', label: t('costs.surcharges', 'Surcharges'), value: bd.surcharges, cls: 'surcharges', color: '#6366f1' });
+                components.push({ id: 'vat', label: t('costs.vat', 'VAT') + ' (' + (bd.vat_rate * 100).toFixed(0) + '%)', value: bd.vat_amount, cls: 'vat', color: '#ef4444' });
+            }
+
+            // Total tax = everything except energy cost (wholesale)
+            var totalTax = total - bd.wholesale;
+            var taxPct = total > 0 ? (totalTax / total * 100) : 0;
+
+            // Build stacked bar
+            var barHtml = '<div class="cost-bar">';
+            components.forEach(function(c) {
+                var pct = total > 0 ? (c.value / total * 100) : 0;
+                if (pct < 1) pct = 1; // minimum visible width
+                barHtml += '<div class="cost-bar-segment ' + c.cls + '" style="width:' + pct.toFixed(1) + '%" title="' + c.label + ': ' + formatPrice(c.value) + ' ' + ct + '">';
+                if (pct > 8) barHtml += (c.value / total * 100).toFixed(0) + '%';
+                barHtml += '</div>';
+            });
+            barHtml += '</div>';
+
+            // Legend
+            var legendHtml = '<div class="cost-legend">';
+            components.forEach(function(c) {
+                legendHtml += '<div class="cost-legend-item"><div class="cost-legend-dot" style="background:' + c.color + '"></div>' + c.label + '</div>';
+            });
+            legendHtml += '</div>';
+
+            // Breakdown rows
+            var rowsHtml = '';
+            components.forEach(function(c) {
+                var pct = total > 0 ? (c.value / total * 100) : 0;
+                rowsHtml += '<div class="cost-row">' +
+                    '<div class="cost-row-label">' + c.label + '</div>' +
+                    '<div class="cost-row-value">' + formatPrice(c.value) + ' ' + ct + '</div>' +
+                    '<div class="cost-row-pct">' + pct.toFixed(1) + '%</div>' +
+                '</div>';
+            });
+
+            // Total row
+            rowsHtml += '<div class="cost-row cost-total-row">' +
+                '<div class="cost-row-label">' + t('costs.consumer_total', 'Consumer price') + '</div>' +
+                '<div class="cost-row-value">' + formatPrice(total) + ' ' + ct + '</div>' +
+                '<div class="cost-row-pct">100%</div>' +
+            '</div>';
+
+            // Network tariff info
+            var networkHtml = '';
+            if (bd.network_tariff > 0.0001) {
+                networkHtml = '<div style="margin-top:12px;padding:10px 14px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);border-radius:var(--radius-sm);font-size:0.82em;color:var(--text-muted)">' +
+                    tReplace('costs.network_info', {amount: formatPrice(bd.network_tariff)},
+                        'Network costs (~' + formatPrice(bd.network_tariff) + ' ct/kWh) are billed separately by your grid operator and not included above.') +
+                    '</div>';
+            }
+
+            // Tax summary highlight
+            var summaryHtml = '<div class="cost-tax-summary">' +
+                '<div class="cost-tax-pct">' + taxPct.toFixed(1) + '%</div>' +
+                '<div class="cost-tax-label">' + t('costs.tax_share', 'of your energy price is taxes & levies') + '</div>' +
+            '</div>';
+
+            // Version info
+            var versionHtml = '<div style="margin-top:12px;font-size:0.72em;color:var(--text-faint);text-align:right">' +
+                t('costs.source', 'Source') + ': ' + (data.version || 'embedded') +
+                (isRegulated ? ' | ' + t('costs.regulated_note', 'Regulated tariff — breakdown is indicative') : '') +
+            '</div>';
+
+            container.innerHTML =
+                '<div class="card">' +
+                    '<h3 style="color:var(--accent);margin-bottom:4px">' + t('costs.title', 'Energy Cost Breakdown') + '</h3>' +
+                    '<p style="font-size:0.82em;color:var(--text-muted);margin-bottom:16px">' +
+                        t('costs.subtitle', 'See how your electricity price is composed') + '</p>' +
+                    summaryHtml +
+                    barHtml +
+                    legendHtml +
+                    '<div style="margin-top:8px">' + rowsHtml + '</div>' +
+                    networkHtml +
+                    versionHtml +
+                '</div>';
+        } catch (err) {
+            console.error('loadCosts error:', err);
+            container.innerHTML = '<div class="card"><p style="color:var(--text-muted);text-align:center;padding:20px">' +
+                t('costs.error', 'Could not load cost data. Tax profile may not be available for your zone.') + '</p></div>';
+        }
+    }
+
+    // --- Dashboard card builders: separate wholesale from regulated rendering ---
+
+    function buildWholesaleCards(d, actionClass, action) {
+        var deviationText = '';
+        if (d.action && d.action.deviation) {
+            var dev = d.action.deviation;
+            deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
+        }
+
+        var html = '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
+            '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
+            '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
+            (deviationText ? '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' : '') +
+        '</div>';
+
+        html += '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
+            '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+            '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+        '</div>';
+
+        html += '<div class="card">' +
+            '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
+            '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+            '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+        '</div>';
+
+        if (d.best_window) {
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.best_window', 'Best Window') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
+                '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
+        }
+
+        var ts = d.tomorrow && d.tomorrow.status;
+        if (ts && ts !== 'PENDING') {
+            var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
+                '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
+            '</div>';
+        }
+
+        return html;
+    }
+
+    function buildRegulatedCards(d, actionClass, action) {
+        var isFixed = d.pricing_mode === 'fixed';
+        var isTOU = d.pricing_mode === 'tou';
+
+        // Badge: countdown to next transition (TOU) or nothing (fixed)
+        var badgeText = '';
+        if (isTOU && d.action && d.action.next_transition) {
+            var nextLabel = d.action.next_rate === 'peak' ? t('dashboard.peak_at', 'peak at') : t('dashboard.offpeak_at', 'offpeak at');
+            badgeText = nextLabel + ' ' + d.action.next_transition;
+        }
+
+        var html = '<div class="card">' +
+            '<div class="card-label">' + (isTOU ? t('dashboard.tariff_period', 'Tariff Period') : t('dashboard.action', 'Action')) + '</div>' +
+            '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
+            '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
+            (badgeText ? '<span class="action-badge badge-' + actionClass + '">' + badgeText + '</span>' : '') +
+        '</div>';
+
+        // TOU: show offpeak/peak hours + offpeak window
+        if (!isFixed) {
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.offpeak', 'Offpeak') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
+                '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+            '</div>';
+
+            html += '<div class="card">' +
+                '<div class="card-label">' + t('dashboard.peak', 'Peak') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
+                '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
+            '</div>';
+
+            if (d.best_window) {
+                html += '<div class="card">' +
+                    '<div class="card-label">' + t('dashboard.offpeak_window', 'Offpeak Window') + '</div>' +
+                    '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
+                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
+            }
+        }
+        // Fixed: no extra cards — every hour is the same
+
+        return html;
+    }
+
     var _dashboardTimer = null;
     async function loadDashboard() {
         // Cancel any pending refresh to prevent duplicate loops
         if (_dashboardTimer) { clearTimeout(_dashboardTimer); _dashboardTimer = null; }
         try {
-            var resp = await fetch('api/dashboard');
-            var d = await resp.json();
+            var d = await fetchAPI('api/dashboard');
 
             if (d.status === 'waiting') {
                 _dashboardBuilt = false;
@@ -1075,30 +1371,8 @@
             document.getElementById('versionBadge').textContent = 'v' + d.version;
             document.getElementById('meta').textContent = d.zone;
 
-            var bwHtml = '';
-            if (d.best_window) {
-                bwHtml = '<div class="card">' +
-                    '<div class="card-label">' + t('dashboard.best_window', 'Best Window') + '</div>' +
-                    '<div class="card-value" style="font-size:1.3em">' + d.best_window.start + ' - ' + d.best_window.end + '</div>' +
-                    '<div class="card-sub">' + formatPrice(d.best_window.avg) + ' ' + t('dashboard.ct_kwh_avg', 'ct/kWh avg') + ' | ' + d.best_window.duration + 'h</div></div>';
-            }
-
-            var tomorrowHtml = '';
-            var ts = d.tomorrow && d.tomorrow.status;
-            if (ts && ts !== 'PENDING') {
-                var tColor = ts === 'FAVORABLE' ? '#0d9488' : ts === 'EXPENSIVE' ? '#dc2626' : 'var(--text-muted)';
-                tomorrowHtml = '<div class="card">' +
-                    '<div class="card-label">' + t('dashboard.tomorrow', 'Tomorrow') + '</div>' +
-                    '<div class="card-value" style="font-size:1.3em;color:' + tColor + '">' + t('actions.tomorrow_' + ts.toLowerCase(), ts) + '</div>' +
-                    '<div class="card-sub">' + d.tomorrow.hours + ' ' + t('dashboard.hours', 'hours') + ' | ' + (d.tomorrow.avg > 0 ? formatPrice(d.tomorrow.avg) + ' ' + t('dashboard.ct_avg', 'ct avg') : t('dashboard.pending', 'pending')) + '</div>' +
-                    '</div>';
-            }
-
-            var deviationText = '';
-            if (d.action && d.action.deviation) {
-                var dev = d.action.deviation;
-                deviationText = (dev > 0 ? '+' : '') + dev.toFixed(0) + '% ' + t('dashboard.vs_avg', 'vs avg');
-            }
+            _isNonWholesale = d.has_wholesale === false;
+            var isFixed = d.pricing_mode === 'fixed';
 
             var degradedBanner = '';
             if (d.degraded) {
@@ -1130,48 +1404,62 @@
                 });
             }
 
+            // Build mode-specific cards via dedicated builders
+            var modeCards = _isNonWholesale
+                ? buildRegulatedCards(d, actionClass, action)
+                : buildWholesaleCards(d, actionClass, action);
+
+            // Shared: current price card (all modes)
+            var priceLabel = t('dashboard.current_price', 'Current Price');
+            if (d.source_info && d.source_info.chart_source) {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.sensor_price', 'sensor price') + ')</span>';
+            } else if (d.resolution === 'PT15M') {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>';
+            } else if (d.resolution === 'PT60M') {
+                priceLabel += ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>';
+            }
+            var priceSub = isFixed
+                ? t('dashboard.fixed_rate', 'Fixed rate')
+                : t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct';
+            // ADR_010: price accuracy indicator
+            if (d.price_accuracy === 'exact') {
+                priceSub += ' <span style="color:#22c55e;font-size:0.85em" title="' +
+                    t('dashboard.exact_tooltip', 'Exact price from your energy supplier') +
+                    '">\u2713 ' + t('dashboard.exact', 'exact') + '</span>';
+            } else if (d.price_accuracy === 'calibrated') {
+                priceSub += ' <span style="color:#0ea5e9;font-size:0.85em" title="' +
+                    t('dashboard.calibrated_tooltip', 'Price calibrated with real supplier data (average across providers)') +
+                    '">\u2248 ' + t('dashboard.calibrated', 'calibrated') + '</span>';
+            } else if (d.price_accuracy === 'estimated') {
+                priceSub += ' <span style="color:#f59e0b;font-size:0.85em" title="' +
+                    t('dashboard.estimated_tooltip', 'Estimated price — install a sensor integration for exact prices') +
+                    '">\u007e ' + t('dashboard.estimated', 'estimated') + '</span>';
+            }
+
+            // Shared: chart card (all modes)
+            var chartSource = '';
+            if (d.source_info) {
+                chartSource = ' <span class="chart-source">&mdash; ' +
+                    (d.source_info.chart_source
+                        ? t('dashboard.chart_source_enever', 'Enever prices') +
+                          (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
+                        : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
+                    '</span>';
+            }
+
             document.getElementById('content').innerHTML =
                 degradedBanner + hintsBanner +
                 '<div class="grid">' +
                     '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.current_price', 'Current Price') +
-                            (d.source_info && d.source_info.chart_source
-                                ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.sensor_price', 'sensor price') + ')</span>'
-                                : (d.resolution === 'PT15M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_15m', '15 min. price') + ')</span>' :
-                                   d.resolution === 'PT60M' ? ' <span style="font-size:0.75em;opacity:0.6">(' + t('dashboard.resolution_60m', 'hourly price') + ')</span>' : '')) +
-                        '</div>' +
+                        '<div class="card-label">' + priceLabel + '</div>' +
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
-                        '<div class="card-sub">' + t('dashboard.avg', 'Avg') + ': ' + formatPrice((d.stats && d.stats.average) || 0) + ' ct</div>' +
+                        '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
-                    '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.action', 'Action') + '</div>' +
-                        '<div class="card-value action-' + actionClass + '">' + t('actions.' + action.toLowerCase(), action) + '</div>' +
-                        '<div class="card-sub">' + translateReason((d.action && d.action.reason) || '') + '</div>' +
-                        '<span class="action-badge badge-' + actionClass + '">' + deviationText + '</span>' +
-                    '</div>' +
-                    '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.cheapest', 'Cheapest') + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:var(--success)">' + ((d.stats && d.stats.cheapest_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.min) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
-                    '</div>' +
-                    '<div class="card">' +
-                        '<div class="card-label">' + t('dashboard.expensive', 'Expensive') + '</div>' +
-                        '<div class="card-value" style="font-size:1.3em;color:var(--danger)">' + ((d.stats && d.stats.expensive_hour) || '--') + '</div>' +
-                        '<div class="card-sub">' + formatPrice((d.stats && d.stats.max) || 0) + ' ' + t('dashboard.ct_kwh', 'ct/kWh') + '</div>' +
-                    '</div>' +
-                    bwHtml +
-                    tomorrowHtml +
+                    modeCards +
                 '</div>' +
                 '<div class="card chart-card">' +
-                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' +
-                        (d.source_info ? ' <span class="chart-source">&mdash; ' +
-                            (d.source_info.chart_source
-                                ? t('dashboard.chart_source_enever', 'Enever prices') +
-                                  (d.source_info.chart_leverancier ? ' (' + (supplierNames[d.source_info.chart_leverancier] || d.source_info.chart_leverancier) + ')' : '')
-                                : sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone)) +
-                            '</span>' : '') +
-                    '</div>' +
+                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource + '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
                         '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
@@ -1181,6 +1469,12 @@
                 '</div>';
 
             _dashboardBuilt = true;
+
+            // Hide cache and costs tabs for non-wholesale zones
+            var cacheTab = document.querySelector('.tab[data-tab="cache"]');
+            if (cacheTab) cacheTab.style.display = _isNonWholesale ? 'none' : '';
+            var costsTab = document.querySelector('.tab[data-tab="costs"]');
+            if (costsTab) costsTab.style.display = _isNonWholesale ? 'none' : '';
 
             // Bind hint settings links to navigate to Settings tab
             document.querySelectorAll('.hint-settings-link').forEach(function(link) {
@@ -1205,6 +1499,7 @@
 
             _dashboardTimer = setTimeout(loadDashboard, 60000);
         } catch (err) {
+            console.error('loadDashboard error:', err);
             _dashboardBuilt = false;
             _lastDashJson = '';
             document.getElementById('content').innerHTML =
@@ -1303,6 +1598,19 @@
             ctx.fillRect(x, y, w, h);
             chartBars.push({ x: x, y: y, w: w, h: h, val: vals[i], hour: hours[i] });
 
+            // Yellow marker arrow above current bar
+            if (isCurrent) {
+                ctx.fillStyle = '#eab308';
+                var cx = x + w / 2;
+                var ay = y - 4;
+                ctx.beginPath();
+                ctx.moveTo(cx, ay);
+                ctx.lineTo(cx - 4, ay - 7);
+                ctx.lineTo(cx + 4, ay - 7);
+                ctx.closePath();
+                ctx.fill();
+            }
+
             // Show labels at full hours only; for PT60 every 2-3 hours to avoid crowding
             var showLabel = false;
             if (vals.length > 48) {
@@ -1317,23 +1625,6 @@
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(hours[i], x + w / 2, H - 4);
-            }
-        }
-
-        // Arrow indicator above current candle
-        for (var ci = 0; ci < chartBars.length; ci++) {
-            if (hours[ci] === currentSlot) {
-                var b = chartBars[ci];
-                var arrowX = b.x + b.w / 2;
-                var arrowY = b.y - 4;
-                ctx.fillStyle = barCurrent;
-                ctx.beginPath();
-                ctx.moveTo(arrowX, arrowY);
-                ctx.lineTo(arrowX - 4, arrowY - 7);
-                ctx.lineTo(arrowX + 4, arrowY - 7);
-                ctx.closePath();
-                ctx.fill();
-                break;
             }
         }
 
@@ -1390,13 +1681,14 @@
     var currentConfig = {};
     var zoneData = null;
     var tariffSensors = null;
+    var _settingsRegulatedTariffs = null; // regulated tariffs for current zone (non-wholesale only)
 
     async function loadSettings() {
         try {
             var results = await Promise.all([
-                fetch('api/config').then(function(r) { return r.json(); }),
-                fetch('api/zones').then(function(r) { return r.json(); }),
-                fetch('api/sensors/tariff').then(function(r) { return r.json(); }).catch(function() { return {sensors:[]}; })
+                fetchAPI('api/config'),
+                fetchAPI('api/zones'),
+                fetchAPI('api/sensors/tariff').catch(function() { return {sensors:[]}; })
             ]);
             currentConfig = results[0];
             zoneData = results[1];
@@ -1409,13 +1701,30 @@
         }
     }
 
+    // Zone name translations map (zone code -> i18n key)
+    var zoneNameKeys = {
+        'NL': 'zones.nl', 'BE': 'zones.be', 'DE': 'zones.de', 'AT': 'zones.at',
+        'CH': 'zones.ch', 'CZ': 'zones.cz', 'DK': 'zones.dk', 'EE': 'zones.ee',
+        'ES': 'zones.es', 'FR': 'zones.fr', 'GB': 'zones.gb', 'HR': 'zones.hr',
+        'HU': 'zones.hu', 'IE': 'zones.ie', 'IT': 'zones.it', 'LT': 'zones.lt',
+        'LV': 'zones.lv', 'NO': 'zones.no', 'PL': 'zones.pl', 'PT': 'zones.pt',
+        'RO': 'zones.ro', 'RS': 'zones.rs', 'SE': 'zones.se', 'SI': 'zones.si', 'SK': 'zones.sk'
+    };
+
+    function getZoneName(zoneCode) {
+        var key = zoneNameKeys[zoneCode];
+        if (key) return t(key, zoneCode); // Fallback to code if translation missing
+        return zoneCode;
+    }
+
     function renderZoneOptions(currentZone) {
         if (!zoneData || !zoneData.groups) return '<option value="">' + t('common.loading', 'Loading...') + '</option>';
         var html = '';
         zoneData.groups.forEach(function(group) {
             html += '<optgroup label="' + esc(group.name) + '">';
             group.zones.forEach(function(z) {
-                html += '<option value="' + esc(z.code) + '"' + (z.code === currentZone ? ' selected' : '') + '>' + esc(z.code + ' — ' + z.name) + '</option>';
+                var zoneName = getZoneName(z.code);
+                html += '<option value="' + esc(z.code) + '"' + (z.code === currentZone ? ' selected' : '') + '>' + esc(z.code + ' — ' + zoneName) + '</option>';
             });
             html += '</optgroup>';
         });
@@ -1427,6 +1736,29 @@
         return sel && sel.value === 'NL';
     }
 
+    function updateContractType() {
+        var sel = document.getElementById('cfg-contract-type');
+        if (!sel) return;
+        var isDynamic = sel.value === 'dynamic';
+        // Show/hide supplier (dynamic only)
+        var supplierSection = document.getElementById('supplier-select-section');
+        if (supplierSection) supplierSection.style.display = isDynamic ? '' : 'none';
+        // Show/hide external sensor (dynamic + sensors available)
+        var sensorSection = document.getElementById('mode-external_sensor-section');
+        if (sensorSection) sensorSection.style.display = isDynamic ? '' : 'none';
+        // Show/hide fixed rate + TOU (fixed only)
+        var fixedSection = document.getElementById('mode-fixed-section');
+        if (fixedSection) fixedSection.style.display = isDynamic ? 'none' : '';
+        var touSection = document.getElementById('mode-tou-section');
+        if (touSection) {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            touSection.style.display = (!isDynamic && touToggle && touToggle.classList.contains('on')) ? '' : 'none';
+        }
+        // Show/hide thresholds (dynamic only)
+        var thresholds = document.getElementById('settings-thresholds');
+        if (thresholds) thresholds.style.display = isDynamic ? '' : 'none';
+    }
+
     function updateModeVisibility() {
         var mode = document.querySelector('input[name="pricing-mode"]:checked');
         if (!mode) return;
@@ -1435,6 +1767,14 @@
         sections.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
         var target = document.getElementById('mode-' + m + '-section');
         if (target) target.style.display = '';
+        // For non-wholesale zones: Fixed is the only visible mode; show TOU section if toggle is on
+        if (_isNonWholesale && m === 'fixed') {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            var touSection = document.getElementById('mode-tou-section');
+            if (touToggle && touToggle.classList.contains('on') && touSection) {
+                touSection.style.display = '';
+            }
+        }
         // Enever radio: completely hidden when zone ≠ NL
         var eneverRadio = document.getElementById('mode-enever');
         var eneverLabel = document.querySelector('label[for="mode-enever"]');
@@ -1455,8 +1795,7 @@
         loadSupplierDropdown('');
         if (!zone) return;
         try {
-            var resp = await fetch('api/country-defaults?zone=' + encodeURIComponent(zone));
-            var defaults = await resp.json();
+            var defaults = await fetchAPI('api/country-defaults?zone=' + encodeURIComponent(zone));
             if (defaults.error) return;
 
             // Pre-fill manual tax fields from country defaults
@@ -1473,6 +1812,35 @@
             }
             // Load TOU presets for this zone
             if (defaults.tou_presets) loadTOUPresets(zone);
+            // Hide irrelevant pricing modes for non-wholesale zones
+            var isNonWholesale = defaults.has_wholesale === false;
+            _isNonWholesale = isNonWholesale;
+            _settingsRegulatedTariffs = isNonWholesale && defaults.regulated_tariffs ? defaults.regulated_tariffs : null;
+            // For non-wholesale zones: auto-select fixed contract type
+            var contractTypeEl = document.getElementById('cfg-contract-type');
+            if (isNonWholesale && contractTypeEl && contractTypeEl.value === 'dynamic') {
+                contractTypeEl.value = 'fixed';
+                updateContractType();
+            }
+            // Show/hide TOU toggle inside Fixed section for non-wholesale zones
+            var touToggleWrap = document.getElementById('fixed-tou-toggle-wrap');
+            if (touToggleWrap) touToggleWrap.style.display = isNonWholesale ? '' : 'none';
+            // If pricing_mode was TOU, activate the inline toggle
+            var currentMode = currentConfig.pricing_mode || 'auto';
+            if (isNonWholesale && currentMode === 'tou') {
+                var touToggleEl = document.getElementById('fixed-tou-toggle');
+                if (touToggleEl && !touToggleEl.classList.contains('on')) {
+                    touToggleEl.classList.add('on');
+                    touToggleEl.innerHTML = '&#10003; ON';
+                }
+            }
+            // Pre-fill fixed rate from regulated tariffs
+            if (isNonWholesale && defaults.regulated_tariffs) {
+                var fixedPriceEl = document.getElementById('cfg-fixed-price');
+                if (fixedPriceEl && defaults.regulated_tariffs.fixed) {
+                    fixedPriceEl.value = defaults.regulated_tariffs.fixed;
+                }
+            }
         } catch(e) {
             // Non-critical — settings still work without pre-fill
         }
@@ -1517,145 +1885,66 @@
                 '</div>' +
             '</div>' +
 
-            // Pricing mode radio
-            '<div class="settings-section">' +
-                '<h3>' + t('settings.pricing_mode', 'Pricing Mode') + '</h3>' +
-                '<div class="form-hint" style="margin-bottom:12px">' + t('settings.pricing_mode_hint', 'How your consumer price is determined.') + '</div>' +
-                '<div style="display:flex;flex-direction:column;gap:8px">' +
-                    renderModeRadio('auto', t('settings.mode_auto', 'Synctacles Auto'), t('settings.mode_auto_hint'), mode) +
-                    renderModeRadio('manual', t('settings.mode_manual', 'Manual'), t('settings.mode_manual_hint'), mode) +
-                    renderModeRadio('external_sensor', t('settings.mode_external_sensor', 'External Sensor'), t('settings.mode_external_sensor_hint', 'Use any HA sensor that provides your electricity tariff (Zonneplan, Tibber, Octopus, P1 meter, etc.).'), mode) +
-                    renderModeRadio('fixed', t('settings.mode_fixed', 'Fixed Rate'), t('settings.mode_fixed_hint', 'Enter your own flat rate. No dynamic pricing — useful for fixed-price contracts.'), mode) +
-                    renderModeRadio('tou', t('settings.mode_tou', 'Time-of-Use'), t('settings.mode_tou_hint', 'Bi-horário / tri-horário: set peak and off-peak rates with a schedule. GO/WAIT/AVOID follows your schedule.'), mode) +
-                    (c.zone === 'NL' ? renderModeRadio('enever', t('settings.mode_enever', 'Enever'), t('settings.mode_enever_hint'), mode) : '') +
-                '</div>' +
-            '</div>' +
-
-            // Auto mode section — supplier select + calibration
-            '<div id="mode-auto-section" style="' + (mode === 'auto' ? '' : 'display:none') + '">' +
-                '<div class="settings-section" id="supplier-select-section">' +
-                    '<h3>' + t('settings.supplier', 'Your Supplier') + '</h3>' +
+            // Contract type selector
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                return '<div class="settings-section">' +
+                    '<h3>' + t('settings.contract_type', 'Contract type') + '</h3>' +
                     '<div class="form-group">' +
-                        '<select class="form-select" id="cfg-supplier">' +
-                            '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>' +
+                        '<label class="form-label">' + t('settings.contract_type', 'Contract type') + '</label>' +
+                        '<select class="form-input" id="cfg-contract-type" onchange="updateContractType()">' +
+                            '<option value="dynamic"' + (isDynamic ? ' selected' : '') + '>' + t('settings.contract_dynamic', 'Dynamic (variable price per hour)') + '</option>' +
+                            '<option value="fixed"' + (!isDynamic ? ' selected' : '') + '>' + t('settings.contract_fixed', 'Fixed rate / Time-of-Use') + '</option>' +
                         '</select>' +
-                        '<div class="form-hint">' + t('settings.supplier_hint', 'Select your supplier to automatically set the correct markup.') + '</div>' +
                     '</div>' +
-                '</div>' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.calibration', 'Calibration') + '</h3>' +
-                    '<div class="form-hint" style="margin-bottom:8px">' + t('settings.calibration_or', 'Or calibrate manually if your supplier is not listed.') + '</div>' +
-                    '<label class="form-label">' + t('settings.calibration_input', 'Your current all-in price (EUR/kWh incl. VAT)') + '</label>' +
-                    '<div style="display:flex;gap:8px;align-items:center">' +
-                        '<input class="form-input" id="cfg-cal-price" type="number" step="0.001" min="0.01" max="2.00" placeholder="0.350" style="flex:1">' +
-                        '<button class="btn-save" id="btnCalibrate" style="white-space:nowrap;margin:0">' + t('settings.calibrate_btn', 'Calibrate') + '</button>' +
-                    '</div>' +
-                    '<div class="form-hint" style="margin-top:4px">' + t('settings.calibration_input_hint', 'Check your supplier app for the current price.') + '</div>' +
-                    '<div id="calibrateResult" style="font-size:0.82em;margin-top:8px;min-height:1.2em"></div>' +
-                    '<div class="form-hint" style="margin-top:8px;font-style:italic">' + t('settings.calibration_note', 'Re-calibrate when you switch suppliers.') + '</div>' +
-                    (c.supplier_markup ? '<div class="form-hint" style="margin-top:4px">' + t('settings.supplier_markup', 'Supplier Markup') + ': ' + (c.supplier_markup * 100).toFixed(2) + ' ct/kWh</div>' : '') +
-                    (c.ema_markup && c.ema_markup.available && c.ema_markup.markup_kwh != null ? (function() {
-                        var emaCt = (c.ema_markup.markup_kwh * 100).toFixed(2);
-                        var confLabel = c.ema_markup.confidence === 'high' ? t('settings.ema_confidence_high', 'high confidence')
-                                     : c.ema_markup.confidence === 'medium' ? t('settings.ema_confidence_medium', 'medium confidence')
-                                     : t('settings.ema_confidence_low', 'limited data');
-                        var hint = '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,148,136,0.08);border-radius:6px;font-size:0.82em;color:var(--text-muted)">' +
-                            '<span style="color:var(--success)">&#x2139;</span> ' +
-                            tReplace('settings.ema_hint', {markup: emaCt, confidence: confLabel, reporters: c.ema_markup.reporters},
-                                'Community average: ' + emaCt + ' ct/kWh (' + confLabel + ', ' + c.ema_markup.reporters + ' users)') +
-                            '</div>';
-                        // Show recalibration suggestion if current markup diverges significantly
-                        if (c.supplier_markup && Math.abs(c.supplier_markup - c.ema_markup.markup_kwh) > 0.005 && c.ema_markup.confidence !== 'low') {
-                            hint += '<div class="form-hint" style="margin-top:4px;color:var(--warning)">' +
-                                t('settings.ema_recalibrate', 'Your markup differs from the community average. Consider re-calibrating.') +
-                                '</div>';
-                        }
-                        return hint;
-                    })() : '') +
-                '</div>' +
-            '</div>' +
+                '</div>';
+            })() +
 
-            // Manual mode section
-            '<div id="mode-manual-section" style="' + (mode === 'manual' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_manual', 'Manual') + '</h3>' +
-                    '<div class="form-row">' +
+            // Supplier select (visible for dynamic contract type)
+            // Supplier dropdown removed — delta system replaces static markups
+
+            // External sensor section (visible when dynamic + sensors detected, or when sensor was previously configured)
+            (function() {
+                var isDynamic = mode !== 'fixed' && mode !== 'tou';
+                var hasSensors = tariffSensors && tariffSensors.length > 0;
+                var hasSensorConfig = c.p1_sensor_entity;
+                var showSensor = isDynamic && (hasSensors || hasSensorConfig);
+                return '<div id="mode-external_sensor-section" style="' + (showSensor ? '' : 'display:none') + '">' +
+                    '<div class="settings-section">' +
+                        '<h3>' + t('settings.mode_external_sensor', 'Tariff Sensor') + '</h3>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_vat_rate', 'VAT Rate') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-vat" type="number" step="0.01" value="' + (c.manual_vat_rate || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_vat_rate_hint', 'e.g. 0.21 for 21%') + '</div>' +
+                            '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
+                            '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
+                            '<div class="form-hint">' + t('settings.p1_sensor_hint', 'Select the HA sensor that provides your current electricity tariff.') + '</div>' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_energy_tax', 'Energy Tax (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-etax" type="number" step="0.00001" value="' + (c.manual_energy_tax || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_energy_tax_hint', 'Excise tax on energy consumption') + '</div>' +
+                            '<label class="form-label">' + t('settings.p1_manual_input', 'Or enter entity ID manually:') + '</label>' +
+                            '<input class="form-input" id="cfg-p1-manual" type="text" placeholder="sensor.your_tariff" value="' + esc(c.p1_sensor_entity || '') + '">' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-row">' +
-                        '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_surcharges', 'Surcharges (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-surcharges" type="number" step="0.00001" value="' + (c.manual_surcharges || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_surcharges_hint', 'Additional levies on energy') + '</div>' +
-                        '</div>' +
-                        '<div class="form-group">' +
-                            '<label class="form-label">' + t('settings.manual_network_tariff', 'Network Tariff (EUR/kWh)') + '</label>' +
-                            '<input class="form-input" id="cfg-manual-network" type="number" step="0.00001" value="' + (c.manual_network_tariff || 0) + '">' +
-                            '<div class="form-hint">' + t('settings.manual_network_tariff_hint', 'For future True Cost mode. Not included in real-time price.') + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.supplier_markup', 'Supplier Markup (EUR/kWh)') + '</label>' +
-                        '<input class="form-input" id="cfg-manual-markup" type="number" step="0.001" value="' + (c.supplier_markup || 0) + '">' +
-                        '<div class="form-hint">' + t('settings.supplier_markup_hint', 'Fixed markup added by your supplier (0 = none)') + '</div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
+                '</div>';
+            })() +
 
-            // External sensor mode section
-            '<div id="mode-external_sensor-section" style="' + (mode === 'external_sensor' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_external_sensor', 'External Sensor') + '</h3>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.p1_sensor', 'Tariff Sensor') + '</label>' +
-                        '<select class="form-select" id="cfg-p1-sensor">' + p1Options + '</select>' +
-                        '<div class="form-hint">' + t('settings.p1_sensor_hint', 'Select the HA sensor that provides your current electricity tariff.') + '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.p1_manual_input', 'Or enter entity ID manually:') + '</label>' +
-                        '<input class="form-input" id="cfg-p1-manual" type="text" placeholder="sensor.your_tariff" value="' + esc(c.p1_sensor_entity || '') + '">' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
+            // (Enever mode removed — simplified)
 
-            // Enever mode section (NL only)
-            (c.zone === 'NL' ?
-            '<div id="mode-enever-section" style="' + (mode === 'enever' ? '' : 'display:none') + '">' +
-                '<div class="settings-section">' +
-                    '<h3>' + t('settings.mode_enever', 'Enever') + '</h3>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.enever_token', 'Enever API Token') + '</label>' +
-                        '<input class="form-input" id="cfg-enever-token" type="text" value="' + esc(c.enever_token || '') + '">' +
-                        '<div class="form-hint">' + t('settings.enever_token_hint', 'Free API key from enever.nl.') +
-                            ' <a href="https://enever.nl" target="_blank" style="color:var(--accent)">enever.nl</a></div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                        '<label class="form-label">' + t('settings.enever_leverancier', 'Supplier') + '</label>' +
-                        '<select class="form-select" id="cfg-enever-lev">' +
-                            renderEneverSupplierOptions(c.enever_leverancier || 'frank') +
-                        '</select>' +
-                        '<div class="form-hint">' + t('settings.enever_leverancier_hint', 'Select your energy supplier.') + '</div>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' : '') +
-
-            // Fixed rate section
-            '<div id="mode-fixed-section" style="' + (mode === 'fixed' ? '' : 'display:none') + '">' +
+            // Fixed rate section (visible when contract type = fixed)
+            '<div id="mode-fixed-section" style="' + (mode === 'fixed' || mode === 'tou' ? '' : 'display:none') + '">' +
                 '<div class="settings-section">' +
                     '<h3>' + t('settings.mode_fixed', 'Fixed Rate') + '</h3>' +
                     '<div class="form-group">' +
                         '<label class="form-label">' + t('settings.fixed_rate_price', 'Your all-in price (EUR/kWh incl. VAT)') + '</label>' +
                         '<input class="form-input" id="cfg-fixed-price" type="number" step="0.001" min="0.01" max="2.00" value="' + (c.fixed_rate_price || 0) + '">' +
                         '<div class="form-hint">' + t('settings.fixed_rate_hint', 'The fixed consumer price from your contract. GO/WAIT/AVOID signals are disabled in fixed-rate mode.') + '</div>' +
+                    '</div>' +
+                    // TOU toggle — only shown for non-wholesale zones (regulated tariffs)
+                    '<div id="fixed-tou-toggle-wrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">' +
+                        '<div class="toggle-row">' +
+                            '<div>' +
+                                '<div style="font-weight:500;font-size:0.85em">' + t('settings.tou_toggle', 'Time-of-use schedule (bi-horário)') + '</div>' +
+                                '<div style="font-size:0.72em;color:var(--text-faint)">' + t('settings.tou_toggle_hint', 'Enable to use different rates for peak and off-peak hours instead of a flat rate.') + '</div>' +
+                            '</div>' +
+                            '<button class="toggle-btn' + (mode === 'tou' ? ' on' : '') + '" id="fixed-tou-toggle">' + (mode === 'tou' ? '&#10003; ON' : 'OFF') + '</button>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -1699,8 +1988,8 @@
                 '</div>' +
             '</div>' +
 
-            // Thresholds
-            '<div class="settings-section">' +
+            // Thresholds — hidden for non-wholesale or fixed/TOU contract
+            '<div class="settings-section" id="settings-thresholds" style="' + (_isNonWholesale || mode === 'fixed' || mode === 'tou' ? 'display:none' : '') + '">' +
                 '<h3>' + t('settings.thresholds', 'Thresholds') + '</h3>' +
                 '<div class="form-row">' +
                     '<div class="form-group">' +
@@ -1767,8 +2056,7 @@
             '</div>';
 
         // Bind events
-        var modeRadios = document.querySelectorAll('input[name="pricing-mode"]');
-        modeRadios.forEach(function(r) { r.onchange = updateModeVisibility; });
+        // Contract type dropdown replaces old radio buttons
         document.getElementById('cfg-zone').onchange = function() { onZoneChange(this.value); };
         document.getElementById('cfg-debug-toggle').onclick = function() { this.classList.toggle('on'); this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF'; };
         document.getElementById('cfg-telemetry-toggle').onclick = function() {
@@ -1785,6 +2073,23 @@
             }
         };
         document.getElementById('btnSave').onclick = saveSettings;
+
+        // Fixed-section TOU toggle for non-wholesale zones
+        var fixedTouToggle = document.getElementById('fixed-tou-toggle');
+        if (fixedTouToggle) {
+            fixedTouToggle.onclick = function() {
+                this.classList.toggle('on');
+                this.innerHTML = this.classList.contains('on') ? '&#10003; ON' : 'OFF';
+                var touSection = document.getElementById('mode-tou-section');
+                if (touSection) touSection.style.display = this.classList.contains('on') ? '' : 'none';
+                // Pre-fill TOU rates + schedule from first preset when toggling on
+                if (this.classList.contains('on')) {
+                    // Click the first preset button to apply schedule + pre-fill rates
+                    var firstPresetBtn = document.querySelector('.tou-preset-btn');
+                    if (firstPresetBtn) firstPresetBtn.click();
+                }
+            };
+        }
 
         // TOU event bindings
         var touToggle = document.getElementById('tou-toggle-midpeak');
@@ -1805,16 +2110,31 @@
             touAddBtn.onclick = function() { addTOUPeriod(); };
         }
         renderTOUPeriods();
-        // Load presets for current zone
+        // Auto-detect zone from GPS on settings load, then apply zone defaults
         var curZone = document.getElementById('cfg-zone');
-        if (curZone && curZone.value) loadTOUPresets(curZone.value);
+        (async function() {
+            if (curZone && curZone.value) {
+                // Try GPS zone detection — overrides saved zone if GPS gives a more specific match
+                try {
+                    var detectData = await fetchAPI('api/zone-detect');
+                    if (detectData.detected && detectData.zone && detectData.zone !== curZone.value) {
+                        curZone.value = detectData.zone;
+                        var detectResult = document.getElementById('detectZoneResult');
+                        if (detectResult) {
+                            detectResult.style.color = '#0d9488';
+                            var detectText = detectData.name + ' (' + detectData.zone + ')';
+                            if (detectData.distance_km) detectText += ' — ' + detectData.distance_km + ' km';
+                            detectResult.textContent = detectText;
+                        }
+                    }
+                } catch(e) { /* GPS detect failed — use saved zone */ }
+                loadTOUPresets(curZone.value);
+                onZoneChange(curZone.value);
+            }
+        })();
 
         document.getElementById('btnRestartWizard').onclick = function() {
-            fetch('api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ onboarding_completed: false })
-            }).then(function() {
+            persistConfig({ onboarding_completed: false }).then(function() {
                 localStorage.removeItem('onboarding_completed');
                 showWizard();
             });
@@ -1832,8 +2152,7 @@
             var result = document.getElementById('detectZoneResult');
             result.textContent = '...';
             try {
-                var resp = await fetch('api/zone-detect');
-                var data = await resp.json();
+                var data = await fetchAPI('api/zone-detect');
                 if (data.detected) {
                     document.getElementById('cfg-zone').value = data.zone;
                     result.style.color = '#0d9488';
@@ -1844,7 +2163,7 @@
                         result.style.color = '#d97706';
                         result.innerHTML = detectText +
                             '<div style="margin-top:6px;padding:8px 12px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.9em">' +
-                            '⚠️ ' + tReplace('settings.zone_mismatch',
+                            '⚠️ ' + tReplace('wizard.zone_mismatch',
                                 {detected: data.detected_country_name || data.country, ha_country: data.ha_country},
                                 'Your location appears to be in ' + (data.detected_country_name || data.country) +
                                 ', but your HA is configured for ' + data.ha_country +
@@ -1875,10 +2194,6 @@
             }).catch(function() {});
         }
 
-        // Calibrate button
-        var calBtn = document.getElementById('btnCalibrate');
-        if (calBtn) calBtn.onclick = doCalibrate;
-
         // Supplier dropdown — fetch and populate
         loadSupplierDropdown(c.supplier_id || '');
 
@@ -1890,8 +2205,6 @@
             };
         }
 
-        // Initial Enever visibility
-        updateModeVisibility();
     }
 
     // --- TOU Schedule Builder ---
@@ -2011,9 +2324,13 @@
                 var html = '<label class="form-label" style="margin-bottom:6px">' + t('settings.tou_presets', 'Presets') + '</label>' +
                     '<div style="display:flex;gap:6px;flex-wrap:wrap">';
                 data.tou_presets.forEach(function(preset) {
+                    var translatedName = t('settings.tou_preset_' + preset.id, '');
+                    var displayName = translatedName && translatedName !== preset.name
+                        ? translatedName + ' (' + preset.name + ')'
+                        : preset.name;
                     html += '<button type="button" class="tou-preset-btn" data-preset=\'' + JSON.stringify(preset).replace(/'/g, '&#39;') + '\' ' +
                         'style="background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:0.82em;color:var(--accent);cursor:pointer">' +
-                        esc(preset.name) + '</button>';
+                        esc(displayName) + '</button>';
                 });
                 html += '</div>';
                 presetsRow.innerHTML = html;
@@ -2044,6 +2361,16 @@
         if (hasMidpeak && midRow) {
             midRow.style.display = '';
             if (midToggle) midToggle.textContent = t('settings.tou_remove_midpeak', 'Remove mid-peak rate');
+        }
+        // Pre-fill TOU rates from regulated tariffs when available
+        if (_settingsRegulatedTariffs && _settingsRegulatedTariffs.tou && preset.id) {
+            var regRates = _settingsRegulatedTariffs.tou[preset.id];
+            if (regRates) {
+                var peakEl = document.getElementById('cfg-tou-peak');
+                var offpeakEl = document.getElementById('cfg-tou-offpeak');
+                if (peakEl) peakEl.value = regRates.peak || '';
+                if (offpeakEl) offpeakEl.value = regRates.offpeak || '';
+            }
         }
     }
 
@@ -2081,8 +2408,7 @@
         var zoneEl = document.getElementById('cfg-zone');
         var zone = zoneEl ? zoneEl.value : '';
         try {
-            var resp = await fetch('api/suppliers' + (zone ? '?zone=' + encodeURIComponent(zone) : ''));
-            _supplierList = await resp.json();
+            _supplierList = await fetchAPI('api/suppliers' + (zone ? '?zone=' + encodeURIComponent(zone) : ''));
         } catch(e) { _supplierList = []; }
         if (!_supplierList || _supplierList.length === 0) {
             section.style.display = 'none';
@@ -2100,61 +2426,15 @@
         select.onchange = function() {
             var sup = _supplierList.find(function(s) { return s.id === select.value; });
             if (sup) {
-                fetch('api/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ supplier_id: sup.id, supplier_markup: sup.markup })
-                });
+                persistConfig({ supplier_id: sup.id, supplier_markup: sup.markup });
                 currentConfig.supplier_markup = sup.markup;
                 currentConfig.supplier_id = sup.id;
             }
         };
     }
 
-    async function doCalibrate() {
-        var btn = document.getElementById('btnCalibrate');
-        var result = document.getElementById('calibrateResult');
-        var priceInput = document.getElementById('cfg-cal-price');
-        var userPrice = parseFloat(priceInput.value);
-
-        if (!userPrice || userPrice < 0.01 || userPrice > 2.0) {
-            result.innerHTML = '<span style="color:var(--danger)">Enter a price between 0.01 and 2.00 EUR/kWh</span>';
-            return;
-        }
-
-        btn.disabled = true;
-        result.textContent = t('settings.calibrating', 'Calibrating...');
-
-        try {
-            var resp = await fetch('api/calibrate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_price: userPrice })
-            });
-            var data = await resp.json();
-            if (!resp.ok) {
-                result.innerHTML = '<span style="color:var(--danger)">' + (data.error || t('settings.calibration_no_price')) + '</span>';
-                btn.disabled = false;
-                return;
-            }
-
-            var html = '<span style="color:var(--success)">' +
-                tReplace('settings.calibration_result', {
-                    synctacles: formatPrice(data.synctacles_price),
-                    user: formatPrice(data.user_price),
-                    margin: (data.margin >= 0 ? '+' : '') + formatPrice(data.margin)
-                }) + '</span><br>' +
-                '<span style="color:var(--success);font-weight:500">' + t('settings.calibration_saved') + '</span>';
-            if (data.warning) {
-                html += '<br><span style="color:var(--warning)">' + t('settings.calibration_warning') + '</span>';
-            }
-            result.innerHTML = html;
-            currentConfig.supplier_markup = data.margin;
-        } catch (e) {
-            result.innerHTML = '<span style="color:var(--danger)">' + t('settings.connection_error') + '</span>';
-        }
-        btn.disabled = false;
-    }
+    // Calibration UI removed — elements no longer in HTML
+    async function doCalibrate() { /* no-op */ }
 
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -2165,9 +2445,21 @@
         status.textContent = t('settings.saving', 'Saving...');
         status.style.color = 'var(--text-muted)';
 
+        // Determine pricing_mode from contract type dropdown
+        var contractType = document.getElementById('cfg-contract-type');
         var mode = 'auto';
-        var modeEl = document.querySelector('input[name="pricing-mode"]:checked');
-        if (modeEl) mode = modeEl.value;
+        if (contractType && contractType.value === 'fixed') {
+            var touToggle = document.getElementById('fixed-tou-toggle');
+            mode = (touToggle && touToggle.classList.contains('on')) ? 'tou' : 'fixed';
+        } else {
+            // Dynamic: check if external sensor is configured
+            var p1Manual = document.getElementById('cfg-p1-manual');
+            if (p1Manual && p1Manual.value.trim()) {
+                mode = 'external_sensor';
+            } else {
+                mode = 'auto';
+            }
+        }
 
         var payload = {
             pricing_mode: mode,
@@ -2186,15 +2478,12 @@
             if (supplierEl) {
                 payload.supplier_id = supplierEl.value;
             }
-        } else if (mode === 'manual') {
-            payload.manual_vat_rate = parseFloat(document.getElementById('cfg-manual-vat').value) || 0;
-            payload.manual_energy_tax = parseFloat(document.getElementById('cfg-manual-etax').value) || 0;
-            payload.manual_surcharges = parseFloat(document.getElementById('cfg-manual-surcharges').value) || 0;
-            payload.manual_network_tariff = parseFloat(document.getElementById('cfg-manual-network').value) || 0;
-            payload.supplier_markup = parseFloat(document.getElementById('cfg-manual-markup').value) || 0;
         } else if (mode === 'external_sensor') {
-            var p1Manual = document.getElementById('cfg-p1-manual');
-            payload.p1_sensor_entity = p1Manual ? p1Manual.value.trim() : '';
+            var p1ManualSave = document.getElementById('cfg-p1-manual');
+            payload.p1_sensor_entity = p1ManualSave ? p1ManualSave.value.trim() : '';
+            // Also save supplier for external_sensor mode
+            var supplierEl2 = document.getElementById('cfg-supplier');
+            if (supplierEl2) payload.supplier_id = supplierEl2.value;
         } else if (mode === 'fixed') {
             payload.fixed_rate_price = parseFloat(document.getElementById('cfg-fixed-price').value) || 0;
         } else if (mode === 'tou') {
@@ -2209,11 +2498,6 @@
             var touPeriods = collectTOUPeriods();
             var touCfg = {rates: touRates, periods: touPeriods, default: 'offpeak'};
             payload.tou_config = JSON.stringify(touCfg);
-        } else if (mode === 'enever') {
-            var tokenEl = document.getElementById('cfg-enever-token');
-            var levEl = document.getElementById('cfg-enever-lev');
-            payload.enever_token = tokenEl ? tokenEl.value.trim() : '';
-            payload.enever_leverancier = levEl ? levEl.value : 'frank';
         }
 
         try {
@@ -2227,20 +2511,8 @@
                 if (result.status === 'restarting') {
                     status.textContent = t('settings.restarting', 'Applying new settings...');
                     status.style.color = '#0d9488';
-                    // Show restart indicator and auto-reload
-                    document.getElementById('content').innerHTML =
-                        '<div class="loading"><div class="spinner"></div>' +
-                        '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
-                        '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
-                    // Switch to dashboard tab to show the restart message
                     document.querySelector('.tab-btn[data-tab="dashboard"]').click();
-                    var pollRestart = function() {
-                        fetch('api/version').then(function(r) {
-                            if (r.ok) setTimeout(function() { location.reload(); }, 500);
-                            else setTimeout(pollRestart, 2000);
-                        }).catch(function() { setTimeout(pollRestart, 2000); });
-                    };
-                    setTimeout(pollRestart, 3000);
+                    pollUntilReady();
                     return;
                 }
                 status.textContent = t('settings.saved', 'Settings saved.');
@@ -2251,6 +2523,17 @@
                 status.style.color = '#dc2626';
             }
         } catch (err) {
+            // Connection failed — likely the app restarted (zone/mode change triggers restart).
+            // Check if any restart-triggering field changed; if so, poll for restart completion.
+            var savedZone = document.getElementById('cfg-zone') ? document.getElementById('cfg-zone').value : '';
+            var savedMode = mode;
+            var restartLikely = savedZone !== (currentConfig.zone || '') || savedMode !== (currentConfig.pricing_mode || '');
+            if (restartLikely) {
+                status.textContent = t('settings.restarting', 'Applying new settings...');
+                status.style.color = '#0d9488';
+                pollUntilReady();
+                return;
+            }
             status.textContent = t('settings.connection_error', 'Connection error');
             status.style.color = '#dc2626';
         }
@@ -2296,8 +2579,7 @@
     async function loadFeedbackSysInfo() {
         feedbackLoaded = true;
         try {
-            var resp = await fetch('api/feedback/sysinfo');
-            var info = await resp.json();
+            var info = await fetchAPI('api/feedback/sysinfo');
             var html = '<dl>';
             var labelKeys = ['addon_version','zone','tier','ha_version','ha_arch','ha_machine'];
             for (var i = 0; i < labelKeys.length; i++) {
@@ -2388,9 +2670,7 @@
         var msg = document.getElementById('cacheMsg');
         msg.textContent = '';
         try {
-            var resp = await fetch('api/cache');
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            var data = await resp.json();
+            var data = await fetchAPI('api/cache');
             cacheLoaded = true;
 
             // Header meta
@@ -2586,11 +2866,7 @@
         localStorage.setItem('disclaimer_accepted', 'true');
         document.getElementById('disclaimerOverlay').classList.remove('visible');
         // Persist to backend so it survives HA ingress token changes
-        fetch('api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ disclaimer_accepted: true })
-        });
+        persistConfig({ disclaimer_accepted: true });
         if (localStorage.getItem('privacy_shown') !== 'true') {
             showPrivacyModal();
         } else if (localStorage.getItem('onboarding_completed') !== 'true') {
@@ -2641,11 +2917,7 @@
         localStorage.setItem('privacy_shown', 'true');
         hidePrivacyModal();
         // Persist to backend so it survives HA ingress token changes
-        fetch('api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ privacy_accepted: true })
-        });
+        persistConfig({ privacy_accepted: true });
         // Chain into onboarding wizard if not completed yet
         if (localStorage.getItem('onboarding_completed') !== 'true') {
             showWizard();
@@ -2664,11 +2936,7 @@
         if (e.key === 'Escape' && document.getElementById('privacyOverlay').classList.contains('visible')) {
             localStorage.setItem('privacy_shown', 'true');
             hidePrivacyModal();
-            fetch('api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ privacy_accepted: true })
-            });
+            persistConfig({ privacy_accepted: true });
             if (localStorage.getItem('onboarding_completed') !== 'true') {
                 showWizard();
             }
@@ -2724,31 +2992,29 @@
     // --- Onboarding wizard ---
     var _wizardData = null;
     var _wizardStep = 0;
-    var _wizardTaxVerified = false;
     var _wizardSelectedCountry = null;
     var _wizardSelectedZone = null;
+    var _wizardSelectedZoneData = null; // full zone object from wizard data (has_wholesale, regulated_tariffs, etc.)
     var _wizardSelectedSupplier = null;
     var _wizardMarkup = 0;
     var _wizardUseSensor = false;
     var _wizardSensorEntity = null;
-    var _wizardEneverMode = false;
     var _wizardIsNL = false;
+    var _wizardTariffType = 'variable'; // 'variable', 'fixed', 'tou'
+    var _wizardFixedRate = 0;
+    var _wizardTOUPreset = null;
+    var _wizardTOURates = { peak: 0, offpeak: 0, midpeak: 0 };
+    var _wizardTaxOverrides = null; // null = use defaults, object = user overrides
+    var _wizardEneverToken = '';
+    var _wizardEneverLeverancier = '';
 
     function wizardPopulateI18n() {
         document.getElementById('wizardTitle').textContent = t('wizard.title', 'Welcome to Synctacles Energy');
         document.getElementById('wizardSubtitle').textContent = t('wizard.subtitle', "Let's set up your energy prices in a few steps.");
-        document.getElementById('wizStep0').textContent = t('wizard.step_region', 'Region');
-        document.getElementById('wizStep1').textContent = 'Enever';
-        document.getElementById('wizStep2').textContent = t('wizard.step_supplier', 'Supplier');
-        document.getElementById('wizStep3').textContent = t('wizard.step_verify', 'Verify');
-        document.getElementById('wizStep4').textContent = t('wizard.step_confirm', 'Done');
+        document.getElementById('wizStep0').textContent = t('wizard.step_zone', 'Zone');
+        document.getElementById('wizStep1').textContent = t('wizard.step_setup', 'Setup');
         document.getElementById('wizRegionTitle').textContent = t('wizard.select_country', 'Select your country');
         document.getElementById('wizRegionWhy').textContent = t('wizard.region_why', 'Your location determines energy tariffs, taxes, and the timing of GO/WAIT/AVOID actions. Please verify your region is correct.');
-        document.getElementById('wizSupplierTitle').textContent = t('wizard.select_supplier', 'Select your energy supplier');
-        document.getElementById('wizMarkupLabel').textContent = t('wizard.markup_label', 'Supplier markup (EUR/kWh)');
-        document.getElementById('wizMarkupHint').textContent = t('wizard.markup_hint', "Your supplier's per-kWh markup on top of wholesale prices.");
-        document.getElementById('wizVerifyTitle').textContent = t('wizard.step_verify', 'Verify Prices');
-        document.getElementById('wizVerifyIntro').textContent = t('wizard.verify_intro', 'We have tax data for your region. Does this look correct?');
         document.getElementById('wizPrevBtn').textContent = t('wizard.btn_prev', 'Back');
         document.getElementById('wizNextBtn').textContent = t('wizard.btn_next', 'Next');
         document.getElementById('wizSkipBtn').textContent = t('wizard.btn_skip', 'Skip setup');
@@ -2757,8 +3023,7 @@
     async function showWizard() {
         wizardPopulateI18n();
         try {
-            var resp = await fetch('api/wizard-data');
-            _wizardData = await resp.json();
+            _wizardData = await fetchAPI('api/wizard-data');
         } catch(e) {
             // If wizard data fails, skip wizard entirely
             wizardComplete(false);
@@ -2831,6 +3096,7 @@
 
         if (country.zones.length === 1) {
             _wizardSelectedZone = country.zones[0].code;
+            _wizardSelectedZoneData = country.zones[0];
             zoneHint.textContent = t('wizard.single_zone', 'Your country has one bidding zone.');
             zoneWrap.style.display = 'block';
             zoneSel.style.display = 'none';
@@ -2849,6 +3115,7 @@
                     if (z.code === _wizardData.detected_zone) zoneSel.value = z.code;
                 });
                 _wizardSelectedZone = zoneSel.value || null;
+                _wizardSelectedZoneData = wizardFindZoneData(_wizardSelectedZone);
             }
             zoneWrap.style.display = 'block';
             zoneSel.style.display = '';
@@ -2861,278 +3128,33 @@
     };
     document.getElementById('wizZone').onchange = function() {
         _wizardSelectedZone = this.value || null;
+        _wizardSelectedZoneData = wizardFindZoneData(_wizardSelectedZone);
     };
 
-    function wizardPopulateSuppliers() {
-        // Show detected sensor if available
-        var sensorDiv = document.getElementById('wizSensorDetected');
-        var sensor = _wizardData.detected_sensor;
-        var wholesale = _wizardData.wholesale_kwh || 0;
-        if (sensor && sensor.state > 0) {
-            var sensorPriceCt = (sensor.state * 100).toFixed(2);
-            // Use supplier hint for cleaner display name (e.g. "Zonneplan" instead of raw friendly_name)
-            var sensorLabel = sensor.supplier_hint
-                ? sensor.supplier_hint.charAt(0).toUpperCase() + sensor.supplier_hint.slice(1)
-                : sensor.name;
-            document.getElementById('wizSensorName').textContent = '\u2713 ' + tReplace('wizard.sensor_detected', {sensor: sensorLabel}, 'Price sensor detected: ' + sensorLabel);
-            document.getElementById('wizSensorPrice').textContent = tReplace('wizard.sensor_price', {price: sensorPriceCt}, 'Current sensor price: ' + sensorPriceCt + ' ct/kWh');
-            document.getElementById('wizSensorCalcResult').style.display = 'none';
-            document.getElementById('wizSensorUseBtn').textContent = t('wizard.sensor_use', 'Use this sensor');
-            sensorDiv.style.display = 'block';
-        } else {
-            sensorDiv.style.display = 'none';
-        }
-
-        // Populate supplier dropdown — prefer crowdsource data over static
-        var sel = document.getElementById('wizSupplier');
-        sel.innerHTML = '<option value="">' + t('settings.supplier_none', 'Not selected / Other') + '</option>';
-        var cs = _wizardData.crowdsource_suppliers;
-        var csSuppliers = cs && cs.suppliers && cs.suppliers.length > 0 ? cs.suppliers : null;
-        var addedIds = {};
-        if (csSuppliers) {
-            // Community-sourced suppliers with live markup data
-            csSuppliers.forEach(function(s) {
-                var sid = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-                if (addedIds[sid]) return;
-                addedIds[sid] = true;
-                var opt = document.createElement('option');
-                opt.value = sid;
-                var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
-                opt.textContent = s.name + (mkCt ? ' (+' + mkCt + ' ct/kWh)' : '');
-                opt.dataset.markup = s.markup_kwh || 0;
-                sel.appendChild(opt);
-            });
-            // Add emerging suppliers (unconfirmed, community-detected)
-            if (cs.emerging && cs.emerging.length > 0) {
-                cs.emerging.forEach(function(s) {
-                    var sid = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-                    if (addedIds[sid]) return;
-                    addedIds[sid] = true;
-                    var opt = document.createElement('option');
-                    opt.value = sid;
-                    var mkCt = s.markup_kwh != null ? (s.markup_kwh * 100).toFixed(2) : null;
-                    opt.textContent = s.name + (mkCt ? ' (~' + mkCt + ' ct/kWh)' : '');
-                    opt.dataset.markup = s.markup_kwh || 0;
-                    sel.appendChild(opt);
-                });
-            }
-        } else if (_wizardSelectedCountry && _wizardSelectedCountry.suppliers) {
-            // Fallback: static supplier list from country config
-            _wizardSelectedCountry.suppliers.forEach(function(s) {
-                var opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name + (s.markup > 0 ? ' (+' + (s.markup * 100).toFixed(2) + ' ct/kWh)' : '');
-                opt.dataset.markup = s.markup;
-                sel.appendChild(opt);
-            });
-        }
-        // Add "not listed" option
-        var notListed = document.createElement('option');
-        notListed.value = '__custom';
-        notListed.textContent = t('wizard.supplier_not_listed', 'My supplier is not listed');
-        sel.appendChild(notListed);
-
-        // Auto-select supplier if sensor has a supplier hint
-        if (sensor && sensor.supplier_hint) {
-            for (var i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].value.toLowerCase() === sensor.supplier_hint.toLowerCase()) {
-                    sel.value = sel.options[i].value;
-                    _wizardSelectedSupplier = sel.options[i].value;
-                    _wizardMarkup = parseFloat(sel.options[i].dataset.markup) || 0;
-                    break;
-                }
-            }
-        }
-
-        // Show EMA community markup hint if available
-        var emaHint = document.getElementById('wizEmaHint');
-        var ema = _wizardData.ema_markup;
-        if (ema && ema.available && ema.markup_kwh != null) {
-            var emaCt = (ema.markup_kwh * 100).toFixed(2);
-            var confLabel = ema.confidence === 'high' ? t('wizard.ema_confidence_high', 'high confidence')
-                         : ema.confidence === 'medium' ? t('wizard.ema_confidence_medium', 'medium confidence')
-                         : t('wizard.ema_confidence_low', 'limited data');
-            emaHint.innerHTML = '<span style="color:var(--success)">\u2139</span> ' +
-                tReplace('wizard.ema_hint', {markup: emaCt, confidence: confLabel, reporters: ema.reporters},
-                    'Community data suggests ' + emaCt + ' ct/kWh markup (' + confLabel + ', ' + ema.reporters + ' users)');
-            emaHint.style.display = '';
-        } else {
-            emaHint.style.display = 'none';
-        }
-    }
-
-    // "Use this sensor" button — sets pricing to external_sensor mode
-    document.getElementById('wizSensorUseBtn').onclick = function() {
-        var sensor = _wizardData.detected_sensor;
-        if (!sensor) return;
-        _wizardUseSensor = true;
-        _wizardSensorEntity = sensor.entity_id;
-        // No markup calculation needed — sensor provides complete consumer price
-        // Visual feedback
-        this.textContent = '\u2713 ' + t('wizard.sensor_use', 'Use this sensor');
-        this.style.background = 'var(--success)';
-    };
-
-    document.getElementById('wizSupplier').onchange = function() {
-        var val = this.value;
-        var markupWrap = document.getElementById('wizMarkupWrap');
-        if (val === '__custom') {
-            markupWrap.style.display = 'block';
-            _wizardSelectedSupplier = null;
-            _wizardMarkup = parseFloat(document.getElementById('wizMarkupInput').value) || 0;
-        } else if (val) {
-            markupWrap.style.display = 'none';
-            _wizardSelectedSupplier = val;
-            var opt = this.options[this.selectedIndex];
-            _wizardMarkup = parseFloat(opt.dataset.markup) || 0;
-        } else {
-            markupWrap.style.display = 'none';
-            _wizardSelectedSupplier = null;
-            _wizardMarkup = 0;
-        }
-    };
-    document.getElementById('wizMarkupInput').oninput = function() {
-        _wizardMarkup = parseFloat(this.value) || 0;
-    };
-
-    function wizardPopulateTax() {
-        var rows = document.getElementById('wizTaxRows');
-        rows.innerHTML = '';
-        var tax = _wizardSelectedCountry ? _wizardSelectedCountry.tax_defaults : null;
-
-        // Show selected supplier as confirmation from step 2
-        if (_wizardSelectedSupplier || _wizardUseSensor) {
-            var supRow = document.createElement('div');
-            supRow.className = 'wizard-tax-row';
-            supRow.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value" style="color:var(--success)"></span>';
-            supRow.querySelector('.wizard-tax-label').textContent = t('wizard.summary_supplier', 'Supplier');
-            var supName = _wizardUseSensor
-                ? (_wizardData.detected_sensor && _wizardData.detected_sensor.supplier_hint
-                    ? _wizardData.detected_sensor.supplier_hint.charAt(0).toUpperCase() + _wizardData.detected_sensor.supplier_hint.slice(1) + ' (sensor)'
-                    : t('settings.mode_external_sensor', 'External Sensor'))
-                : _wizardSelectedSupplier;
-            if (!_wizardUseSensor && _wizardMarkup > 0) {
-                supName += ' (+' + (_wizardMarkup * 100).toFixed(2) + ' ct/kWh)';
-            }
-            supRow.querySelector('.wizard-tax-value').textContent = supName;
-            rows.appendChild(supRow);
-        }
-
-        if (!tax) {
-            rows.innerHTML += '<p style="font-size:0.82em;color:var(--text-faint)">' + t('tax.no_data', 'Tax data not available.') + '</p>';
-            return;
-        }
-        // Only show non-zero tax items
-        var items = [
-            { label: t('wizard.verify_vat', 'VAT rate'), value: (tax.vat_rate * 100).toFixed(0) + '%', show: tax.vat_rate > 0 },
-            { label: t('wizard.verify_energy_tax', 'Energy tax'), value: (tax.energy_tax * 100).toFixed(3) + ' ct/kWh', show: tax.energy_tax > 0 },
-            { label: t('wizard.verify_surcharges', 'Surcharges'), value: (tax.surcharges * 100).toFixed(3) + ' ct/kWh', show: tax.surcharges > 0 },
-            { label: t('wizard.verify_network', 'Network tariff (avg.)'), value: (tax.network_tariff_avg * 100).toFixed(2) + ' ct/kWh', show: tax.network_tariff_avg > 0 }
-        ];
-        items.forEach(function(item) {
-            if (!item.show) return;
-            var row = document.createElement('div');
-            row.className = 'wizard-tax-row';
-            row.innerHTML = '<span class="wizard-tax-label"></span><span class="wizard-tax-value"></span>';
-            row.querySelector('.wizard-tax-label').textContent = item.label;
-            row.querySelector('.wizard-tax-value').textContent = item.value;
-            rows.appendChild(row);
+    function wizardFindZoneData(zoneCode) {
+        if (!zoneCode || !_wizardSelectedCountry) return null;
+        var found = null;
+        _wizardSelectedCountry.zones.forEach(function(z) {
+            if (z.code === zoneCode) found = z;
         });
+        return found;
     }
 
-    function wizardPopulateSummary() {
-        var rows = document.getElementById('wizSummaryRows');
-        rows.innerHTML = '';
-        var modeLabel = _wizardUseSensor
-            ? t('settings.mode_external_sensor', 'External Sensor')
-            : t('settings.mode_auto', 'Synctacles Auto');
-        var supplierLabel = _wizardUseSensor
-            ? (_wizardData.detected_sensor ? _wizardData.detected_sensor.name : 'Sensor')
-            : (_wizardSelectedSupplier || t('settings.supplier_none', 'None'));
-        var items = [
-            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
-            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierLabel },
-            { label: t('wizard.summary_mode', 'Pricing mode'), value: modeLabel }
-        ];
-        items.forEach(function(item) {
-            var row = document.createElement('div');
-            row.className = 'wizard-summary-row';
-            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
-            row.querySelector('.wizard-summary-label').textContent = item.label;
-            row.querySelector('.wizard-summary-value').textContent = item.value;
-            rows.appendChild(row);
-        });
-        var thanks = document.getElementById('wizSummaryThanks');
-        if (_wizardTaxVerified) {
-            thanks.textContent = t('wizard.summary_thanks', 'Thank you for verifying your price data.');
-        } else {
-            thanks.textContent = t('wizard.summary_no_verify', 'You can always verify or adjust your tax data in Settings.');
-        }
-        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
-    }
+    // Supplier dropdown, Enever, tariff type, EMA — all removed.
+    // Wizard is now 2 steps: Zone → Setup (sensor detect + contract type).
+    function wizardPopulateSuppliers() { /* no-op — handled by wizardShowStep */ }
+    function wizardPopulateEnever() { /* no-op */ }
+    function wizardPopulateTariffType() { /* no-op */ }
+    function wizardUpdateTariffCards() { /* no-op */ }
 
-    function wizardPopulateEnever() {
-        // Populate Enever leverancier dropdown
-        var sel = document.getElementById('wizEneverSupplier');
-        sel.innerHTML = '<option value="">' + t('wizard.enever_select_supplier', 'Kies je leverancier') + '</option>';
-        var sortedKeys = Object.keys(supplierNames).sort(function(a, b) {
-            return (supplierNames[a] || a).localeCompare(supplierNames[b] || b);
-        });
-        sortedKeys.forEach(function(key) {
-            var opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = supplierNames[key] || key;
-            sel.appendChild(opt);
-        });
-
-        // Show sensor info when a day-ahead sensor is detected (complementary to Enever)
-        var adviceDiv = document.getElementById('wizEneverSensorAdvice');
-        var sensor = _wizardData && _wizardData.detected_sensor;
-        if (sensor && sensor.has_forecast) {
-            var sensorName = sensor.name || sensor.entity_id;
-            var sensorPrice = (sensor.state * 100).toFixed(2);
-
-            var html = '<strong style="color:var(--accent)">' +
-                t('wizard.sensor_detected_title', 'Sensor detected') + '</strong><br>' +
-                tReplace('wizard.sensor_enever_info',
-                    { sensor: sensorName, price: sensorPrice },
-                    '<strong>' + sensorName + '</strong> detected (current: <strong>' + sensorPrice + ' ct/kWh</strong>). ' +
-                    'When you also configure Enever below, the dashboard will show the price difference between your sensor and Enever.');
-            adviceDiv.innerHTML = html;
-            adviceDiv.style.display = '';
-            // Store sensor entity for delta tracking (saved alongside Enever config)
-            _wizardSensorEntity = sensor.entity_id;
-        } else {
-            adviceDiv.style.display = 'none';
-        }
-    }
-
-
-    // Show leverancier dropdown when token is entered, update Next button
-    function wizEneverUpdateBtn() {
-        var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
-        var hasLev = !!document.getElementById('wizEneverSupplier').value;
-        var nextBtn = document.getElementById('wizNextBtn');
-        if (_wizardStep === 1) {
-            nextBtn.textContent = (hasToken && hasLev)
-                ? t('wizard.btn_start', 'Start using Synctacles')
-                : t('wizard.enever_skip', 'Continue without Enever');
-        }
-    }
-    document.getElementById('wizEneverToken').oninput = function() {
-        wizEneverUpdateBtn();
-    };
-    document.getElementById('wizEneverSupplier').onchange = function() {
-        wizEneverUpdateBtn();
-    };
+    function wizardPopulateSummary() { /* no-op — wizard completes at step 1 */ }
 
     function wizardShowStep(step) {
         _wizardStep = step;
-        // Show/hide Enever step tab for NL only
-        document.getElementById('wizStep1').style.display = _wizardIsNL ? '' : 'none';
-        for (var i = 0; i <= 4; i++) {
+        for (var i = 0; i <= 1; i++) {
             var panel = document.getElementById('wizardStep' + i);
             var stepEl = document.getElementById('wizStep' + i);
+            if (!panel || !stepEl) continue;
             if (i === step) {
                 panel.classList.add('active');
                 stepEl.classList.add('active');
@@ -3144,106 +3166,71 @@
                 else stepEl.classList.remove('done');
             }
         }
-        // Populate step-specific data
-        if (step === 1) wizardPopulateEnever();
-        if (step === 2) wizardPopulateSuppliers();
-        if (step === 3) wizardPopulateTax();
-        if (step === 4 && !_wizardEneverMode) wizardPopulateSummary();
+
+        // Step 1: populate sensor detect + contract type
+        if (step === 1) {
+            var sensor = _wizardData ? _wizardData.detected_sensor : null;
+            var sensorDiv = document.getElementById('wizSensorDetected');
+            var noSensorDiv = document.getElementById('wizNoSensor');
+            var contractWrap = document.getElementById('wizContractTypeWrap');
+
+            if (sensor) {
+                sensorDiv.style.display = '';
+                noSensorDiv.style.display = 'none';
+                var hint = sensor.supplier_hint || '';
+                document.getElementById('wizSensorDetectedTitle').textContent =
+                    '\u2713 ' + t('wizard.sensor_detected_title', 'Sensor detected');
+                document.getElementById('wizSensorName').textContent =
+                    (supplierNames[hint] || hint || sensor.entity_id);
+                var sensorPrice = sensor.price ? (sensor.price * 100).toFixed(2) + ' ct/kWh' : '';
+                document.getElementById('wizSensorPrice').textContent = sensorPrice;
+                document.getElementById('wizSensorExactMsg').textContent =
+                    t('wizard.sensor_exact_msg', 'Your energy price comes directly from your supplier. Prices are exact.');
+                _wizardUseSensor = true;
+            } else {
+                sensorDiv.style.display = 'none';
+                noSensorDiv.style.display = '';
+                _wizardUseSensor = false;
+            }
+
+            // Show contract type only for mixed zones (non-wholesale)
+            var zoneInfo = _wizardSelectedCountry;
+            var isNonWholesale = zoneInfo && zoneInfo.eic === '';
+            if (isNonWholesale && !sensor) {
+                contractWrap.style.display = '';
+            } else {
+                contractWrap.style.display = 'none';
+            }
+        }
 
         // Nav buttons
         document.getElementById('wizPrevBtn').style.display = step > 0 ? '' : 'none';
         var nextBtn = document.getElementById('wizNextBtn');
         if (step === 1) {
-            // Enever step: show appropriate button
-            var hasToken = (document.getElementById('wizEneverToken').value || '').trim().length > 5;
-            var hasLev = !!document.getElementById('wizEneverSupplier').value;
-            if (hasToken && hasLev) {
-                nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
-            } else {
-                nextBtn.textContent = t('wizard.enever_skip', 'Continue without Enever');
-            }
-        } else if (step === 3) {
-            nextBtn.textContent = t('wizard.verify_confirm', 'Looks correct');
-        } else if (step === 4) {
             nextBtn.textContent = t('wizard.btn_start', 'Start using Synctacles');
         } else {
             nextBtn.textContent = t('wizard.btn_next', 'Next');
         }
-        document.getElementById('wizSkipBtn').style.display = step < 4 ? '' : 'none';
+        document.getElementById('wizSkipBtn').style.display = step === 0 ? '' : 'none';
     }
 
     document.getElementById('wizNextBtn').onclick = function() {
         if (_wizardStep === 0) {
             if (!_wizardSelectedZone) return;
             _wizardIsNL = _wizardSelectedZone === 'NL';
-            if (_wizardIsNL) {
-                wizardShowStep(1); // Enever step
-            } else {
-                wizardShowStep(2); // Skip Enever, go to supplier
-            }
+            wizardShowStep(1);
         } else if (_wizardStep === 1) {
-            // Enever step: check if user entered token + leverancier
-            var token = (document.getElementById('wizEneverToken').value || '').trim();
-            var lev = document.getElementById('wizEneverSupplier').value;
-            if (token.length > 5 && lev) {
-                // Enever complete — skip supplier/verify, go to Done
-                _wizardEneverMode = true;
-                wizardPopulateEneverSummary(token, lev);
-                wizardShowStep(4);
-            } else {
-                // No Enever — continue normal flow
-                _wizardEneverMode = false;
-                wizardShowStep(2);
-            }
-        } else if (_wizardStep === 2) {
-            wizardShowStep(3);
-        } else if (_wizardStep === 3) {
-            _wizardTaxVerified = true;
-            wizardShowStep(4);
-        } else if (_wizardStep === 4) {
             wizardComplete(true);
         }
     };
     document.getElementById('wizPrevBtn').onclick = function() {
-        if (_wizardStep === 2 && _wizardIsNL) {
-            wizardShowStep(1); // Back to Enever
-        } else if (_wizardStep === 2) {
-            wizardShowStep(0); // Back to Region (non-NL)
-        } else if (_wizardStep === 4 && _wizardEneverMode) {
-            wizardShowStep(1); // Back to Enever
-        } else if (_wizardStep > 0) {
+        if (_wizardStep > 0) {
             wizardShowStep(_wizardStep - 1);
         }
     };
     document.getElementById('wizSkipBtn').onclick = function() {
-        if (_wizardStep === 3) {
-            // Skip tax verification
-            _wizardTaxVerified = false;
-            wizardShowStep(4);
-        } else {
-            wizardComplete(false);
-        }
+        wizardComplete(false);
     };
-
-    function wizardPopulateEneverSummary(token, lev) {
-        var rows = document.getElementById('wizSummaryRows');
-        rows.innerHTML = '';
-        var items = [
-            { label: t('wizard.summary_zone', 'Zone'), value: _wizardSelectedZone || '—' },
-            { label: t('wizard.summary_mode', 'Pricing mode'), value: 'Enever' },
-            { label: t('wizard.summary_supplier', 'Supplier'), value: supplierNames[lev] || lev }
-        ];
-        items.forEach(function(item) {
-            var row = document.createElement('div');
-            row.className = 'wizard-summary-row';
-            row.innerHTML = '<span class="wizard-summary-label"></span><span class="wizard-summary-value"></span>';
-            row.querySelector('.wizard-summary-label').textContent = item.label;
-            row.querySelector('.wizard-summary-value').textContent = item.value;
-            rows.appendChild(row);
-        });
-        document.getElementById('wizSummaryTitle').textContent = t('wizard.summary_title', "You're all set!");
-        document.getElementById('wizSummaryThanks').textContent = t('wizard.enever_thanks', 'Enever provides exact supplier prices — no manual tax setup needed.');
-    }
 
     async function wizardComplete(saveSettings) {
         document.getElementById('wizardOverlay').classList.remove('visible');
@@ -3251,28 +3238,48 @@
         var configPayload = { onboarding_completed: true };
         if (saveSettings && _wizardSelectedZone) {
             configPayload.zone = _wizardSelectedZone;
-            if (_wizardEneverMode) {
-                // Enever mode — exact supplier prices via enever.nl
+
+            // Determine pricing mode from tariff type + Enever/sensor
+            var hasEnever = _wizardIsNL && _wizardEneverToken.length > 5 && _wizardEneverLeverancier;
+            if (_wizardUseSensor && _wizardSensorEntity) {
+                configPayload.pricing_mode = 'external_sensor';
+                configPayload.p1_sensor_entity = _wizardSensorEntity;
+            } else if (hasEnever) {
                 configPayload.pricing_mode = 'enever';
                 configPayload.enever_enabled = true;
-                configPayload.enever_token = (document.getElementById('wizEneverToken').value || '').trim();
-                configPayload.enever_leverancier = document.getElementById('wizEneverSupplier').value;
-                // Also save detected sensor for delta comparison on dashboard
+                configPayload.enever_token = _wizardEneverToken;
+                configPayload.enever_leverancier = _wizardEneverLeverancier;
                 if (_wizardSensorEntity) {
                     configPayload.p1_sensor_entity = _wizardSensorEntity;
                 }
-            } else if (_wizardUseSensor && _wizardSensorEntity) {
-                // External sensor mode — use the detected tariff sensor
-                configPayload.pricing_mode = 'external_sensor';
-                configPayload.p1_sensor_entity = _wizardSensorEntity;
+            } else if (_wizardTariffType === 'fixed') {
+                configPayload.pricing_mode = 'fixed';
+                configPayload.fixed_rate_price = _wizardFixedRate;
+            } else if (_wizardTariffType === 'tou' && _wizardTOUPreset) {
+                configPayload.pricing_mode = 'tou';
+                configPayload.tou_config = JSON.stringify({
+                    preset_id: _wizardTOUPreset.id,
+                    preset_name: _wizardTOUPreset.name,
+                    periods: _wizardTOUPreset.periods,
+                    rates: _wizardTOURates
+                });
             } else {
                 configPayload.pricing_mode = 'auto';
             }
+
             if (_wizardSelectedSupplier) {
                 configPayload.supplier_id = _wizardSelectedSupplier;
             }
             if (_wizardMarkup > 0) {
                 configPayload.supplier_markup = _wizardMarkup;
+            }
+
+            // Tax overrides (if user adjusted them)
+            if (_wizardTaxOverrides) {
+                if (_wizardTaxOverrides.vat_rate != null) configPayload.manual_vat_rate = _wizardTaxOverrides.vat_rate;
+                if (_wizardTaxOverrides.energy_tax != null) configPayload.manual_energy_tax = _wizardTaxOverrides.energy_tax;
+                if (_wizardTaxOverrides.surcharges != null) configPayload.manual_surcharges = _wizardTaxOverrides.surcharges;
+                if (_wizardTaxOverrides.network_tariff_avg != null) configPayload.manual_network_tariff = _wizardTaxOverrides.network_tariff_avg;
             }
         }
 
@@ -3291,43 +3298,31 @@
             restarting = true;
         }
 
-        // Submit crowdsource data if verified
-        if (saveSettings && _wizardTaxVerified && _wizardSelectedZone && _wizardSelectedCountry) {
-            var tax = _wizardSelectedCountry.tax_defaults;
-            if (tax) {
-                try {
-                    await fetch('api/crowdsource-submit', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            zone: _wizardSelectedZone,
-                            contract_type: 'dynamic',
-                            vat_pct: tax.vat_rate,
-                            energy_tax_kwh: tax.energy_tax,
-                            surcharges_kwh: tax.surcharges,
-                            network_cost_kwh: tax.network_tariff_avg || null,
-                            supplier_name: _wizardSelectedSupplier || '',
-                            total_markup_kwh: _wizardMarkup
-                        })
-                    });
-                } catch(e) { /* best-effort */ }
-            }
+        // Submit crowdsource data (best-effort)
+        if (saveSettings && _wizardSelectedZone && _wizardSelectedCountry) {
+            var tax = _wizardTaxOverrides || (_wizardSelectedCountry.tax_defaults || {});
+            var contractType = _wizardTariffType === 'fixed' ? 'fixed' : _wizardTariffType === 'tou' ? 'tou' : 'dynamic';
+            try {
+                await fetch('api/crowdsource-submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        zone: _wizardSelectedZone,
+                        contract_type: contractType,
+                        vat_pct: tax.vat_rate || 0,
+                        energy_tax_kwh: tax.energy_tax || 0,
+                        surcharges_kwh: tax.surcharges || 0,
+                        network_cost_kwh: tax.network_tariff_avg || null,
+                        supplier_name: _wizardSelectedSupplier || '',
+                        total_markup_kwh: _wizardMarkup
+                    })
+                });
+            } catch(e) { /* best-effort */ }
         }
 
         // If app is restarting, show waiting message and auto-reload
         if (restarting) {
-            document.getElementById('content').innerHTML =
-                '<div class="loading"><div class="spinner"></div>' +
-                '<p>' + t('settings.restarting', 'Applying new settings...') + '</p>' +
-                '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('settings.restarting_hint', 'The app is restarting. This page will reload automatically.') + '</p></div>';
-            // Poll until app is back, then reload
-            var pollRestart = function() {
-                fetch('api/version').then(function(r) {
-                    if (r.ok) setTimeout(function() { location.reload(); }, 500);
-                    else setTimeout(pollRestart, 2000);
-                }).catch(function() { setTimeout(pollRestart, 2000); });
-            };
-            setTimeout(pollRestart, 3000);
+            pollUntilReady();
             return;
         }
 
@@ -3335,6 +3330,24 @@
         _dashboardBuilt = false;
         _lastDashJson = '';
         loadDashboard();
+    }
+
+    function restoreActiveTab() {
+        // Restore active tab from localStorage on page load
+        var savedTab = localStorage.getItem('synctacles_energy_active_tab');
+        if (savedTab && savedTab !== 'dashboard') {
+            var tabToRestore = document.querySelector('[data-tab="' + savedTab + '"]');
+            if (tabToRestore) {
+                // Click saved tab instead of Dashboard
+                tabToRestore.click();
+            } else {
+                // Tab element not found — load Dashboard as fallback
+                loadDashboard();
+            }
+        } else {
+            // No saved tab or Dashboard was saved — load Dashboard
+            loadDashboard();
+        }
     }
 
     loadVersion().then(function() {
@@ -3387,7 +3400,10 @@
         } else if (!onboardingOk) {
             showWizard();
         } else {
-            loadDashboard();
+            // Onboarding done — restore active tab (or default to Dashboard)
+            _dashboardBuilt = false;
+            _lastDashJson = '';
+            restoreActiveTab();
         }
     });
     </script>

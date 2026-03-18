@@ -76,9 +76,13 @@ func fetchHarvestedProfile(ctx context.Context, installUUID string) *installProf
 // zones grouped by country, suppliers, tax defaults, current config, and detected zone.
 func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	type zoneEntry struct {
-		Code     string `json:"code"`
-		Name     string `json:"name"`
-		Timezone string `json:"timezone"`
+		Code             string `json:"code"`
+		Name             string `json:"name"`
+		Timezone         string `json:"timezone"`
+		HasWholesale     bool   `json:"has_wholesale"`
+		TaxDefaults      any    `json:"tax_defaults,omitempty"`
+		RegulatedTariffs any    `json:"regulated_tariffs,omitempty"`
+		TOUPresets       []any  `json:"tou_presets,omitempty"`
 	}
 	type countryEntry struct {
 		Code        string      `json:"code"`
@@ -87,6 +91,7 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 		Zones       []zoneEntry `json:"zones"`
 		Suppliers   []any       `json:"suppliers"`
 		TaxDefaults any         `json:"tax_defaults"`
+		TOUPresets  []any       `json:"tou_presets"`
 	}
 
 	// Build countries list from zone registry
@@ -114,6 +119,10 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 			if cc.TaxDefaults != nil {
 				taxDefaults = cc.TaxDefaults
 			}
+			touPresets := make([]any, 0, len(cc.TOUPresets))
+			for _, p := range cc.TOUPresets {
+				touPresets = append(touPresets, p)
+			}
 			entry = &countryEntry{
 				Code:        cc.Country,
 				Name:        cc.Name,
@@ -121,14 +130,29 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 				Zones:       []zoneEntry{},
 				Suppliers:   suppliers,
 				TaxDefaults: taxDefaults,
+				TOUPresets:  touPresets,
 			}
 			countriesMap[z.Country] = entry
 		}
-		entry.Zones = append(entry.Zones, zoneEntry{
-			Code:     z.Code,
-			Name:     z.Name,
-			Timezone: z.Timezone,
-		})
+		ze := zoneEntry{
+			Code:         z.Code,
+			Name:         z.Name,
+			Timezone:     z.Timezone,
+			HasWholesale: z.HasWholesale(),
+		}
+		// Zone-level tax defaults override country-level
+		if z.TaxDefaults != nil {
+			ze.TaxDefaults = z.TaxDefaults
+		}
+		if z.RegulatedTariffs != nil {
+			ze.RegulatedTariffs = z.RegulatedTariffs
+		}
+		if len(z.TOUPresets) > 0 {
+			for _, p := range z.TOUPresets {
+				ze.TOUPresets = append(ze.TOUPresets, p)
+			}
+		}
+		entry.Zones = append(entry.Zones, ze)
 	}
 
 	// Sort countries by name
@@ -322,9 +346,6 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 	supplierName := s.cfg.SupplierID
 	if supplierName == "" && harvestedProfile != nil {
 		supplierName = harvestedProfile.SupplierName
-	}
-	if supplierName == "" {
-		supplierName = s.cfg.EneverLeverancier
 	}
 	var emaMarkup *supplierEMA
 	if supplierName != "" && supplierZone != "" {

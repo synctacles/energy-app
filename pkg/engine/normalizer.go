@@ -7,19 +7,23 @@ import (
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
+// DeltaLookup returns the per-hour supplier delta for a given timestamp.
+// Returns (delta, true) when available, (0, false) when not.
+type DeltaLookup func(t time.Time) (float64, bool)
+
 // Normalizer converts wholesale prices to consumer prices.
 // Behavior depends on PricingMode:
 //   - "auto":     Worker consumer prices pass through; wholesale normalized via tax cache
 //   - "manual":   All prices normalized using user-defined ManualTaxProfile
 //   - "p1_meter": All prices pass through (consumer price comes from HA sensor, not here)
-//   - "enever":   Same as auto (Enever prices are already consumer)
 type Normalizer struct {
 	taxCache              *TaxProfileCache       // Worker-provided tax profiles (keyed by zone)
 	zoneRegistry          *models.ZoneRegistry   // Embedded fallback tax defaults
 	supplierMarkupOverride float64               // User calibration override (EUR/kWh)
-	pricingMode           string                 // "auto", "manual", "p1_meter", "enever"
+	pricingMode           string                 // "auto", "manual", "p1_meter"
 	manualTaxProfile      *models.TaxProfile     // User-defined components for manual mode
 	lastTaxSource         string                 // "worker", "embedded", "none" — for degraded banner
+	deltaLookup           DeltaLookup            // ADR_010: per-hour supplier delta (replaces fixed markup)
 }
 
 // NewNormalizer creates a normalizer backed by the Worker tax profile cache.
@@ -52,6 +56,12 @@ func (n *Normalizer) SetSupplierMarkup(markup float64) {
 	n.supplierMarkupOverride = markup
 }
 
+// SetDeltaLookup sets the per-hour delta lookup function (ADR_010).
+// When set, deltas are preferred over supplierMarkupOverride for wholesale→consumer conversion.
+func (n *Normalizer) SetDeltaLookup(fn DeltaLookup) {
+	n.deltaLookup = fn
+}
+
 // TaxSource returns the tax data source used for the last normalization.
 // "worker" = live Worker data, "embedded" = fallback defaults, "none" = no tax data.
 func (n *Normalizer) TaxSource() string {
@@ -82,12 +92,12 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 		n.lastTaxSource = "consumer"
 		return p
 	default:
-		// "auto" and "enever": consumer prices pass through, wholesale normalized via tax cache.
+		// "auto": consumer prices pass through, wholesale normalized via tax cache.
 		return n.normalizeAuto(p)
 	}
 }
 
-// normalizeAuto handles auto/enever mode: consumer prices pass through, wholesale → tax cache.
+// normalizeAuto handles auto mode: consumer prices pass through, wholesale → tax cache.
 func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 	if p.IsConsumer {
 		// Consumer prices already include taxes — no normalization needed.
@@ -95,9 +105,8 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		if n.lastTaxSource == "none" {
 			n.lastTaxSource = "consumer"
 		}
-		// Apply supplier markup in auto mode only: Enever already returns exact
-		// leverancier-specific prices, so adding markup would double-count.
-		if n.supplierMarkupOverride > 0 && n.pricingMode != "enever" {
+		// Apply supplier markup in auto mode
+		if n.supplierMarkupOverride > 0 {
 			vatRate := n.vatRateForZone(p.Zone)
 			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
 		}
@@ -119,7 +128,14 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 			Surcharges:       override.Surcharges,
 			NetworkTariffAvg: override.NetworkTariffAvg,
 		}
-		if n.supplierMarkupOverride > 0 {
+		// ADR_010: per-hour delta preferred over fixed markup
+		if n.deltaLookup != nil {
+			if d, ok := n.deltaLookup(p.Timestamp); ok {
+				tp.SupplierMarkup = d
+			} else if n.supplierMarkupOverride > 0 {
+				tp.SupplierMarkup = n.supplierMarkupOverride
+			}
+		} else if n.supplierMarkupOverride > 0 {
 			tp.SupplierMarkup = n.supplierMarkupOverride
 		}
 		p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)

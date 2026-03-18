@@ -22,9 +22,6 @@ options:
   go_threshold: -15
   avoid_threshold: 20
   best_window_hours: 3
-  enever_enabled: false
-  enever_token: ""
-  enever_leverancier: "frank"
   supplier_markup: 0
   manual_vat_rate: 0
   manual_energy_tax: 0
@@ -41,9 +38,6 @@ schema:
   avoid_threshold: float
   best_window_hours: "int(1,8)"
   supplier_markup: "float?"
-  enever_enabled: bool
-  enever_token: "str?"
-  enever_leverancier: "str?"
   manual_vat_rate: "float?"
   manual_energy_tax: "float?"
   manual_surcharges: "float?"

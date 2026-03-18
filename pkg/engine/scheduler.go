@@ -16,14 +16,16 @@ type FeatureGate interface {
 
 // Scheduler manages periodic price fetching and sensor updates.
 type Scheduler struct {
-	fallback    *FallbackManager
-	normalizer  *Normalizer
-	action      *ActionEngine
-	zone        string
-	updateFn    func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error
-	stopCh      chan struct{}
-	triggerCh   chan struct{}
-	gate        FeatureGate
+	fallback     *FallbackManager
+	normalizer   *Normalizer
+	action       *ActionEngine
+	zone         string
+	hasWholesale bool // false for non-ENTSO-E zones (e.g. Madeira, Azores)
+	pricingMode  string
+	updateFn     func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error
+	stopCh       chan struct{}
+	triggerCh    chan struct{}
+	gate         FeatureGate
 }
 
 // NewScheduler creates a price fetch scheduler.
@@ -106,9 +108,21 @@ func (s *Scheduler) TriggerFetch() {
 	}
 }
 
+// SetZoneInfo configures whether the zone has wholesale data and the pricing mode.
+// Non-wholesale zones in fixed/tou mode skip price fetching entirely.
+func (s *Scheduler) SetZoneInfo(hasWholesale bool, pricingMode string) {
+	s.hasWholesale = hasWholesale
+	s.pricingMode = pricingMode
+}
+
 func (s *Scheduler) fetchAndUpdate(ctx context.Context) {
 	if s.gate != nil && !s.gate.CanFetchPrices() {
 		slog.Debug("price fetch skipped — install purged")
+		return
+	}
+	// Non-wholesale zones with fixed/TOU pricing don't need external price data
+	if !s.hasWholesale && (s.pricingMode == "fixed" || s.pricingMode == "tou") {
+		slog.Debug("price fetch skipped — non-wholesale zone with regulated pricing", "zone", s.zone, "mode", s.pricingMode)
 		return
 	}
 

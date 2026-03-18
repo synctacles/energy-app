@@ -16,9 +16,10 @@ import (
 
 	"github.com/synctacles/energy-app/pkg/collector"
 	"github.com/synctacles/energy-app/internal/config"
+	"github.com/synctacles/energy-app/internal/delta"
 	"github.com/synctacles/energy-app/internal/gate"
 	"github.com/synctacles/energy-app/internal/heartbeat"
-	"github.com/synctacles/energy-app/internal/markup"
+
 	"github.com/synctacles/energy-app/pkg/countries"
 	"github.com/synctacles/energy-app/pkg/engine"
 	"github.com/synctacles/energy-app/internal/ha"
@@ -139,9 +140,9 @@ func main() {
 	}
 	slog.Info("loaded zone registry", "zones", len(registry.AllZones()))
 
-	// Auto-detect bidding zone from HA timezone when zone is empty or default.
-	// Triggers on first run (empty zone) or legacy default ("NL").
-	if (cfg.BiddingZone == "" || cfg.BiddingZone == "NL") && cfg.HasSupervisor() {
+	// Auto-detect bidding zone from HA timezone only when zone is empty (first run).
+	// Never override an explicitly chosen zone — the user's selection takes priority.
+	if cfg.BiddingZone == "" && cfg.HasSupervisor() {
 		sup := ha.NewSupervisorClient(cfg.SupervisorToken)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		haConfig, err := sup.GetConfig(ctx)
@@ -168,11 +169,6 @@ func main() {
 	if cfg.BiddingZone == "" {
 		cfg.BiddingZone = "NL"
 		slog.Warn("no zone configured and auto-detect failed, falling back to NL")
-	}
-
-	// Derive Enever settings from pricing mode
-	if cfg.PricingMode == config.ModeEnever && cfg.EneverToken != "" && cfg.BiddingZone == "NL" {
-		cfg.EneverEnabled = true
 	}
 
 	slog.Info("pricing mode", "mode", cfg.PricingMode, "zone", cfg.BiddingZone)
@@ -247,8 +243,18 @@ func main() {
 	if cfg.P1SensorEntity == "" && supervisor != nil {
 		if detected := hasensor.DetectTariffSensor(context.Background(), supervisor); detected != "" {
 			detectedTariffSensor = detected
+			cfg.P1SensorEntity = detected
+			// Auto-promote to external_sensor mode when a tariff sensor is found
+			if cfg.PricingMode == config.ModeAuto {
+				cfg.PricingMode = config.ModeExternalSensor
+				slog.Info("auto-promoted to external_sensor mode", "entity", detected)
+			}
 			slog.Info("tariff sensor auto-detected", "entity", detected)
 		}
+	} else if cfg.P1SensorEntity != "" && cfg.PricingMode == config.ModeAuto {
+		// User configured a sensor entity but mode is auto (e.g. after Settings simplification)
+		cfg.PricingMode = config.ModeExternalSensor
+		slog.Info("auto-promoted to external_sensor mode (configured sensor)", "entity", cfg.P1SensorEntity)
 	}
 	var powerTracker *hasensor.PowerTracker
 	if cfg.HasPowerSensor() && supervisor != nil {
@@ -341,9 +347,8 @@ func main() {
 			}
 		}
 
-		// Midnight gap mitigation: if no prices classified as "today" yet
-		// (e.g. Enever data for new day not available until ~01:00), use all
-		// available prices so the current slot can still be found.
+		// Midnight gap mitigation: if no prices classified as "today" yet,
+		// use all available prices so the current slot can still be found.
 		if len(todayPrices) == 0 && len(consumerPrices) > 0 {
 			todayPrices = consumerPrices
 			slog.Info("midnight gap: using all cached prices for current slot")
@@ -352,21 +357,15 @@ func main() {
 		// Compute sensor values
 		sensorSet := hasensor.ComputeSensorSet(
 			cfg.BiddingZone, todayPrices, tomorrowPrices,
-			actionEngine, result, now, cfg.EneverLeverancier,
-			cfg.BestWindowHours,
+			actionEngine, result, now, "",
+			cfg.BestWindowHours, cfg.PricingMode,
 		)
 
 		// Sensor override: use HA sensor reading as CurrentPrice when available.
-		// Works in both explicit sensor mode AND Enever+sensor (complementary) mode.
 		sensorEntity := cfg.P1SensorEntity
 		if sensorEntity != "" && supervisor != nil {
 			if extPrice, err := readExternalSensorPrice(ctx, supervisor, sensorEntity); err == nil {
-				if cfg.IsEneverMode() {
-					// Enever+sensor: sensor becomes CurrentPrice, preserve Enever for delta
-					sensorSet.EneverPrice = sensorSet.CurrentPrice
-					sensorSet.CurrentPrice = extPrice
-					sensorSet.Source = "sensor"
-				} else if cfg.IsExternalSensorMode() {
+				if cfg.IsExternalSensorMode() {
 					sensorSet.CurrentPrice = extPrice
 				}
 			} else {
@@ -512,7 +511,6 @@ func main() {
 				"pricing_mode":     cfg.PricingMode,
 				"supplier_id":     cfg.SupplierID,
 				"supplier_markup": cfg.SupplierMarkup,
-				"enever_enabled":  cfg.EneverEnabled,
 				"go_threshold":   cfg.GoThreshold,
 				"avoid_threshold": cfg.AvoidThreshold,
 				"best_window_h":  cfg.BestWindowHours,
@@ -596,6 +594,55 @@ func main() {
 
 	// Start scheduler
 	scheduler := engine.NewScheduler(fallbackMgr, normalizer, actionEngine, cfg.BiddingZone, updateFn, featureGate)
+	zoneHasWholesale := true
+	if z, ok := registry.GetZone(cfg.BiddingZone); ok {
+		zoneHasWholesale = z.HasWholesale()
+		scheduler.SetZoneInfo(zoneHasWholesale, cfg.PricingMode)
+	}
+
+	// Non-wholesale zones with fixed/TOU: seed dashboard with full synthetic prices
+	if !zoneHasWholesale && (cfg.PricingMode == config.ModeFixed || cfg.PricingMode == config.ModeTOU) {
+		now := time.Now().UTC()
+		var todayPrices, tomorrowPrices []models.HourlyPrice
+
+		if cfg.PricingMode == config.ModeTOU && cfg.TOUConfigJSON != "" {
+			if touCfg, err := engine.ParseTOUConfig(cfg.TOUConfigJSON); err == nil {
+				todayPrices, tomorrowPrices = engine.GenerateTOUPrices(touCfg, zoneLoc)
+				for i := range todayPrices {
+					todayPrices[i].Zone = cfg.BiddingZone
+				}
+				for i := range tomorrowPrices {
+					tomorrowPrices[i].Zone = cfg.BiddingZone
+				}
+			}
+		}
+		// Fixed mode or TOU parse failed: flat 24h at the fixed rate
+		if len(todayPrices) == 0 && cfg.FixedRatePrice > 0 {
+			localNow := now.In(zoneLoc)
+			dayStart := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, zoneLoc)
+			for h := 0; h < 24; h++ {
+				ts := dayStart.Add(time.Duration(h) * time.Hour)
+				todayPrices = append(todayPrices, models.HourlyPrice{
+					Timestamp: ts.UTC(), PriceEUR: cfg.FixedRatePrice,
+					Unit: models.UnitKWh, Source: "fixed", Quality: "live",
+					Zone: cfg.BiddingZone, IsConsumer: true,
+				})
+			}
+		}
+		if len(todayPrices) > 0 {
+			fetchResult := &engine.FetchResult{Source: "regulated", Tier: 1, Quality: "live"}
+			ss := hasensor.ComputeSensorSet(
+				cfg.BiddingZone, todayPrices, tomorrowPrices,
+				actionEngine, fetchResult, now, "", cfg.BestWindowHours, cfg.PricingMode,
+			)
+			ss.Source = "regulated"
+			ss.Quality = "static"
+			sensorData.Update(ss)
+			slog.Info("seeded dashboard with regulated tariff", "zone", cfg.BiddingZone,
+				"mode", cfg.PricingMode, "prices", len(todayPrices), "price", ss.CurrentPrice)
+		}
+	}
+
 	go scheduler.Run(ctx)
 
 	// Detect addon slug for dynamic HA UI navigation
@@ -641,49 +688,58 @@ func main() {
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 
-	// Start markup submitter for crowdsourced EMA tracking (care-app#64 / energy-app#40)
-	// Source 1: Enever auto-markup (NL only, 23 suppliers)
-	if cfg.IsEneverMode() && cfg.BiddingZone == "NL" {
-		go markup.NewSubmitter(markup.SubmitterConfig{
-			InstallUUID: installUUID,
-			Zone:        cfg.BiddingZone,
-			Supplier:    cfg.EneverLeverancier,
-			Source:      "enever",
-			GetConsumerPrice: func() (float64, bool) {
-				data := sensorData.Get()
-				if data == nil || data.Source != "enever" {
-					return 0, false
-				}
-				return data.CurrentPrice, data.CurrentPrice > 0
-			},
-			TaxCache: taxCache,
-		}).Run(ctx)
-		slog.Info("markup submitter started (enever)", "supplier", cfg.EneverLeverancier)
+	// Start delta submitter for per-hour supplier correction factors (ADR_010)
+	if cfg.BiddingZone != "" {
+		// Submit deltas for ALL detected tariff sensors
+		if supervisor != nil {
+			allSensors := hasensor.DetectAllTariffSensors(ctx, supervisor)
+			svDelta := supervisor
+			for _, ds := range allSensors {
+				entityID := ds.EntityID
+				supplier := ds.Supplier
+				go delta.NewSubmitter(delta.SubmitterConfig{
+					InstallUUID: installUUID,
+					Zone:        cfg.BiddingZone,
+					Source:      "sensor",
+					TaxCache:    taxCache,
+					GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
+						return delta.FetchWholesalePrices(ctx, zone)
+					},
+					GetDayAheadPrices: func(ctx context.Context, _ string) ([]delta.HourlyConsumerPrice, error) {
+						forecast, err := delta.ReadSensorForecast(ctx, svDelta, entityID)
+						if err != nil {
+							return nil, err
+						}
+						result := make([]delta.HourlyConsumerPrice, 0, len(forecast))
+						for _, f := range forecast {
+							if f.PriceKWh > 0 {
+								result = append(result, delta.HourlyConsumerPrice{
+									Timestamp: f.Timestamp,
+									PriceKWh:  f.PriceKWh,
+								})
+							}
+						}
+						return result, nil
+					},
+					Suppliers: func() []string { return []string{supplier} },
+				}).Run(ctx)
+				slog.Info("delta submitter started (sensor)", "supplier", supplier, "entity", entityID)
+			}
+		}
 	}
-	// Source 2: Tariff sensor auto-markup (all countries — Tibber, Octopus, etc.)
-	if cfg.IsExternalSensorMode() && supervisor != nil {
-		sensorSupplier := cfg.SupplierID
-		if sensorSupplier == "" && detectedTariffSensor != "" {
-			// Extract supplier hint from detected sensor entity ID
-			sensorSupplier = hasensor.SupplierHintFromEntity(detectedTariffSensor)
+
+	// ADR_010: delta cache for non-sensor installs using ENTSO-E + supplier deltas
+	// Uses per-supplier delta if supplier is configured, otherwise per-zone average.
+	if cfg.PricingMode == config.ModeAuto && cfg.BiddingZone != "" {
+		deltaSupplier := cfg.SupplierID
+		if deltaSupplier == "" {
+			deltaSupplier = "_average" // per-zone average delta (no supplier needed)
 		}
-		if sensorSupplier != "" {
-			go markup.NewSubmitter(markup.SubmitterConfig{
-				InstallUUID: installUUID,
-				Zone:        cfg.BiddingZone,
-				Supplier:    sensorSupplier,
-				Source:      "sensor",
-				GetConsumerPrice: func() (float64, bool) {
-					data := sensorData.Get()
-					if data == nil {
-						return 0, false
-					}
-					return data.CurrentPrice, data.CurrentPrice > 0
-				},
-				TaxCache: taxCache,
-			}).Run(ctx)
-			slog.Info("markup submitter started (sensor)", "supplier", sensorSupplier, "entity", cfg.P1SensorEntity)
-		}
+		dc := delta.NewCache(dataPath)
+		go dc.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
+		normalizer.SetDeltaLookup(dc.Get)
+		srv.SetDeltaCache(dc)
+		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", deltaSupplier)
 	}
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
@@ -732,29 +788,14 @@ func main() {
 // Fallback chain (ADR_008):
 //
 //	Tier 0: Synctacles Worker (primary — wholesale + consumer prices for all zones)
-//	Tier 1: Enever (NL only, when configured — exact supplier prices)
-//	Tier 2: Energy-Charts (fallback if Worker offline)
-//	Tier 3: SQLite cache (offline safety net — handled by FallbackManager)
+//	Tier 1: Energy-Charts (fallback if Worker offline)
+//	Tier 2: SQLite cache (offline safety net — handled by FallbackManager)
 func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI) []collector.PriceSource {
 	var chain []collector.PriceSource
 
-	// When Enever is configured, it provides exact supplier consumer prices —
-	// more accurate than Worker's generic tax calculation. Put it first.
-	if cfg.HasEnever() && cfg.BiddingZone == "NL" {
-		chain = append(chain, &collector.Enever{
-			Token:       cfg.EneverToken,
-			Leverancier: cfg.EneverLeverancier,
-		})
-		slog.Info("Enever enabled as primary source (exact supplier prices)", "leverancier", cfg.EneverLeverancier)
-	}
-
-	// Synctacles Worker — wholesale + generic tax profile
+	// Synctacles Worker — wholesale + per-hour delta correction
 	chain = append(chain, synctaclesAPI)
-	if len(chain) == 1 {
-		slog.Info("SynctaclesAPI enabled as primary source")
-	} else {
-		slog.Info("SynctaclesAPI enabled as fallback source")
-	}
+	slog.Info("SynctaclesAPI enabled as primary source")
 
 	// Energy-Charts — always present as last resort
 	chain = append(chain, &collector.EnergyCharts{})

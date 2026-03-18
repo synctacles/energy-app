@@ -147,13 +147,13 @@ func TestSQLiteCache_PutWithTier_GetWithMeta(t *testing.T) {
 			Timestamp: date.Add(time.Duration(i) * time.Hour),
 			PriceEUR:  0.20 + float64(i)*0.01,
 			Unit:      models.UnitKWh,
-			Source:    "enever",
+			Source:    "synctacles",
 			Quality:   "live",
 			Zone:      "NL",
 		}
 	}
 
-	// Store with tier 1 (Enever is primary)
+	// Store with tier 1 (primary source)
 	err = cache.PutWithTier("NL", prices, 1)
 	require.NoError(t, err)
 
@@ -166,7 +166,7 @@ func TestSQLiteCache_PutWithTier_GetWithMeta(t *testing.T) {
 	assert.Equal(t, 1, entry.OriginalTier)
 	assert.False(t, entry.FetchedAt.IsZero())
 	assert.Equal(t, "live", entry.Prices[0].Quality)
-	assert.Equal(t, "enever", entry.Prices[0].Source)
+	assert.Equal(t, "synctacles", entry.Prices[0].Source)
 }
 
 func TestSQLiteCache_GetWithMeta_Empty(t *testing.T) {
