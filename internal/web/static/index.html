@@ -2510,10 +2510,14 @@
         });
         select.onchange = function() {
             var sup = _supplierList.find(function(s) { return s.id === select.value; });
-            persistConfig({
-                supplier_id: sup ? sup.id : '',
-                supplier_markup: sup ? sup.avg_delta : 0,
-            });
+            var supplierId = sup ? sup.id : '';
+            var supplierMarkup = sup ? sup.avg_delta : 0;
+            // Update currentConfig immediately (used by saveSettings fallback)
+            if (currentConfig) {
+                currentConfig.supplier_id = supplierId;
+                currentConfig.supplier_markup = supplierMarkup;
+            }
+            persistConfig({ supplier_id: supplierId, supplier_markup: supplierMarkup });
         };
     }
 
@@ -2556,16 +2560,16 @@
             telemetry_enabled: document.getElementById('cfg-telemetry-toggle').classList.contains('on')
         };
 
-        // Supplier: preserve current value (saved separately via dropdown onChange).
-        // Only override if the dropdown is visible AND has a non-empty selection.
+        // Supplier: always include in save payload from best available source
         var supplierEl = document.getElementById('cfg-supplier');
-        var supplierVisible = supplierEl && supplierEl.offsetParent !== null;
-        if (supplierVisible && supplierEl.value) {
+        if (supplierEl && supplierEl.value) {
             payload.supplier_id = supplierEl.value;
             var sup = _supplierList ? _supplierList.find(function(s) { return s.id === supplierEl.value; }) : null;
             if (sup) payload.supplier_markup = sup.avg_delta;
+        } else if (currentConfig && currentConfig.supplier_id) {
+            payload.supplier_id = currentConfig.supplier_id;
+            payload.supplier_markup = currentConfig.supplier_markup || 0;
         }
-        // Never send empty supplier_id — let the server keep its current value
 
         // Mode-specific fields
         if (mode === 'external_sensor') {
