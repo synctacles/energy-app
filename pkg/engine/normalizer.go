@@ -105,9 +105,15 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		if n.lastTaxSource == "none" {
 			n.lastTaxSource = "consumer"
 		}
-		// Apply supplier markup in auto mode
+		// Apply supplier correction: per-hour delta (calibrated) > fixed markup (estimated)
+		vatRate := n.vatRateForZone(p.Zone)
+		if n.deltaLookup != nil {
+			if d, ok := n.deltaLookup(p.Timestamp); ok {
+				p.PriceEUR += d * (1 + vatRate)
+				return p
+			}
+		}
 		if n.supplierMarkupOverride > 0 {
-			vatRate := n.vatRateForZone(p.Zone)
 			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
 		}
 		return p
