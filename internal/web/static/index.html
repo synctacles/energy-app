@@ -1870,7 +1870,7 @@
     // onZoneChange fetches country defaults and updates the settings UI accordingly.
     async function onZoneChange(zone) {
         updateModeVisibility();
-        loadSupplierDropdown('');
+        loadSupplierDropdown((currentConfig && currentConfig.supplier_id) || '');
         if (!zone) return;
         try {
             var defaults = await fetchAPI('api/country-defaults?zone=' + encodeURIComponent(zone));
