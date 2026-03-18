@@ -542,6 +542,11 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 			current[key] = val
 		}
 	}
+	// Always preserve in-memory supplier (set by dropdown persistConfig, may not be in payload)
+	if _, ok := incoming["supplier_id"]; !ok && s.cfg.SupplierID != "" {
+		current["supplier_id"] = s.cfg.SupplierID
+		current["supplier_markup"] = s.cfg.SupplierMarkup
+	}
 
 	// Validate manual tax inputs (CC_INSTRUCTION §10 ranges)
 	vatRate, _ := toFloat64(current["manual_vat_rate"])
