@@ -909,12 +909,9 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 	if wholesaleKWh == 0 && !isConsumerPriceMode && data != nil && data.CurrentPrice > 0 {
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - override.SupplierMarkup
-		if wholesaleKWh < 0 {
-			wholesaleKWh = 0
-		}
 	}
 
-	if wholesaleKWh > 0 && data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
+	if wholesaleKWh != 0 && data != nil && data.CurrentPrice > 0 && isConsumerPriceMode {
 		// Exact: decompose consumer price using known wholesale
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		supplierMarkup = subtotal - override.EnergyTax - override.Surcharges - wholesaleKWh
@@ -928,9 +925,6 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		if data != nil && data.CurrentPrice > 0 {
 			subtotal := data.CurrentPrice / (1 + override.VATRate)
 			wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges - supplierMarkup
-			if wholesaleKWh < 0 {
-				wholesaleKWh = 0
-			}
 		}
 	} else if override.SupplierMarkup > 0 {
 		// Calibration data from Worker (crowdsourced) — use as-is
@@ -941,9 +935,6 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		// Therefore: Wholesale = Consumer / (1 + VAT) - Tax - Surcharges
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		wholesaleKWh = subtotal - override.EnergyTax - override.Surcharges
-		if wholesaleKWh < 0 {
-			wholesaleKWh = 0
-		}
 		// In consumer-price modes, supplier markup is implicit in the tariff (not separable)
 		supplierMarkup = 0
 		markupEstimated = true
