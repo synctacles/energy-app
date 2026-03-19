@@ -1630,6 +1630,30 @@
         var vals = prices.map(function(p) { return p.price * 100; });
         var hours = prices.map(function(p) { return p.hour; });
         var avgCent = avg * 100;
+
+        // Sensor mode: adjust current hour's bars so their average = sensor price.
+        // This ensures the chart never contradicts the dashboard price.
+        var sensorPriceCent = _lastDashboard && _lastDashboard.current_price
+            ? parseFloat(_lastDashboard.current_price.price) * 100 : 0;
+        if (sensorPriceCent > 0 && vals.length > 48) {
+            var currentHour = String(now.getHours()).padStart(2, '0');
+            // Find indices for current hour's 4 quarters
+            var hourIndices = [];
+            for (var si = 0; si < hours.length; si++) {
+                if (hours[si].startsWith(currentHour + ':')) hourIndices.push(si);
+            }
+            if (hourIndices.length > 0) {
+                var chartHourAvg = hourIndices.reduce(function(s, idx) { return s + vals[idx]; }, 0) / hourIndices.length;
+                var adjustment = sensorPriceCent - chartHourAvg;
+                // Only adjust if there's a meaningful difference (> 0.1ct)
+                if (Math.abs(adjustment) > 0.1) {
+                    for (var ai = 0; ai < hourIndices.length; ai++) {
+                        vals[hourIndices[ai]] += adjustment;
+                    }
+                }
+            }
+        }
+
         var minV = Math.min.apply(null, vals) * 0.9;
         var maxV = Math.max.apply(null, vals) * 1.1;
         var range = maxV - minV || 1;
