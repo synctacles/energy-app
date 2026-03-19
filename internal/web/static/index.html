@@ -155,6 +155,10 @@
         .stat-val { font-size: 1.1em; font-weight: 600; }
         .stat-label { font-size: 0.7em; color: var(--text-faint); }
 
+        .chart-resolution { display: inline-flex; margin-left: 8px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; font-size: 0.7em; vertical-align: middle; }
+        .chart-resolution button { padding: 2px 8px; background: var(--input-bg); color: var(--text-faint); border: none; cursor: pointer; font-weight: 600; }
+        .chart-resolution button.active { background: var(--accent); color: #fff; }
+
         /* Settings */
         .settings-section {
             margin-bottom: 12px; background: var(--bg-card); border-radius: var(--radius);
@@ -1108,6 +1112,7 @@
 
     // --- Dashboard ---
     var lastPrices = null, lastAvg = 0;
+    var _chartMode = localStorage.getItem('chart_mode') || '1h'; // default PT60
     var _lastDashJson = '';
     var _lastDashboard = null;
     var _dashboardBuilt = false;
@@ -1559,7 +1564,10 @@
                     modeCards +
                 '</div>' +
                 '<div class="card chart-card">' +
-                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource + ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(chartInfoText(_lastDashboard))">i</button></div>' +
+                    '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource +
+                    ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(chartInfoText(_lastDashboard))">i</button>' +
+                    ' <span class="chart-resolution"><button id="chartRes15m"' + (_chartMode === '15m' ? ' class="active"' : '') + ' onclick="setChartMode(\'15m\')">15m</button><button id="chartRes1h"' + (_chartMode === '1h' ? ' class="active"' : '') + ' onclick="setChartMode(\'1h\')">1h</button></span>' +
+                    '</div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
                         '<div class="stat"><div class="stat-val" style="color:#34d399">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
@@ -1613,6 +1621,16 @@
     var chartBars = [];
     var chartTooltip = null;
 
+    function setChartMode(mode) {
+        _chartMode = mode;
+        localStorage.setItem('chart_mode', mode);
+        var btn15 = document.getElementById('chartRes15m');
+        var btn1h = document.getElementById('chartRes1h');
+        if (btn15) btn15.className = mode === '15m' ? 'active' : '';
+        if (btn1h) btn1h.className = mode === '1h' ? 'active' : '';
+        if (lastPrices) drawChart(lastPrices, lastAvg);
+    }
+
     function drawChart(prices, avg) {
         var canvas = document.getElementById('priceChart');
         if (!canvas) return;
@@ -1630,6 +1648,21 @@
         var vals = prices.map(function(p) { return p.price * 100; });
         var hours = prices.map(function(p) { return p.hour; });
         var avgCent = avg * 100;
+
+        // PT60 mode: aggregate PT15M to hourly bars
+        var isPT15 = vals.length > 48;
+        if (isPT15 && _chartMode === '1h') {
+            var pt60Vals = [];
+            var pt60Hours = [];
+            for (var hi = 0; hi < vals.length; hi += 4) {
+                var chunk = vals.slice(hi, Math.min(hi + 4, vals.length));
+                var hourAvg = chunk.reduce(function(a,b) { return a + b; }, 0) / chunk.length;
+                pt60Vals.push(hourAvg);
+                pt60Hours.push(hours[hi].substring(0,2) + ':00');
+            }
+            vals = pt60Vals;
+            hours = pt60Hours;
+        }
 
         // Sensor mode: at the current hour, set all bars to the sensor price.
         // Suppliers charge per hour — all quarters within the hour cost the same.
@@ -1670,10 +1703,7 @@
         var dark = isDark;
         var avgLineColor = dark ? '#6b7280' : '#9ca3af';
         var labelColor = dark ? '#9ca3af' : '#888';
-        // Alternating hour colors for PT15M (odd/even hours)
-        var barNormalA = dark ? '#3b82f6' : '#93c5fd';
-        var barNormalB = dark ? '#2563eb' : '#60a5fa';
-        var barNormal = barNormalA;
+        var barNormal = dark ? '#3b82f6' : '#93c5fd';
         var barCurrent = dark ? '#4a9eff' : '#3b82f6';
         var barBelow = dark ? '#34d399' : '#6ee7b7';
         var barAbove = dark ? '#f87171' : '#fca5a5';
@@ -1703,10 +1733,6 @@
             var isBelow = vals[i] <= avgCent * 0.85;
             var isAbove = vals[i] >= avgCent * 1.20;
 
-            // Alternate normal bar color per hour (odd/even)
-            var hourNum = parseInt(hours[i].substring(0, 2), 10);
-            var normalColor = (hourNum % 2 === 0) ? barNormalA : barNormalB;
-
             if (isCurrent) {
                 ctx.fillStyle = barCurrent;
             } else if (isBelow) {
@@ -1714,7 +1740,7 @@
             } else if (isAbove) {
                 ctx.fillStyle = barAbove;
             } else {
-                ctx.fillStyle = normalColor;
+                ctx.fillStyle = barNormal;
             }
 
             ctx.fillRect(x, y, w, h);
@@ -1759,8 +1785,10 @@
             if (vals.length > 48) {
                 // PT15M: label only on full hours (HH:00)
                 showLabel = hours[i].endsWith(':00');
+            } else if (vals.length <= 24) {
+                // PT60M hourly: label every bar (24 bars fit)
+                showLabel = true;
             } else {
-                // PT60M: every 3rd bar
                 showLabel = (i % 3 === 0);
             }
             if (showLabel) {
@@ -1808,7 +1836,7 @@
         if (hit) {
             var tipText = hit.hour + ' — ' + hit.val.toFixed(2) + ' ct/kWh';
             // PT15M: also show hourly average (= supplier price)
-            if (chartBars.length > 48) {
+            if (_chartMode === '15m' && chartBars.length > 48) {
                 var hourKey = hit.hour.substring(0, 2) + ':00';
                 var hourBars = chartBars.filter(function(b) { return b.hour.startsWith(hit.hour.substring(0, 2) + ':'); });
                 if (hourBars.length > 1) {
