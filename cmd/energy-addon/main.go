@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -189,6 +190,19 @@ func main() {
 		slog.Warn("SQLite cache disabled", "error", err)
 	} else {
 		priceCache = sqliteCache
+		// Clear cache on version upgrade (normalizer behavior may have changed)
+		versionFile := filepath.Join(dataPath, ".cache_version")
+		oldVersion, _ := os.ReadFile(versionFile)
+		if string(oldVersion) != version {
+			for _, zone := range []string{cfg.BiddingZone} {
+				if zone != "" {
+					if n, err := sqliteCache.ClearZone(zone); err == nil && n > 0 {
+						slog.Info("cache cleared on version upgrade", "zone", zone, "cleared", n, "old", string(oldVersion), "new", version)
+					}
+				}
+			}
+			_ = os.WriteFile(versionFile, []byte(version), 0644)
+		}
 		// Cleanup old entries on startup
 		if deleted, err := sqliteCache.Cleanup(48 * time.Hour); err == nil && deleted > 0 {
 			slog.Info("cache cleanup", "deleted", deleted)
