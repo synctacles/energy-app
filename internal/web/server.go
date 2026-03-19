@@ -956,9 +956,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		// This ensures: wholesale is ENTSO-E (real), total = dashboard price.
 		subtotal := data.CurrentPrice / (1 + override.VATRate)
 		supplierMarkup = subtotal - override.EnergyTax - override.Surcharges - wholesaleKWh
-		if supplierMarkup < 0 {
-			supplierMarkup = 0
-		}
+		// Negative markup is valid: supplier can be cheaper than wholesale + taxes
 	} else if data != nil && data.CurrentPrice > 0 {
 		// No wholesale available — reverse-calculate from consumer price.
 		// Use best available markup: user config > Worker crowdsource > 0.
