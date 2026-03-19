@@ -1670,7 +1670,10 @@
         var dark = isDark;
         var avgLineColor = dark ? '#6b7280' : '#9ca3af';
         var labelColor = dark ? '#9ca3af' : '#888';
-        var barNormal = dark ? '#3b82f6' : '#93c5fd';
+        // Alternating hour colors for PT15M (odd/even hours)
+        var barNormalA = dark ? '#3b82f6' : '#93c5fd';
+        var barNormalB = dark ? '#2563eb' : '#60a5fa';
+        var barNormal = barNormalA;
         var barCurrent = dark ? '#4a9eff' : '#3b82f6';
         var barBelow = dark ? '#34d399' : '#6ee7b7';
         var barAbove = dark ? '#f87171' : '#fca5a5';
@@ -1700,6 +1703,10 @@
             var isBelow = vals[i] <= avgCent * 0.85;
             var isAbove = vals[i] >= avgCent * 1.20;
 
+            // Alternate normal bar color per hour (odd/even)
+            var hourNum = parseInt(hours[i].substring(0, 2), 10);
+            var normalColor = (hourNum % 2 === 0) ? barNormalA : barNormalB;
+
             if (isCurrent) {
                 ctx.fillStyle = barCurrent;
             } else if (isBelow) {
@@ -1707,7 +1714,7 @@
             } else if (isAbove) {
                 ctx.fillStyle = barAbove;
             } else {
-                ctx.fillStyle = barNormal;
+                ctx.fillStyle = normalColor;
             }
 
             ctx.fillRect(x, y, w, h);
