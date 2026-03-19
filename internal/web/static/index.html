@@ -1707,6 +1707,27 @@
                 ctx.fill();
             }
 
+            // PT60 hourly average line — thin line across each hour's 4 quarter bars
+            // Shows the exact supplier price (= Zonneplan) vs PT15M ENTSO-E variation
+            if (vals.length > 48 && hours[i].endsWith(':00')) {
+                // Calculate hourly average from this bar + next 3
+                var hourVals = [vals[i]];
+                for (var q = 1; q <= 3 && i + q < vals.length; q++) {
+                    hourVals.push(vals[i + q]);
+                }
+                var hourAvg = hourVals.reduce(function(a, b) { return a + b; }, 0) / hourVals.length;
+                var lineY = pad.top + cH - ((hourAvg - minV) / range) * cH;
+                var lineX1 = pad.left + i * barW;
+                var lineX2 = pad.left + (i + hourVals.length) * barW;
+                ctx.strokeStyle = dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.25)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(lineX1, lineY);
+                ctx.lineTo(lineX2, lineY);
+                ctx.stroke();
+            }
+
             // Show labels at full hours only; for PT60 every 2-3 hours to avoid crowding
             var showLabel = false;
             if (vals.length > 48) {
@@ -1759,7 +1780,17 @@
         var tip = ensureChartTooltip();
         if (!tip) return;
         if (hit) {
-            tip.textContent = hit.hour + ' — ' + hit.val.toFixed(2) + ' ct/kWh';
+            var tipText = hit.hour + ' — ' + hit.val.toFixed(2) + ' ct/kWh';
+            // PT15M: also show hourly average (= supplier price)
+            if (chartBars.length > 48) {
+                var hourKey = hit.hour.substring(0, 2) + ':00';
+                var hourBars = chartBars.filter(function(b) { return b.hour.startsWith(hit.hour.substring(0, 2) + ':'); });
+                if (hourBars.length > 1) {
+                    var hourAvg = hourBars.reduce(function(a, b) { return a + b.val; }, 0) / hourBars.length;
+                    tipText += '  |  ' + t('dashboard.hour_avg', 'hour') + ': ' + hourAvg.toFixed(2) + ' ct';
+                }
+            }
+            tip.textContent = tipText;
             tip.style.opacity = '1';
             var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
             var ty = hit.y - 28;
