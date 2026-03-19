@@ -316,6 +316,25 @@ func ComputeSensorSet(
 	// Current slot price (works for both PT60 hourly and PT15 quarter-hourly data)
 	currentPrice, _, _ := engine.CurrentSlotPrice(todayPrices, now)
 
+	// For PT15M data: use hourly average as display price.
+	// Suppliers charge per hour — the quarter-level price includes ENTSO-E variation
+	// that doesn't reflect what the user actually pays.
+	if len(todayPrices) > 48 {
+		currentHour := now.Truncate(time.Hour)
+		nextHour := currentHour.Add(time.Hour)
+		var hourSum float64
+		var hourCount int
+		for _, p := range todayPrices {
+			if !p.Timestamp.Before(currentHour) && p.Timestamp.Before(nextHour) {
+				hourSum += p.PriceEUR
+				hourCount++
+			}
+		}
+		if hourCount > 0 {
+			currentPrice = hourSum / float64(hourCount)
+		}
+	}
+
 	// Action: use regulated engine for fixed/tou, wholesale engine for dynamic modes
 	var actionResult models.ActionResult
 	if pricingMode == "fixed" || pricingMode == "tou" {
