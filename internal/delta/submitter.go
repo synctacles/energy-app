@@ -82,29 +82,25 @@ func (s *Submitter) Run(ctx context.Context) {
 
 	s.submitAll(ctx)
 
-	hourlyTicker := time.NewTicker(1 * time.Hour)
-	defer hourlyTicker.Stop()
-
-	// Live correction ticker (only when ReadLivePrice is configured)
-	var liveTicker *time.Ticker
-	if s.cfg.ReadLivePrice != nil {
-		liveTicker = time.NewTicker(15 * time.Minute)
-		defer liveTicker.Stop()
-	}
+	// Combined ticker: 15 min for live corrections, hourly for full forecast submit
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+	tickCount := 0
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-hourlyTicker.C:
-			s.submitAll(ctx)
-		case <-func() <-chan time.Time {
-			if liveTicker != nil {
-				return liveTicker.C
+		case <-ticker.C:
+			tickCount++
+			if tickCount%4 == 0 {
+				// Every hour: full forecast submit
+				s.submitAll(ctx)
 			}
-			return make(chan time.Time) // never fires
-		}():
-			s.checkLiveCorrection(ctx)
+			// Every 15 min: live correction (if configured)
+			if s.cfg.ReadLivePrice != nil {
+				s.checkLiveCorrection(ctx)
+			}
 		}
 	}
 }
