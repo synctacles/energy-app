@@ -1210,8 +1210,12 @@
         html += '<div style="color:var(--text-muted)">' + tReplace('tax.vat', {pct: (bd.vat_rate * 100).toFixed(0)}, 'VAT (' + (bd.vat_rate * 100).toFixed(0) + '%)') + '</div>' +
                 '<div style="text-align:right;font-weight:600">+ ' + formatPrice(bd.vat_amount) + ' ' + ct + '</div>';
 
-        // Consumer total
-        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + t('tax.consumer_price', 'Consumer price') + '</div>' +
+        // Consumer total (PT60 hourly rate — may differ from PT15M dashboard price)
+        var consumerLabel = t('tax.consumer_price', 'Consumer price');
+        if (_lastDashboard && _lastDashboard.resolution === 'PT15M') {
+            consumerLabel += ' <span style="font-weight:400;font-size:0.75em;color:var(--text-faint)">(' + t('tax.hourly_rate', 'hourly rate') + ')</span>';
+        }
+        html += '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;font-weight:700;font-size:1.1em">' + consumerLabel + '</div>' +
                 '<div style="border-top:2px solid var(--accent);padding-top:8px;margin-top:4px;text-align:right;font-weight:700;font-size:1.1em;color:var(--accent)">' + formatPrice(bd.consumer_total) + ' ' + ct + '</div>';
 
         // Network tariff info (separate from price calculation)

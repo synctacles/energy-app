@@ -104,7 +104,8 @@
         "consumer_price": "Consumentenprijs",
         "no_data": "Belastingoverzicht nog niet beschikbaar voor deze zone.",
         "loading": "Belastinggegevens laden...",
-        "delta_sensor": "Sensorprijs"
+        "delta_sensor": "Sensorprijs",
+        "hourly_rate": "uurtarief"
     },
     "settings": {
         "zone": "Zone",
