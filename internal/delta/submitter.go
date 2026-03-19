@@ -36,6 +36,10 @@ type SubmitterConfig struct {
 	// ReadLivePrice reads the current live sensor price (EUR/kWh incl. VAT).
 	// Optional — when set, enables event-driven live correction.
 	ReadLivePrice func(ctx context.Context) (float64, error)
+
+	// LiveCorrectionThreshold: minimum deviation (EUR/kWh) before submitting
+	// a live correction. Default: 0.0025 (0.25 ct). Set to 0 to disable.
+	LiveCorrectionThreshold float64
 }
 
 // HourlyConsumerPrice is a consumer price at a specific hour.
@@ -50,8 +54,8 @@ type WholesalePrice struct {
 	PriceKWh  float64 // EUR/kWh
 }
 
-// liveCorrectionThreshold: only submit correction when deviation exceeds 0.5 ct/kWh
-const liveCorrectionThreshold = 0.005 // EUR/kWh
+// defaultLiveCorrectionThreshold: 0.25 ct/kWh
+const defaultLiveCorrectionThreshold = 0.0025
 
 // Submitter submits per-hour supplier deltas to the energy-data Worker.
 type Submitter struct {
@@ -170,7 +174,11 @@ func (s *Submitter) checkLiveCorrection(ctx context.Context) {
 
 	// Compare with last submitted delta
 	lastDelta, hasLast := s.lastDelta[hourKey]
-	if hasLast && math.Abs(liveDelta-lastDelta) < liveCorrectionThreshold {
+	threshold := s.cfg.LiveCorrectionThreshold
+	if threshold <= 0 {
+		threshold = defaultLiveCorrectionThreshold
+	}
+	if hasLast && math.Abs(liveDelta-lastDelta) < threshold {
 		return // deviation below threshold, no correction needed
 	}
 
