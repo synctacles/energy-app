@@ -1669,7 +1669,7 @@
         // This ensures the chart never contradicts the dashboard price.
         var sensorPriceCent = _lastDashboard && _lastDashboard.current_price
             ? parseFloat(_lastDashboard.current_price.price) * 100 : 0;
-        if (sensorPriceCent > 0 && vals.length > 48) {
+        if (sensorPriceCent > 0) {
             var sensorHour = String(new Date().getHours()).padStart(2, '0');
             for (var si = 0; si < hours.length; si++) {
                 if (hours[si].startsWith(sensorHour + ':')) {
