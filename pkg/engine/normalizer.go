@@ -2,7 +2,6 @@
 package engine
 
 import (
-	"log/slog"
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
@@ -91,10 +90,9 @@ func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
 	case "manual":
 		return n.normalizeManual(p)
 	case "external_sensor", "p1_meter", "meter_tariff":
-		// External sensor mode: consumer price comes from HA sensor, not normalizer.
-		// Wholesale prices pass through for GO/WAIT/AVOID relative calculations.
-		n.lastTaxSource = "consumer"
-		return p
+		// External sensor mode: chart uses Worker prices + supplier delta.
+		// Run through normalizeAuto for delta application on consumer prices.
+		return n.normalizeAuto(p)
 	default:
 		// "auto": consumer prices pass through, wholesale normalized via tax cache.
 		return n.normalizeAuto(p)
@@ -117,15 +115,9 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		vatRate := n.vatRateForZone(p.Zone)
 		if n.deltaLookup != nil && (!isSensorMode || n.deltaIsSupplierSpecific) {
 			if d, ok := n.deltaLookup(p.Timestamp); ok {
-				slog.Info("normalizer: delta applied to consumer price",
-					"ts", p.Timestamp.Format("15:04"), "delta", d, "before", p.PriceEUR)
 				p.PriceEUR += d * (1 + vatRate)
 				return p
 			}
-			slog.Info("normalizer: delta not found for consumer price", "ts", p.Timestamp.Format("15:04"))
-		} else {
-			slog.Info("normalizer: delta skipped", "lookup_nil", n.deltaLookup == nil,
-				"sensor_mode", isSensorMode, "supplier_specific", n.deltaIsSupplierSpecific)
 		}
 		if !isSensorMode && n.supplierMarkupOverride > 0 {
 			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
