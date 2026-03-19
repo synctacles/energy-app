@@ -2,6 +2,7 @@
 package engine
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
@@ -116,9 +117,15 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		vatRate := n.vatRateForZone(p.Zone)
 		if n.deltaLookup != nil && (!isSensorMode || n.deltaIsSupplierSpecific) {
 			if d, ok := n.deltaLookup(p.Timestamp); ok {
+				slog.Debug("normalizer: delta applied to consumer price",
+					"ts", p.Timestamp.Format("15:04"), "delta", d, "before", p.PriceEUR)
 				p.PriceEUR += d * (1 + vatRate)
 				return p
 			}
+			slog.Debug("normalizer: delta not found for consumer price", "ts", p.Timestamp.Format("15:04"))
+		} else {
+			slog.Debug("normalizer: delta skipped", "lookup_nil", n.deltaLookup == nil,
+				"sensor_mode", isSensorMode, "supplier_specific", n.deltaIsSupplierSpecific)
 		}
 		if !isSensorMode && n.supplierMarkupOverride > 0 {
 			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
