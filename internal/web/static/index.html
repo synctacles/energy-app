@@ -1632,14 +1632,14 @@
         ctx.clearRect(0, 0, W, H);
 
         var now = new Date();
-        var currentMinute = now.getUTCMinutes();
+        var currentMinute = now.getMinutes();
         var currentSlot;
         if (vals.length > 48) {
-            // PT15M: round down to nearest 15-min slot
+            // PT15M: round down to nearest 15-min slot (local time to match chart labels)
             var q = Math.floor(currentMinute / 15) * 15;
-            currentSlot = String(now.getUTCHours()).padStart(2, '0') + ':' + String(q).padStart(2, '0');
+            currentSlot = String(now.getHours()).padStart(2, '0') + ':' + String(q).padStart(2, '0');
         } else {
-            currentSlot = String(now.getUTCHours()).padStart(2, '0') + ':00';
+            currentSlot = String(now.getHours()).padStart(2, '0') + ':00';
         }
 
         var dark = isDark;
