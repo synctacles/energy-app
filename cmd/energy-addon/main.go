@@ -653,6 +653,23 @@ func main() {
 		}
 	}
 
+	// ADR_010: delta cache for chart calibration (all dynamic modes).
+	// MUST be initialized BEFORE scheduler.Run — first fetch needs delta for normalization.
+	var deltaCache *delta.Cache
+	if (cfg.PricingMode == config.ModeAuto || cfg.PricingMode == config.ModeExternalSensor) && cfg.BiddingZone != "" {
+		deltaSupplier := cfg.SupplierID
+		if deltaSupplier == "" && cfg.P1SensorEntity != "" {
+			deltaSupplier = hasensor.SupplierHintFromEntity(cfg.P1SensorEntity)
+		}
+		if deltaSupplier == "" {
+			deltaSupplier = "_average"
+		}
+		deltaCache = delta.NewCache(dataPath)
+		go deltaCache.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
+		normalizer.SetDeltaLookup(deltaCache.Get, deltaSupplier != "_average")
+		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", deltaSupplier)
+	}
+
 	go scheduler.Run(ctx)
 
 	// Detect addon slug for dynamic HA UI navigation
@@ -738,23 +755,9 @@ func main() {
 		}
 	}
 
-	// ADR_010: delta cache for chart calibration (all dynamic modes).
-	// Sensor mode: use sensor's supplier for exact deltas (feedback loop).
-	// Auto mode: use configured supplier or _average.
-	if (cfg.PricingMode == config.ModeAuto || cfg.PricingMode == config.ModeExternalSensor) && cfg.BiddingZone != "" {
-		deltaSupplier := cfg.SupplierID
-		// In sensor mode: detect supplier from sensor entity (closes the feedback loop)
-		if deltaSupplier == "" && cfg.P1SensorEntity != "" {
-			deltaSupplier = hasensor.SupplierHintFromEntity(cfg.P1SensorEntity)
-		}
-		if deltaSupplier == "" {
-			deltaSupplier = "_average"
-		}
-		dc := delta.NewCache(dataPath)
-		go dc.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
-		normalizer.SetDeltaLookup(dc.Get, deltaSupplier != "_average")
-		srv.SetDeltaCache(dc)
-		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", deltaSupplier)
+	// Set delta cache on web server (initialized before scheduler.Run above)
+	if deltaCache != nil {
+		srv.SetDeltaCache(deltaCache)
 	}
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)
