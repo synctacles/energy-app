@@ -143,11 +143,13 @@ func (s *Submitter) checkLiveCorrection(ctx context.Context) {
 
 	tax := s.cfg.TaxCache.Get(s.cfg.Zone)
 	if tax == nil {
+		slog.Debug("delta: live check skipped — no tax profile")
 		return
 	}
 
 	livePrice, err := s.cfg.ReadLivePrice(ctx)
 	if err != nil || livePrice <= 0 {
+		slog.Info("delta: live check — sensor read failed", "error", err, "price", livePrice)
 		return
 	}
 
@@ -156,8 +158,11 @@ func (s *Submitter) checkLiveCorrection(ctx context.Context) {
 	hourKey := now.Format("2006-01-02T15")
 	ws, ok := s.wsCache[hourKey]
 	if !ok {
-		return // no wholesale data for current hour
+		slog.Info("delta: live check — no wholesale for hour", "hour", hourKey, "cache_size", len(s.wsCache))
+		return
 	}
+
+	slog.Info("delta: live check", "hour", hourKey, "live_price", livePrice, "wholesale", ws)
 
 	// Calculate live delta: (live_price / (1+VAT)) - wholesale - taxes
 	liveDelta := livePrice/(1+tax.VATRate) - ws - tax.EnergyTax - tax.Surcharges
