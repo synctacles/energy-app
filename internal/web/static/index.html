@@ -1551,16 +1551,16 @@
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
-                    '<div id="taxBreakdownSlot" style="grid-column: 1 / -1;"></div>' +
+                    '<div id="taxBreakdownSlot" style="grid-column: 1 / -1; margin-top: 4px;"></div>' +
                     modeCards +
                 '</div>' +
                 '<div class="card chart-card">' +
                     '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource + ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(chartInfoText(_lastDashboard))">i</button></div>' +
                     '<div class="chart-container"><canvas id="priceChart"></canvas></div>' +
                     '<div class="stats-row">' +
-                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
+                        '<div class="stat"><div class="stat-val" style="color:#34d399">' + formatPrice((d.stats && d.stats.min) || 0) + '</div><div class="stat-label">' + t('dashboard.min', 'Min') + '</div></div>' +
                         '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.average) || 0) + '</div><div class="stat-label">' + t('dashboard.avg', 'Avg') + '</div></div>' +
-                        '<div class="stat"><div class="stat-val">' + formatPrice((d.stats && d.stats.max) || 0) + '</div><div class="stat-label">' + t('dashboard.max', 'Max') + '</div></div>' +
+                        '<div class="stat"><div class="stat-val" style="color:#f87171">' + formatPrice((d.stats && d.stats.max) || 0) + '</div><div class="stat-label">' + t('dashboard.max', 'Max') + '</div></div>' +
                     '</div>' +
                 '</div>';
 
@@ -1719,7 +1719,7 @@
                 var lineY = pad.top + cH - ((hourAvg - minV) / range) * cH;
                 var lineX1 = pad.left + i * barW;
                 var lineX2 = pad.left + (i + hourVals.length) * barW;
-                ctx.strokeStyle = dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.25)';
+                ctx.strokeStyle = dark ? 'rgba(234,179,8,0.45)' : 'rgba(180,130,0,0.35)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([]);
                 ctx.beginPath();
@@ -1793,8 +1793,8 @@
             tip.textContent = tipText;
             tip.style.opacity = '1';
             var tx = e.clientX - canvas.parentElement.getBoundingClientRect().left;
-            var ty = hit.y - 28;
-            if (ty < 0) ty = hit.y + hit.h + 4;
+            var ty = hit.y - 30;
+            if (ty < 5) ty = 5; // keep visible at top
             tip.style.left = tx + 'px';
             tip.style.top = ty + 'px';
             tip.style.transform = 'translateX(-50%)';
