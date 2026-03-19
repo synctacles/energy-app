@@ -820,29 +820,35 @@
         var cal = d.price_calibration;
         var calHours = cal ? cal.hours : 0;
 
+        var calSupplier = d.calibration_supplier;
+        var supplierName = calSupplier ? (supplierNames[calSupplier] || calSupplier) : '';
+
         if (acc === 'exact') {
             return t('info.chart_exact',
-                'Chart shows your actual consumer prices from {source}.\n\n' +
+                'Chart shows {supplier} consumer prices (calibrated).\n\n' +
                 'Calculation:\n' +
                 '  ENTSO-E wholesale (per 15 min)\n' +
                 '+ Energy tax & surcharges\n' +
-                '+ Supplier correction (per-hour delta from crowdsource data)\n' +
+                '+ {supplier} correction (per-hour delta from sensor feedback)\n' +
                 '+ VAT\n' +
                 '= Consumer price\n\n' +
-                'The current price is verified against your energy sensor — accuracy: 100%.')
-                .replace('{source}', sourceLabel(src, null, d.zone));
+                'The current price is verified against your energy sensor.\n\n' +
+                'Small deviations (< 1 ct) can occur because the correction is per hour, while ENTSO-E prices vary per 15 minutes within the hour. The hourly average matches your supplier price exactly.')
+                .replace(/\{supplier\}/g, supplierName || 'Supplier');
         }
         if (acc === 'calibrated') {
+            var calLabel = supplierName || 'supplier';
             return t('info.chart_calibrated',
-                'Chart shows calibrated consumer prices.\n\n' +
+                'Chart shows {supplier} consumer prices (calibrated).\n\n' +
                 'Calculation:\n' +
                 '  ENTSO-E wholesale (per 15 min)\n' +
                 '+ Energy tax & surcharges\n' +
-                '+ Average supplier correction ({hours}h of crowdsource data)\n' +
+                '+ {supplier} correction ({hours}h of data)\n' +
                 '+ VAT\n' +
                 '= Consumer price\n\n' +
-                'Accuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\n' +
-                'Tip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.')
+                'Accuracy: ~99%. Small deviations (< 1 ct) can occur because the correction is per hour, while ENTSO-E prices vary per 15 minutes within the hour.\n\n' +
+                'Tip: install a price sensor for your supplier to improve the correction data.')
+                .replace(/\{supplier\}/g, calLabel)
                 .replace('{hours}', calHours);
         }
         return t('info.chart_estimated',
@@ -978,10 +984,10 @@
     };
 
     function sourceLabel(name, lev, zone) {
-        if (name === 'sensor') {
-            // Show supplier name from sensor entity hint (e.g. "Zonneplan (NL)")
-            var sensorSupplier = _lastDashboard && _lastDashboard.sensor_supplier;
-            var label = sensorSupplier ? (supplierNames[sensorSupplier] || sensorSupplier) : t('source.sensor', 'Sensor');
+        // Show calibration supplier when available (e.g. "Zonneplan (NL)")
+        var calSupplier = _lastDashboard && _lastDashboard.calibration_supplier;
+        if (calSupplier) {
+            var label = supplierNames[calSupplier] || (calSupplier.charAt(0).toUpperCase() + calSupplier.slice(1));
             return zone ? label + ' (' + zone + ')' : label;
         }
         var label = sourceNames[name] || name;

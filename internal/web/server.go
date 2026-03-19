@@ -399,22 +399,20 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	dashboard["source_info"] = sourceInfo
 
-	// Sensor supplier hint for chart label (e.g. "Zonneplan (NL)")
-	if data.Source == "sensor" {
-		supplier := s.cfg.SupplierID
-		if supplier == "" {
-			// Extract from sensor entity (e.g. "sensor.zonneplan_current..." → "zonneplan")
-			entity := strings.ToLower(s.cfg.P1SensorEntity)
-			for _, s := range []string{"zonneplan", "tibber", "octopus", "nordpool", "easyenergy", "frank"} {
-				if strings.Contains(entity, s) {
-					supplier = s
-					break
-				}
+	// Calibration supplier for chart label (e.g. "Zonneplan (NL) calibrated")
+	// Set when: sensor mode (supplier from entity) or supplier selected in settings
+	calibrationSupplier := s.cfg.SupplierID
+	if calibrationSupplier == "" && s.cfg.P1SensorEntity != "" {
+		entity := strings.ToLower(s.cfg.P1SensorEntity)
+		for _, name := range []string{"zonneplan", "tibber", "octopus", "nordpool", "easyenergy", "frank"} {
+			if strings.Contains(entity, name) {
+				calibrationSupplier = name
+				break
 			}
 		}
-		if supplier != "" {
-			dashboard["sensor_supplier"] = supplier
-		}
+	}
+	if calibrationSupplier != "" {
+		dashboard["calibration_supplier"] = calibrationSupplier
 	}
 
 	// Tax data source: "worker", "consumer", "embedded", "none"
