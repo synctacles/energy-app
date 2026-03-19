@@ -248,12 +248,13 @@ func TestNormalizer_ManualMode_WholesaleInput(t *testing.T) {
 	assert.InDelta(t, 0.1309, result[0].PriceEUR, 0.001)
 }
 
-func TestNormalizer_P1Mode_PassThrough(t *testing.T) {
+func TestNormalizer_P1Mode_NormalizesWholesale(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 	norm.SetPricingMode("p1_meter")
 
-	// Wholesale prices should pass through in P1 mode (no consumer conversion)
+	// P1/sensor mode now normalizes wholesale → consumer (same as auto mode)
+	// This enables chart calibration with supplier-specific deltas
 	prices := []models.HourlyPrice{{
 		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
 		PriceEUR:  80.0,
@@ -264,9 +265,10 @@ func TestNormalizer_P1Mode_PassThrough(t *testing.T) {
 
 	result := norm.ToConsumer(prices)
 	assert.Len(t, result, 1)
-	// Converted to kWh but NOT consumer-normalized
-	assert.InDelta(t, 0.08, result[0].PriceEUR, 0.0001)
-	assert.False(t, result[0].IsConsumer)
+	// Wholesale (0.08 kWh) normalized to consumer via tax cache
+	// (0.08 + 0.09161) × 1.21 ≈ 0.2076
+	assert.True(t, result[0].IsConsumer)
+	assert.InDelta(t, 0.2076, result[0].PriceEUR, 0.01)
 }
 
 func TestNormalizer_ManualMode_NoProfile(t *testing.T) {

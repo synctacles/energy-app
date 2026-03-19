@@ -145,7 +145,7 @@ func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 		slog.Warn("delta: initial fetch failed, using disk cache", "error", err)
 	}
 
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 
 	for {

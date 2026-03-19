@@ -152,8 +152,8 @@ func TestCircuitBreaker_DefaultCooldownUsedAfterRegularFailure(t *testing.T) {
 // ============================================================================
 
 func TestMemCacheTTL_Constant(t *testing.T) {
-	if memCacheTTL != 2*time.Hour {
-		t.Errorf("memCacheTTL should be 2h, got %v", memCacheTTL)
+	if memCacheTTL != 30*time.Minute {
+		t.Errorf("memCacheTTL should be 30m, got %v", memCacheTTL)
 	}
 }
 

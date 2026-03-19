@@ -749,6 +749,9 @@ func main() {
 						return result, nil
 					},
 					Suppliers: func() []string { return []string{supplier} },
+				ReadLivePrice: func(ctx context.Context) (float64, error) {
+					return readExternalSensorPrice(ctx, svDelta, entityID)
+				},
 				}).Run(ctx)
 				slog.Info("delta submitter started (sensor)", "supplier", supplier, "entity", entityID)
 			}

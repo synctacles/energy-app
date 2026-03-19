@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
 	"time"
 
@@ -31,6 +32,10 @@ type SubmitterConfig struct {
 	// Suppliers returns the list of suppliers to submit deltas for.
 	// Returns a single supplier for sensor mode.
 	Suppliers func() []string
+
+	// ReadLivePrice reads the current live sensor price (EUR/kWh incl. VAT).
+	// Optional — when set, enables event-driven live correction.
+	ReadLivePrice func(ctx context.Context) (float64, error)
 }
 
 // HourlyConsumerPrice is a consumer price at a specific hour.
@@ -45,18 +50,28 @@ type WholesalePrice struct {
 	PriceKWh  float64 // EUR/kWh
 }
 
+// liveCorrectionThreshold: only submit correction when deviation exceeds 0.5 ct/kWh
+const liveCorrectionThreshold = 0.005 // EUR/kWh
+
 // Submitter submits per-hour supplier deltas to the energy-data Worker.
 type Submitter struct {
-	cfg SubmitterConfig
+	cfg       SubmitterConfig
+	wsCache   map[string]float64 // cached wholesale: hourKey → EUR/kWh
+	lastDelta map[string]float64 // last submitted delta per hourKey
 }
 
 // NewSubmitter creates a new delta submitter.
 func NewSubmitter(cfg SubmitterConfig) *Submitter {
-	return &Submitter{cfg: cfg}
+	return &Submitter{
+		cfg:       cfg,
+		wsCache:   make(map[string]float64),
+		lastDelta: make(map[string]float64),
+	}
 }
 
 // Run starts the delta submitter loop. It submits once after startup
-// stabilization, then every hour.
+// stabilization, then every hour. If ReadLivePrice is configured,
+// also checks every 15 minutes for live corrections.
 func (s *Submitter) Run(ctx context.Context) {
 	// Wait for prices to load and stabilize
 	select {
@@ -67,15 +82,29 @@ func (s *Submitter) Run(ctx context.Context) {
 
 	s.submitAll(ctx)
 
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
+	hourlyTicker := time.NewTicker(1 * time.Hour)
+	defer hourlyTicker.Stop()
+
+	// Live correction ticker (only when ReadLivePrice is configured)
+	var liveTicker *time.Ticker
+	if s.cfg.ReadLivePrice != nil {
+		liveTicker = time.NewTicker(15 * time.Minute)
+		defer liveTicker.Stop()
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-hourlyTicker.C:
 			s.submitAll(ctx)
+		case <-func() <-chan time.Time {
+			if liveTicker != nil {
+				return liveTicker.C
+			}
+			return make(chan time.Time) // never fires
+		}():
+			s.checkLiveCorrection(ctx)
 		}
 	}
 }
@@ -95,17 +124,73 @@ func (s *Submitter) submitAll(ctx context.Context) {
 		return
 	}
 
-	// Index wholesale by hour
+	// Index wholesale by hour + cache for live corrections
 	wsMap := make(map[string]float64, len(wholesale))
 	for _, w := range wholesale {
 		key := w.Timestamp.UTC().Format("2006-01-02T15")
 		wsMap[key] = w.PriceKWh
 	}
+	s.wsCache = wsMap
 
 	for _, supplier := range s.cfg.Suppliers() {
 		s.submitForSupplier(ctx, supplier, tax, wsMap)
 	}
 }
+
+// checkLiveCorrection reads the live sensor price and submits a corrected
+// delta for the current hour if it deviates from the forecast-based delta
+// by more than the threshold (0.5 ct/kWh).
+func (s *Submitter) checkLiveCorrection(ctx context.Context) {
+	if s.cfg.ReadLivePrice == nil {
+		return
+	}
+
+	tax := s.cfg.TaxCache.Get(s.cfg.Zone)
+	if tax == nil {
+		return
+	}
+
+	livePrice, err := s.cfg.ReadLivePrice(ctx)
+	if err != nil || livePrice <= 0 {
+		return
+	}
+
+	// Current hour wholesale
+	now := time.Now().UTC()
+	hourKey := now.Format("2006-01-02T15")
+	ws, ok := s.wsCache[hourKey]
+	if !ok {
+		return // no wholesale data for current hour
+	}
+
+	// Calculate live delta: (live_price / (1+VAT)) - wholesale - taxes
+	liveDelta := livePrice/(1+tax.VATRate) - ws - tax.EnergyTax - tax.Surcharges
+	liveDelta = float64(int(liveDelta*1000000+0.5)) / 1000000
+
+	// Compare with last submitted delta
+	lastDelta, hasLast := s.lastDelta[hourKey]
+	if hasLast && math.Abs(liveDelta-lastDelta) < liveCorrectionThreshold {
+		return // deviation below threshold, no correction needed
+	}
+
+	// Submit correction for current hour only
+	hourTS := now.Truncate(time.Hour).Format("2006-01-02T15:04:05Z")
+	suppliers := s.cfg.Suppliers()
+	if len(suppliers) == 0 {
+		return
+	}
+
+	s.submit(ctx, suppliers[0], []deltaEntry{{TS: hourTS, Delta: liveDelta}})
+	s.lastDelta[hourKey] = liveDelta
+
+	slog.Info("delta: live correction submitted",
+		"supplier", suppliers[0],
+		"hour", hourKey,
+		"old_delta", lastDelta,
+		"new_delta", liveDelta,
+		"deviation", math.Abs(liveDelta-lastDelta))
+}
+
 
 // submitForSupplier calculates and submits deltas for a single supplier.
 func (s *Submitter) submitForSupplier(ctx context.Context, supplier string, tax *engine.WorkerTaxOverride, wsMap map[string]float64) {
@@ -160,6 +245,11 @@ func (s *Submitter) submitForSupplier(ctx context.Context, supplier string, tax 
 	// Cap at 48 entries
 	if len(deltas) > 48 {
 		deltas = deltas[:48]
+	}
+
+	// Update lastDelta cache (for live correction threshold comparison)
+	for _, d := range deltas {
+		s.lastDelta[d.TS[:13]] = d.Delta // "2006-01-02T15" from "2006-01-02T15:04:05Z"
 	}
 
 	s.submit(ctx, supplier, deltas)
