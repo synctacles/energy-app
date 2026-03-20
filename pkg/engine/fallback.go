@@ -33,8 +33,9 @@ type memCacheEntry struct {
 }
 
 // memCacheTTL controls how long in-memory results are reused before re-fetching.
-// Reduced to 30 min to pick up live delta corrections faster.
-const memCacheTTL = 30 * time.Minute
+// Set to 2 hours since the scheduler handles re-normalization (delta freshness)
+// independently of API fetching. Day-ahead prices don't change after publication.
+const memCacheTTL = 2 * time.Hour
 
 // estimatedCacheTTL is used for estimated/non-live data during the retry window
 // (13:00-21:30 UTC). The backend retries non-ok zones hourly until 21:00 UTC;
