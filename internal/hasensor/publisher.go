@@ -317,8 +317,9 @@ func ComputeSensorSet(
 	currentPrice, _, _ := engine.CurrentSlotPrice(todayPrices, now)
 
 	// For PT15M data: use hourly average as display price.
-	// Suppliers charge per hour — the quarter-level price includes wholesale variation
-	// that doesn't reflect what the user actually pays.
+	// Mathematically correct: avg(consumer_quarters) = (avg_wholesale + taxes) × (1+VAT)
+	// because VAT is a linear multiplier. Any remaining difference with the sensor
+	// is from the delta correction lag, not from the averaging method.
 	if len(todayPrices) > 48 {
 		currentHour := now.Truncate(time.Hour)
 		nextHour := currentHour.Add(time.Hour)

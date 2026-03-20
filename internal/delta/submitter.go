@@ -121,11 +121,19 @@ func (s *Submitter) submitAll(ctx context.Context) {
 		return
 	}
 
-	// Index wholesale by hour + cache for live corrections
-	wsMap := make(map[string]float64, len(wholesale))
+	// Index wholesale by hour (average of quarters) + cache for live corrections.
+	// PT15M data has 4 entries per hour — we need the hourly average to match
+	// how consumer prices are averaged on the display side.
+	wsSums := make(map[string]float64, len(wholesale))
+	wsCounts := make(map[string]int, len(wholesale))
 	for _, w := range wholesale {
 		key := w.Timestamp.UTC().Format("2006-01-02T15")
-		wsMap[key] = w.PriceKWh
+		wsSums[key] += w.PriceKWh
+		wsCounts[key]++
+	}
+	wsMap := make(map[string]float64, len(wsSums))
+	for key, sum := range wsSums {
+		wsMap[key] = sum / float64(wsCounts[key])
 	}
 	s.wsCache = wsMap
 
