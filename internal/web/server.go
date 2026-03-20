@@ -404,6 +404,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"source":      data.Source,
 		"quality":     data.Quality,
 	}
+	if data.UpstreamSource != "" {
+		sourceInfo["upstream"] = data.UpstreamSource
+	}
 	dashboard["source_info"] = sourceInfo
 
 	// Calibration supplier for chart label (e.g. "Zonneplan (NL) calibrated")

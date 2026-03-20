@@ -26,6 +26,7 @@ type SynctaclesAPI struct {
 	mu             sync.RWMutex
 	lastTaxProfile *CachedTaxProfile
 	lastStatus     string // day_ahead_status from last response
+	lastSource     string // upstream source from Worker (e.g. "Energy-Charts", "ENTSO-E")
 }
 
 // CachedTaxProfile holds the tax profile returned by the Worker for version-based caching.
@@ -58,6 +59,14 @@ func (s *SynctaclesAPI) LastTaxProfile() *CachedTaxProfile {
 	}
 	cp := *s.lastTaxProfile
 	return &cp
+}
+
+// LastUpstreamSource returns the upstream data source from the last Worker response
+// (e.g. "Energy-Charts", "ENTSO-E").
+func (s *SynctaclesAPI) LastUpstreamSource() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastSource
 }
 
 // LastDayAheadStatus returns the day_ahead_status from the last /prices response.
@@ -145,6 +154,7 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	// Cache tax profile (version-based — only update if version changed)
 	s.mu.Lock()
 	s.lastStatus = resp.DayAheadStatus
+	s.lastSource = resp.Source
 	if resp.TaxProfile != nil && resp.TaxProfileVersion != "" {
 		if s.lastTaxProfile == nil || s.lastTaxProfile.Version != resp.TaxProfileVersion {
 			s.lastTaxProfile = &CachedTaxProfile{

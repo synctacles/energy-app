@@ -1023,7 +1023,7 @@
         'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
         'synctacles': 'Energy-Charts', 'spothinta': 'spot-hinta.fi',
         'estimated': 'ENTSO-E (estimated)',
-        'Energy-Charts': 'Energy-Charts'
+        'Energy-Charts': 'Energy-Charts', 'ENTSO-E': 'ENTSO-E'
     };
 
     var supplierNames = {
@@ -1108,16 +1108,31 @@
                 if (isExtSensorMode) return true; // show all sources as fallback indicators
                 return !s.active;
             });
-            if (others.length > 0) {
+            // Resolve display names: use Worker upstream to deduplicate EC
+            var upstream = (d.source_info && d.source_info.upstream) || '';
+            var chainSources = [];
+            others.forEach(function(s) {
+                var name = s.name;
+                if (name === 'synctacles' && upstream) {
+                    name = upstream; // show actual upstream (Energy-Charts or ENTSO-E)
+                } else if (name === 'energycharts' && upstream === 'Energy-Charts') {
+                    name = 'ENTSO-E'; // EC already shown via synctacles, show fallback as ENTSO-E
+                }
+                // Deduplicate display names
+                var displayName = sourceNames[name] || name;
+                if (!chainSources.some(function(cs) { return cs.displayName === displayName; })) {
+                    chainSources.push({ displayName: displayName, healthy: s.healthy, last_success: s.last_success });
+                }
+            });
+            if (chainSources.length > 0) {
                 html += '<div class="source-chain" style="font-size:0.82em">';
-                others.forEach(function(s, idx) {
-                    var dotCls = s.healthy ? 'healthy' : (s.last_success ? 'unhealthy' : 'unknown');
-                    var label = sourceLabel(s.name, '', d.zone);
-                    var note = s.healthy ? ' (' + t('source.fallback_ready', 'ready') + ')' : '';
+                chainSources.forEach(function(cs, idx) {
+                    var dotCls = cs.healthy ? 'healthy' : (cs.last_success ? 'unhealthy' : 'unknown');
+                    var note = cs.healthy ? ' (' + t('source.fallback_ready', 'ready') + ')' : '';
                     if (idx > 0) html += ' ';
                     html += '<span class="source-chain-item">' +
                         '<span class="source-dot ' + dotCls + '"></span>' +
-                        '<span class="source-chain-name">' + label + note + '</span></span>';
+                        '<span class="source-chain-name">' + cs.displayName + note + '</span></span>';
                 });
                 html += '</div>';
             }
@@ -1412,7 +1427,7 @@
             ? t('dashboard.hide_quarters', 'Hide quarters')
             : t('dashboard.show_quarters', 'Show quarters');
         return '<div style="grid-column:1/-1;text-align:right;margin:-4px 0 -2px">' +
-            '<button onclick="toggleQuarters()" style="background:none;border:none;color:var(--text-faint);font-size:0.7em;cursor:pointer;padding:2px 4px">' +
+            '<button id="quarterToggleBtn" onclick="toggleQuarters()" style="background:none;border:none;color:var(--text-faint);font-size:0.7em;cursor:pointer;padding:2px 4px">' +
             icon + ' ' + label + '</button></div>';
     }
 
@@ -1439,7 +1454,7 @@
         }
         if (quarters.length === 0) return '';
 
-        var html = '<div class="quarter-panel">';
+        var html = '<div id="quarterPanel" class="quarter-panel" style="' + (_showQuarters ? '' : 'display:none') + '">';
         for (var qi = 0; qi < quarters.length; qi++) {
             var q = quarters[qi];
             var isActive = qi === currentQ;
@@ -1651,8 +1666,9 @@
             // Shared: chart card (all modes)
             var chartSource = '';
             if (d.source_info) {
+                var chartSrcName = d.source_info.upstream || d.source_info.source;
                 chartSource = ' <span class="chart-source">&mdash; ' +
-                    sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone, true) +
+                    sourceLabel(chartSrcName, d.source_info.leverancier, d.zone, true) +
                     '</span>';
             }
 
@@ -1665,7 +1681,7 @@
                         '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
                     buildQuarterToggle(d) +
-                    (_showQuarters ? buildQuarterPanel(d) : '') +
+                    buildQuarterPanel(d) +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1; margin-top: 4px;"></div>' +
                     modeCards +
                 '</div>' +
@@ -1730,7 +1746,14 @@
     function toggleQuarters() {
         _showQuarters = !_showQuarters;
         localStorage.setItem('show_quarters', _showQuarters ? 'true' : 'false');
-        if (_lastDashboard) loadDashboard(_lastDashboard);
+        var panel = document.getElementById('quarterPanel');
+        var btn = document.getElementById('quarterToggleBtn');
+        if (panel) panel.style.display = _showQuarters ? 'flex' : 'none';
+        if (btn) {
+            var icon = _showQuarters ? '\u25BC' : '\u25B6';
+            var label = _showQuarters ? t('dashboard.hide_quarters', 'Hide quarters') : t('dashboard.show_quarters', 'Show quarters');
+            btn.textContent = icon + ' ' + label;
+        }
     }
 
     function setChartMode(mode) {

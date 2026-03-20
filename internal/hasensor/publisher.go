@@ -29,6 +29,7 @@ type SensorSet struct {
 	Source         string
 	SourceTier     string // "worker", "energy_charts", "cache"
 	Quality        string
+	UpstreamSource string // actual data source from Worker (e.g. "Energy-Charts", "ENTSO-E")
 	UpdatedAt      time.Time
 }
 
@@ -393,6 +394,7 @@ func ComputeSensorSet(
 		Source:         fetchResult.Source,
 		SourceTier:     sourceTier,
 		Quality:        fetchResult.Quality,
+		UpstreamSource: fetchResult.UpstreamSource,
 		UpdatedAt:      now,
 	}
 }

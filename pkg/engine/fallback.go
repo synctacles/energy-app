@@ -72,10 +72,11 @@ func NewFallbackManager(sources []collector.PriceSource, cache PriceCache) *Fall
 
 // FetchResult holds prices with metadata about how they were obtained.
 type FetchResult struct {
-	Prices  []models.HourlyPrice
-	Source  string
-	Tier    int    // 1-3 = live, 4 = cache
-	Quality string // "live", "cached"
+	Prices         []models.HourlyPrice
+	Source         string
+	Tier           int    // 1-3 = live, 4 = cache
+	Quality        string // "live", "cached"
+	UpstreamSource string // actual data source (e.g. "Energy-Charts", "ENTSO-E") from Worker
 }
 
 // Fetch tries each source in order, falling back on failure.
@@ -166,6 +167,10 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 			Source:  src.Name(),
 			Tier:    i + 1,
 			Quality: "live",
+		}
+		// Propagate upstream source (e.g. Worker reports "Energy-Charts" or "ENTSO-E")
+		if us, ok := src.(interface{ LastUpstreamSource() string }); ok {
+			result.UpstreamSource = us.LastUpstreamSource()
 		}
 
 		// Store in memory cache to prevent re-fetching
