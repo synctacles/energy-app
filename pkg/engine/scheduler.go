@@ -62,6 +62,11 @@ func (s *Scheduler) Run(ctx context.Context) {
 	// Initial fetch immediately
 	s.fetchAndUpdate(ctx)
 
+	// Post-startup re-normalize: after cache (2min) and submitter (3min)
+	// have completed their initial work, re-normalize with fresh delta.
+	startupTimer := time.NewTimer(4 * time.Minute)
+	defer startupTimer.Stop()
+
 	// Calculate time until next hour boundary for instant updates
 	nextHour := time.Now().Truncate(time.Hour).Add(time.Hour)
 	hourTimer := time.NewTimer(time.Until(nextHour))
@@ -88,6 +93,11 @@ func (s *Scheduler) Run(ctx context.Context) {
 			return
 		case <-s.stopCh:
 			return
+		case <-startupTimer.C:
+			// Post-startup: re-normalize with fresh delta after cache+submitter init
+			slog.Info("post-startup delta re-normalize")
+			s.fetchAndUpdate(ctx)
+			startupTimer.Stop() // one-shot
 		case <-ticker.C:
 			// Regular tick: re-normalize with fresh delta, only fetch if needed
 			s.fetchAndUpdate(ctx)
