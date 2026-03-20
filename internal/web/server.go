@@ -378,6 +378,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"last_fetch": st.LastFetch,
 	}
 
+	// Timezone offset in minutes for frontend (browser-independent current-hour calculation)
+	_, tzOffset := time.Now().In(loc).Zone()
+	dashboard["tz_offset_minutes"] = tzOffset / 60
+
 	if data.BestWindow != nil {
 		dashboard["best_window"] = map[string]any{
 			"start":    utcHourToLocal(data.BestWindow.StartHour, loc),

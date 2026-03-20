@@ -1667,6 +1667,14 @@
         if (lastPrices) drawChart(lastPrices, lastAvg);
     }
 
+    // Get current hour/minute in HA timezone (not browser timezone)
+    function haTimeNow() {
+        var offsetMin = (_lastDashboard && _lastDashboard.tz_offset_minutes) || new Date().getTimezoneOffset() * -1;
+        var utcNow = Date.now();
+        var haTime = new Date(utcNow + offsetMin * 60000);
+        return { hours: haTime.getUTCHours(), minutes: haTime.getUTCMinutes() };
+    }
+
     function drawChart(prices, avg) {
         var canvas = document.getElementById('priceChart');
         if (!canvas) return;
@@ -1706,7 +1714,7 @@
             var sensorPriceCent = _lastDashboard && _lastDashboard.current_price
                 ? parseFloat(_lastDashboard.current_price.price) * 100 : 0;
             if (sensorPriceCent > 0) {
-                var sensorHour = String(new Date().getHours()).padStart(2, '0');
+                var sensorHour = String(haTimeNow().hours).padStart(2, '0');
                 for (var si = 0; si < hours.length; si++) {
                     if (hours[si].startsWith(sensorHour + ':')) {
                         vals[si] = sensorPriceCent;
@@ -1726,15 +1734,14 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        var now = new Date();
-        var currentMinute = now.getMinutes();
+        var haNow = haTimeNow();
         var currentSlot;
         if (vals.length > 48) {
-            // PT15M: round down to nearest 15-min slot (local time to match chart labels)
-            var q = Math.floor(currentMinute / 15) * 15;
-            currentSlot = String(now.getHours()).padStart(2, '0') + ':' + String(q).padStart(2, '0');
+            // PT15M: round down to nearest 15-min slot (HA timezone to match chart labels)
+            var q = Math.floor(haNow.minutes / 15) * 15;
+            currentSlot = String(haNow.hours).padStart(2, '0') + ':' + String(q).padStart(2, '0');
         } else {
-            currentSlot = String(now.getHours()).padStart(2, '0') + ':00';
+            currentSlot = String(haNow.hours).padStart(2, '0') + ':00';
         }
 
         var dark = isDark;
