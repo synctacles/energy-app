@@ -68,12 +68,20 @@ type Config struct {
 }
 
 // Valid pricing modes.
+//
+// Legacy mode migration (do NOT remove):
+//   - "p1_meter" and "meter_tariff" are legacy names for "external_sensor".
+//     They exist in user configs from pre-0.4.0 installations. The Load()
+//     function accepts them as valid modes, and IsExternalSensorMode() treats
+//     all three identically. Removing them would break existing users on update.
+//   - When adding new modes, use a new canonical name and keep legacy aliases
+//     in the switch statement in Load() and in IsExternalSensorMode().
 const (
 	ModeAuto           = "auto"
 	ModeManual         = "manual"
 	ModeExternalSensor = "external_sensor" // Canonical: any HA sensor with EUR/kWh tariff
-	ModeP1Meter        = "p1_meter"        // Legacy, kept for backward compat
-	ModeMeterTariff    = "meter_tariff"    // Legacy, kept for backward compat
+	ModeP1Meter        = "p1_meter"        // Legacy alias for external_sensor (pre-0.4.0)
+	ModeMeterTariff    = "meter_tariff"    // Legacy alias for external_sensor (pre-0.4.0)
 	ModeFixed          = "fixed"           // User-defined flat rate, no dynamic pricing
 	ModeTOU            = "tou"             // Time-of-use schedule (bi-horário / tri-horário)
 )

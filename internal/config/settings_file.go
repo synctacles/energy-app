@@ -49,15 +49,11 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 
 	restored := 0
 
-	// Core settings
-	if v, ok := settings["pricing_mode"].(string); ok && v != "" && v != "null" {
-		cfg.PricingMode = v
-		restored++
-	}
-	if v, ok := settings["zone"].(string); ok && v != "" && v != "null" {
-		cfg.BiddingZone = v
-		restored++
-	}
+	// Note: pricing_mode and zone are schema fields controlled by HA addon options.
+	// They are intentionally NOT restored from the backup file to avoid overriding
+	// the user's HA Options, which are the source of truth for schema fields.
+
+	// Core settings (non-schema only)
 	if v, ok := settings["currency"].(string); ok && v != "" && v != "null" {
 		cfg.Currency = v
 		restored++

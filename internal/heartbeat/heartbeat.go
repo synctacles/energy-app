@@ -14,7 +14,7 @@ import (
 )
 
 // Endpoint is the Synctacles API heartbeat URL.
-const Endpoint = "https://api.synctacles.com/api/v1/install/heartbeat"
+var Endpoint = platform.APIBaseURL + "/api/v1/install/heartbeat"
 
 // Sender sends heartbeats to the Synctacles API.
 type Sender struct {

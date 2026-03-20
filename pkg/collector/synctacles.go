@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
+	"github.com/synctacles/energy-app/pkg/platform"
 )
 
-const defaultBaseURL = "https://energy-data.synctacles.com"
+var defaultBaseURL = platform.EnergyDataBaseURL
 
 // SynctaclesAPI fetches prices from the Synctacles Energy Data Worker.
 // Primary source (Tier 0) — returns wholesale + consumer prices for all active zones.

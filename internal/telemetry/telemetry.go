@@ -19,8 +19,9 @@ import (
 	"github.com/synctacles/energy-app/pkg/platform"
 )
 
+var defaultBaseURL = platform.APIBaseURL
+
 const (
-	defaultBaseURL  = "https://api.synctacles.com"
 	sendInterval    = 24 * time.Hour
 	uuidFile        = ".synctacles_uuid.json"          // legacy (per-app)
 	sharedUUIDFile  = ".synctacles_install_id"          // shared across apps via /config

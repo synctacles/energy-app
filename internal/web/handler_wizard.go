@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -12,9 +13,10 @@ import (
 	"time"
 
 	"github.com/synctacles/energy-app/internal/hasensor"
+	"github.com/synctacles/energy-app/pkg/platform"
 )
 
-const energyDataBaseURL = "https://energy-data.synctacles.com"
+var energyDataBaseURL = platform.EnergyDataBaseURL
 
 // profileResponse matches the synctacles-api GET /api/v1/energy/install-profile response.
 type profileResponse struct {
@@ -37,7 +39,7 @@ type installProfile struct {
 	SupplierMarkup   *float64 `json:"supplier_markup_kwh"`
 }
 
-const platformAPIBaseURL = "https://api.synctacles.com"
+var platformAPIBaseURL = platform.APIBaseURL
 
 // fetchHarvestedProfile fetches the Care-harvested install profile for wizard pre-fill.
 // Returns nil on any error (best-effort).
@@ -372,6 +374,8 @@ func (s *Server) handleWizardData(w http.ResponseWriter, r *http.Request) {
 
 // handleCrowdsourceSubmit proxies tax verification data to the energy-data Worker.
 func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return
@@ -410,7 +414,10 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Warn("failed to read response body", "error", err)
+	}
 
 	if resp.StatusCode >= 400 {
 		writeError(w, http.StatusBadGateway, "server returned error: "+string(body))
@@ -428,6 +435,8 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 
 // handleZoneRequest proxies unsupported-region crowdsource submissions to the Worker.
 func (s *Server) handleZoneRequest(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return
@@ -483,7 +492,10 @@ func (s *Server) handleZoneRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Warn("failed to read response body", "error", err)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	w.Write(body)

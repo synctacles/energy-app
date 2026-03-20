@@ -10,9 +10,11 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/synctacles/energy-app/pkg/platform"
 )
 
-const defaultBaseURL = "https://api.synctacles.com"
+var defaultBaseURL = platform.APIBaseURL
 
 // Client searches the Synctacles KB API with product=energy pre-set.
 type Client struct {

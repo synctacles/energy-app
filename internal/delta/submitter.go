@@ -13,7 +13,8 @@ import (
 	"github.com/synctacles/energy-app/pkg/platform"
 )
 
-const energyDataBaseURL = "https://energy-data.synctacles.com"
+// energyDataBaseURL is the base URL for the Synctacles Energy Data Worker.
+var energyDataBaseURL = platform.EnergyDataBaseURL
 
 // SubmitterConfig configures the delta submitter.
 type SubmitterConfig struct {

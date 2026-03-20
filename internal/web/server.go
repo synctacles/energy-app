@@ -512,6 +512,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	if s.supervisor == nil {
 		writeError(w, http.StatusServiceUnavailable, "not running inside HA app")
 		return
@@ -1223,7 +1225,7 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 
 // --- Feedback Handlers ---
 
-const feedbackBaseURL = "https://api.synctacles.com"
+var feedbackBaseURL = platform.APIBaseURL
 
 // feedbackSystemInfo collects system information for feedback submissions.
 func (s *Server) feedbackSystemInfo() map[string]any {
@@ -1250,6 +1252,8 @@ func (s *Server) handleFeedbackSysInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	var req struct {
 		Rating  int    `json:"rating"`
 		Comment string `json:"comment"`
@@ -1286,6 +1290,8 @@ func (s *Server) handleFeedbackRating(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	var req struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -1341,7 +1347,10 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Warn("failed to read response body", "error", err)
+	}
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("auth service returned %d: %s", resp.StatusCode, string(body))
@@ -1358,6 +1367,8 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 // --- GDPR Data Deletion ---
 
 func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256*1024) // 256KB max
+
 	if s.installUUID == "" {
 		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
 		return
@@ -1388,7 +1399,10 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Warn("failed to read response body", "error", err)
+	}
 
 	if resp.StatusCode >= 400 {
 		writeError(w, http.StatusBadGateway, "server returned error: "+string(body))
