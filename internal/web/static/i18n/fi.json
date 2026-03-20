@@ -239,7 +239,7 @@
         "item_2": "Energiahintatiedot ovat vain tiedoksi. Emme takaa tietojen tarkkuutta, kattavuutta tai ajantasaisuutta.",
         "item_3": "Olet yksin vastuussa taloudellisista päätöksistä, jotka perustuvat tämän sovelluksen näyttämiin tietoihin.",
         "item_4": "Synctacles ei ole vastuussa vahingoista, jotka aiheutuvat tämän ohjelmiston tai sen tarjoamien tietojen käytöstä.",
-        "item_5": "Synctacles ei ole sidoksissa Home Assistantiin, Nabu Casaan, ENTSO-E:hen tai mihinkään energiatietojen tarjoajaan eikä näiden hyväksymä.",
+        "item_5": "Synctacles is not affiliated with Home Assistant, Nabu Casa, ENTSO-E, or Energy-Charts. Price data via Energy-Charts (Fraunhofer ISE), licensed under CC BY 4.0.",
         "item_6": "Käyttämällä tätä sovellusta hyväksyt nämä ehdot. Voit poistaa sovelluksen milloin tahansa.",
         "footer": "Napsauttamalla \"Ymmärrän\" vahvistat lukeneesi ja hyväksyväsi nämä ehdot.",
         "accept": "Ymmärrän"

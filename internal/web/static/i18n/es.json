@@ -239,7 +239,7 @@
         "item_2": "Los datos de precios de energía se proporcionan únicamente con fines informativos. No garantizamos su exactitud, integridad ni puntualidad.",
         "item_3": "Usted es el único responsable de las decisiones financieras basadas en la información mostrada por esta aplicación.",
         "item_4": "Synctacles no es responsable de ningún daño derivado del uso de este software o de los datos proporcionados.",
-        "item_5": "Synctacles no está afiliado ni respaldado por Home Assistant, Nabu Casa, ENTSO-E o ningún proveedor de datos energéticos.",
+        "item_5": "Synctacles is not affiliated with Home Assistant, Nabu Casa, ENTSO-E, or Energy-Charts. Price data via Energy-Charts (Fraunhofer ISE), licensed under CC BY 4.0.",
         "item_6": "Al usar esta aplicación acepta estos términos. Puede desinstalar la aplicación en cualquier momento.",
         "footer": "Al hacer clic en \"Entendido\" confirma que ha leído y acepta estos términos.",
         "accept": "Entendido"
