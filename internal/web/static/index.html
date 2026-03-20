@@ -1164,6 +1164,7 @@
     // --- Dashboard ---
     var lastPrices = null, lastAvg = 0;
     var _chartMode = localStorage.getItem('chart_mode') || '1h'; // default PT60
+    var _showQuarters = localStorage.getItem('show_quarters') !== 'false'; // default on
     var _lastDashJson = '';
     var _lastDashboard = null;
     var _dashboardBuilt = false;
@@ -1403,6 +1404,17 @@
     }
 
     // --- Quarter detail panel (shows 4 quarters of current hour) ---
+
+    function buildQuarterToggle(d) {
+        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length <= 48) return '';
+        var icon = _showQuarters ? '\u25BC' : '\u25B6';
+        var label = _showQuarters
+            ? t('dashboard.hide_quarters', 'Hide quarters')
+            : t('dashboard.show_quarters', 'Show quarters');
+        return '<div style="grid-column:1/-1;text-align:right;margin:-4px 0 -2px">' +
+            '<button onclick="toggleQuarters()" style="background:none;border:none;color:var(--text-faint);font-size:0.7em;cursor:pointer;padding:2px 4px">' +
+            icon + ' ' + label + '</button></div>';
+    }
 
     function buildQuarterPanel(d) {
         if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length <= 48) return '';
@@ -1652,7 +1664,8 @@
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
-                    buildQuarterPanel(d) +
+                    buildQuarterToggle(d) +
+                    (_showQuarters ? buildQuarterPanel(d) : '') +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1; margin-top: 4px;"></div>' +
                     modeCards +
                 '</div>' +
@@ -1713,6 +1726,12 @@
 
     var chartBars = [];
     var chartTooltip = null;
+
+    function toggleQuarters() {
+        _showQuarters = !_showQuarters;
+        localStorage.setItem('show_quarters', _showQuarters ? 'true' : 'false');
+        if (_lastDashboard) loadDashboard(_lastDashboard);
+    }
 
     function setChartMode(mode) {
         _chartMode = mode;
