@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -839,7 +840,8 @@ func buildSourceChain(cfg *config.Config, synctaclesAPI *collector.SynctaclesAPI
 }
 
 // readExternalSensorPrice reads the current electricity tariff from an HA sensor entity.
-// Returns the price in EUR/kWh. The sensor state must be a numeric string.
+// Returns the price in base currency per kWh (e.g. EUR/kWh, not ct/kWh).
+// Sensors that report in subunits (Cent/kWh, Øre/kWh, Öre/kWh) are auto-converted.
 func readExternalSensorPrice(ctx context.Context, sv *ha.SupervisorClient, entityID string) (float64, error) {
 	state, err := sv.GetState(ctx, entityID)
 	if err != nil {
@@ -853,5 +855,34 @@ func readExternalSensorPrice(ctx context.Context, sv *ha.SupervisorClient, entit
 	if err != nil {
 		return 0, fmt.Errorf("external sensor value %q is not numeric: %w", stateStr, err)
 	}
+
+	// Convert subunits (ct, cent, øre, öre, p) to base currency.
+	// Known subunit sensors: Nord Pool custom (Cent/kWh, Øre/kWh, Öre/kWh),
+	// Energi Data Service (c/kWh, Øre/kWh, Öre/kWh).
+	if attrs, ok := state["attributes"].(map[string]any); ok {
+		if u, ok := attrs["unit_of_measurement"].(string); ok {
+			if isSubunitPrice(u) {
+				price = price / 100
+			}
+		}
+	}
+
 	return price, nil
+}
+
+// isSubunitPrice returns true if the unit string indicates a subunit price
+// (cents, pence, øre, öre) rather than base currency (EUR, GBP, NOK, etc.).
+func isSubunitPrice(unit string) bool {
+	u := strings.ToLower(unit)
+	// Split on "/" to get the currency part (e.g. "Cent/kWh" → "cent")
+	parts := strings.SplitN(u, "/", 2)
+	if len(parts) == 0 {
+		return false
+	}
+	cur := strings.TrimSpace(parts[0])
+	switch cur {
+	case "cent", "ct", "c", "p", "øre", "öre":
+		return true
+	}
+	return false
 }

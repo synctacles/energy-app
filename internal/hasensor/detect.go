@@ -247,7 +247,9 @@ func DetectAllTariffSensors(ctx context.Context, supervisor *ha.SupervisorClient
 			strings.Contains(unitLower, "/wh") ||
 			unitLower == "eur" || unitLower == "gbp" ||
 			unitLower == "nok" || unitLower == "sek" ||
-			unitLower == "dkk"
+			unitLower == "dkk" || unitLower == "czk" ||
+			unitLower == "pln" || unitLower == "chf" ||
+			unitLower == "huf"
 		if unit != "" && !isPriceUnit {
 			continue
 		}
