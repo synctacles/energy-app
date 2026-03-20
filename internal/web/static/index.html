@@ -1109,7 +1109,7 @@
                 return !s.active;
             });
             // Resolve display names: use Worker upstream to deduplicate EC
-            var upstream = (d.source_info && d.source_info.upstream) || '';
+            var upstream = (_lastDashboard && _lastDashboard.source_info && _lastDashboard.source_info.upstream) || '';
             var chainSources = [];
             others.forEach(function(s) {
                 var name = s.name;
