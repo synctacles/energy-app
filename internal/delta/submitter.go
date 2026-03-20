@@ -140,6 +140,11 @@ func (s *Submitter) submitAll(ctx context.Context) {
 	for _, supplier := range s.cfg.Suppliers() {
 		s.submitForSupplier(ctx, supplier, tax, wsMap)
 	}
+
+	// Immediately apply live correction for current hour if sensor available.
+	// The forecast may differ from the live sensor — correct it now instead
+	// of waiting for the 15-min live check ticker.
+	s.checkLiveCorrection(ctx)
 }
 
 // checkLiveCorrection reads the live sensor price and submits a corrected
