@@ -71,8 +71,8 @@ func NewSubmitter(cfg SubmitterConfig) *Submitter {
 }
 
 // Run starts the delta submitter loop. It submits once after startup
-// stabilization, then every hour. If ReadLivePrice is configured,
-// also checks every 15 minutes for live corrections.
+// stabilization, then every hour. submitAll includes a live correction
+// for the current hour when a sensor is available.
 func (s *Submitter) Run(ctx context.Context) {
 	// Wait for prices to load and stabilize
 	select {
@@ -83,25 +83,15 @@ func (s *Submitter) Run(ctx context.Context) {
 
 	s.submitAll(ctx)
 
-	// Combined ticker: 15 min for live corrections, hourly for full forecast submit
-	ticker := time.NewTicker(15 * time.Minute)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
-	tickCount := 0
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			tickCount++
-			if tickCount%4 == 0 {
-				// Every hour: full forecast submit
-				s.submitAll(ctx)
-			}
-			// Every 15 min: live correction (if configured)
-			if s.cfg.ReadLivePrice != nil {
-				s.checkLiveCorrection(ctx)
-			}
+			s.submitAll(ctx)
 		}
 	}
 }
@@ -182,14 +172,10 @@ func (s *Submitter) checkLiveCorrection(ctx context.Context) {
 	liveDelta := livePrice/(1+tax.VATRate) - ws - tax.EnergyTax - tax.Surcharges
 	liveDelta = float64(int(liveDelta*1000000+0.5)) / 1000000
 
-	// Compare with last submitted delta
+	// Compare with last submitted delta — only submit if meaningfully different
 	lastDelta, hasLast := s.lastDelta[hourKey]
-	slog.Info("delta: live correction check",
-		"hour", hourKey, "live_delta", liveDelta, "last_delta", lastDelta,
-		"has_last", hasLast, "deviation", math.Abs(liveDelta-lastDelta),
-		"threshold", liveCorrectionThreshold)
 	if hasLast && math.Abs(liveDelta-lastDelta) < liveCorrectionThreshold {
-		return // deviation below threshold, no correction needed
+		return
 	}
 
 	// Submit correction for current hour only
