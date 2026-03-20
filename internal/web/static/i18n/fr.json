@@ -61,10 +61,12 @@
         "offpeak_at": "heures creuses à",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "calibré",
+        "calibrated_tooltip": "Prix calibré avec les données réelles des fournisseurs (moyenne des fournisseurs)",
+        "estimated": "estimé",
+        "estimated_tooltip": "Prix estimé — installez une intégration capteur pour des prix exacts",
+        "hide_quarters": "Masquer les quarts d'heure",
+        "show_quarters": "Afficher les quarts d'heure"
     },
     "actions": {
         "go": "ALLEZ",

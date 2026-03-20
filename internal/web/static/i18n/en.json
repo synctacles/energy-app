@@ -65,7 +65,9 @@
         "calibrated": "calibrated",
         "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
         "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices",
+        "hide_quarters": "Hide quarters",
+        "show_quarters": "Show quarters"
     },
     "actions": {
         "go": "GO",

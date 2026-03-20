@@ -62,11 +62,13 @@
         "offpeak_at": "dal om",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices",
-        "hour_avg": "uur"
+        "calibrated": "gekalibreerd",
+        "calibrated_tooltip": "Prijs gekalibreerd met echte leveranciersdata (gemiddelde van providers)",
+        "estimated": "geschat",
+        "estimated_tooltip": "Geschatte prijs — installeer een sensorintegratie voor exacte prijzen",
+        "hour_avg": "uur",
+        "hide_quarters": "Kwartieren verbergen",
+        "show_quarters": "Kwartieren tonen"
     },
     "actions": {
         "go": "GA",

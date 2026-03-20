@@ -1590,6 +1590,7 @@
             }
             _lastDashJson = dashJson;
             _lastDashboard = d;
+            loadSources(); // refresh source chain with upstream info
 
             var action = (d.action && d.action.action) || 'WAIT';
             var actionClass = action.toLowerCase();

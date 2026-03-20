@@ -61,10 +61,12 @@
         "offpeak_at": "valle a las",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "calibrado",
+        "calibrated_tooltip": "Precio calibrado con datos reales del proveedor (promedio entre proveedores)",
+        "estimated": "estimado",
+        "estimated_tooltip": "Precio estimado — instale una integración de sensor para precios exactos",
+        "hide_quarters": "Ocultar cuartos de hora",
+        "show_quarters": "Mostrar cuartos de hora"
     },
     "actions": {
         "go": "ADELANTE",

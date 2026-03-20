@@ -61,10 +61,12 @@
         "offpeak_at": "Nebenzeit ab",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "kalibriert",
+        "calibrated_tooltip": "Preis kalibriert mit echten Anbieterdaten (Durchschnitt aller Anbieter)",
+        "estimated": "geschätzt",
+        "estimated_tooltip": "Geschätzter Preis — installieren Sie eine Sensor-Integration für exakte Preise",
+        "hide_quarters": "Viertelstunden ausblenden",
+        "show_quarters": "Viertelstunden anzeigen"
     },
     "actions": {
         "go": "LOS",

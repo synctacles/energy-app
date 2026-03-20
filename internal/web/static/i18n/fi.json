@@ -61,10 +61,12 @@
         "offpeak_at": "yöaika klo",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "kalibroitu",
+        "calibrated_tooltip": "Hinta kalibroitu oikeilla toimittajatiedoilla (keskiarvo toimittajista)",
+        "estimated": "arvioitu",
+        "estimated_tooltip": "Arvioitu hinta — asenna sensoriliitäntä tarkkoja hintoja varten",
+        "hide_quarters": "Piilota varttitunnit",
+        "show_quarters": "Näytä varttitunnit"
     },
     "actions": {
         "go": "KÄYTÄ",

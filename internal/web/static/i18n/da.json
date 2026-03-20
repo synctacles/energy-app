@@ -61,10 +61,12 @@
         "offpeak_at": "lavlast kl.",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "kalibreret",
+        "calibrated_tooltip": "Pris kalibreret med rigtige leverandørdata (gennemsnit på tværs af udbydere)",
+        "estimated": "estimeret",
+        "estimated_tooltip": "Estimeret pris — installer en sensorintegration for nøjagtige priser",
+        "hide_quarters": "Skjul kvarterer",
+        "show_quarters": "Vis kvarterer"
     },
     "actions": {
         "go": "KØR",

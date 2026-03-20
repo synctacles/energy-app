@@ -61,10 +61,12 @@
         "offpeak_at": "vazio às",
         "exact": "exact",
         "exact_tooltip": "Exact price from your energy supplier",
-        "calibrated": "calibrated",
-        "calibrated_tooltip": "Price calibrated with real supplier data (average across providers)",
-        "estimated": "estimated",
-        "estimated_tooltip": "Estimated price — install a sensor integration for exact prices"
+        "calibrated": "calibrado",
+        "calibrated_tooltip": "Preço calibrado com dados reais do fornecedor (média entre fornecedores)",
+        "estimated": "estimado",
+        "estimated_tooltip": "Preço estimado — instale uma integração de sensor para preços exatos",
+        "hide_quarters": "Ocultar quartos de hora",
+        "show_quarters": "Mostrar quartos de hora"
     },
     "actions": {
         "go": "USAR",
