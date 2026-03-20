@@ -426,6 +426,69 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, result)
 }
 
+// handleZoneRequest proxies unsupported-region crowdsource submissions to the Worker.
+func (s *Server) handleZoneRequest(w http.ResponseWriter, r *http.Request) {
+	if s.installUUID == "" {
+		writeError(w, http.StatusServiceUnavailable, "install UUID not available")
+		return
+	}
+
+	var incoming map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&incoming); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	// Add install_uuid
+	incoming["install_uuid"] = s.installUUID
+
+	// Auto-detect HA energy integrations (best-effort)
+	if s.supervisor != nil {
+		var integrations []string
+		if addons, err := s.supervisor.ListAddons(r.Context()); err == nil {
+			for _, a := range addons {
+				name := strings.ToLower(a.Name)
+				if strings.Contains(name, "energy") || strings.Contains(name, "solar") ||
+					strings.Contains(name, "power") || strings.Contains(name, "grid") {
+					integrations = append(integrations, a.Name)
+				}
+			}
+		}
+		if len(integrations) > 0 {
+			incoming["ha_integrations"] = integrations
+		}
+	}
+
+	jsonData, err := json.Marshal(incoming)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to build request")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", energyDataBaseURL+"/api/v1/energy/zone-request", bytes.NewReader(jsonData))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create request")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "failed to contact server")
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body)
+}
+
 // fetchCrowdsourceSuppliers fetches approved crowdsource suppliers for a zone
 // from the energy-data Worker. If markup is non-empty, includes it for suggestion matching.
 // Returns nil on any error (best-effort).

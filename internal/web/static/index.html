@@ -673,19 +673,52 @@
     <div class="privacy-overlay" id="unsupportedRegionOverlay">
         <div class="privacy-modal" id="unsupportedRegionModal" style="max-width:480px">
             <h2 id="unsupportedRegionTitle" style="margin-bottom:8px">Region Not Yet Supported</h2>
-            <p id="unsupportedRegionBody" style="font-size:0.85em;line-height:1.5;color:var(--text-muted)"></p>
-            <div style="margin:16px 0;padding:12px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.15);border-radius:8px">
-                <p style="font-size:0.85em;color:var(--text);margin:0 0 8px 0;font-weight:600" id="unsupportedRegionHelpTitle">Help us add your region</p>
-                <p style="font-size:0.82em;color:var(--text-muted);margin:0 0 10px 0;line-height:1.5" id="unsupportedRegionHelpBody">Share any of these and we'll prioritize your region:</p>
-                <ul style="list-style:none;padding:0;margin:0;font-size:0.82em;color:var(--text-muted)">
-                    <li style="padding:3px 0">&#x2610; Wholesale electricity market / API</li>
-                    <li style="padding:3px 0">&#x2610; Tax rates (VAT, energy tax, levies)</li>
-                    <li style="padding:3px 0">&#x2610; Energy supplier with public API or HA integration</li>
-                </ul>
+            <p style="font-size:0.85em;line-height:1.5;color:var(--text-muted)" id="unsupportedRegionBody"></p>
+
+            <div id="zoneRequestForm" style="margin-top:12px">
+                <p style="font-size:0.85em;font-weight:600;color:var(--text)">Help us add your region:</p>
+
+                <div style="display:grid;gap:8px;margin-top:8px;font-size:0.82em">
+                    <div>
+                        <label style="color:var(--text-muted)">Country / Region</label>
+                        <input class="form-input" id="zr-country" type="text" placeholder="e.g. Morocco">
+                    </div>
+                    <div>
+                        <label style="color:var(--text-muted)">VAT rate (%)</label>
+                        <input class="form-input" id="zr-vat" type="number" step="0.1" placeholder="e.g. 20">
+                    </div>
+                    <div>
+                        <label style="color:var(--text-muted)">Energy tax (ct/kWh, optional)</label>
+                        <input class="form-input" id="zr-tax" type="number" step="0.01" placeholder="Leave empty if unknown">
+                    </div>
+                    <div>
+                        <label style="color:var(--text-muted)">Your energy supplier</label>
+                        <input class="form-input" id="zr-supplier" type="text" placeholder="e.g. ONEE, Enel">
+                    </div>
+                    <div>
+                        <label style="color:var(--text-muted)">Do you have an energy price sensor in HA?</label>
+                        <select class="form-select" id="zr-sensor">
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+                    <div id="zr-sensor-entity-wrap" style="display:none">
+                        <label style="color:var(--text-muted)">Sensor entity ID</label>
+                        <input class="form-input" id="zr-sensor-entity" type="text" placeholder="sensor.your_energy_price">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="btn-ok" style="flex:1" id="zrSubmitBtn">Submit</button>
+                    <button class="btn-ok" style="flex:1;background:var(--input-bg);color:var(--text)" id="zrSkipBtn">Skip</button>
+                </div>
+                <div id="zrStatus" style="font-size:0.82em;margin-top:8px;color:var(--text-muted)"></div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <a href="https://github.com/synctacles/ha-apps/issues/new?title=Region+request:+[your+country]&labels=region-request" target="_blank" rel="noopener" class="btn-ok" style="flex:1;text-decoration:none;text-align:center" id="unsupportedRegionSubmitBtn">Submit your region</a>
-                <button class="btn-ok" style="flex:1;background:var(--input-bg);color:var(--text)" id="unsupportedRegionOkBtn">Continue anyway</button>
+
+            <div id="zoneRequestDone" style="display:none;text-align:center;padding:16px 0">
+                <p style="font-size:1.5em;color:var(--success)">&#10003;</p>
+                <p style="font-size:0.85em;color:var(--text-muted)">Thank you! We'll notify you when your region is added.</p>
+                <button class="btn-ok" style="margin-top:12px" onclick="document.getElementById('unsupportedRegionOverlay').classList.remove('visible')">OK</button>
             </div>
         </div>
     </div>
@@ -3102,16 +3135,79 @@
         document.getElementById('unsupportedRegionTitle').textContent = t('unsupported_region.title', 'Region Not Yet Supported');
         document.getElementById('unsupportedRegionBody').textContent = t('unsupported_region.body',
             'Synctacles Energy currently supports EU and UK electricity zones. Your Home Assistant location ({timezone}) is outside the supported coverage area. The app requires day-ahead wholesale price data which is not yet available for your region.').replace('{timezone}', tz);
-        document.getElementById('unsupportedRegionContact').innerHTML =
-            t('unsupported_region.contact', 'Want support for your region? Let us know:') +
-            ' <a href="mailto:support@synctacles.com" style="color:var(--accent)">support@synctacles.com</a>';
-        document.getElementById('unsupportedRegionOkBtn').textContent = t('common.ok', 'OK');
+
+        // Show form or done state based on previous submission
+        var form = document.getElementById('zoneRequestForm');
+        var done = document.getElementById('zoneRequestDone');
+        if (localStorage.getItem('zone_request_submitted')) {
+            form.style.display = 'none';
+            done.style.display = 'block';
+        } else {
+            form.style.display = 'block';
+            done.style.display = 'none';
+        }
+
         document.getElementById('unsupportedRegionOverlay').classList.add('visible');
     }
 
-    document.getElementById('unsupportedRegionOkBtn').onclick = function() {
+    // Sensor select toggle
+    document.getElementById('zr-sensor').onchange = function() {
+        document.getElementById('zr-sensor-entity-wrap').style.display = this.value === '1' ? 'block' : 'none';
+    };
+
+    // Skip button
+    document.getElementById('zrSkipBtn').onclick = function() {
         localStorage.setItem('unsupported_region_dismissed', 'true');
         document.getElementById('unsupportedRegionOverlay').classList.remove('visible');
+    };
+
+    // Submit zone request
+    document.getElementById('zrSubmitBtn').onclick = async function() {
+        var btn = document.getElementById('zrSubmitBtn');
+        var status = document.getElementById('zrStatus');
+        var country = document.getElementById('zr-country').value.trim();
+        if (!country) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'Please enter your country or region.';
+            return;
+        }
+
+        btn.disabled = true;
+        status.style.color = 'var(--text-muted)';
+        status.textContent = 'Submitting...';
+
+        var vatVal = document.getElementById('zr-vat').value;
+        var taxVal = document.getElementById('zr-tax').value;
+
+        try {
+            var resp = await fetch('api/zone-request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    country: country,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    vat_pct: vatVal ? parseFloat(vatVal) / 100 : null,
+                    energy_tax_kwh: taxVal ? parseFloat(taxVal) / 100 : null,
+                    supplier: document.getElementById('zr-supplier').value.trim(),
+                    has_sensor: document.getElementById('zr-sensor').value === '1',
+                    sensor_entity: document.getElementById('zr-sensor-entity').value.trim()
+                })
+            });
+            if (resp.ok) {
+                localStorage.setItem('zone_request_submitted', 'true');
+                localStorage.setItem('unsupported_region_dismissed', 'true');
+                document.getElementById('zoneRequestForm').style.display = 'none';
+                document.getElementById('zoneRequestDone').style.display = 'block';
+            } else {
+                status.style.color = 'var(--danger)';
+                status.textContent = 'Submission failed. Please try again.';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'Connection error. Please try again.';
+            btn.disabled = false;
+        }
     };
 
     // --- Delete Data modal ---

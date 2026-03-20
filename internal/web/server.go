@@ -182,6 +182,9 @@ func NewServer(deps Deps) *Server {
 		r.Post("/feedback/rating", s.handleFeedbackRating)
 		r.Post("/feedback/bug", s.handleFeedbackBug)
 
+		// Zone request (unsupported region crowdsource)
+		r.Post("/zone-request", s.handleZoneRequest)
+
 		// GDPR data deletion
 		r.Post("/delete-data", s.handleDeleteData)
 	})
