@@ -159,6 +159,21 @@
         .chart-resolution button { padding: 2px 8px; background: var(--input-bg); color: var(--text-faint); border: none; cursor: pointer; font-weight: 600; }
         .chart-resolution button.active { background: var(--accent); color: #fff; }
 
+        /* Quarter detail panel */
+        .quarter-panel {
+            grid-column: 1 / -1; display: flex; gap: 6px; align-items: stretch;
+        }
+        .quarter-slot {
+            flex: 1; background: var(--bg-card); border-radius: var(--radius-sm);
+            padding: 8px 6px; text-align: center; border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .quarter-slot.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        .quarter-time { font-size: 0.7em; color: var(--text-faint); font-weight: 500; }
+        .quarter-price { font-size: 1.1em; font-weight: 700; margin: 2px 0; }
+        .quarter-accuracy { font-size: 0.65em; }
+        .quarter-marker { font-size: 0.6em; color: var(--accent); font-weight: 600; margin-top: 2px; }
+
         /* Settings */
         .settings-section {
             margin-bottom: 12px; background: var(--bg-card); border-radius: var(--radius);
@@ -1387,6 +1402,47 @@
         }
     }
 
+    // --- Quarter detail panel (shows 4 quarters of current hour) ---
+
+    function buildQuarterPanel(d) {
+        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length <= 48) return '';
+
+        var haNow = haTimeNow();
+        var currentHH = String(haNow.hours).padStart(2, '0');
+        var currentQ = Math.floor(haNow.minutes / 15);
+        var accuracy = d.price_accuracy || 'estimated';
+        var accuracySymbol = accuracy === 'exact' ? '\u2713' : (accuracy === 'calibrated' ? '\u2248' : '~');
+        var accuracyColor = accuracy === 'exact' ? '#22c55e' : (accuracy === 'calibrated' ? '#0ea5e9' : '#f59e0b');
+        var accuracyLabel = accuracy === 'exact' ? t('dashboard.exact', 'exact')
+            : (accuracy === 'calibrated' ? t('dashboard.calibrated', 'calibrated')
+            : t('dashboard.estimated', 'estimated'));
+
+        // Find the 4 quarters for current hour
+        var quarters = [];
+        for (var i = 0; i < d.prices_today.length; i++) {
+            var p = d.prices_today[i];
+            if (p.hour && p.hour.substring(0, 2) === currentHH) {
+                quarters.push(p);
+            }
+        }
+        if (quarters.length === 0) return '';
+
+        var html = '<div class="quarter-panel">';
+        for (var qi = 0; qi < quarters.length; qi++) {
+            var q = quarters[qi];
+            var isActive = qi === currentQ;
+            var priceCent = formatPrice(q.price);
+            html += '<div class="quarter-slot' + (isActive ? ' active' : '') + '">' +
+                '<div class="quarter-time">' + q.hour + '</div>' +
+                '<div class="quarter-price">' + priceCent + '</div>' +
+                '<div class="quarter-accuracy" style="color:' + accuracyColor + '">' + accuracySymbol + ' ' + accuracyLabel + '</div>' +
+                (isActive ? '<div class="quarter-marker">\u25C4 ' + t('dashboard.now', 'now') + '</div>' : '') +
+                '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
     // --- Dashboard card builders: separate wholesale from regulated rendering ---
 
     function buildWholesaleCards(d, actionClass, action) {
@@ -1596,6 +1652,7 @@
                         '<div class="card-value">' + priceCent + '<span style="font-size:0.4em;color:var(--text-faint)"> ' + t('dashboard.ct_kwh', 'ct/kWh') + '</span></div>' +
                         '<div class="card-sub">' + priceSub + '</div>' +
                     '</div>' +
+                    buildQuarterPanel(d) +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1; margin-top: 4px;"></div>' +
                     modeCards +
                 '</div>' +
