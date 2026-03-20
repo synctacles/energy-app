@@ -440,8 +440,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// ADR_010: price accuracy level
 	// "exact"      = sensor (real supplier price)
-	// "calibrated" = ENTSO-E + per-hour delta (crowdsourced average)
-	// "estimated"  = ENTSO-E + static tax only (no supplier markup data)
+	// "calibrated" = wholesale + per-hour delta (crowdsourced average)
+	// "estimated"  = wholesale + static tax only (no supplier markup data)
 	if s.cfg.IsExternalSensorMode() {
 		dashboard["price_accuracy"] = "exact"
 	} else if s.deltaCache != nil && s.deltaCache.Len() > 0 && !s.deltaCache.IsStale() {
@@ -944,7 +944,7 @@ func (s *Server) handleTaxBreakdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 1: Get REAL ENTSO-E wholesale for the current slot.
+	// Step 1: Get REAL wholesale price for the current slot.
 	if s.fallback != nil {
 		now := time.Now().UTC()
 		wholesaleMap := s.fallback.FetchWholesaleForZone(r.Context(), zone, now)

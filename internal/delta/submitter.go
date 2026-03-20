@@ -27,7 +27,7 @@ type SubmitterConfig struct {
 	// Reads forecast from HA sensor attributes.
 	GetDayAheadPrices func(ctx context.Context, supplier string) ([]HourlyConsumerPrice, error)
 
-	// GetWholesalePrices returns ENTSO-E day-ahead wholesale prices (EUR/kWh).
+	// GetWholesalePrices returns day-ahead wholesale prices (EUR/kWh).
 	GetWholesalePrices func(ctx context.Context, zone string) ([]WholesalePrice, error)
 
 	// Suppliers returns the list of suppliers to submit deltas for.

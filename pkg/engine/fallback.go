@@ -366,7 +366,7 @@ func cacheTTLFor(r *FetchResult) time.Duration {
 }
 
 // FetchWholesaleForZone returns wholesale EUR/kWh prices for a zone.
-// Priority: 1) synctacles (ENTSO-E PT15M), 2) EnergyCharts (PT60M fallback).
+// Priority: 1) synctacles Worker (Energy-Charts PT15M), 2) EnergyCharts (PT60M fallback).
 // Used for breakdown + delta calculations.
 func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string, date time.Time) map[time.Time]float64 {
 	f.mu.Lock()
@@ -380,7 +380,7 @@ func (f *FallbackManager) FetchWholesaleForZone(ctx context.Context, zone string
 		return extractWholesale(entry.result.Prices)
 	}
 
-	// Fetch wholesale prices from sources: synctacles (ENTSO-E PT15M) > EnergyCharts (PT60M)
+	// Fetch wholesale prices from sources: synctacles Worker (Energy-Charts PT15M) > EnergyCharts (PT60M)
 	for _, src := range f.sources {
 		if !supportsZone(src, zone) {
 			continue

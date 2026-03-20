@@ -767,7 +767,7 @@
                 </div>
                 <div id="wizNoSensor" style="display:none">
                     <h3 id="wizSetupTitle">Almost there!</h3>
-                    <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">No energy sensor detected. Prices will be based on ENTSO-E wholesale data with a calibrated average markup for your region.</p>
+                    <p style="font-size:0.82em;color:var(--text-muted);line-height:1.5;margin-bottom:12px">No energy sensor detected. Prices will be based on wholesale market data (Energy-Charts) with a calibrated average markup for your region.</p>
                     <div style="padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);border-radius:8px;font-size:0.82em;line-height:1.5;color:var(--text-muted)">
                         <strong style="color:#f59e0b">Tip:</strong> Install a price sensor integration (e.g. Zonneplan, Tibber, Nord Pool) for exact prices.
                     </div>
@@ -846,8 +846,8 @@
 
     function priceAccuracyInfoText(accuracy) {
         if (accuracy === 'exact') return t('info.price_exact', 'Price comes directly from your energy supplier. GO/WAIT/AVOID actions and price breakdown are 100% accurate.');
-        if (accuracy === 'calibrated') return t('info.price_calibrated', 'Price is calculated: ENTSO-E wholesale + average supplier markup from similar users. GO/WAIT/AVOID actions are >99% correct. Price breakdown may differ by up to ~1 ct/kWh. Install a price sensor (e.g. Zonneplan, Tibber) for exact prices.');
-        if (accuracy === 'estimated') return t('info.price_estimated', 'Price is estimated based on ENTSO-E wholesale + standard taxes. GO/WAIT/AVOID actions are reliable (relative price differences are correct). Exact amounts may differ.');
+        if (accuracy === 'calibrated') return t('info.price_calibrated', 'Price is calculated: wholesale market price + average supplier markup from similar users. GO/WAIT/AVOID actions are >99% correct. Price breakdown may differ by up to ~1 ct/kWh. Install a price sensor (e.g. Zonneplan, Tibber) for exact prices.');
+        if (accuracy === 'estimated') return t('info.price_estimated', 'Price is estimated based on wholesale market price + standard taxes. GO/WAIT/AVOID actions are reliable (relative price differences are correct). Exact amounts may differ.');
         return '';
     }
 
@@ -864,13 +864,13 @@
             return t('info.chart_exact',
                 'Chart shows {supplier} consumer prices (calibrated).\n\n' +
                 'Calculation:\n' +
-                '  ENTSO-E wholesale (per 15 min)\n' +
+                '  Wholesale (per 15 min)\n' +
                 '+ Energy tax & surcharges\n' +
                 '+ {supplier} correction (per-hour delta from sensor feedback)\n' +
                 '+ VAT\n' +
                 '= Consumer price\n\n' +
                 'The current price is verified against your energy sensor.\n\n' +
-                'Small deviations (< 1 ct) can occur because the correction is per hour, while ENTSO-E prices vary per 15 minutes within the hour. The hourly average matches your supplier price exactly.')
+                'Small deviations (< 1 ct) can occur because the correction is per hour, while wholesale prices vary per 15 minutes within the hour. The hourly average matches your supplier price exactly.')
                 .replace(/\{supplier\}/g, supplierName || 'Supplier');
         }
         if (acc === 'calibrated') {
@@ -878,12 +878,12 @@
             return t('info.chart_calibrated',
                 'Chart shows {supplier} consumer prices (calibrated).\n\n' +
                 'Calculation:\n' +
-                '  ENTSO-E wholesale (per 15 min)\n' +
+                '  Wholesale (per 15 min)\n' +
                 '+ Energy tax & surcharges\n' +
                 '+ {supplier} correction ({hours}h of data)\n' +
                 '+ VAT\n' +
                 '= Consumer price\n\n' +
-                'Accuracy: ~99%. Small deviations (< 1 ct) can occur because the correction is per hour, while ENTSO-E prices vary per 15 minutes within the hour.\n\n' +
+                'Accuracy: ~99%. Small deviations (< 1 ct) can occur because the correction is per hour, while wholesale prices vary per 15 minutes within the hour.\n\n' +
                 'Tip: install a price sensor for your supplier to improve the correction data.')
                 .replace(/\{supplier\}/g, calLabel)
                 .replace('{hours}', calHours);
@@ -891,7 +891,7 @@
         return t('info.chart_estimated',
             'Chart shows estimated consumer prices.\n\n' +
             'Calculation:\n' +
-            '  ENTSO-E wholesale (per 15 min)\n' +
+            '  Wholesale (per 15 min)\n' +
             '+ Energy tax & surcharges\n' +
             '+ Fixed supplier markup\n' +
             '+ VAT\n' +
@@ -902,8 +902,8 @@
 
     function actionAccuracyInfoText(accuracy) {
         if (accuracy === 'exact') return t('info.action_exact', 'Action based on exact supplier price. Accuracy: 100%.');
-        if (accuracy === 'calibrated') return t('info.action_calibrated', 'Action based on calibrated price (ENTSO-E + average supplier markup). Accuracy: 99.3% \u2014 in 287 of 8,760 hours per year the action may differ, but only when the price is close to the GO/WAIT threshold.');
-        if (accuracy === 'estimated') return t('info.action_estimated', 'Action based on estimated price (ENTSO-E + standard taxes). Accuracy: ~98% \u2014 relative price differences between hours are reliable, but exact thresholds may differ.');
+        if (accuracy === 'calibrated') return t('info.action_calibrated', 'Action based on calibrated price (wholesale + average supplier markup). Accuracy: 99.3% \u2014 in 287 of 8,760 hours per year the action may differ, but only when the price is close to the GO/WAIT threshold.');
+        if (accuracy === 'estimated') return t('info.action_estimated', 'Action based on estimated price (wholesale + standard taxes). Accuracy: ~98% \u2014 relative price differences between hours are reliable, but exact thresholds may differ.');
         return '';
     }
 
@@ -1004,7 +1004,7 @@
 
     // --- Source Health ---
     var sourceNames = {
-        'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'ENTSO-E',
+        'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'Energy-Charts',
         'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
         'synctacles': 'Energy-Charts', 'spothinta': 'spot-hinta.fi',
         'estimated': 'ENTSO-E (estimated)',
@@ -2090,7 +2090,7 @@
                 return '<div id="supplier-select-section" style="' + (show ? '' : 'display:none') + '">' +
                     '<div class="settings-section">' +
                         '<h3>' + t('settings.supplier', 'Energy supplier') +
-                            ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(t(\'info.supplier\', \'Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill.\'))">i</button>' +
+                            ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(t(\'info.supplier\', \'Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the wholesale market price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill.\'))">i</button>' +
                         '</h3>' +
                         '<div class="form-group">' +
                             '<label class="form-label">' + t('settings.supplier_label', 'Your energy supplier') + '</label>' +
