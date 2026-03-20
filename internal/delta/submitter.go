@@ -184,6 +184,10 @@ func (s *Submitter) checkLiveCorrection(ctx context.Context) {
 
 	// Compare with last submitted delta
 	lastDelta, hasLast := s.lastDelta[hourKey]
+	slog.Info("delta: live correction check",
+		"hour", hourKey, "live_delta", liveDelta, "last_delta", lastDelta,
+		"has_last", hasLast, "deviation", math.Abs(liveDelta-lastDelta),
+		"threshold", liveCorrectionThreshold)
 	if hasLast && math.Abs(liveDelta-lastDelta) < liveCorrectionThreshold {
 		return // deviation below threshold, no correction needed
 	}
