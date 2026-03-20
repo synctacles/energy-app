@@ -1006,7 +1006,7 @@
     var sourceNames = {
         'easyenergy': 'EasyEnergy', 'frank': 'Frank Energie', 'energycharts': 'Energy-Charts',
         'energidataservice': 'Energi Data Service', 'awattar': 'aWATTar', 'omie': 'OMIE',
-        'synctacles': 'Energy-Charts', 'spothinta': 'spot-hinta.fi',
+        'synctacles': 'Synctacles Worker', 'spothinta': 'spot-hinta.fi',
         'estimated': 'ENTSO-E (estimated)',
         'Energy-Charts': 'Energy-Charts'
     };
@@ -1021,12 +1021,14 @@
         'wout': 'Wout', 'zonneplan': 'Zonneplan'
     };
 
-    function sourceLabel(name, lev, zone) {
-        // Show calibration supplier when available (e.g. "Zonneplan (NL)")
-        var calSupplier = _lastDashboard && _lastDashboard.calibration_supplier;
-        if (calSupplier) {
-            var label = supplierNames[calSupplier] || (calSupplier.charAt(0).toUpperCase() + calSupplier.slice(1));
-            return zone ? label + ' (' + zone + ')' : label;
+    function sourceLabel(name, lev, zone, forChart) {
+        // For chart header: show calibration supplier (e.g. "Zonneplan (NL)")
+        if (forChart) {
+            var calSupplier = _lastDashboard && _lastDashboard.calibration_supplier;
+            if (calSupplier) {
+                var label = supplierNames[calSupplier] || (calSupplier.charAt(0).toUpperCase() + calSupplier.slice(1));
+                return zone ? label + ' (' + zone + ')' : label;
+            }
         }
         var label = sourceNames[name] || name;
         if (zone) {
@@ -1582,7 +1584,7 @@
             var chartSource = '';
             if (d.source_info) {
                 chartSource = ' <span class="chart-source">&mdash; ' +
-                    sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone) +
+                    sourceLabel(d.source_info.source, d.source_info.leverancier, d.zone, true) +
                     '</span>';
             }
 
