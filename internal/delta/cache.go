@@ -132,7 +132,9 @@ func (c *Cache) Fetch(ctx context.Context, zone, supplier string) error {
 }
 
 // RunFetcher periodically fetches deltas from the Worker.
-// Runs once at startup (after stabilization), then every hour.
+// Runs once at startup (after stabilization), then at each hour boundary
+// + 30s (picks up live corrections submitted at HH:00:15), plus a regular
+// 15-minute background refresh.
 func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 	// Wait for app stabilization
 	select {
@@ -145,6 +147,12 @@ func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 		slog.Warn("delta: initial fetch failed, using disk cache", "error", err)
 	}
 
+	// Hour-boundary refresh at HH:00:30 — picks up live corrections
+	nextHourFetch := time.Now().Truncate(time.Hour).Add(time.Hour).Add(30 * time.Second)
+	hourTimer := time.NewTimer(time.Until(nextHourFetch))
+	defer hourTimer.Stop()
+
+	// Regular 15-minute background refresh
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 
@@ -152,6 +160,12 @@ func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-hourTimer.C:
+			if err := c.Fetch(ctx, zone, supplier); err != nil {
+				slog.Warn("delta: hour-boundary fetch failed", "error", err)
+			}
+			nextHourFetch = time.Now().Truncate(time.Hour).Add(time.Hour).Add(30 * time.Second)
+			hourTimer.Reset(time.Until(nextHourFetch))
 		case <-ticker.C:
 			if err := c.Fetch(ctx, zone, supplier); err != nil {
 				slog.Warn("delta: fetch failed, using cached deltas", "error", err)

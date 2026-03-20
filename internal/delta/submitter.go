@@ -71,8 +71,10 @@ func NewSubmitter(cfg SubmitterConfig) *Submitter {
 }
 
 // Run starts the delta submitter loop. It submits once after startup
-// stabilization, then every hour. submitAll includes a live correction
-// for the current hour when a sensor is available.
+// stabilization, then at each hour boundary + 15s for immediate live
+// correction. The forecast-based deltas (47 hours) are submitted with
+// submitAll; the live correction fires 15s into each new hour so that
+// other instances pick up the corrected delta within seconds.
 func (s *Submitter) Run(ctx context.Context) {
 	// Wait for prices to load and stabilize
 	select {
@@ -83,15 +85,19 @@ func (s *Submitter) Run(ctx context.Context) {
 
 	s.submitAll(ctx)
 
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
+	// Align to hour boundary + 15s: sensor already has the new hour's tariff
+	nextFire := time.Now().Truncate(time.Hour).Add(time.Hour).Add(15 * time.Second)
+	hourTimer := time.NewTimer(time.Until(nextFire))
+	defer hourTimer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-hourTimer.C:
 			s.submitAll(ctx)
+			nextFire = time.Now().Truncate(time.Hour).Add(time.Hour).Add(15 * time.Second)
+			hourTimer.Reset(time.Until(nextFire))
 		}
 	}
 }

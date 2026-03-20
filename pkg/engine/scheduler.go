@@ -67,6 +67,13 @@ func (s *Scheduler) Run(ctx context.Context) {
 	hourTimer := time.NewTimer(time.Until(nextHour))
 	defer hourTimer.Stop()
 
+	// Delta-sync re-normalize at HH:00:45 — applies fresh delta from
+	// hour-boundary cache refresh (cache fetches at HH:00:30, submitter
+	// sends live correction at HH:00:15).
+	nextDeltaSync := time.Now().Truncate(time.Hour).Add(time.Hour).Add(45 * time.Second)
+	deltaSyncTimer := time.NewTimer(time.Until(nextDeltaSync))
+	defer deltaSyncTimer.Stop()
+
 	// Regular 15-minute refresh
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
@@ -90,6 +97,12 @@ func (s *Scheduler) Run(ctx context.Context) {
 			s.fetchAndUpdate(ctx)
 			nextHour = time.Now().Truncate(time.Hour).Add(time.Hour)
 			hourTimer.Reset(time.Until(nextHour))
+		case <-deltaSyncTimer.C:
+			// Delta-sync: re-normalize with live-corrected delta
+			slog.Info("delta-sync re-normalize")
+			s.fetchAndUpdate(ctx)
+			nextDeltaSync = time.Now().Truncate(time.Hour).Add(time.Hour).Add(45 * time.Second)
+			deltaSyncTimer.Reset(time.Until(nextDeltaSync))
 		case <-dayAheadTimer.C:
 			// Day-ahead publication window: always fetch fresh
 			slog.Info("day-ahead fetch triggered")
