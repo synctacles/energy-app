@@ -622,7 +622,7 @@ func main() {
 	zoneHasWholesale := true
 	if z, ok := registry.GetZone(cfg.BiddingZone); ok {
 		zoneHasWholesale = z.HasWholesale()
-		scheduler.SetZoneInfo(zoneHasWholesale, cfg.PricingMode)
+		scheduler.SetZoneInfo(zoneHasWholesale, cfg.PricingMode, zoneLoc)
 	}
 
 	// Non-wholesale zones with fixed/TOU: seed dashboard with full synthetic prices

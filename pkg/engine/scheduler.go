@@ -29,8 +29,9 @@ type Scheduler struct {
 
 	// Event-driven fetch state: prices are fetched only when needed,
 	// but re-normalized every tick for fresh delta application.
-	hasTomorrowData bool         // true once tomorrow's prices are available
-	lastResult      *FetchResult // cached result from last successful fetch
+	hasTomorrowData bool           // true once tomorrow's prices are available
+	lastResult      *FetchResult   // cached result from last successful fetch
+	zoneLoc         *time.Location // zone timezone for local day boundary
 }
 
 // NewScheduler creates a price fetch scheduler.
@@ -141,16 +142,17 @@ func (s *Scheduler) TriggerFetch() {
 
 // SetZoneInfo configures whether the zone has wholesale data and the pricing mode.
 // Non-wholesale zones in fixed/tou mode skip price fetching entirely.
-func (s *Scheduler) SetZoneInfo(hasWholesale bool, pricingMode string) {
+func (s *Scheduler) SetZoneInfo(hasWholesale bool, pricingMode string, loc *time.Location) {
 	s.hasWholesale = hasWholesale
 	s.pricingMode = pricingMode
+	s.zoneLoc = loc
 }
 
 // needsFreshFetch decides whether we should hit the API or re-use cached prices.
 // Day-ahead prices are published once (~13:00 CET) and don't change after that.
 // We only need fresh fetches when:
-//   - We don't have tomorrow's data yet AND we're in the day-ahead publication window (13-14 UTC)
 //   - We've never fetched successfully (lastResult == nil)
+//   - We don't have tomorrow's data yet AND we're in the day-ahead publication window (13-14 UTC)
 //   - A manual trigger was used (always fetches fresh — handled by caller)
 func (s *Scheduler) needsFreshFetch() bool {
 	if s.lastResult == nil {
@@ -191,7 +193,14 @@ func (s *Scheduler) doFetchAndUpdate(ctx context.Context, forceFresh bool) {
 		return
 	}
 
-	result, err := s.fallback.Fetch(ctx, s.zone, time.Now().UTC())
+	// Use local time so the FallbackManager cache key matches the local day.
+	// Without this, CET zones fetch yesterday's UTC date for up to 1 hour
+	// after local midnight, leaving the chart with only ~4 price slots.
+	fetchDate := time.Now().UTC()
+	if s.zoneLoc != nil {
+		fetchDate = time.Now().In(s.zoneLoc)
+	}
+	result, err := s.fallback.Fetch(ctx, s.zone, fetchDate)
 	if err != nil {
 		slog.Error("price fetch failed", "zone", s.zone, "error", err)
 		return

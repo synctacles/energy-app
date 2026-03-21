@@ -1421,7 +1421,7 @@
     // --- Quarter detail panel (shows 4 quarters of current hour) ---
 
     function buildQuarterToggle(d) {
-        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length <= 48) return '';
+        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length < 4) return '';
         var icon = _showQuarters ? '\u25BC' : '\u25B6';
         var label = _showQuarters
             ? t('dashboard.hide_quarters', 'Hide quarters')
@@ -1432,7 +1432,7 @@
     }
 
     function buildQuarterPanel(d) {
-        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length <= 48) return '';
+        if (!d || d.resolution !== 'PT15M' || !d.prices_today || d.prices_today.length < 4) return '';
 
         var haNow = haTimeNow();
         var currentHH = String(haNow.hours).padStart(2, '0');
