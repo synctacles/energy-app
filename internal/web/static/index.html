@@ -568,6 +568,9 @@
                     <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fbest_window_schedule.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block">
                         &#x23F0; <span data-i18n="automations.best_window">Best Window — Smart scheduling during cheapest hours</span>
                     </a>
+                    <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fsynctacles%2Fha-apps%2Fblob%2Fmain%2Fenergy%2Fblueprints%2Fgreen_energy_switch_on.yaml" target="_blank" rel="noopener" class="btn-submit" style="text-decoration:none;text-align:center;display:block;background:linear-gradient(135deg,#059669,#0d9488)">
+                        &#x1F33F; <span data-i18n="automations.green_energy">Green Energy — Run devices when renewable share is high</span>
+                    </a>
                 </div>
                 <p style="font-size:0.75em;color:var(--text-faint);margin-top:12px" data-i18n="automations.help">Click a button to import the blueprint into Home Assistant. You can then configure which devices to control.</p>
             </div>
@@ -1685,6 +1688,7 @@
                     buildQuarterPanel(d) +
                     '<div id="taxBreakdownSlot" style="grid-column: 1 / -1; margin-top: 4px;"></div>' +
                     modeCards +
+                    '<div id="renewableSlot"></div>' +
                 '</div>' +
                 '<div class="card chart-card">' +
                     '<div class="card-label">' + t('dashboard.todays_prices', "Today's Prices") + ' (' + t('dashboard.ct_kwh', 'ct/kWh') + ')' + chartSource +
@@ -1728,6 +1732,9 @@
                 if (slot && bd) slot.innerHTML = buildTaxBreakdownCard(bd);
             });
 
+            // Load renewable share card (async, non-blocking)
+            loadRenewableCard();
+
             _dashboardTimer = setTimeout(loadDashboard, 60000);
         } catch (err) {
             console.error('loadDashboard error:', err);
@@ -1738,6 +1745,37 @@
                 '<p style="color:var(--danger)">' + t('errors.connection_lost', 'Connection lost. Retrying automatically...') + '</p>' +
                 '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + tReplace('errors.retrying_in', {n: 10}, 'Retrying in 10s...') + '</p></div>';
             _dashboardTimer = setTimeout(loadDashboard, 10000);
+        }
+    }
+
+    async function loadRenewableCard() {
+        try {
+            var ren = await fetchAPI('api/renewable');
+            var slot = document.getElementById('renewableSlot');
+            if (!slot || !ren || !ren.available || !ren.current) return;
+
+            var share = ren.current.ren_share;
+            var signal = ren.current.signal || 'yellow';
+            var isGreen = signal === 'green';
+            var color = isGreen ? 'var(--success)' : '#f59e0b';
+            var icon = isGreen ? '\u{1F7E2}' : '\u{1F7E1}'; // green/yellow circle
+
+            var breakdown = '';
+            if (ren.current.solar_share != null || ren.current.wind_onshore_share != null) {
+                var parts = [];
+                if (ren.current.solar_share != null) parts.push('\u2600\uFE0F ' + ren.current.solar_share.toFixed(0) + '%');
+                var wind = (ren.current.wind_onshore_share || 0) + (ren.current.wind_offshore_share || 0);
+                if (wind > 0) parts.push('\uD83D\uDCA8 ' + wind.toFixed(0) + '%');
+                breakdown = parts.join('  ');
+            }
+
+            slot.innerHTML =
+                '<div class="card-label">' + icon + ' ' + t('dashboard.renewable', 'Renewable') + '</div>' +
+                '<div class="card-value" style="font-size:1.3em;color:' + color + '">' + share.toFixed(1) + '<span style="font-size:0.5em"> %</span></div>' +
+                '<div class="card-sub">' + (breakdown || t('dashboard.renewable_grid', 'Grid renewable share')) + '</div>';
+            slot.className = 'card';
+        } catch (e) {
+            // Non-critical — silently ignore if renewable data unavailable
         }
     }
 

@@ -386,6 +386,13 @@ func main() {
 			cfg.BestWindowHours, cfg.PricingMode,
 		)
 
+		// Renewable share: fetch from Worker (non-blocking — failure does not affect prices)
+		if renData, err := synctaclesAPI.FetchRenewable(ctx, cfg.BiddingZone); err == nil {
+			sensorSet.Renewable = renData
+		} else {
+			slog.Debug("renewable fetch skipped", "error", err)
+		}
+
 		// Sensor override: use HA sensor reading as CurrentPrice when available.
 		sensorEntity := cfg.P1SensorEntity
 		if sensorEntity != "" && supervisor != nil {

@@ -213,6 +213,84 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	return prices, nil
 }
 
+// ── Renewable share ──────────────────────────────────────────────────────────
+
+// workerRenewableResponse matches GET /api/v1/energy/renewable response.
+type workerRenewableResponse struct {
+	Zone       string                    `json:"zone"`
+	Resolution string                    `json:"resolution"`
+	Source     string                    `json:"source"`
+	Current    *workerRenewableEntry     `json:"current"`
+	Data       []workerRenewableEntry    `json:"data"`
+}
+
+type workerRenewableEntry struct {
+	Ts               int64    `json:"ts"`
+	RenShare         float64  `json:"ren_share"`
+	Signal           int      `json:"signal"`
+	SolarShare       *float64 `json:"solar_share"`
+	WindOnshoreShare *float64 `json:"wind_onshore_share"`
+	WindOffshoreShare *float64 `json:"wind_offshore_share"`
+}
+
+// FetchRenewable fetches the current + forecast renewable share data for a zone.
+func (s *SynctaclesAPI) FetchRenewable(ctx context.Context, zone string) (*models.RenewableData, error) {
+	url := fmt.Sprintf("%s/api/v1/energy/renewable?zone=%s", s.baseURL(), zone)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("synctacles renewable request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "SynctaclesEnergy/1.0")
+
+	httpResp, err := defaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("synctacles renewable fetch: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("synctacles renewable: HTTP %d for zone %s", httpResp.StatusCode, zone)
+	}
+
+	var resp workerRenewableResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+		return nil, fmt.Errorf("synctacles renewable parse: %w", err)
+	}
+
+	result := &models.RenewableData{
+		Zone:       resp.Zone,
+		Resolution: resp.Resolution,
+		Source:     resp.Source,
+	}
+
+	if resp.Current != nil {
+		pt := toRenewablePoint(*resp.Current)
+		result.Current = &pt
+	}
+
+	result.Data = make([]models.RenewablePoint, len(resp.Data))
+	for i, e := range resp.Data {
+		result.Data[i] = toRenewablePoint(e)
+	}
+
+	return result, nil
+}
+
+func toRenewablePoint(e workerRenewableEntry) models.RenewablePoint {
+	return models.RenewablePoint{
+		Timestamp:         time.Unix(int64(e.Ts), 0).UTC(),
+		RenShare:          e.RenShare,
+		Signal:            e.Signal,
+		SolarShare:        e.SolarShare,
+		WindOnshoreShare:  e.WindOnshoreShare,
+		WindOffshoreShare: e.WindOffshoreShare,
+	}
+}
+
+// ── Tax seed ─────────────────────────────────────────────────────────────────
+
 // TaxSeedResponse is the response from the Worker /api/v1/energy/tax endpoint.
 type TaxSeedResponse struct {
 	Zone        string   `json:"zone"`
