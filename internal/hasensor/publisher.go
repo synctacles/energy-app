@@ -31,10 +31,14 @@ type SensorSet struct {
 	Quality        string
 	UpstreamSource string // actual data source from Worker (e.g. "Energy-Charts", "ENTSO-E")
 	UpdatedAt      time.Time
+
+	// Renewable share data (from Worker /api/v1/energy/renewable)
+	Renewable *models.RenewableData
 }
 
 // PublishAll publishes all sensor entities to HA via the given publisher.
-// If a PowerTracker is provided (non-nil), sensors #9-11 are published when data is available.
+// Sensors #10-11 (renewable) require SensorSet.Renewable data.
+// If a PowerTracker is provided (non-nil), sensors #12-15 are published when data is available.
 func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*PowerTracker) error {
 	now := s.UpdatedAt.Format(time.RFC3339)
 
@@ -198,13 +202,59 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		return fmt.Errorf("publish prices tomorrow: %w", err)
 	}
 
+	// 10. Renewable share (if data available)
+	if s.Renewable != nil && s.Renewable.Current != nil {
+		cur := s.Renewable.Current
+		renAttrs := map[string]any{
+			"unit_of_measurement": "%",
+			"signal":              cur.SignalLabel(),
+			"source":              s.Renewable.Source,
+			"friendly_name":       "Synctacles Renewable Share",
+			"icon":                "mdi:leaf",
+			"device_class":        "power_factor",
+			"state_class":         "measurement",
+			"last_updated":        now,
+		}
+		if cur.SolarShare != nil {
+			renAttrs["solar_share"] = *cur.SolarShare
+		}
+		if cur.WindOnshoreShare != nil {
+			renAttrs["wind_onshore_share"] = *cur.WindOnshoreShare
+		}
+		if cur.WindOffshoreShare != nil {
+			renAttrs["wind_offshore_share"] = *cur.WindOffshoreShare
+		}
+		if err := pub.UpdateSensor(ctx, "sensor.synctacles_renewable_share",
+			fmt.Sprintf("%.1f", cur.RenShare), renAttrs,
+		); err != nil {
+			return fmt.Errorf("publish renewable share: %w", err)
+		}
+
+		// 11. Green energy binary sensor — ON when signal=1 (green)
+		greenState := "off"
+		if cur.Signal == 1 {
+			greenState = "on"
+		}
+		if err := pub.UpdateSensor(ctx, "binary_sensor.synctacles_green_energy",
+			greenState,
+			map[string]any{
+				"renewable_share": cur.RenShare,
+				"friendly_name":   "Synctacles Green Energy",
+				"icon":            "mdi:lightning-bolt",
+				"last_updated":    now,
+			},
+		); err != nil {
+			return fmt.Errorf("publish green energy: %w", err)
+		}
+	}
+
 	// --- Power-based sensors (needs power sensor) ---
 	if len(power) == 0 || power[0] == nil {
 		return nil
 	}
 	pt := power[0]
 
-	// 10. Live Cost (needs power sensor)
+	// 12. Live Cost (needs power sensor)
 	if costEUR, powerW, ok := pt.LiveCost(s.CurrentPrice); ok {
 		dailyTotal := float64(0)
 		if savings, totalKWh, ok2 := pt.DailySavings(s.Stats.Average); ok2 {
@@ -228,7 +278,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 11. Savings (needs power sensor)
+	// 13. Savings (needs power sensor)
 	if savingsEUR, totalKWh, ok := pt.DailySavings(s.Stats.Average); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_savings",
 			fmt.Sprintf("%.2f", savingsEUR),
@@ -246,7 +296,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 12. Usage Score (needs power sensor)
+	// 14. Usage Score (needs power sensor)
 	if score, cheapPct, avgPct, expPct, ok := pt.UsageScore(s.Stats.Average); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_usage_score",
 			fmt.Sprintf("%d", score),
@@ -264,7 +314,7 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		}
 	}
 
-	// 13. Daily Cost (needs power sensor)
+	// 15. Daily Cost (needs power sensor)
 	if costEUR, totalKWh, ok := pt.DailyCost(); ok {
 		if err := pub.UpdateSensor(ctx, "sensor.synctacles_daily_cost",
 			fmt.Sprintf("%.2f", costEUR),

@@ -152,6 +152,9 @@ func NewServer(deps Deps) *Server {
 		r.Get("/wizard-data", s.handleWizardData)
 		r.Post("/crowdsource-submit", s.handleCrowdsourceSubmit)
 
+		// Renewable share
+		r.Get("/renewable", s.handleRenewable)
+
 		// Sources health
 		r.Get("/sources", s.handleSources)
 
@@ -311,6 +314,62 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 		"average_price": data.Action.AveragePrice,
 		"quality":       data.Action.Quality,
 	})
+}
+
+func (s *Server) handleRenewable(w http.ResponseWriter, r *http.Request) {
+	data := s.sensorData.Get()
+	if data == nil || data.Renewable == nil {
+		writeJSON(w, map[string]any{"available": false})
+		return
+	}
+
+	ren := data.Renewable
+	resp := map[string]any{
+		"available":  true,
+		"zone":       ren.Zone,
+		"resolution": ren.Resolution,
+		"source":     ren.Source,
+	}
+
+	if ren.Current != nil {
+		cur := map[string]any{
+			"ren_share": ren.Current.RenShare,
+			"signal":    ren.Current.SignalLabel(),
+		}
+		if ren.Current.SolarShare != nil {
+			cur["solar_share"] = *ren.Current.SolarShare
+		}
+		if ren.Current.WindOnshoreShare != nil {
+			cur["wind_onshore_share"] = *ren.Current.WindOnshoreShare
+		}
+		if ren.Current.WindOffshoreShare != nil {
+			cur["wind_offshore_share"] = *ren.Current.WindOffshoreShare
+		}
+		resp["current"] = cur
+	}
+
+	// Include forecast data for chart rendering
+	forecast := make([]map[string]any, 0, len(ren.Data))
+	for _, d := range ren.Data {
+		pt := map[string]any{
+			"hour":      d.Timestamp.Format("15:04"),
+			"ren_share": d.RenShare,
+			"signal":    d.SignalLabel(),
+		}
+		if d.SolarShare != nil {
+			pt["solar_share"] = *d.SolarShare
+		}
+		if d.WindOnshoreShare != nil {
+			pt["wind_onshore_share"] = *d.WindOnshoreShare
+		}
+		if d.WindOffshoreShare != nil {
+			pt["wind_offshore_share"] = *d.WindOffshoreShare
+		}
+		forecast = append(forecast, pt)
+	}
+	resp["forecast"] = forecast
+
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
