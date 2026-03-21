@@ -126,7 +126,8 @@ func (tp *TaxProfile) WholesaleToConsumer(wholesaleKWh float64, at time.Time) fl
 // CacheEntry holds cached prices with provenance metadata.
 // Used by the smart cache to preserve original source tier and quality across reboots.
 type CacheEntry struct {
-	Prices       []HourlyPrice
-	OriginalTier int
-	FetchedAt    time.Time
+	Prices         []HourlyPrice
+	OriginalTier   int
+	FetchedAt      time.Time
+	UpstreamSource string // actual data source (e.g. "Energy-Charts", "ENTSO-E") — survives reboots
 }

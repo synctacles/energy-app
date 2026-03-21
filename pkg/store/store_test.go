@@ -241,3 +241,69 @@ func TestSQLiteCache_IsConsumer_Roundtrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, got2[0].IsConsumer, "Non-consumer prices must remain false")
 }
+
+func TestSQLiteCache_UpstreamSource_Roundtrip(t *testing.T) {
+	cache, err := NewSQLiteCache(t.TempDir())
+	require.NoError(t, err)
+	defer cache.Close()
+
+	date := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	prices := []models.HourlyPrice{
+		{Timestamp: date, PriceEUR: 0.30, Unit: models.UnitKWh, Source: "synctacles", Quality: "live", Zone: "NL"},
+		{Timestamp: date.Add(time.Hour), PriceEUR: 0.28, Unit: models.UnitKWh, Source: "synctacles", Quality: "live", Zone: "NL"},
+	}
+
+	// Store with upstream source
+	err = cache.PutWithTier("NL", prices, 1, "Energy-Charts")
+	require.NoError(t, err)
+
+	// Retrieve — upstream_source must survive
+	entry, err := cache.GetWithMeta("NL", date)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	assert.Equal(t, "Energy-Charts", entry.UpstreamSource)
+}
+
+func TestSQLiteCache_UpstreamSource_EmptyByDefault(t *testing.T) {
+	cache, err := NewSQLiteCache(t.TempDir())
+	require.NoError(t, err)
+	defer cache.Close()
+
+	date := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	prices := []models.HourlyPrice{
+		{Timestamp: date, PriceEUR: 0.25, Unit: models.UnitKWh, Source: "energycharts", Quality: "live", Zone: "NL"},
+	}
+
+	// Store without upstream (local EC source)
+	err = cache.PutWithTier("NL", prices, 2)
+	require.NoError(t, err)
+
+	entry, err := cache.GetWithMeta("NL", date)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	assert.Equal(t, "", entry.UpstreamSource, "should be empty when no upstream provided")
+}
+
+func TestSQLiteCache_UpstreamSource_PreservedOnUpdate(t *testing.T) {
+	cache, err := NewSQLiteCache(t.TempDir())
+	require.NoError(t, err)
+	defer cache.Close()
+
+	date := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	prices := []models.HourlyPrice{
+		{Timestamp: date, PriceEUR: 0.30, Unit: models.UnitKWh, Source: "synctacles", Quality: "live", Zone: "NL"},
+	}
+
+	// First: store with upstream
+	_ = cache.PutWithTier("NL", prices, 1, "Energy-Charts")
+
+	// Second: update same row without upstream (e.g. from Put which doesn't pass upstream)
+	prices[0].PriceEUR = 0.31
+	_ = cache.PutWithTier("NL", prices, 1)
+
+	// Upstream should be preserved (CASE WHEN excluded.upstream_source != '' THEN ... ELSE prices.upstream_source END)
+	entry, err := cache.GetWithMeta("NL", date)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	assert.Equal(t, "Energy-Charts", entry.UpstreamSource, "upstream should be preserved when update has empty upstream")
+}

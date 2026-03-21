@@ -56,7 +56,7 @@ type PriceCache interface {
 type SmartPriceCache interface {
 	PriceCache
 	GetWithMeta(zone string, date time.Time) (*models.CacheEntry, error)
-	PutWithTier(zone string, prices []models.HourlyPrice, tier int) error
+	PutWithTier(zone string, prices []models.HourlyPrice, tier int, upstreamSource ...string) error
 }
 
 // NewFallbackManager creates a fallback manager with prioritized sources.
@@ -149,10 +149,16 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		f.breaker.recordSuccess(src.Name())
 		f.lastSuccess[src.Name()] = time.Now()
 
-		// Cache the result (with tier metadata if supported)
+		// Determine upstream source (e.g. Worker reports "Energy-Charts" or "ENTSO-E")
+		var upstream string
+		if us, ok := src.(interface{ LastUpstreamSource() string }); ok {
+			upstream = us.LastUpstreamSource()
+		}
+
+		// Cache the result (with tier + upstream metadata if supported)
 		if f.cache != nil {
 			if smart, ok := f.cache.(SmartPriceCache); ok {
-				if err := smart.PutWithTier(zone, prices, i+1); err != nil {
+				if err := smart.PutWithTier(zone, prices, i+1, upstream); err != nil {
 					slog.Warn("cache put failed", "error", err)
 				}
 			} else {
@@ -163,14 +169,11 @@ func (f *FallbackManager) Fetch(ctx context.Context, zone string, date time.Time
 		}
 
 		result := &FetchResult{
-			Prices:  prices,
-			Source:  src.Name(),
-			Tier:    i + 1,
-			Quality: "live",
-		}
-		// Propagate upstream source (e.g. Worker reports "Energy-Charts" or "ENTSO-E")
-		if us, ok := src.(interface{ LastUpstreamSource() string }); ok {
-			result.UpstreamSource = us.LastUpstreamSource()
+			Prices:         prices,
+			Source:         src.Name(),
+			Tier:           i + 1,
+			Quality:        "live",
+			UpstreamSource: upstream,
 		}
 
 		// Store in memory cache to prevent re-fetching
@@ -238,10 +241,11 @@ func (f *FallbackManager) tryWarmFromDisk(zone string, date time.Time, cacheKey 
 	}
 
 	result := &FetchResult{
-		Prices:  prices,
-		Source:  entry.Prices[0].Source,
-		Tier:    entry.OriginalTier,
-		Quality: entry.Prices[0].Quality,
+		Prices:         prices,
+		Source:         entry.Prices[0].Source,
+		Tier:           entry.OriginalTier,
+		Quality:        entry.Prices[0].Quality,
+		UpstreamSource: entry.UpstreamSource,
 	}
 	f.memCache[cacheKey] = &memCacheEntry{
 		result:        result,
@@ -250,6 +254,7 @@ func (f *FallbackManager) tryWarmFromDisk(zone string, date time.Time, cacheKey 
 	}
 
 	slog.Info("warm from disk cache", "zone", zone, "source", result.Source,
+		"upstream", result.UpstreamSource,
 		"tier", result.Tier, "quality", result.Quality,
 		"today", len(entry.Prices), "tomorrow", len(prices)-len(entry.Prices))
 
@@ -278,12 +283,13 @@ type SourceHealth struct {
 // This separates data provenance from API health: a source can be unhealthy
 // (red dot) while its cached data is still being served (valid and [stored]).
 type ActiveSourceInfo struct {
-	Source        string `json:"source"`
-	Quality       string `json:"quality"`
-	Tier          int    `json:"tier"`
-	FromMemCache  bool   `json:"from_mem_cache"`
-	FromDiskCache bool   `json:"from_disk_cache"`
-	FetchedAt     string `json:"fetched_at"`
+	Source         string `json:"source"`
+	UpstreamSource string `json:"upstream_source,omitempty"` // actual data provider (e.g. "Energy-Charts", "ENTSO-E")
+	Quality        string `json:"quality"`
+	Tier           int    `json:"tier"`
+	FromMemCache   bool   `json:"from_mem_cache"`
+	FromDiskCache  bool   `json:"from_disk_cache"`
+	FetchedAt      string `json:"fetched_at"`
 }
 
 // SourceStatus returns the health status of all configured sources.
@@ -332,12 +338,13 @@ func (f *FallbackManager) ActiveInfo(zone string, date time.Time) *ActiveSourceI
 	}
 
 	return &ActiveSourceInfo{
-		Source:        entry.result.Source,
-		Quality:       entry.result.Quality,
-		Tier:          entry.result.Tier,
-		FromMemCache:  !entry.fromDiskCache,
-		FromDiskCache: entry.fromDiskCache,
-		FetchedAt:     entry.fetchedAt.Format(time.RFC3339),
+		Source:         entry.result.Source,
+		UpstreamSource: entry.result.UpstreamSource,
+		Quality:        entry.result.Quality,
+		Tier:           entry.result.Tier,
+		FromMemCache:   !entry.fromDiskCache,
+		FromDiskCache:  entry.fromDiskCache,
+		FetchedAt:      entry.fetchedAt.Format(time.RFC3339),
 	}
 }
 

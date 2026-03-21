@@ -1100,9 +1100,10 @@
             // Active source summary — show sensor as source when in exact mode
             if (ai) {
                 var isExtSensor = d.pricing_mode === 'external_sensor' || d.pricing_mode === 'p1_meter' || d.pricing_mode === 'meter_tariff';
+                var activeSrcName = ai.upstream_source || ai.source;
                 var srcLabel = isExtSensor
                     ? t('source.sensor_price', 'Sensor') + ' (' + d.zone + ')'
-                    : sourceLabel(ai.source, d.leverancier, d.zone);
+                    : sourceLabel(activeSrcName, d.leverancier, d.zone);
                 var cacheNote = '';
                 if (ai.from_mem_cache || ai.from_disk_cache) {
                     cacheNote = ' <span class="source-cached-note">' + t('source.cached_locally', '• cached locally') + '</span>';
@@ -1122,8 +1123,10 @@
                 if (isExtSensorMode) return true; // show all sources as fallback indicators
                 return !s.active;
             });
-            // Resolve display names: use Worker upstream to deduplicate EC
-            var upstream = (_lastDashboard && _lastDashboard.source_info && _lastDashboard.source_info.upstream) || '';
+            // Resolve display names: use upstream source to deduplicate EC
+            // Prefer active_info.upstream_source (survives reboots via disk cache)
+            // Fallback to dashboard source_info.upstream for backward compat
+            var upstream = (ai && ai.upstream_source) || (_lastDashboard && _lastDashboard.source_info && _lastDashboard.source_info.upstream) || '';
             var chainSources = [];
             others.forEach(function(s) {
                 var name = s.name;

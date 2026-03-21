@@ -312,3 +312,107 @@ func TestActiveInfo_ShowsDiskCache(t *testing.T) {
 		t.Errorf("expected source synctacles, got %s", info.Source)
 	}
 }
+
+// ============================================================================
+// UpstreamSource propagation tests
+// ============================================================================
+
+func TestUpstreamSource_SurvivedDiskCache(t *testing.T) {
+	sqlCache, err := store.NewSQLiteCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlCache.Close()
+
+	date := time.Now().UTC().Truncate(24 * time.Hour)
+	prices := make24Prices(date, "synctacles", "live")
+
+	// Store with upstream source
+	if err := sqlCache.PutWithTier("NL", prices, 1, "Energy-Charts"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate reboot: new FallbackManager, no live sources
+	fm := NewFallbackManager(nil, sqlCache)
+	result, err := fm.Fetch(context.Background(), "NL", date)
+	if err != nil {
+		t.Fatalf("Fetch should succeed from disk cache: %v", err)
+	}
+
+	if result.UpstreamSource != "Energy-Charts" {
+		t.Errorf("expected upstream 'Energy-Charts', got %q", result.UpstreamSource)
+	}
+}
+
+func TestActiveInfo_IncludesUpstream(t *testing.T) {
+	sqlCache, err := store.NewSQLiteCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlCache.Close()
+
+	date := time.Now().UTC().Truncate(24 * time.Hour)
+	prices := make24Prices(date, "synctacles", "live")
+	_ = sqlCache.PutWithTier("NL", prices, 1, "ENTSO-E")
+
+	fm := NewFallbackManager(nil, sqlCache)
+	_, _ = fm.Fetch(context.Background(), "NL", date)
+
+	info := fm.ActiveInfo("NL", date)
+	if info == nil {
+		t.Fatal("ActiveInfo should not be nil")
+	}
+	if info.UpstreamSource != "ENTSO-E" {
+		t.Errorf("expected upstream 'ENTSO-E', got %q", info.UpstreamSource)
+	}
+}
+
+func TestUpstreamSource_EmptyForLocalEC(t *testing.T) {
+	sqlCache, err := store.NewSQLiteCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlCache.Close()
+
+	date := time.Now().UTC().Truncate(24 * time.Hour)
+	prices := make24Prices(date, "energycharts", "live")
+
+	// Store without upstream (local EC is the source itself)
+	_ = sqlCache.PutWithTier("NL", prices, 2)
+
+	fm := NewFallbackManager(nil, sqlCache)
+	result, err := fm.Fetch(context.Background(), "NL", date)
+	if err != nil {
+		t.Fatalf("Fetch should succeed: %v", err)
+	}
+
+	if result.UpstreamSource != "" {
+		t.Errorf("expected empty upstream for local EC, got %q", result.UpstreamSource)
+	}
+}
+
+func TestUpstreamSource_PropagatedToMemCache(t *testing.T) {
+	sqlCache, err := store.NewSQLiteCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlCache.Close()
+
+	date := time.Now().UTC().Truncate(24 * time.Hour)
+	prices := make24Prices(date, "synctacles", "live")
+	_ = sqlCache.PutWithTier("NL", prices, 1, "Energy-Charts")
+
+	fm := NewFallbackManager(nil, sqlCache)
+
+	// First fetch: warms from disk
+	r1, _ := fm.Fetch(context.Background(), "NL", date)
+	if r1.UpstreamSource != "Energy-Charts" {
+		t.Fatalf("first fetch: expected upstream 'Energy-Charts', got %q", r1.UpstreamSource)
+	}
+
+	// Second fetch: should come from mem cache with upstream preserved
+	r2, _ := fm.Fetch(context.Background(), "NL", date)
+	if r2.UpstreamSource != "Energy-Charts" {
+		t.Errorf("second fetch (mem cache): expected upstream 'Energy-Charts', got %q", r2.UpstreamSource)
+	}
+}

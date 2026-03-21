@@ -49,6 +49,7 @@ func NewSQLiteCache(configPath string) (*SQLiteCache, error) {
 	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN original_tier INTEGER NOT NULL DEFAULT 0")
 	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN is_consumer INTEGER NOT NULL DEFAULT 0")
 	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN wholesale_kwh REAL NOT NULL DEFAULT 0")
+	_, _ = db.Exec("ALTER TABLE prices ADD COLUMN upstream_source TEXT NOT NULL DEFAULT ''")
 
 	// Data fix: prices stored as kWh by synctacles are consumer prices
 	// but got is_consumer=0 from the DEFAULT when the column was first added.
@@ -120,7 +121,7 @@ func (c *SQLiteCache) GetWithMeta(zone string, date time.Time) (*models.CacheEnt
 	dayEnd := dayStart.Add(24 * time.Hour)
 
 	rows, err := c.db.Query(`
-		SELECT timestamp, price_eur, unit, source, quality, zone, original_tier, fetched_at, is_consumer, wholesale_kwh
+		SELECT timestamp, price_eur, unit, source, quality, zone, original_tier, fetched_at, is_consumer, wholesale_kwh, upstream_source
 		FROM prices
 		WHERE zone = ? AND timestamp >= ? AND timestamp < ?
 		ORDER BY timestamp
@@ -133,11 +134,12 @@ func (c *SQLiteCache) GetWithMeta(zone string, date time.Time) (*models.CacheEnt
 	var prices []models.HourlyPrice
 	var tier int
 	var fetchedAt time.Time
+	var upstreamSource string
 	for rows.Next() {
-		var tsStr, unitStr, source, quality, z, fetchedAtStr string
+		var tsStr, unitStr, source, quality, z, fetchedAtStr, rowUpstream string
 		var priceEUR, wholesaleKWh float64
 		var rowTier, isConsumer int
-		if err := rows.Scan(&tsStr, &priceEUR, &unitStr, &source, &quality, &z, &rowTier, &fetchedAtStr, &isConsumer, &wholesaleKWh); err != nil {
+		if err := rows.Scan(&tsStr, &priceEUR, &unitStr, &source, &quality, &z, &rowTier, &fetchedAtStr, &isConsumer, &wholesaleKWh, &rowUpstream); err != nil {
 			continue
 		}
 		ts, err := time.Parse(time.RFC3339, tsStr)
@@ -158,10 +160,13 @@ func (c *SQLiteCache) GetWithMeta(zone string, date time.Time) (*models.CacheEnt
 			Zone:         z,
 			IsConsumer:   isConsumer == 1,
 		})
-		// Use tier and fetched_at from last row (all rows in a batch share the same values)
+		// Use tier, fetched_at, upstream_source from last row (all rows in a batch share the same values)
 		tier = rowTier
 		if fa, err := time.Parse(time.RFC3339, fetchedAtStr); err == nil {
 			fetchedAt = fa
+		}
+		if rowUpstream != "" {
+			upstreamSource = rowUpstream
 		}
 	}
 
@@ -170,9 +175,10 @@ func (c *SQLiteCache) GetWithMeta(zone string, date time.Time) (*models.CacheEnt
 	}
 
 	return &models.CacheEntry{
-		Prices:       prices,
-		OriginalTier: tier,
-		FetchedAt:    fetchedAt,
+		Prices:         prices,
+		OriginalTier:   tier,
+		FetchedAt:      fetchedAt,
+		UpstreamSource: upstreamSource,
 	}, nil
 }
 
@@ -182,7 +188,13 @@ func (c *SQLiteCache) Put(zone string, prices []models.HourlyPrice) error {
 }
 
 // PutWithTier stores prices in the cache with the original source tier.
-func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier int) error {
+// Optional upstreamSource parameter stores the actual data provider (e.g. "Energy-Charts", "ENTSO-E").
+func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier int, upstreamSource ...string) error {
+	upstream := ""
+	if len(upstreamSource) > 0 {
+		upstream = upstreamSource[0]
+	}
+
 	tx, err := c.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -190,8 +202,8 @@ func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier
 	defer func() { _ = tx.Rollback() }()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO prices (zone, timestamp, price_eur, unit, source, quality, fetched_at, original_tier, is_consumer, wholesale_kwh)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO prices (zone, timestamp, price_eur, unit, source, quality, fetched_at, original_tier, is_consumer, wholesale_kwh, upstream_source)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(zone, timestamp) DO UPDATE SET
 			price_eur = excluded.price_eur,
 			unit = excluded.unit,
@@ -200,7 +212,8 @@ func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier
 			fetched_at = excluded.fetched_at,
 			original_tier = excluded.original_tier,
 			is_consumer = excluded.is_consumer,
-			wholesale_kwh = CASE WHEN excluded.wholesale_kwh > 0 THEN excluded.wholesale_kwh ELSE prices.wholesale_kwh END
+			wholesale_kwh = CASE WHEN excluded.wholesale_kwh > 0 THEN excluded.wholesale_kwh ELSE prices.wholesale_kwh END,
+			upstream_source = CASE WHEN excluded.upstream_source != '' THEN excluded.upstream_source ELSE prices.upstream_source END
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
@@ -228,6 +241,7 @@ func (c *SQLiteCache) PutWithTier(zone string, prices []models.HourlyPrice, tier
 			tier,
 			isConsumer,
 			p.WholesaleKWh,
+			upstream,
 		)
 		if err != nil {
 			return fmt.Errorf("insert price: %w", err)
