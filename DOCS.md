@@ -61,7 +61,7 @@ All sources are free, public APIs. No API keys required (except for the optional
 
 ## Sensors
 
-The addon publishes 12 sensors to Home Assistant. All sensors are free — no license or account needed.
+The addon publishes up to 15 sensors to Home Assistant. All sensors are free — no license or account needed.
 
 | Sensor | Entity ID | State | Description |
 |--------|-----------|-------|-------------|
@@ -74,12 +74,27 @@ The addon publishes 12 sensors to Home Assistant. All sensors are free — no li
 | Best Window | `sensor.synctacles_best_window` | HH:00 - HH:00 | Best consecutive window (configurable 1-8h) |
 | Tomorrow Preview | `sensor.synctacles_tomorrow_preview` | FAVORABLE/NORMAL/EXPENSIVE/PENDING | Tomorrow's price outlook |
 | Prices Tomorrow | `sensor.synctacles_prices_tomorrow` | count | Tomorrow's hourly prices in attributes |
-| Live Cost | `sensor.synctacles_live_cost` | EUR/h | Real-time cost based on power sensor |
-| Savings | `sensor.synctacles_savings` | EUR | Daily savings vs average price |
-| Usage Score | `sensor.synctacles_usage_score` | 0-100 | How well you use cheap hours |
-| Daily Cost | `sensor.synctacles_daily_cost` | EUR | Cumulative daily cost, resets at midnight |
+| Renewable Share | `sensor.synctacles_renewable_share` | % | Current grid renewable energy share ** |
+| Green Energy | `binary_sensor.synctacles_green_energy` | on/off | ON when grid is green (high renewable share) ** |
+| Live Cost | `sensor.synctacles_live_cost` | EUR/h | Real-time cost based on power sensor * |
+| Savings | `sensor.synctacles_savings` | EUR | Daily savings vs average price * |
+| Usage Score | `sensor.synctacles_usage_score` | 0-100 | How well you use cheap hours * |
+| Daily Cost | `sensor.synctacles_daily_cost` | EUR | Cumulative daily cost, resets at midnight * |
 
-Live Cost, Savings, Usage Score, and Daily Cost require a power sensor entity to be configured.
+*\* Requires a power sensor (W) in your HA installation*
+*\*\* Available for zones covered by Energy-Charts (26 EU zones)*
+
+### Renewable Share
+
+The Renewable Share sensor shows what percentage of the electricity grid is currently powered by renewable sources (wind and solar). Data comes from Energy-Charts (Fraunhofer ISE) and updates every 15 minutes.
+
+The sensor includes these attributes:
+- `signal`: "green" (above national average) or "yellow" (below average)
+- `solar_share`: solar contribution (%)
+- `wind_onshore_share`: onshore wind contribution (%)
+- `wind_offshore_share`: offshore wind contribution (%)
+
+The companion `binary_sensor.synctacles_green_energy` turns ON when the Energy-Charts signal is green — perfect for automations that should only run on clean energy.
 
 ## Configuration
 

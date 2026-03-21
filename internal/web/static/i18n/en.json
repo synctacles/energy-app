@@ -14,6 +14,7 @@
         "avoid_signal": "AVOID Signal — Switch off devices when energy is expensive",
         "price_alert": "Price Alert — Get notified at cheap or expensive prices",
         "best_window": "Best Window — Smart scheduling during cheapest hours",
+        "green_energy": "Green Energy — Run devices when renewable share is high",
         "help": "Click a button to import the blueprint into Home Assistant. You can then configure which devices to control."
     },
     "source": {
@@ -67,7 +68,9 @@
         "estimated": "estimated",
         "estimated_tooltip": "Estimated price — install a sensor integration for exact prices",
         "hide_quarters": "Hide quarters",
-        "show_quarters": "Show quarters"
+        "show_quarters": "Show quarters",
+        "renewable": "Renewable",
+        "renewable_grid": "Grid renewable share"
     },
     "actions": {
         "go": "GO",
@@ -399,7 +402,8 @@
         "chart_exact": "Chart shows {supplier} consumer prices (calibrated).\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ {supplier} correction (per-hour delta from sensor feedback)\n+ VAT\n= Consumer price\n\nThe current price is verified against your energy sensor.\n\nSmall deviations (< 1 ct) can occur because the correction is per hour, while wholesale prices vary per 15 minutes within the hour. The hourly average matches your supplier price exactly.",
         "chart_calibrated": "Chart shows {supplier} consumer prices (calibrated).\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ {supplier} correction ({hours}h of data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Small deviations (< 1 ct) can occur because the correction is per hour, while wholesale prices vary per 15 minutes within the hour.\n\nTip: install a price sensor for your supplier to improve the correction data.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
-        "supplier": "Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill."
+        "supplier": "Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill.",
+        "renewable_share": "Renewable share shows what percentage of the electricity grid is currently powered by renewable sources (wind + solar).\n\nSignal:\n  \uD83D\uDFE2 Green = share is above or near the national average\n  \uD83D\uDFE1 Yellow = share is below the national average\n\nData source: Energy-Charts (Fraunhofer ISE), updated every 15 minutes.\n\nUse this to time energy-intensive tasks (washing, EV charging) for moments when the grid is greenest. Set up the \"Green Energy\" automation blueprint to do this automatically."
     },
     "purged": {
         "title": "Data Deleted",
