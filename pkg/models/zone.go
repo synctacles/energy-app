@@ -4,13 +4,14 @@ import "math"
 
 // ZoneInfo describes a bidding zone and its configuration.
 type ZoneInfo struct {
-	Code     string  `yaml:"code" json:"code"`         // "NL", "DE-LU", "NO1", etc.
-	EIC      string  `yaml:"eic" json:"eic"`           // ENTSO-E EIC code
-	Name     string  `yaml:"name" json:"name"`         // "Netherlands"
-	Country  string  `yaml:"country" json:"country"`   // "NL", "DE", "NO"
-	Timezone string  `yaml:"timezone" json:"timezone"` // "Europe/Amsterdam"
-	Lat      float64 `yaml:"lat" json:"lat"`           // zone centroid latitude
-	Lon      float64 `yaml:"lon" json:"lon"`           // zone centroid longitude
+	Code      string  `yaml:"code" json:"code"`           // "NL", "DE-LU", "NO1", "GB"
+	EIC       string  `yaml:"eic" json:"eic"`             // ENTSO-E EIC code (empty for non-ENTSO-E zones like GB)
+	Name      string  `yaml:"name" json:"name"`           // "Netherlands"
+	Country   string  `yaml:"country" json:"country"`     // "NL", "DE", "NO", "GB"
+	Timezone  string  `yaml:"timezone" json:"timezone"`   // "Europe/Amsterdam", "Europe/London"
+	Lat       float64 `yaml:"lat" json:"lat"`             // zone centroid latitude
+	Lon       float64 `yaml:"lon" json:"lon"`             // zone centroid longitude
+	Wholesale bool    `yaml:"wholesale" json:"wholesale"` // true if zone has wholesale data (ENTSO-E, Elexon, or other)
 
 	// Zone-level overrides (optional). When set, these override the country-level defaults.
 	TaxDefaults      *EmbeddedTaxDefaults `yaml:"tax_defaults,omitempty" json:"tax_defaults,omitempty"`
@@ -18,9 +19,10 @@ type ZoneInfo struct {
 	TOUPresets       []TOUPreset          `yaml:"tou_presets,omitempty" json:"tou_presets,omitempty"`
 }
 
-// HasWholesale returns true if this zone has ENTSO-E wholesale market data.
+// HasWholesale returns true if this zone has wholesale market data.
+// Zones with ENTSO-E EIC codes (EU) or explicit wholesale flag (GB via Elexon/EPEX) qualify.
 func (z ZoneInfo) HasWholesale() bool {
-	return z.EIC != ""
+	return z.EIC != "" || z.Wholesale
 }
 
 // RegulatedTariffs defines pre-set tariff rates for zones with regulated (non-wholesale) pricing.
