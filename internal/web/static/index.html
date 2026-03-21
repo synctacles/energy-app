@@ -918,6 +918,17 @@
             'Tip: install a price sensor for exact prices, or wait for community data to become available.');
     }
 
+    function renewableShareInfoText() {
+        return t('info.renewable_share',
+            'Renewable share shows what percentage of the electricity grid is currently powered by renewable sources (wind + solar).\n\n' +
+            'Signal:\n' +
+            '  \uD83D\uDFE2 Green = share is above or near the national average\n' +
+            '  \uD83D\uDFE1 Yellow = share is below the national average\n\n' +
+            'Data source: Energy-Charts (Fraunhofer ISE), updated every 15 minutes.\n\n' +
+            'Use this to time energy-intensive tasks (washing, EV charging) for moments when the grid is greenest. ' +
+            'Set up the "Green Energy" automation blueprint to do this automatically.');
+    }
+
     function actionAccuracyInfoText(accuracy) {
         if (accuracy === 'exact') return t('info.action_exact', 'Action based on exact supplier price. Accuracy: 100%.');
         if (accuracy === 'calibrated') return t('info.action_calibrated', 'Action based on calibrated price (wholesale + average supplier markup). Accuracy: 99.3% \u2014 in 287 of 8,760 hours per year the action may differ, but only when the price is close to the GO/WAIT threshold.');
@@ -1770,7 +1781,8 @@
             }
 
             slot.innerHTML =
-                '<div class="card-label">' + icon + ' ' + t('dashboard.renewable', 'Renewable') + '</div>' +
+                '<div class="card-label">' + icon + ' ' + t('dashboard.renewable', 'Renewable') +
+                ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(renewableShareInfoText())">i</button></div>' +
                 '<div class="card-value" style="font-size:1.3em;color:' + color + '">' + share.toFixed(1) + '<span style="font-size:0.5em"> %</span></div>' +
                 '<div class="card-sub">' + (breakdown || t('dashboard.renewable_grid', 'Grid renewable share')) + '</div>';
             slot.className = 'card';
