@@ -73,9 +73,9 @@ func (e *EnergyCharts) FetchDayAhead(ctx context.Context, zone string, date time
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	// Energy-Charts may return 15-min intervals for some zones.
-	// Filter to whole hours only (minute=0) for consistent 24-hour output.
-	prices := make([]models.HourlyPrice, 0, 24)
+	// Energy-Charts returns PT15M for some zones (e.g. NL, DE-LU) and PT60M for others.
+	// Collect all valid data points first, then decide resolution.
+	var all []models.HourlyPrice
 	for i, unix := range resp.UnixSeconds {
 		if resp.Price[i] == nil {
 			continue
@@ -84,10 +84,7 @@ func (e *EnergyCharts) FetchDayAhead(ctx context.Context, zone string, date time
 		if ts.Before(startOfDay) || !ts.Before(endOfDay) {
 			continue
 		}
-		if ts.Minute() != 0 {
-			continue // skip sub-hourly intervals
-		}
-		prices = append(prices, models.HourlyPrice{
+		all = append(all, models.HourlyPrice{
 			Timestamp: ts,
 			PriceEUR:  *resp.Price[i],
 			Unit:      models.UnitMWh,
@@ -95,6 +92,18 @@ func (e *EnergyCharts) FetchDayAhead(ctx context.Context, zone string, date time
 			Quality:   "live",
 			Zone:      zone,
 		})
+	}
+
+	// If we have sub-hourly data (>24 points), use PT15M as-is.
+	// Otherwise fall back to PT60M (whole hours only).
+	prices := all
+	if len(all) <= 24 {
+		prices = make([]models.HourlyPrice, 0, 24)
+		for _, p := range all {
+			if p.Timestamp.Minute() == 0 {
+				prices = append(prices, p)
+			}
+		}
 	}
 
 	if len(prices) == 0 {

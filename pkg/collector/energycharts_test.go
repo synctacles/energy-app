@@ -42,17 +42,23 @@ func TestEnergyCharts_Integration(t *testing.T) {
 	}
 
 	assert.NotEmpty(t, prices)
-	// Should be exactly 24 hourly prices (sub-hourly filtered out)
-	assert.LessOrEqual(t, len(prices), 24)
+	// NL returns PT15M (96 slots), other zones PT60M (24 slots)
+	// Accept either: 24 (hourly) or 92-96 (quarter-hourly)
+	assert.GreaterOrEqual(t, len(prices), 24, "should have at least 24 prices")
+	isPT15M := len(prices) > 24
 	for _, p := range prices {
 		assert.Equal(t, models.UnitMWh, p.Unit)
 		assert.Equal(t, "energycharts", p.Source)
 		assert.Equal(t, "NL", p.Zone)
 		assert.False(t, p.IsConsumer, "wholesale source should not be consumer")
-		// Only whole hours (no 15-min intervals)
-		assert.Equal(t, 0, p.Timestamp.Minute(), "expected whole hours only, got %s", p.Timestamp.Format(time.RFC3339))
+		if !isPT15M {
+			assert.Equal(t, 0, p.Timestamp.Minute(), "PT60M: expected whole hours only, got %s", p.Timestamp.Format(time.RFC3339))
+		}
 		// Wholesale prices in EUR/MWh, typically -50 to 500
 		assert.Greater(t, p.PriceEUR, -500.0)
 		assert.Less(t, p.PriceEUR, 1000.0)
+	}
+	if isPT15M {
+		t.Logf("NL returned PT15M: %d slots", len(prices))
 	}
 }
