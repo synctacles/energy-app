@@ -15,6 +15,7 @@
         "price_alert": "Alerte prix — Notification en cas de prix bas ou élevés",
         "best_window": "Meilleur créneau — Planification intelligente pendant les heures les moins chères",
         "green_energy": "Énergie Verte — Allumer les appareils quand la part renouvelable est élevée",
+        "green_window": "Fenêtre Verte — Planifier les appareils pendant les heures les plus vertes",
         "help": "Cliquez sur un bouton pour importer le blueprint dans Home Assistant. Vous pouvez ensuite configurer les appareils à contrôler."
     },
     "source": {
@@ -67,7 +68,11 @@
         "estimated": "estimé",
         "estimated_tooltip": "Prix estimé — installez une intégration capteur pour des prix exacts",
         "hide_quarters": "Masquer les quarts d'heure",
-        "show_quarters": "Afficher les quarts d'heure"
+        "show_quarters": "Afficher les quarts d'heure",
+        "renewable": "Renouvelable",
+        "renewable_grid": "Part renouvelable du réseau",
+        "greenest": "Plus vert",
+        "cheap_and_green": "Bon marché & Vert"
     },
     "actions": {
         "go": "ALLEZ",
@@ -394,6 +399,6 @@
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
         "supplier": "Sélectionner votre fournisseur améliore la précision des prix. L'application applique une correction horaire basée sur la différence entre le prix de gros ENTSO-E et le prix réel du fournisseur. Cela calibre votre graphique et votre décomposition des prix pour correspondre à votre facture d'énergie réelle.",
-        "renewable_share": "La part renouvelable indique quel pourcentage du réseau électrique est actuellement alimenté par des sources renouvelables (éolien + solaire).\n\nCouleur :\n  \uD83D\uDFE2 Vert = 50 % ou plus de renouvelable\n  \uD83D\uDFE1 Jaune = 25\u201350 % de renouvelable\n  \uD83D\uDFE0 Orange = moins de 25 % de renouvelable\n\nSource de données : Energy-Charts (Fraunhofer ISE), mis à jour toutes les 15 minutes.\n\nUtilisez ceci pour planifier les tâches énergivores (lavage, recharge VE) aux moments où le réseau est le plus vert. Configurez le blueprint d'automatisation « Énergie Verte » pour le faire automatiquement."
+        "renewable_share": "La part renouvelable indique quel pourcentage du réseau électrique est actuellement alimenté par des sources renouvelables (éolien + solaire).\n\nCouleur :\n  \uD83D\uDFE2 Vert = 50 % ou plus de renouvelable\n  \uD83D\uDFE1 Jaune = 25\u201350 % de renouvelable\n  \uD83D\uDFE0 Orange = moins de 25 % de renouvelable\n\n\uD83C\uDF3F Plus vert : la fenêtre de 3 heures avec la part renouvelable la plus élevée aujourd'hui.\n\u26A1\uD83C\uDF3F Bon marché & Vert : heures qui sont à la fois dans la fenêtre la moins chère ET la plus verte.\n\nSource de données : Energy-Charts (Fraunhofer ISE), mis à jour toutes les 15 minutes.\n\nUtilisez le blueprint d'automatisation « Fenêtre Verte » pour faire fonctionner automatiquement les appareils pendant les heures les plus vertes."
     }
 }

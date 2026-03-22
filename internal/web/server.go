@@ -369,6 +369,19 @@ func (s *Server) handleRenewable(w http.ResponseWriter, r *http.Request) {
 	}
 	resp["forecast"] = forecast
 
+	// Greenest window: find the 3-hour window with highest renewable share
+	if len(ren.Data) > 0 {
+		greenWin := engine.FindGreenestWindow(ren.Data, time.Now(), 3)
+		if greenWin != nil {
+			resp["green_window"] = map[string]any{
+				"start":    greenWin.StartHour,
+				"end":      greenWin.EndHour,
+				"avg":      greenWin.AvgShare,
+				"duration": greenWin.Duration,
+			}
+		}
+	}
+
 	writeJSON(w, resp)
 }
 
@@ -447,6 +460,30 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"end":      utcHourToLocal(data.BestWindow.EndHour, loc),
 			"avg":      data.BestWindow.AvgPrice,
 			"duration": data.BestWindow.Duration,
+		}
+	}
+
+	// Green window + overlap (cheap & green)
+	if data.Renewable != nil && len(data.Renewable.Data) > 0 {
+		bwHours := 3
+		if data.BestWindow != nil {
+			bwHours = data.BestWindow.Duration
+		}
+		greenWin := engine.FindGreenestWindow(data.Renewable.Data, time.Now(), bwHours)
+		if greenWin != nil {
+			dashboard["green_window"] = map[string]any{
+				"start":    greenWin.StartHour,
+				"end":      greenWin.EndHour,
+				"avg":      greenWin.AvgShare,
+				"duration": greenWin.Duration,
+			}
+			if overlap := engine.FindGreenCheapOverlap(data.BestWindow, greenWin); overlap != nil {
+				dashboard["green_cheap_overlap"] = map[string]any{
+					"start": overlap.StartHour,
+					"end":   overlap.EndHour,
+					"hours": overlap.Hours,
+				}
+			}
 		}
 	}
 

@@ -15,6 +15,7 @@
         "price_alert": "Alerta de preço — Notificação quando os preços estão baratos ou caros",
         "best_window": "Melhor janela — Agendamento inteligente nas horas mais baratas",
         "green_energy": "Energia Verde — Ligar dispositivos quando a quota renovável é alta",
+        "green_window": "Janela Verde — Programar dispositivos nas horas mais verdes",
         "help": "Clique num botão para importar o blueprint no Home Assistant. Depois pode configurar quais dispositivos controlar."
     },
     "source": {
@@ -67,7 +68,11 @@
         "estimated": "estimado",
         "estimated_tooltip": "Preço estimado — instale uma integração de sensor para preços exatos",
         "hide_quarters": "Ocultar quartos de hora",
-        "show_quarters": "Mostrar quartos de hora"
+        "show_quarters": "Mostrar quartos de hora",
+        "renewable": "Renovável",
+        "renewable_grid": "Quota renovável da rede",
+        "greenest": "Mais verde",
+        "cheap_and_green": "Barato e Verde"
     },
     "actions": {
         "go": "USAR",
@@ -394,6 +399,6 @@
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
         "supplier": "Selecionar o seu fornecedor melhora a precisão dos preços. A app aplica uma correção horária baseada na diferença entre o preço grossista ENTSO-E e o preço real do fornecedor. Isto calibra o seu gráfico e decomposição de preços para corresponder à sua fatura de energia real.",
-        "renewable_share": "A quota renovável mostra qual a percentagem da rede elétrica que é atualmente alimentada por fontes renováveis (eólica + solar).\n\nCor:\n  \uD83D\uDFE2 Verde = 50 % ou mais renovável\n  \uD83D\uDFE1 Amarelo = 25\u201350 % renovável\n  \uD83D\uDFE0 Laranja = menos de 25 % renovável\n\nFonte de dados: Energy-Charts (Fraunhofer ISE), atualizado a cada 15 minutos.\n\nUse isto para programar tarefas que consomem muita energia (lavagem, carregamento de VE) para os momentos em que a rede é mais verde. Configure o blueprint de automatização \"Energia Verde\" para fazer isto automaticamente."
+        "renewable_share": "A quota renovável mostra qual a percentagem da rede elétrica que é atualmente alimentada por fontes renováveis (eólica + solar).\n\nCor:\n  \uD83D\uDFE2 Verde = 50 % ou mais renovável\n  \uD83D\uDFE1 Amarelo = 25\u201350 % renovável\n  \uD83D\uDFE0 Laranja = menos de 25 % renovável\n\n\uD83C\uDF3F Mais verde: a janela de 3 horas com a maior quota renovável hoje.\n\u26A1\uD83C\uDF3F Barato e Verde: horas que estão tanto na janela mais barata COMO na mais verde.\n\nFonte de dados: Energy-Charts (Fraunhofer ISE), atualizado a cada 15 minutos.\n\nUse o blueprint de automatização \"Janela Verde\" para executar dispositivos automaticamente nas horas mais verdes."
     }
 }

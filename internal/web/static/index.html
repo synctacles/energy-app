@@ -925,9 +925,10 @@
             '  \uD83D\uDFE2 Green = 50% or more renewable\n' +
             '  \uD83D\uDFE1 Yellow = 25\u201350% renewable\n' +
             '  \uD83D\uDFE0 Orange = less than 25% renewable\n\n' +
+            '\uD83C\uDF3F Greenest: the 3-hour window with the highest renewable share today.\n' +
+            '\u26A1\uD83C\uDF3F Cheap & Green: hours that are both in the cheapest AND greenest window.\n\n' +
             'Data source: Energy-Charts (Fraunhofer ISE), updated every 15 minutes.\n\n' +
-            'Use this to time energy-intensive tasks (washing, EV charging) for moments when the grid is greenest. ' +
-            'Set up the "Green Energy" automation blueprint to do this automatically.');
+            'Use the "Green Window" automation blueprint to automatically run devices during the greenest hours.');
     }
 
     function actionAccuracyInfoText(accuracy) {
@@ -1784,11 +1785,28 @@
                 breakdown = parts.join('  ');
             }
 
+            var greenWinHtml = '';
+            if (ren.green_window) {
+                var gw = ren.green_window;
+                greenWinHtml = '<div class="card-sub" style="margin-top:4px;color:var(--text-faint)">' +
+                    '\uD83C\uDF3F ' + t('dashboard.greenest', 'Greenest') + ': ' + gw.start + '\u2013' + gw.end +
+                    ' <span style="color:var(--success)">(' + gw.avg.toFixed(0) + '%)</span></div>';
+            }
+
+            var overlapHtml = '';
+            if (_lastDashboard && _lastDashboard.green_cheap_overlap) {
+                var ol = _lastDashboard.green_cheap_overlap;
+                overlapHtml = '<div class="card-sub" style="margin-top:2px;color:var(--text-faint)">' +
+                    '\u26A1\uD83C\uDF3F ' + t('dashboard.cheap_and_green', 'Cheap & Green') + ': ' +
+                    ol.start + '\u2013' + ol.end + '</div>';
+            }
+
             slot.innerHTML =
                 '<div class="card-label">' + icon + ' ' + t('dashboard.renewable', 'Renewable') +
                 ' <button class="info-btn" style="color:var(--text-faint)" onclick="showInfoPopup(renewableShareInfoText())">i</button></div>' +
                 '<div class="card-value" style="font-size:1.3em;color:' + color + '">' + share.toFixed(1) + '<span style="font-size:0.5em"> %</span></div>' +
-                '<div class="card-sub">' + (breakdown || t('dashboard.renewable_grid', 'Grid renewable share')) + '</div>';
+                '<div class="card-sub">' + (breakdown || t('dashboard.renewable_grid', 'Grid renewable share')) + '</div>' +
+                greenWinHtml + overlapHtml;
             slot.className = 'card';
         } catch (e) {
             // Non-critical — silently ignore if renewable data unavailable

@@ -246,6 +246,37 @@ func PublishAll(ctx context.Context, pub Publisher, s *SensorSet, power ...*Powe
 		); err != nil {
 			return fmt.Errorf("publish green energy: %w", err)
 		}
+
+		// 12. Greenest window — best 3h renewable window + binary sensor
+		if len(s.Renewable.Data) > 0 {
+			greenWin := engine.FindGreenestWindow(s.Renewable.Data, s.UpdatedAt, 3)
+			if greenWin != nil {
+				// Add greenest window attributes to renewable share sensor
+				renAttrs["greenest_start"] = greenWin.StartHour
+				renAttrs["greenest_end"] = greenWin.EndHour
+				renAttrs["greenest_avg"] = fmt.Sprintf("%.1f", greenWin.AvgShare)
+
+				// Binary sensor: ON when current time is inside the greenest window
+				inGreenWindow := isInWindow(greenWin.StartHour, greenWin.EndHour, s.UpdatedAt)
+				gwState := "off"
+				if inGreenWindow {
+					gwState = "on"
+				}
+				if err := pub.UpdateSensor(ctx, "binary_sensor.synctacles_green_window",
+					gwState,
+					map[string]any{
+						"greenest_start":  greenWin.StartHour,
+						"greenest_end":    greenWin.EndHour,
+						"greenest_avg":    greenWin.AvgShare,
+						"friendly_name":   "Synctacles Green Window",
+						"icon":            "mdi:leaf-circle",
+						"last_updated":    now,
+					},
+				); err != nil {
+					return fmt.Errorf("publish green window: %w", err)
+				}
+			}
+		}
 	}
 
 	// --- Power-based sensors (needs power sensor) ---
@@ -447,4 +478,16 @@ func ComputeSensorSet(
 		UpstreamSource: fetchResult.UpstreamSource,
 		UpdatedAt:      now,
 	}
+}
+
+// isInWindow checks if t falls within the window [startHH:MM, endHH:MM).
+func isInWindow(start, end string, t time.Time) bool {
+	sh, _ := engine.ParseHHMMPublic(start)
+	eh, _ := engine.ParseHHMMPublic(end)
+	h := t.Hour()
+	if sh <= eh {
+		return h >= sh && h < eh
+	}
+	// Wraps midnight
+	return h >= sh || h < eh
 }

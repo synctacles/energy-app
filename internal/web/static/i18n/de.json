@@ -15,6 +15,7 @@
         "price_alert": "Preisalarm — Benachrichtigung bei günstigen oder teuren Preisen",
         "best_window": "Bestes Fenster — Intelligente Planung in den günstigsten Stunden",
         "green_energy": "Grüne Energie — Geräte einschalten bei hohem Anteil erneuerbarer Energie",
+        "green_window": "Grünes Fenster — Geräte während der grünsten Stunden planen",
         "help": "Klicken Sie auf eine Schaltfläche, um den Blueprint in Home Assistant zu importieren. Anschließend können Sie konfigurieren, welche Geräte gesteuert werden."
     },
     "source": {
@@ -67,7 +68,11 @@
         "estimated": "geschätzt",
         "estimated_tooltip": "Geschätzter Preis — installieren Sie eine Sensor-Integration für exakte Preise",
         "hide_quarters": "Viertelstunden ausblenden",
-        "show_quarters": "Viertelstunden anzeigen"
+        "show_quarters": "Viertelstunden anzeigen",
+        "renewable": "Erneuerbar",
+        "renewable_grid": "Erneuerbar-Anteil Netz",
+        "greenest": "Grünste",
+        "cheap_and_green": "Günstig & Grün"
     },
     "actions": {
         "go": "LOS",
@@ -394,6 +399,6 @@
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
         "supplier": "Durch die Auswahl Ihres Anbieters werden die Preise genauer. Die App wendet eine stündliche Korrektur an, basierend auf der Differenz zwischen dem ENTSO-E-Großhandelspreis und dem tatsächlichen Anbieterpreis. Dies kalibriert Ihr Diagramm und Ihre Preisaufschlüsselung, damit sie besser mit Ihrer tatsächlichen Energierechnung übereinstimmen.",
-        "renewable_share": "Der erneuerbare Anteil zeigt, wie viel Prozent des Stromnetzes derzeit aus erneuerbaren Quellen (Wind + Solar) gespeist wird.\n\nFarbe:\n  \uD83D\uDFE2 Grün = 50 % oder mehr erneuerbar\n  \uD83D\uDFE1 Gelb = 25\u201350 % erneuerbar\n  \uD83D\uDFE0 Orange = weniger als 25 % erneuerbar\n\nDatenquelle: Energy-Charts (Fraunhofer ISE), alle 15 Minuten aktualisiert.\n\nNutzen Sie dies, um energieintensive Aufgaben (Waschen, E-Auto laden) auf Zeiten zu legen, in denen das Netz am grünsten ist. Richten Sie den \"Grüne Energie\" Automatisierungs-Blueprint ein, um dies automatisch zu tun."
+        "renewable_share": "Der erneuerbare Anteil zeigt, wie viel Prozent des Stromnetzes derzeit aus erneuerbaren Quellen (Wind + Solar) gespeist wird.\n\nFarbe:\n  \uD83D\uDFE2 Grün = 50 % oder mehr erneuerbar\n  \uD83D\uDFE1 Gelb = 25\u201350 % erneuerbar\n  \uD83D\uDFE0 Orange = weniger als 25 % erneuerbar\n\n\uD83C\uDF3F Grünste: das 3-Stunden-Fenster mit dem höchsten erneuerbaren Anteil heute.\n\u26A1\uD83C\uDF3F Günstig & Grün: Stunden, die sowohl im günstigsten ALS AUCH grünsten Fenster liegen.\n\nDatenquelle: Energy-Charts (Fraunhofer ISE), alle 15 Minuten aktualisiert.\n\nNutzen Sie den \"Grünes Fenster\" Automatisierungs-Blueprint, um Geräte automatisch in den grünsten Stunden laufen zu lassen."
     }
 }

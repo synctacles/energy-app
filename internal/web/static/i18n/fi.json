@@ -15,6 +15,7 @@
         "price_alert": "Hintahälytys — Ilmoitus halvasta tai kalliista hinnasta",
         "best_window": "Paras ikkuna — Älykäs aikataulutus halvimpien tuntien aikana",
         "green_energy": "Vihreä Energia — Kytke laitteet päälle kun uusiutuvan energian osuus on korkea",
+        "green_window": "Vihreä Ikkuna — Ajasta laitteet vihreimpien tuntien aikana",
         "help": "Napsauta painiketta tuodaksesi blueprint Home Assistantiin. Sen jälkeen voit määrittää mitkä laitteet ohjataan."
     },
     "source": {
@@ -67,7 +68,11 @@
         "estimated": "arvioitu",
         "estimated_tooltip": "Arvioitu hinta — asenna sensoriliitäntä tarkkoja hintoja varten",
         "hide_quarters": "Piilota varttitunnit",
-        "show_quarters": "Näytä varttitunnit"
+        "show_quarters": "Näytä varttitunnit",
+        "renewable": "Uusiutuva",
+        "renewable_grid": "Verkon uusiutuva osuus",
+        "greenest": "Vihrein",
+        "cheap_and_green": "Halpa & Vihreä"
     },
     "actions": {
         "go": "KÄYTÄ",
@@ -394,6 +399,6 @@
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
         "supplier": "Toimittajan valinta parantaa hintojen tarkkuutta. Sovellus soveltaa tuntikohtaista korjausta ENTSO-E-tukkuhinnan ja todellisen toimittajahinnan välisen eron perusteella. Tämä kalibroi kaavion ja hintaerittelyn vastaamaan todellista energialaskuasi.",
-        "renewable_share": "Uusiutuvan energian osuus näyttää, kuinka suuri prosentti sähköverkosta tuotetaan tällä hetkellä uusiutuvista lähteistä (tuuli + aurinko).\n\nVäri:\n  \uD83D\uDFE2 Vihreä = 50 % tai enemmän uusiutuvaa\n  \uD83D\uDFE1 Keltainen = 25\u201350 % uusiutuvaa\n  \uD83D\uDFE0 Oranssi = alle 25 % uusiutuvaa\n\nTietolähde: Energy-Charts (Fraunhofer ISE), päivitetään 15 minuutin välein.\n\nKäytä tätä ajoittaaksesi paljon energiaa kuluttavat tehtävät (pesu, sähköauton lataus) hetkiin, jolloin verkko on vihreintä. Aseta \"Vihreä Energia\" -automaatiomalli tekemään tämä automaattisesti."
+        "renewable_share": "Uusiutuvan energian osuus näyttää, kuinka suuri prosentti sähköverkosta tuotetaan tällä hetkellä uusiutuvista lähteistä (tuuli + aurinko).\n\nVäri:\n  \uD83D\uDFE2 Vihreä = 50 % tai enemmän uusiutuvaa\n  \uD83D\uDFE1 Keltainen = 25\u201350 % uusiutuvaa\n  \uD83D\uDFE0 Oranssi = alle 25 % uusiutuvaa\n\n\uD83C\uDF3F Vihrein: 3 tunnin ikkuna, jolla on korkein uusiutuvan energian osuus tänään.\n\u26A1\uD83C\uDF3F Halpa & Vihreä: tunnit, jotka ovat SEKÄ halvimmassa ETTÄ vihreimmässä ikkunassa.\n\nTietolähde: Energy-Charts (Fraunhofer ISE), päivitetään 15 minuutin välein.\n\nKäytä \"Vihreä Ikkuna\" -automaatiomallia ajastaaksesi laitteet automaattisesti vihreimpien tuntien aikana."
     }
 }
