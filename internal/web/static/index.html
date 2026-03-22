@@ -921,9 +921,10 @@
     function renewableShareInfoText() {
         return t('info.renewable_share',
             'Renewable share shows what percentage of the electricity grid is currently powered by renewable sources (wind + solar).\n\n' +
-            'Signal:\n' +
-            '  \uD83D\uDFE2 Green = share is above or near the national average\n' +
-            '  \uD83D\uDFE1 Yellow = share is below the national average\n\n' +
+            'Color:\n' +
+            '  \uD83D\uDFE2 Green = 50% or more renewable\n' +
+            '  \uD83D\uDFE1 Yellow = 25\u201350% renewable\n' +
+            '  \uD83D\uDFE0 Orange = less than 25% renewable\n\n' +
             'Data source: Energy-Charts (Fraunhofer ISE), updated every 15 minutes.\n\n' +
             'Use this to time energy-intensive tasks (washing, EV charging) for moments when the grid is greenest. ' +
             'Set up the "Green Energy" automation blueprint to do this automatically.');
@@ -1769,10 +1770,10 @@
             if (!slot || !ren || !ren.available || !ren.current) return;
 
             var share = ren.current.ren_share;
-            var signal = ren.current.signal || 'yellow';
-            var isGreen = signal === 'green';
-            var color = isGreen ? 'var(--success)' : '#f59e0b';
-            var icon = isGreen ? '\u{1F7E2}' : '\u{1F7E1}'; // green/yellow circle
+            var color, icon;
+            if (share >= 50) { color = 'var(--success)'; icon = '\u{1F7E2}'; }
+            else if (share >= 25) { color = '#f59e0b'; icon = '\u{1F7E1}'; }
+            else { color = '#f97316'; icon = '\u{1F7E0}'; }
 
             var breakdown = '';
             if (ren.current.solar_share != null || ren.current.wind_onshore_share != null) {
