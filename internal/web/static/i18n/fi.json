@@ -14,6 +14,7 @@
         "avoid_signal": "VÄLTÄ-signaali — Kytke laitteet pois kun energia on kallista",
         "price_alert": "Hintahälytys — Ilmoitus halvasta tai kalliista hinnasta",
         "best_window": "Paras ikkuna — Älykäs aikataulutus halvimpien tuntien aikana",
+        "green_energy": "Vihreä Energia — Kytke laitteet päälle kun uusiutuvan energian osuus on korkea",
         "help": "Napsauta painiketta tuodaksesi blueprint Home Assistantiin. Sen jälkeen voit määrittää mitkä laitteet ohjataan."
     },
     "source": {
@@ -392,6 +393,7 @@
         "chart_exact": "Chart shows your actual consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Supplier correction (per-hour delta from crowdsource data)\n+ VAT\n= Consumer price\n\nThe current price is verified against your energy sensor — accuracy: 100%.",
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
-        "supplier": "Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill."
+        "supplier": "Toimittajan valinta parantaa hintojen tarkkuutta. Sovellus soveltaa tuntikohtaista korjausta ENTSO-E-tukkuhinnan ja todellisen toimittajahinnan välisen eron perusteella. Tämä kalibroi kaavion ja hintaerittelyn vastaamaan todellista energialaskuasi.",
+        "renewable_share": "Uusiutuvan energian osuus näyttää, kuinka suuri prosentti sähköverkosta tuotetaan tällä hetkellä uusiutuvista lähteistä (tuuli + aurinko).\n\nSignaali:\n  \uD83D\uDFE2 Vihreä = osuus on kansallisen keskiarvon yläpuolella tai lähellä sitä\n  \uD83D\uDFE1 Keltainen = osuus on kansallisen keskiarvon alapuolella\n\nTietolähde: Energy-Charts (Fraunhofer ISE), päivitetään 15 minuutin välein.\n\nKäytä tätä ajoittaaksesi paljon energiaa kuluttavat tehtävät (pesu, sähköauton lataus) hetkiin, jolloin verkko on vihreintä. Aseta \"Vihreä Energia\" -automaatiomalli tekemään tämä automaattisesti."
     }
 }

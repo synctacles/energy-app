@@ -14,6 +14,7 @@
         "avoid_signal": "Sinal EVITAR — Desligar dispositivos quando a energia é cara",
         "price_alert": "Alerta de preço — Notificação quando os preços estão baratos ou caros",
         "best_window": "Melhor janela — Agendamento inteligente nas horas mais baratas",
+        "green_energy": "Energia Verde — Ligar dispositivos quando a quota renovável é alta",
         "help": "Clique num botão para importar o blueprint no Home Assistant. Depois pode configurar quais dispositivos controlar."
     },
     "source": {
@@ -392,6 +393,7 @@
         "chart_exact": "Chart shows your actual consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Supplier correction (per-hour delta from crowdsource data)\n+ VAT\n= Consumer price\n\nThe current price is verified against your energy sensor — accuracy: 100%.",
         "chart_calibrated": "Chart shows calibrated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Average supplier correction ({hours}h of crowdsource data)\n+ VAT\n= Consumer price\n\nAccuracy: ~99%. Prices may differ up to ~1 ct/kWh from your actual supplier price.\n\nTip: install a price sensor (Zonneplan, Tibber, Nord Pool) for exact prices.",
         "chart_estimated": "Chart shows estimated consumer prices.\n\nCalculation:\n  wholesale market (per 15 min)\n+ Energy tax & surcharges\n+ Fixed supplier markup\n+ VAT\n= Consumer price\n\nNo crowdsource data available yet. Relative price differences between hours are correct — exact amounts may differ.\n\nTip: install a price sensor for exact prices, or wait for community data to become available.",
-        "supplier": "Selecting your supplier improves price accuracy. The app applies an hourly correction based on the difference between the ENTSO-E wholesale price and the actual supplier price. This calibrates your chart and breakdown to match your real energy bill."
+        "supplier": "Selecionar o seu fornecedor melhora a precisão dos preços. A app aplica uma correção horária baseada na diferença entre o preço grossista ENTSO-E e o preço real do fornecedor. Isto calibra o seu gráfico e decomposição de preços para corresponder à sua fatura de energia real.",
+        "renewable_share": "A quota renovável mostra qual a percentagem da rede elétrica que é atualmente alimentada por fontes renováveis (eólica + solar).\n\nSinal:\n  \uD83D\uDFE2 Verde = a quota está acima ou perto da média nacional\n  \uD83D\uDFE1 Amarelo = a quota está abaixo da média nacional\n\nFonte de dados: Energy-Charts (Fraunhofer ISE), atualizado a cada 15 minutos.\n\nUse isto para programar tarefas que consomem muita energia (lavagem, carregamento de VE) para os momentos em que a rede é mais verde. Configure o blueprint de automatização \"Energia Verde\" para fazer isto automaticamente."
     }
 }
