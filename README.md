@@ -20,7 +20,7 @@ Track day-ahead energy prices, get GO/WAIT/AVOID action recommendations, find th
 - **30 EU bidding zones** across 17 countries (NL, DE, AT, BE, FR, ES, PT, IT, NO, SE, DK, FI, CH, PL, CZ, HU, SI)
 - **7 independent price sources** with automatic fallback (EasyEnergy, aWATTar, Energy-Charts, Energi Data Service, SpotHinta, OMIE, Frank Energie)
 - **Day-ahead prices** updated daily after 13:00 CET (EPEX/Nordpool publication window)
-- **Supplier-specific pricing** for 24 Dutch energy providers via Enever integration
+- **Supplier-specific pricing** for 22 Dutch energy providers via supplier delta calibration
 
 ### Smart Recommendations
 - **GO/WAIT/AVOID** — real-time action based on current price vs daily average
@@ -87,7 +87,6 @@ All sources are keyless public APIs — no ENTSO-E token or Nordpool account req
 | `go_threshold` | `-15` | % below average to trigger GO |
 | `avoid_threshold` | `20` | % above average to trigger AVOID |
 | `best_window_hours` | `3` | Hours for cheapest window calculation |
-| `enever_enabled` | `false` | Enable supplier-specific NL pricing |
 | `power_sensor` | — | HA entity ID for live cost tracking |
 
 See [DOCS.md](DOCS.md) for the full configuration guide and sensor reference.
