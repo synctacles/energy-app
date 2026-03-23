@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -96,7 +97,7 @@ func (c *Cache) Fetch(ctx context.Context, zone, supplier string) error {
 			Delta float64 `json:"delta"`
 		} `json:"deltas"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 10*1024*1024)).Decode(&result); err != nil {
 		return err
 	}
 

@@ -1115,7 +1115,7 @@
                 }
                 html += '<div class="source-summary">' +
                     '<span class="source-label">' + t('source.prices_from', 'Prices from:') + '</span> ' +
-                    '<span class="source-active-name">' + srcLabel + '</span>' +
+                    '<span class="source-active-name">' + esc(srcLabel) + '</span>' +
                     cacheNote +
                     (ai.quality === 'cached' ? ' <span class="source-quality cached">' + t('source.offline_cache', 'offline cache') + '</span>' : '') +
                     '</div>';
@@ -1154,7 +1154,7 @@
                     if (idx > 0) html += ' ';
                     html += '<span class="source-chain-item">' +
                         '<span class="source-dot ' + dotCls + '"></span>' +
-                        '<span class="source-chain-name">' + cs.displayName + note + '</span></span>';
+                        '<span class="source-chain-name">' + esc(cs.displayName) + note + '</span></span>';
                 });
                 html += '</div>';
             }
@@ -1599,7 +1599,7 @@
                 document.getElementById('content').innerHTML =
                     '<div class="loading"><div class="spinner"></div>' +
                     '<p>' + t('dashboard.waiting_first_update', 'Waiting for first price update...') + '</p>' +
-                    '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('dashboard.zone', 'Zone') + ': ' + d.zone + ' | ' + d.version + '</p></div>';
+                    '<p style="font-size:0.8em;color:var(--text-faint);margin-top:8px">' + t('dashboard.zone', 'Zone') + ': ' + esc(d.zone) + ' | ' + esc(d.version || '') + '</p></div>';
                 _dashboardTimer = setTimeout(loadDashboard, 5000);
                 return;
             }
@@ -2527,7 +2527,7 @@
                 if (data.detected) {
                     document.getElementById('cfg-zone').value = data.zone;
                     result.style.color = '#0d9488';
-                    var detectText = data.name + ' (' + data.zone + ')';
+                    var detectText = esc(data.name) + ' (' + esc(data.zone) + ')';
                     if (data.distance_km) detectText += ' — ' + data.distance_km + ' km';
                     result.textContent = detectText;
                     if (data.mismatch) {
@@ -2803,7 +2803,7 @@
     // Calibration UI removed — elements no longer in HTML
     async function doCalibrate() { /* no-op */ }
 
-    function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
     async function saveSettings() {
         var btn = document.getElementById('btnSave');
@@ -2954,7 +2954,7 @@
             var labelKeys = ['addon_version','zone','tier','ha_version','ha_arch','ha_machine'];
             for (var i = 0; i < labelKeys.length; i++) {
                 var key = labelKeys[i];
-                if (info[key]) html += '<dt>' + t('feedback.sysinfo_labels.' + key, key) + ':</dt><dd>' + info[key] + '</dd>';
+                if (info[key]) html += '<dt>' + t('feedback.sysinfo_labels.' + key, key) + ':</dt><dd>' + esc(String(info[key])) + '</dd>';
             }
             html += '</dl>';
             document.getElementById('sysInfoBox').innerHTML = html;
@@ -3484,7 +3484,7 @@
                 wizardOnCountryChange(detectedCountry.code);
                 var detDiv = document.getElementById('wizDetected');
                 detDiv.style.display = 'block';
-                var detLabel = detectedCountry.name + ' (' + _wizardData.detected_zone + ')';
+                var detLabel = esc(detectedCountry.name) + ' (' + esc(_wizardData.detected_zone) + ')';
                 var methodLabel = _wizardData.detect_method === 'coordinates' ? ' (GPS)' :
                                   _wizardData.detect_method === 'timezone' ? ' (timezone)' : '';
                 detDiv.innerHTML = '\u2713 ' + tReplace('wizard.detected_zone', {zone: detLabel}, 'Detected: ' + detLabel) + '<span style="opacity:0.5;font-size:0.85em">' + methodLabel + '</span>';

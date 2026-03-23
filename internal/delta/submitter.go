@@ -102,8 +102,32 @@ func (s *Submitter) Run(ctx context.Context) {
 	}
 }
 
+// pruneStale removes map entries older than 48 hours from wsCache and lastDelta.
+func (s *Submitter) pruneStale() {
+	cutoff := time.Now().UTC().Add(-48 * time.Hour)
+	for key := range s.wsCache {
+		t, err := time.Parse("2006-01-02T15", key)
+		if err != nil || t.Before(cutoff) {
+			delete(s.wsCache, key)
+		}
+	}
+	for key := range s.lastDelta {
+		// lastDelta keys may be "2006-01-02T15" or "2006-01-02T15:04:05Z" (first 13 chars)
+		k := key
+		if len(k) > 13 {
+			k = k[:13]
+		}
+		t, err := time.Parse("2006-01-02T15", k)
+		if err != nil || t.Before(cutoff) {
+			delete(s.lastDelta, key)
+		}
+	}
+}
+
 // submitAll calculates and submits deltas for all configured suppliers.
 func (s *Submitter) submitAll(ctx context.Context) {
+	s.pruneStale()
+
 	tax := s.cfg.TaxCache.Get(s.cfg.Zone)
 	if tax == nil {
 		slog.Debug("delta: no tax profile", "zone", s.cfg.Zone)

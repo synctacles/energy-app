@@ -2,6 +2,7 @@
 package engine
 
 import (
+	"sync"
 	"time"
 
 	"github.com/synctacles/energy-app/pkg/models"
@@ -17,6 +18,7 @@ type DeltaLookup func(t time.Time) (float64, bool)
 //   - "manual":   All prices normalized using user-defined ManualTaxProfile
 //   - "p1_meter": All prices pass through (consumer price comes from HA sensor, not here)
 type Normalizer struct {
+	mu                    sync.RWMutex
 	taxCache              *TaxProfileCache       // Worker-provided tax profiles (keyed by zone)
 	zoneRegistry          *models.ZoneRegistry   // Embedded fallback tax defaults
 	supplierMarkupOverride float64               // User calibration override (EUR/kWh)
@@ -39,21 +41,29 @@ func NewNormalizer(taxCache *TaxProfileCache, supplierMarkupOverride ...float64)
 
 // SetZoneRegistry sets the zone registry for embedded tax fallback.
 func (n *Normalizer) SetZoneRegistry(reg *models.ZoneRegistry) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.zoneRegistry = reg
 }
 
 // SetPricingMode sets the active pricing mode.
 func (n *Normalizer) SetPricingMode(mode string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.pricingMode = mode
 }
 
 // SetManualTaxProfile sets user-defined tax components for manual mode.
 func (n *Normalizer) SetManualTaxProfile(tp *models.TaxProfile) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.manualTaxProfile = tp
 }
 
 // SetSupplierMarkup updates the supplier markup override at runtime.
 func (n *Normalizer) SetSupplierMarkup(markup float64) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.supplierMarkupOverride = markup
 }
 
@@ -61,6 +71,8 @@ func (n *Normalizer) SetSupplierMarkup(markup float64) {
 // When set, deltas are preferred over supplierMarkupOverride for wholesale→consumer conversion.
 // supplierSpecific indicates whether deltas are from a known supplier (true) or _average (false).
 func (n *Normalizer) SetDeltaLookup(fn DeltaLookup, supplierSpecific bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.deltaLookup = fn
 	n.deltaIsSupplierSpecific = supplierSpecific
 }
@@ -68,71 +80,114 @@ func (n *Normalizer) SetDeltaLookup(fn DeltaLookup, supplierSpecific bool) {
 // TaxSource returns the tax data source used for the last normalization.
 // "worker" = live Worker data, "embedded" = fallback defaults, "none" = no tax data.
 func (n *Normalizer) TaxSource() string {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
 	return n.lastTaxSource
+}
+
+// normalizerSnapshot holds a point-in-time copy of mutable Normalizer fields.
+// Used to avoid holding the lock during external calls (e.g., deltaLookup).
+type normalizerSnapshot struct {
+	taxCache               *TaxProfileCache
+	zoneRegistry           *models.ZoneRegistry
+	supplierMarkupOverride float64
+	pricingMode            string
+	manualTaxProfile       *models.TaxProfile
+	deltaLookup            DeltaLookup
+	deltaIsSupplierSpecific bool
+}
+
+func (n *Normalizer) snapshot() normalizerSnapshot {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return normalizerSnapshot{
+		taxCache:               n.taxCache,
+		zoneRegistry:           n.zoneRegistry,
+		supplierMarkupOverride: n.supplierMarkupOverride,
+		pricingMode:            n.pricingMode,
+		manualTaxProfile:       n.manualTaxProfile,
+		deltaLookup:            n.deltaLookup,
+		deltaIsSupplierSpecific: n.deltaIsSupplierSpecific,
+	}
 }
 
 // ToConsumer converts a slice of wholesale prices to consumer prices using the zone's tax profile.
 // Prices already marked as consumer (IsConsumer=true) are only unit-converted to kWh.
 // If the zone has no tax profile, prices are returned as-is in kWh.
 func (n *Normalizer) ToConsumer(prices []models.HourlyPrice) []models.HourlyPrice {
+	snap := n.snapshot()
 	result := make([]models.HourlyPrice, len(prices))
 	for i, p := range prices {
-		result[i] = n.normalizeOne(p)
+		result[i] = n.normalizeOne(snap, p)
 	}
 	return result
 }
 
-func (n *Normalizer) normalizeOne(p models.HourlyPrice) models.HourlyPrice {
+func (n *Normalizer) normalizeOne(snap normalizerSnapshot, p models.HourlyPrice) models.HourlyPrice {
 	// First convert to EUR/kWh
 	p = p.ToKWh()
 
-	switch n.pricingMode {
+	switch snap.pricingMode {
 	case "manual":
-		return n.normalizeManual(p)
+		return n.normalizeManual(snap, p)
 	case "external_sensor", "p1_meter", "meter_tariff":
 		// External sensor mode: chart uses Worker prices + supplier delta.
 		// Run through normalizeAuto for delta application on consumer prices.
-		return n.normalizeAuto(p)
+		return n.normalizeAuto(snap, p)
 	default:
 		// "auto": consumer prices pass through, wholesale normalized via tax cache.
-		return n.normalizeAuto(p)
+		return n.normalizeAuto(snap, p)
+	}
+}
+
+// setLastTaxSource updates lastTaxSource under write lock.
+func (n *Normalizer) setLastTaxSource(src string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lastTaxSource = src
+}
+
+// setLastTaxSourceIfNone updates lastTaxSource only if currently "none".
+func (n *Normalizer) setLastTaxSourceIfNone(src string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.lastTaxSource == "none" {
+		n.lastTaxSource = src
 	}
 }
 
 // normalizeAuto handles auto mode: consumer prices pass through, wholesale → tax cache.
-func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
+func (n *Normalizer) normalizeAuto(snap normalizerSnapshot, p models.HourlyPrice) models.HourlyPrice {
 	if p.IsConsumer {
 		// Consumer prices already include taxes — no normalization needed.
 		// Update lastTaxSource so the degraded banner doesn't trigger.
-		if n.lastTaxSource == "none" {
-			n.lastTaxSource = "consumer"
-		}
+		n.setLastTaxSourceIfNone("consumer")
 		// Apply supplier correction to consumer prices.
 		// Supplier-specific delta: always apply (feedback loop from own sensor).
 		// _average delta: skip in sensor mode (can make prices LESS accurate).
 		// Fixed markup: skip in sensor mode (sensor is the truth).
-		isSensorMode := n.pricingMode == "external_sensor" || n.pricingMode == "p1_meter" || n.pricingMode == "meter_tariff"
-		vatRate := n.vatRateForZone(p.Zone)
-		if n.deltaLookup != nil && (!isSensorMode || n.deltaIsSupplierSpecific) {
-			if d, ok := n.deltaLookup(p.Timestamp); ok {
+		isSensorMode := snap.pricingMode == "external_sensor" || snap.pricingMode == "p1_meter" || snap.pricingMode == "meter_tariff"
+		vatRate := n.vatRateForZone(snap, p.Zone)
+		if snap.deltaLookup != nil && (!isSensorMode || snap.deltaIsSupplierSpecific) {
+			if d, ok := snap.deltaLookup(p.Timestamp); ok {
 				p.PriceEUR += d * (1 + vatRate)
 				return p
 			}
 		}
-		if !isSensorMode && n.supplierMarkupOverride > 0 {
-			p.PriceEUR += n.supplierMarkupOverride * (1 + vatRate)
+		if !isSensorMode && snap.supplierMarkupOverride > 0 {
+			p.PriceEUR += snap.supplierMarkupOverride * (1 + vatRate)
 		}
 		return p
 	}
 
 	// Try Worker tax cache first (live data)
 	var override *WorkerTaxOverride
-	if n.taxCache != nil {
-		override = n.taxCache.Get(p.Zone)
+	if snap.taxCache != nil {
+		override = snap.taxCache.Get(p.Zone)
 	}
 
 	if override != nil {
-		n.lastTaxSource = "worker"
+		n.setLastTaxSource("worker")
 		tp := models.TaxProfile{
 			VATRate:          override.VATRate,
 			SupplierMarkup:   override.SupplierMarkup,
@@ -141,14 +196,14 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 			NetworkTariffAvg: override.NetworkTariffAvg,
 		}
 		// ADR_010: per-hour delta preferred over fixed markup
-		if n.deltaLookup != nil {
-			if d, ok := n.deltaLookup(p.Timestamp); ok {
+		if snap.deltaLookup != nil {
+			if d, ok := snap.deltaLookup(p.Timestamp); ok {
 				tp.SupplierMarkup = d
-			} else if n.supplierMarkupOverride > 0 {
-				tp.SupplierMarkup = n.supplierMarkupOverride
+			} else if snap.supplierMarkupOverride > 0 {
+				tp.SupplierMarkup = snap.supplierMarkupOverride
 			}
-		} else if n.supplierMarkupOverride > 0 {
-			tp.SupplierMarkup = n.supplierMarkupOverride
+		} else if snap.supplierMarkupOverride > 0 {
+			tp.SupplierMarkup = snap.supplierMarkupOverride
 		}
 		p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
 		p.IsConsumer = true
@@ -156,18 +211,18 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 	}
 
 	// Fallback: embedded tax defaults from zone registry
-	if n.zoneRegistry != nil {
-		defaults := n.zoneRegistry.GetTaxDefaults(p.Zone)
+	if snap.zoneRegistry != nil {
+		defaults := snap.zoneRegistry.GetTaxDefaults(p.Zone)
 		if defaults != nil {
-			n.lastTaxSource = "embedded"
+			n.setLastTaxSource("embedded")
 			tp := models.TaxProfile{
 				VATRate:          defaults.VATRate,
 				EnergyTax:        []models.EnergyTaxEntry{{From: "2000-01-01", Rate: defaults.EnergyTax}},
 				Surcharges:       defaults.Surcharges,
 				NetworkTariffAvg: defaults.NetworkTariffAvg,
 			}
-			if n.supplierMarkupOverride > 0 {
-				tp.SupplierMarkup = n.supplierMarkupOverride
+			if snap.supplierMarkupOverride > 0 {
+				tp.SupplierMarkup = snap.supplierMarkupOverride
 			}
 			p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)
 			p.IsConsumer = true
@@ -175,13 +230,13 @@ func (n *Normalizer) normalizeAuto(p models.HourlyPrice) models.HourlyPrice {
 		}
 	}
 
-	n.lastTaxSource = "none"
+	n.setLastTaxSource("none")
 	return p
 }
 
 // normalizeManual handles manual mode: always use wholesale + user-defined tax components.
-func (n *Normalizer) normalizeManual(p models.HourlyPrice) models.HourlyPrice {
-	if n.manualTaxProfile == nil {
+func (n *Normalizer) normalizeManual(snap normalizerSnapshot, p models.HourlyPrice) models.HourlyPrice {
+	if snap.manualTaxProfile == nil {
 		return p
 	}
 
@@ -191,20 +246,20 @@ func (n *Normalizer) normalizeManual(p models.HourlyPrice) models.HourlyPrice {
 		wholesale = p.WholesaleKWh
 	}
 
-	p.PriceEUR = n.manualTaxProfile.WholesaleToConsumer(wholesale, p.Timestamp)
+	p.PriceEUR = snap.manualTaxProfile.WholesaleToConsumer(wholesale, p.Timestamp)
 	p.IsConsumer = true
 	return p
 }
 
 // vatRateForZone returns the VAT rate for a zone from cache or embedded defaults.
-func (n *Normalizer) vatRateForZone(zone string) float64 {
-	if n.taxCache != nil {
-		if override := n.taxCache.Get(zone); override != nil {
+func (n *Normalizer) vatRateForZone(snap normalizerSnapshot, zone string) float64 {
+	if snap.taxCache != nil {
+		if override := snap.taxCache.Get(zone); override != nil {
 			return override.VATRate
 		}
 	}
-	if n.zoneRegistry != nil {
-		if defaults := n.zoneRegistry.GetTaxDefaults(zone); defaults != nil {
+	if snap.zoneRegistry != nil {
+		if defaults := snap.zoneRegistry.GetTaxDefaults(zone); defaults != nil {
 			return defaults.VATRate
 		}
 	}

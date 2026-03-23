@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -24,6 +25,7 @@ type MQTTPublisher struct {
 	conn       net.Conn
 	mu         sync.Mutex
 	discovered map[string]bool // track which entities have been discovered
+	stopPing   chan struct{}   // signals the keepalive goroutine to stop
 }
 
 // NewMQTTPublisher creates an MQTT publisher.
@@ -48,6 +50,11 @@ func (p *MQTTPublisher) Connect() error {
 
 // connectLocked dials and performs the MQTT handshake. Must be called with p.mu held.
 func (p *MQTTPublisher) connectLocked() error {
+	// Stop any existing keepalive goroutine
+	if p.stopPing != nil {
+		close(p.stopPing)
+		p.stopPing = nil
+	}
 	if p.conn != nil {
 		p.conn.Close()
 		p.conn = nil
@@ -74,8 +81,31 @@ func (p *MQTTPublisher) connectLocked() error {
 		return fmt.Errorf("mqtt connack: %w", err)
 	}
 
+	// Start keepalive ping goroutine (sends PINGREQ every 30s for 60s keepalive)
+	p.stopPing = make(chan struct{})
+	go p.keepAlive(p.stopPing, p.conn)
+
 	slog.Info("MQTT connected", "broker", addr)
 	return nil
+}
+
+// keepAlive sends MQTT PINGREQ packets at half the keepalive interval.
+// Stops when the stop channel is closed or a write fails.
+func (p *MQTTPublisher) keepAlive(stop chan struct{}, conn net.Conn) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			_ = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			if _, err := conn.Write([]byte{0xC0, 0x00}); err != nil {
+				slog.Debug("mqtt: keepalive ping failed", "error", err)
+				return
+			}
+		}
+	}
 }
 
 // CleanupStaleTopics removes stale retained MQTT discovery messages from
@@ -155,6 +185,10 @@ func (p *MQTTPublisher) RemoveAllDiscovery() {
 func (p *MQTTPublisher) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.stopPing != nil {
+		close(p.stopPing)
+		p.stopPing = nil
+	}
 	if p.conn != nil {
 		// Send DISCONNECT packet
 		_, _ = p.conn.Write([]byte{0xE0, 0x00})
@@ -316,7 +350,7 @@ func (p *MQTTPublisher) sendConnect() error {
 	packet = append(packet, []byte("MQTT")...)
 	packet = append(packet, 0x04)         // Protocol level (4 = MQTT 3.1.1)
 	packet = append(packet, connectFlags) // Connect flags
-	packet = append(packet, 0x00, 0x00)  // Keep alive (0 = disabled)
+	packet = append(packet, 0x00, 0x3C)  // Keep alive (60 seconds)
 
 	// Payload: client ID
 	packet = append(packet, byte(len(clientIDBytes)>>8), byte(len(clientIDBytes)))
@@ -343,7 +377,7 @@ func (p *MQTTPublisher) sendConnect() error {
 func (p *MQTTPublisher) readConnack() error {
 	_ = p.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	buf := make([]byte, 4)
-	_, err := p.conn.Read(buf)
+	_, err := io.ReadFull(p.conn, buf)
 	if err != nil {
 		return err
 	}

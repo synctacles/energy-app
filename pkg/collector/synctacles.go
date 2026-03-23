@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -147,7 +148,7 @@ func (s *SynctaclesAPI) FetchDayAhead(ctx context.Context, zone string, date tim
 	}
 
 	var resp workerPriceResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(httpResp.Body, 10*1024*1024)).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("synctacles parse: %w", err)
 	}
 
@@ -255,7 +256,7 @@ func (s *SynctaclesAPI) FetchRenewable(ctx context.Context, zone string) (*model
 	}
 
 	var resp workerRenewableResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(httpResp.Body, 10*1024*1024)).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("synctacles renewable parse: %w", err)
 	}
 
@@ -336,7 +337,7 @@ func (s *SynctaclesAPI) FetchTaxSeed(ctx context.Context, zone string) (*TaxSeed
 	}
 
 	var resp TaxSeedResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(httpResp.Body, 10*1024*1024)).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("synctacles tax seed parse: %w", err)
 	}
 	return &resp, nil

@@ -12,9 +12,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,6 +38,7 @@ var staticFS embed.FS
 
 // Server is the energy addon HTTP server.
 type Server struct {
+	cfgMu               sync.RWMutex // protects cfg fields during concurrent read/write
 	cfg                 *config.Config
 	router              chi.Router
 	stateStore          *state.Store
@@ -163,6 +166,10 @@ func NewServer(deps Deps) *Server {
 			lang := r.URL.Query().Get("lang")
 			if lang == "" {
 				lang = "en"
+			}
+			if !regexp.MustCompile(`^[a-z]{2}$`).MatchString(lang) {
+				writeError(w, http.StatusBadRequest, "invalid lang parameter")
+				return
 			}
 			data, err := staticFS.ReadFile("static/i18n/" + lang + ".json")
 			if err != nil {
@@ -583,6 +590,7 @@ func (s *Server) buildSetupHints() []map[string]string {
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	s.cfgMu.RLock()
 	resp := map[string]any{
 		"pricing_mode":            s.cfg.PricingMode,
 		"zone":                    s.cfg.BiddingZone,
@@ -610,6 +618,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"telemetry_enabled":       s.cfg.TelemetryEnabled,
 		"purged":                  false,
 	}
+	s.cfgMu.RUnlock()
 
 	writeJSON(w, resp)
 }
@@ -686,7 +695,8 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Update in-memory config for immediate effect
+	// Update in-memory config for immediate effect (protected by cfgMu)
+	s.cfgMu.Lock()
 	applyStringField(incoming, "pricing_mode", &s.cfg.PricingMode)
 	applyStringField(incoming, "zone", &s.cfg.BiddingZone)
 	applyStringField(incoming, "supplier_id", &s.cfg.SupplierID)
@@ -710,11 +720,13 @@ func (s *Server) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	applyBoolField(incoming, "privacy_accepted", &s.cfg.PrivacyAccepted)
 	applyBoolField(incoming, "telemetry_enabled", &s.cfg.TelemetryEnabled)
 
-	if v, ok := incoming["best_window_hours"].(float64); ok {
-		s.cfg.BestWindowHours = int(v)
-	}
 	if v, ok := incoming["supplier_markup"].(float64); ok {
 		s.cfg.SupplierMarkup = v
+	}
+	s.cfgMu.Unlock()
+
+	// Update normalizer/scheduler outside cfgMu to avoid holding lock during external calls
+	if v, ok := incoming["supplier_markup"].(float64); ok {
 		if s.normalizer != nil {
 			s.normalizer.SetSupplierMarkup(v)
 		}
@@ -1427,7 +1439,7 @@ func (s *Server) handleFeedbackBug(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// forwardFeedback sends a feedback payload to the auth service.
+// forwardFeedback sends a feedback payload to the platform API.
 func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -1456,7 +1468,7 @@ func (s *Server) forwardFeedback(payload map[string]any) (map[string]any, error)
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("auth service returned %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("platform API returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result map[string]any
@@ -1494,6 +1506,7 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	platform.SignRequest(req, jsonData)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1502,13 +1515,12 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if _, err := io.ReadAll(resp.Body); err != nil {
 		slog.Warn("failed to read response body", "error", err)
 	}
 
 	if resp.StatusCode >= 400 {
-		writeError(w, http.StatusBadGateway, "server returned error: "+string(body))
+		writeError(w, http.StatusBadGateway, "server returned error")
 		return
 	}
 
@@ -1521,6 +1533,7 @@ func (s *Server) handleDeleteData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req2.Header.Set("Content-Type", "application/json")
+		platform.SignRequest(req2, jsonData)
 		resp2, err := http.DefaultClient.Do(req2)
 		if err != nil {
 			return

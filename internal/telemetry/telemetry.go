@@ -1,5 +1,5 @@
-// Package telemetry sends periodic installation telemetry to the auth service.
-// All fields are optional; the auth service accepts partial payloads.
+// Package telemetry sends periodic installation telemetry to the platform API.
+// All fields are optional; the API accepts partial payloads.
 package telemetry
 
 import (
@@ -27,7 +27,7 @@ const (
 	sharedUUIDFile  = ".synctacles_install_id"          // shared across apps via /config
 )
 
-// payload matches the auth service TelemetryRequest.
+// payload matches the platform API TelemetryRequest.
 type payload struct {
 	InstallUUID string         `json:"install_uuid"`
 	Product     string         `json:"product"`
@@ -75,7 +75,7 @@ type Deps struct {
 	GetConfigSnapshot func() map[string]any // pricing_mode, supplier, thresholds, etc.
 }
 
-// Sender sends telemetry to the auth service once per interval.
+// Sender sends telemetry to the platform API once per interval.
 type Sender struct {
 	deps      Deps
 	baseURL   string
@@ -312,7 +312,7 @@ func uptimeBucket(d time.Duration) string {
 	}
 }
 
-// mapGoArch maps runtime.GOARCH values to the arch strings the auth service expects.
+// mapGoArch maps runtime.GOARCH values to the arch strings the platform API expects.
 func mapGoArch(goarch string) string {
 	switch goarch {
 	case "arm64":
