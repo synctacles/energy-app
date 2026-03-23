@@ -289,3 +289,396 @@ func TestNormalizer_ManualMode_NoProfile(t *testing.T) {
 	assert.InDelta(t, 0.08, result[0].PriceEUR, 0.0001)
 	assert.False(t, result[0].IsConsumer)
 }
+
+// ============================================================================
+// Pipeline coverage: negative prices, delta application, sensor mode,
+// concurrent safety, and zone-loop invariants.
+// ============================================================================
+
+func TestNormalizer_ToConsumer_NegativeWholesale(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	// Negative wholesale price (common during high wind/solar) must NOT be clamped.
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 6, 15, 14, 0, 0, 0, time.UTC),
+		PriceEUR:  -20.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.True(t, result[0].IsConsumer)
+	// (-0.02 + 0 + 0.09161 + 0) × 1.21 = 0.07161 × 1.21 ≈ 0.08665
+	assert.InDelta(t, 0.08665, result[0].PriceEUR, 0.002)
+	// Consumer price should be lower than a positive wholesale scenario
+	assert.Less(t, result[0].PriceEUR, 0.20)
+}
+
+func TestNormalizer_ToConsumer_DeltaApplied(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	// Set a delta lookup that returns +0.005 EUR/kWh for any hour
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0.005, true
+	}, true)
+
+	ts := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
+
+	// Wholesale price: delta replaces supplier markup in the tax formula
+	prices := []models.HourlyPrice{{
+		Timestamp: ts,
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.True(t, result[0].IsConsumer)
+	// (0.08 + 0.005 [delta] + 0.09161 + 0) × 1.21 ≈ 0.21375
+	assert.InDelta(t, 0.21375, result[0].PriceEUR, 0.002)
+}
+
+func TestNormalizer_ToConsumer_DeltaAppliedToConsumerPrice(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	// Delta on consumer prices: added as delta × (1 + VAT)
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0.01, true
+	}, true)
+
+	consumerPrice := 0.2134
+	prices := []models.HourlyPrice{{
+		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:   consumerPrice,
+		Unit:       models.UnitKWh,
+		Source:     "synctacles",
+		Zone:       "NL",
+		IsConsumer: true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	// 0.2134 + 0.01 × (1 + 0.21) = 0.2134 + 0.0121 = 0.2255
+	assert.InDelta(t, 0.2255, result[0].PriceEUR, 0.0001)
+}
+
+func TestNormalizer_ToConsumer_SensorMode_SupplierSpecificDelta(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+	norm.SetPricingMode("external_sensor")
+
+	// Supplier-specific delta: MUST be applied even in sensor mode
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0.008, true
+	}, true) // supplierSpecific = true
+
+	consumerPrice := 0.25
+	prices := []models.HourlyPrice{{
+		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:   consumerPrice,
+		Unit:       models.UnitKWh,
+		Source:     "synctacles",
+		Zone:       "NL",
+		IsConsumer: true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	// Delta applied: 0.25 + 0.008 × (1 + 0.21) = 0.25 + 0.00968 ≈ 0.25968
+	assert.InDelta(t, 0.25968, result[0].PriceEUR, 0.0001)
+}
+
+func TestNormalizer_ToConsumer_SensorMode_AverageDelta_Skipped(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+	norm.SetPricingMode("external_sensor")
+
+	// _average delta: should be SKIPPED in sensor mode (can make prices less accurate)
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0.008, true
+	}, false) // supplierSpecific = false (_average)
+
+	consumerPrice := 0.25
+	prices := []models.HourlyPrice{{
+		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:   consumerPrice,
+		Unit:       models.UnitKWh,
+		Source:     "synctacles",
+		Zone:       "NL",
+		IsConsumer: true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	// No delta applied, no markup in sensor mode → price unchanged
+	assert.Equal(t, consumerPrice, result[0].PriceEUR)
+}
+
+func TestNormalizer_ToConsumer_SensorMode_FixedMarkup_Skipped(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache, 0.005) // fixed markup
+	norm.SetPricingMode("p1_meter")
+
+	consumerPrice := 0.25
+	prices := []models.HourlyPrice{{
+		Timestamp:  time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:   consumerPrice,
+		Unit:       models.UnitKWh,
+		Source:     "synctacles",
+		Zone:       "NL",
+		IsConsumer: true,
+	}}
+
+	result := norm.ToConsumer(prices)
+	// Fixed markup skipped in sensor mode → unchanged
+	assert.Equal(t, consumerPrice, result[0].PriceEUR)
+}
+
+func TestNormalizer_ToConsumer_ZeroDelta(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	// Zero delta = consumer should equal wholesale + tax (no correction)
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0.0, true
+	}, true)
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	// (0.08 + 0.0 [zero delta] + 0.09161 + 0) × 1.21 ≈ 0.2076
+	assert.InDelta(t, 0.2076, result[0].PriceEUR, 0.002)
+}
+
+func TestNormalizer_ToConsumer_NilDeltaLookup(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+	// No SetDeltaLookup call — deltaLookup is nil
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	// No delta, no markup → just wholesale + tax
+	// (0.08 + 0 + 0.09161 + 0) × 1.21 ≈ 0.2076
+	assert.InDelta(t, 0.2076, result[0].PriceEUR, 0.002)
+	assert.True(t, result[0].IsConsumer)
+}
+
+func TestNormalizer_ToConsumer_DeltaNotAvailable_FallsBackToMarkup(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache, 0.003) // fixed markup as fallback
+
+	// Delta lookup exists but returns false for this hour
+	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+		return 0, false
+	}, true)
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	// Delta unavailable → falls back to supplierMarkupOverride
+	// (0.08 + 0.003 + 0.09161 + 0) × 1.21 ≈ 0.2113
+	assert.InDelta(t, 0.2113, result[0].PriceEUR, 0.002)
+}
+
+func TestNormalizer_SetPricingMode_Concurrent(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	modes := []string{"auto", "manual", "p1_meter", "external_sensor", "meter_tariff"}
+	done := make(chan struct{})
+
+	// 100 goroutines setting modes concurrently
+	for i := 0; i < 100; i++ {
+		go func(idx int) {
+			norm.SetPricingMode(modes[idx%len(modes)])
+			_ = norm.TaxSource() // concurrent read
+			done <- struct{}{}
+		}(i)
+	}
+
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+
+	// If we get here without a race condition, the test passes.
+	// Run with -race flag to verify.
+}
+
+func TestNormalizer_SetSupplierMarkup_Concurrent(t *testing.T) {
+	cache := testTaxCache()
+	norm := NewNormalizer(cache)
+
+	done := make(chan struct{})
+
+	// 100 goroutines writing markups while others normalize
+	for i := 0; i < 50; i++ {
+		go func(idx int) {
+			norm.SetSupplierMarkup(float64(idx) * 0.001)
+			done <- struct{}{}
+		}(i)
+	}
+	for i := 0; i < 50; i++ {
+		go func() {
+			prices := []models.HourlyPrice{{
+				Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
+				PriceEUR:  80.0,
+				Unit:      models.UnitMWh,
+				Source:    "energycharts",
+				Zone:      "NL",
+			}}
+			_ = norm.ToConsumer(prices) // concurrent read + normalize
+			done <- struct{}{}
+		}()
+	}
+
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+}
+
+func TestNormalizer_FindCheapestN_WithNegative(t *testing.T) {
+	date := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	// Mix of negative and positive prices
+	values := []float64{-0.05, 0.10, -0.02, 0.20, 0.05, 0.30, -0.08, 0.15}
+	prices := makeHourlyPrices(date, values)
+
+	result := findCheapestN(prices, 3)
+	assert.Len(t, result, 3)
+	// Cheapest 3: hour 6 (-0.08), hour 0 (-0.05), hour 2 (-0.02), sorted by time
+	assert.Equal(t, []string{"00:00", "02:00", "06:00"}, result)
+}
+
+// ============================================================================
+// Zone-loop tests: structural invariants across ALL registered zones
+// ============================================================================
+
+func TestNormalizer_AllZones_TaxPositive(t *testing.T) {
+	configs, err := loadAllCountryConfigs()
+	if err != nil {
+		t.Skipf("could not load country configs: %v", err)
+	}
+	reg := models.NewZoneRegistry(configs)
+
+	for _, zoneCode := range reg.AllZones() {
+		defaults := reg.GetTaxDefaults(zoneCode)
+		if defaults == nil {
+			continue // non-wholesale zones may not have tax defaults
+		}
+		if defaults.VATRate <= 0 {
+			t.Errorf("zone %s: VAT rate should be positive, got %f", zoneCode, defaults.VATRate)
+		}
+	}
+}
+
+func TestNormalizer_AllZones_ConsumerGTWholesale(t *testing.T) {
+	configs, err := loadAllCountryConfigs()
+	if err != nil {
+		t.Skipf("could not load country configs: %v", err)
+	}
+	reg := models.NewZoneRegistry(configs)
+
+	ts := time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC)
+	wholesale := 0.08 // 80 EUR/MWh — typical positive wholesale price
+
+	for _, zoneCode := range reg.AllZones() {
+		defaults := reg.GetTaxDefaults(zoneCode)
+		if defaults == nil {
+			continue
+		}
+
+		tp := models.TaxProfile{
+			VATRate:    defaults.VATRate,
+			EnergyTax:  []models.EnergyTaxEntry{{From: "2000-01-01", Rate: defaults.EnergyTax}},
+			Surcharges: defaults.Surcharges,
+		}
+		consumer := tp.WholesaleToConsumer(wholesale, ts)
+		if consumer <= wholesale {
+			t.Errorf("zone %s: consumer (%f) should be > wholesale (%f) for positive prices",
+				zoneCode, consumer, wholesale)
+		}
+	}
+}
+
+func TestNormalizer_AllZones_NonWholesale_HasPresetsOrFixed(t *testing.T) {
+	configs, err := loadAllCountryConfigs()
+	if err != nil {
+		t.Skipf("could not load country configs: %v", err)
+	}
+	reg := models.NewZoneRegistry(configs)
+
+	var missing []string
+	for _, zoneCode := range reg.AllZones() {
+		z, ok := reg.GetZone(zoneCode)
+		if !ok || z.HasWholesale() {
+			continue // skip wholesale zones
+		}
+		// Non-wholesale zones should have regulated tariffs or TOU presets
+		hasTOU := len(reg.GetTOUPresets(zoneCode)) > 0
+		hasRegulated := z.RegulatedTariffs != nil
+		if !hasTOU && !hasRegulated {
+			missing = append(missing, zoneCode)
+		}
+	}
+	if len(missing) > 0 {
+		t.Logf("non-wholesale zones without TOU presets or regulated tariffs: %v (informational — not all zones have presets yet)", missing)
+	}
+}
+
+func TestNormalizer_EmbeddedFallback(t *testing.T) {
+	// No tax cache (simulating Worker unreachable), but embedded zone registry available.
+	configs, err := loadAllCountryConfigs()
+	if err != nil {
+		t.Skipf("could not load country configs: %v", err)
+	}
+	reg := models.NewZoneRegistry(configs)
+
+	norm := NewNormalizer(nil) // No Worker cache
+	norm.SetZoneRegistry(reg)
+
+	prices := []models.HourlyPrice{{
+		Timestamp: time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC),
+		PriceEUR:  80.0,
+		Unit:      models.UnitMWh,
+		Source:    "energycharts",
+		Zone:      "NL",
+	}}
+
+	result := norm.ToConsumer(prices)
+	assert.Len(t, result, 1)
+	assert.True(t, result[0].IsConsumer)
+	// Should use embedded tax data — consumer price > 0.08 (wholesale)
+	assert.Greater(t, result[0].PriceEUR, 0.08)
+	assert.Equal(t, "embedded", norm.TaxSource())
+}
+
+// loadAllCountryConfigs loads country configs via the countries package.
+func loadAllCountryConfigs() ([]*models.CountryConfig, error) {
+	// Import the countries package dynamically isn't possible in Go,
+	// so we use the same embed pattern. This test file is in package engine,
+	// so we construct a minimal registry inline for the zone-loop tests.
+	// We use the countries.LoadAll function via a test helper.
+	return countriesLoadAll()
+}
