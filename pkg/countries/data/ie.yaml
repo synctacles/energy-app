@@ -22,8 +22,8 @@ tou_presets:
         end: "23:00"
         rate: midpeak
 zones:
-- code: IE
-  name: Ireland
+- code: IE-SEM
+  name: Ireland (SEM)
   timezone: Europe/Dublin
   lat: 53.41
   lon: -8.24

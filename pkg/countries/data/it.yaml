@@ -29,28 +29,28 @@ tou_presets:
         end: "19:00"
         rate: peak
 zones:
-- code: IT-North
+- code: IT-NORTH
   eic: 10Y1001A1001A73I
   name: Northern Italy
   country: IT
   timezone: Europe/Rome
   lat: 45.46
   lon: 10.95
-- code: IT-Centre-North
+- code: IT-CNORTH
   eic: 10Y1001A1001A70O
   name: Central North Italy
   country: IT
   timezone: Europe/Rome
   lat: 43.5
   lon: 11.5
-- code: IT-Centre-South
+- code: IT-CSOUTH
   eic: 10Y1001A1001A71M
   name: Central South Italy
   country: IT
   timezone: Europe/Rome
   lat: 41.3
   lon: 15.0
-- code: IT-South
+- code: IT-SOUTH
   eic: 10Y1001A1001A788
   name: Southern Italy
   country: IT

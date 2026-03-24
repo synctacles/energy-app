@@ -19,11 +19,13 @@ func TestEnergyCharts_Metadata(t *testing.T) {
 }
 
 func TestECSupportedZones(t *testing.T) {
-	supported := []string{"NL", "DE-LU", "NO1", "SE3", "FI", "ES", "PT", "IT-North", "SI"}
+	supported := []string{"NL", "DE-LU", "NO1", "SE3", "FI", "ES", "PT", "IT-NORTH", "SI"}
 	for _, zone := range supported {
-		assert.True(t, ecSupportedZones[zone], "zone %s should be supported", zone)
+		_, ok := ecSupportedZones[zone]
+		assert.True(t, ok, "zone %s should be supported", zone)
 	}
-	assert.False(t, ecSupportedZones["XX"], "unknown zone should not be supported")
+	_, ok := ecSupportedZones["XX"]
+	assert.False(t, ok, "unknown zone should not be supported")
 }
 
 func TestEnergyCharts_Integration(t *testing.T) {
