@@ -31,6 +31,7 @@ type Scheduler struct {
 	// but re-normalized every tick for fresh delta application.
 	hasTomorrowData bool           // true once tomorrow's prices are available
 	lastResult      *FetchResult   // cached result from last successful fetch
+	lastFetchDay    int            // local day-of-year of last successful fetch
 	zoneLoc         *time.Location // zone timezone for local day boundary
 }
 
@@ -152,15 +153,24 @@ func (s *Scheduler) SetZoneInfo(hasWholesale bool, pricingMode string, loc *time
 // Day-ahead prices are published once (~13:00 CET) and don't change after that.
 // We only need fresh fetches when:
 //   - We've never fetched successfully (lastResult == nil)
+//   - The local day has changed since the last fetch (day rollover)
 //   - We don't have tomorrow's data yet AND we're in the day-ahead publication window (13-14 UTC)
 //   - A manual trigger was used (always fetches fresh — handled by caller)
 func (s *Scheduler) needsFreshFetch() bool {
 	if s.lastResult == nil {
 		return true
 	}
-	hour := time.Now().UTC().Hour()
+	now := time.Now().UTC()
+	// Day rollover: local day changed since last fetch → need today's full prices
+	if s.zoneLoc != nil {
+		if now.In(s.zoneLoc).YearDay() != s.lastFetchDay {
+			return true
+		}
+	} else if now.YearDay() != s.lastFetchDay {
+		return true
+	}
 	// During day-ahead window (13:00-14:00 UTC): fetch if we don't have tomorrow's data
-	if hour >= 13 && hour < 14 && !s.hasTomorrowData {
+	if now.Hour() >= 13 && now.Hour() < 14 && !s.hasTomorrowData {
 		return true
 	}
 	return false
@@ -206,9 +216,14 @@ func (s *Scheduler) doFetchAndUpdate(ctx context.Context, forceFresh bool) {
 		return
 	}
 
-	// Track whether we have tomorrow's data
+	// Track fetch state for day-rollover detection
 	s.lastResult = result
 	s.hasTomorrowData = hasTomorrowPrices(result.Prices)
+	if s.zoneLoc != nil {
+		s.lastFetchDay = time.Now().In(s.zoneLoc).YearDay()
+	} else {
+		s.lastFetchDay = time.Now().UTC().YearDay()
+	}
 
 	// Normalize to consumer prices
 	consumerPrices := s.normalizer.ToConsumer(result.Prices)

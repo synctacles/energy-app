@@ -1869,7 +1869,7 @@
         var avgCent = avg * 100;
 
         // PT60 mode: aggregate PT15M to hourly bars
-        var isPT15 = vals.length > 48;
+        var isPT15 = _lastDashboard && _lastDashboard.resolution === 'PT15M';
         if (isPT15 && _chartMode === '1h') {
             var pt60Vals = [];
             var pt60Hours = [];

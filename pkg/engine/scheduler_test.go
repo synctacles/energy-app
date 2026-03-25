@@ -18,6 +18,7 @@ func TestNeedsFreshFetch_HasTomorrowData(t *testing.T) {
 	s := &Scheduler{
 		lastResult:      &FetchResult{Prices: []models.HourlyPrice{{PriceEUR: 0.1}}},
 		hasTomorrowData: true,
+		lastFetchDay:    time.Now().UTC().YearDay(), // same day → no day-rollover trigger
 	}
 	// Should NOT need fresh fetch when we already have tomorrow's data
 	if s.needsFreshFetch() {
@@ -25,10 +26,22 @@ func TestNeedsFreshFetch_HasTomorrowData(t *testing.T) {
 	}
 }
 
+func TestNeedsFreshFetch_DayRollover(t *testing.T) {
+	s := &Scheduler{
+		lastResult:      &FetchResult{Prices: []models.HourlyPrice{{PriceEUR: 0.1}}},
+		hasTomorrowData: true,
+		lastFetchDay:    time.Now().UTC().YearDay() - 1, // yesterday → must re-fetch
+	}
+	if !s.needsFreshFetch() {
+		t.Error("should need fresh fetch after day rollover")
+	}
+}
+
 func TestNeedsFreshFetch_NoTomorrowOutsideWindow(t *testing.T) {
 	s := &Scheduler{
 		lastResult:      &FetchResult{Prices: []models.HourlyPrice{{PriceEUR: 0.1}}},
 		hasTomorrowData: false,
+		lastFetchDay:    time.Now().UTC().YearDay(),
 	}
 	// Outside 13-14 UTC window, should not need fresh fetch even without tomorrow data
 	// (we can't control time.Now() easily, so this test documents the behavior
