@@ -171,5 +171,3 @@ Requires Go 1.24+.
 MIT — See [LICENSE](LICENSE)
 
 ---
-
-**Gemaakt met ❤️ op Madeira**
