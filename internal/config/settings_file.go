@@ -134,15 +134,17 @@ func RestoreFromSettingsFile(cfg *Config, dataPath string) {
 		restored++
 	}
 
-	// Consent flags (non-schema in new version)
-	if v, ok := settings["disclaimer_accepted"].(bool); ok {
-		cfg.DisclaimerAccepted = v
+	// Consent flags — only apply true values (never revoke accepted consent).
+	// RestoreConsent() handles the dedicated consent file; this is a secondary
+	// backup that must not override already-accepted flags with false.
+	if v, ok := settings["disclaimer_accepted"].(bool); ok && v {
+		cfg.DisclaimerAccepted = true
 	}
-	if v, ok := settings["privacy_accepted"].(bool); ok {
-		cfg.PrivacyAccepted = v
+	if v, ok := settings["privacy_accepted"].(bool); ok && v {
+		cfg.PrivacyAccepted = true
 	}
-	if v, ok := settings["onboarding_completed"].(bool); ok {
-		cfg.OnboardingCompleted = v
+	if v, ok := settings["onboarding_completed"].(bool); ok && v {
+		cfg.OnboardingCompleted = true
 	}
 
 	if restored > 0 {
