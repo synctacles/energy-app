@@ -748,11 +748,11 @@
     <div class="privacy-overlay" id="deleteDataOverlay">
         <div class="privacy-modal">
             <h2 id="deleteDataTitle">Delete My Data?</h2>
-            <p id="deleteDataBody">This will permanently delete all your data from our servers. This action cannot be undone.</p>
-            <p id="deleteDataHint" style="font-size:0.82em;color:var(--text-faint);margin-top:8px">Your app will continue to work normally after deletion.</p>
+            <p id="deleteDataBody">This will permanently remove all your data from our servers and disable community sharing. Price fetching, recommendations, and all server features will stop working. You can re-enable community sharing at any time in Settings.</p>
+            <p id="deleteDataHint" style="font-size:0.82em;color:var(--text-faint);margin-top:8px">By keeping your anonymous data, you help improve energy price accuracy for the entire Home Assistant community. Are you sure?</p>
             <div id="deleteDataStatus" style="font-size:0.85em;margin-top:12px;min-height:1.2em"></div>
-            <button class="btn-ok" id="deleteDataConfirmBtn" style="background:var(--danger);margin-top:12px">Delete</button>
-            <button class="btn-ok" id="deleteDataCancelBtn" style="background:var(--input-bg);color:var(--text);margin-top:6px">Cancel</button>
+            <button class="btn-ok" id="deleteDataConfirmBtn" style="background:var(--danger);margin-top:12px">Delete permanently</button>
+            <button class="btn-ok" id="deleteDataCancelBtn" style="background:var(--input-bg);color:var(--text);margin-top:6px">Keep my data</button>
         </div>
     </div>
 
@@ -2420,10 +2420,10 @@
                 '<div class="form-hint" id="telemetry-impact" style="margin-top:8px;padding:8px 12px;border-radius:8px;font-size:0.8em;line-height:1.4"></div>' +
             '</div>' +
 
-            // GDPR: Delete My Data
-            '<div class="settings-section" style="margin-top:16px">' +
-                '<div class="form-hint" style="margin-bottom:8px">' + t('settings.delete_data_desc', 'Remove all your data from our servers.') + '</div>' +
-                '<button type="button" class="btn-save" id="btnDeleteData" style="background:var(--danger)">' + t('settings.delete_data', 'Delete My Data') + '</button>' +
+            // GDPR: Delete data link (below community sharing)
+            '<div style="margin-top:12px">' +
+                '<p class="form-hint" style="margin-bottom:4px">' + t('settings.delete_data_about_text', 'Your anonymous data helps improve Synctacles for the entire Home Assistant community.') + '</p>' +
+                '<a href="#" id="btnDeleteData" style="font-size:0.8em;color:var(--text-faint);text-decoration:underline;cursor:pointer">' + t('settings.delete_data_about_link', 'Stop contributing and delete my data') + '</a>' +
             '</div>';
 
         // Bind events
@@ -2512,10 +2512,10 @@
         };
         document.getElementById('btnDeleteData').onclick = function() {
             document.getElementById('deleteDataTitle').textContent = t('settings.delete_data_title', 'Delete My Data?');
-            document.getElementById('deleteDataBody').textContent = t('settings.delete_data_body', 'This will permanently delete all your data from our servers. This action cannot be undone.');
-            document.getElementById('deleteDataHint').textContent = t('settings.delete_data_hint', 'Your app will continue to work normally after deletion.');
-            document.getElementById('deleteDataConfirmBtn').textContent = t('settings.delete_data_confirm_btn', 'Delete');
-            document.getElementById('deleteDataCancelBtn').textContent = t('settings.delete_data_cancel_btn', 'Cancel');
+            document.getElementById('deleteDataBody').textContent = t('settings.delete_data_body', 'This will permanently remove all your data from our servers and disable community sharing. Price fetching, recommendations, and all server features will stop working. You can re-enable community sharing at any time in Settings.');
+            document.getElementById('deleteDataHint').textContent = t('settings.delete_data_hint', 'By keeping your anonymous data, you help improve energy price accuracy for the entire Home Assistant community. Are you sure?');
+            document.getElementById('deleteDataConfirmBtn').textContent = t('settings.delete_data_confirm_btn', 'Delete permanently');
+            document.getElementById('deleteDataCancelBtn').textContent = t('settings.delete_data_cancel_btn', 'Keep my data');
             document.getElementById('deleteDataStatus').textContent = '';
             document.getElementById('deleteDataOverlay').classList.add('visible');
         };
@@ -3409,8 +3409,15 @@
             var resp = await fetch('api/delete-data', { method: 'POST' });
             var data = await resp.json();
             if (!resp.ok) throw new Error(data.error || 'Failed');
-            status.textContent = t('settings.delete_data_success', 'Data deleted. Please restart the app to complete.');
+            status.textContent = t('settings.delete_data_success', 'Your data has been deleted.');
             status.style.color = '#0d9488';
+            // Disable community sharing after successful delete
+            var telToggle = document.getElementById('cfg-telemetry-toggle');
+            if (telToggle && telToggle.classList.contains('on')) {
+                telToggle.classList.remove('on');
+                telToggle.innerHTML = 'OFF';
+            }
+            persistConfig({ telemetry_enabled: false });
             setTimeout(function() {
                 document.getElementById('deleteDataOverlay').classList.remove('visible');
             }, 3000);
