@@ -198,7 +198,11 @@
         "contract_type": "Contract type",
         "contract_dynamic": "Dynamic (variable price per hour)",
         "contract_fixed": "Fixed rate / Time-of-Use",
-        "supplier_label": "Your energy supplier"
+        "supplier_label": "Your energy supplier",
+        "community_data": "Community sharing",
+        "community_data_desc": "Help improve Synctacles by sharing anonymous system information. No personal data is ever collected.",
+        "community_data_off": "Without anonymous data from installations like yours, it becomes harder to detect common issues and improve price accuracy for the entire HA community.",
+        "community_data_on": "Thank you! Your anonymous data helps us detect issues faster and improve Synctacles for thousands of HA users."
     },
     "feedback": {
         "rate_app": "Rate this app",

@@ -33,8 +33,6 @@ type installProfile struct {
 	HasBattery       int      `json:"has_battery"`
 	HasGas           int      `json:"has_gas"`
 	HasGridMeter     int      `json:"has_grid_meter"`
-	TariffReadingKWh *float64 `json:"tariff_reading_kwh"`
-	TariffCurrency   string   `json:"tariff_currency"`
 	WholesaleKWh     *float64 `json:"wholesale_reading_kwh"`
 	SupplierMarkup   *float64 `json:"supplier_markup_kwh"`
 }
