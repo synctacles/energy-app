@@ -200,7 +200,11 @@
         "contract_type": "Contract type",
         "contract_dynamic": "Dynamisch (variabele uurprijs)",
         "contract_fixed": "Vast tarief / Tijdsvariabel tarief",
-        "supplier_label": "Je energieleverancier"
+        "supplier_label": "Je energieleverancier",
+        "community_data": "Community data delen",
+        "community_data_desc": "Help Synctacles verbeteren door anonieme systeeminformatie te delen. Er worden nooit persoonlijke gegevens verzameld.",
+        "community_data_off": "Zonder anonieme gegevens van installaties zoals die van jou wordt het moeilijker om problemen te detecteren en de prijsnauwkeurigheid te verbeteren voor de hele HA community.",
+        "community_data_on": "Bedankt! Je anonieme gegevens helpen ons problemen sneller te detecteren en Synctacles te verbeteren voor duizenden HA-gebruikers."
     },
     "feedback": {
         "rate_app": "Beoordeel deze app",

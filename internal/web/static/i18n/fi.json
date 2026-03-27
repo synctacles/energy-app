@@ -192,7 +192,11 @@
         "contract_type": "Contract type",
         "contract_dynamic": "Dynaaminen (muuttuva tuntihinta)",
         "contract_fixed": "Kiinteä hinta / Ajasta riippuva tariff",
-        "supplier_label": "Your energy supplier"
+        "supplier_label": "Your energy supplier",
+        "community_data": "Yhteisön jakaminen",
+        "community_data_desc": "Auta parantamaan Synctaclesia jakamalla anonyymejä järjestelmätietoja. Henkilökohtaisia tietoja ei koskaan kerätä.",
+        "community_data_off": "Ilman anonyymejä tietoja sinun kaltaisiltasi asennuksilta on vaikeampaa havaita ongelmia ja parantaa hintojen tarkkuutta koko HA-yhteisölle.",
+        "community_data_on": "Kiitos! Anonyymit tietosi auttavat meitä havaitsemaan ongelmia nopeammin ja parantamaan Synctaclesia tuhansille HA-käyttäjille."
     },
     "feedback": {
         "rate_app": "Arvioi tämä sovellus",

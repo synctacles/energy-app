@@ -192,7 +192,11 @@
         "contract_type": "Contract type",
         "contract_dynamic": "Dinâmico (preço variável por hora)",
         "contract_fixed": "Taxa fixa / Tarifa por horário",
-        "supplier_label": "Your energy supplier"
+        "supplier_label": "Your energy supplier",
+        "community_data": "Partilha comunitária",
+        "community_data_desc": "Ajude a melhorar o Synctacles partilhando informações anónimas do sistema. Nunca são recolhidas informações pessoais.",
+        "community_data_off": "Sem dados anónimos de instalações como a sua, torna-se mais difícil detetar problemas e melhorar a precisão de preços para toda a comunidade HA.",
+        "community_data_on": "Obrigado! Os seus dados anónimos ajudam-nos a detetar problemas mais rapidamente e a melhorar o Synctacles para milhares de utilizadores de HA."
     },
     "feedback": {
         "rate_app": "Classificar esta aplicação",

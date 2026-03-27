@@ -192,7 +192,11 @@
         "contract_type": "Contract type",
         "contract_dynamic": "Dynamisk (variabel timepris)",
         "contract_fixed": "Fastpris / Tidsvariabel tarif",
-        "supplier_label": "Your energy supplier"
+        "supplier_label": "Your energy supplier",
+        "community_data": "Community-deling",
+        "community_data_desc": "Hjælp med at forbedre Synctacles ved at dele anonyme systemoplysninger. Der indsamles aldrig personlige oplysninger.",
+        "community_data_off": "Uden anonyme data fra installationer som din bliver det sværere at opdage problemer og forbedre prisnøjagtigheden for hele HA-fællesskabet.",
+        "community_data_on": "Tak! Dine anonyme data hjælper os med at opdage problemer hurtigere og forbedre Synctacles for tusindvis af HA-brugere."
     },
     "feedback": {
         "rate_app": "Bedøm denne app",
