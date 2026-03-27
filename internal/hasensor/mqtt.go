@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -113,11 +112,6 @@ func (p *MQTTPublisher) keepAlive(stop chan struct{}, conn net.Conn) {
 // in /data/ (persistent HA app storage). The one-time empty retained publish
 // clears the broker's retained message permanently.
 func (p *MQTTPublisher) CleanupStaleTopics() {
-	const markerFile = "/data/.mqtt_stale_cleaned"
-	if _, err := os.Stat(markerFile); err == nil {
-		return // already cleaned in a previous run
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -125,23 +119,43 @@ func (p *MQTTPublisher) CleanupStaleTopics() {
 		return
 	}
 
-	// Legacy topic used "binary_sensor.synctacles_cheap_hour" as object_id
-	// (with dot, under sensor/ component). Fixed in rc34 to use
-	// component=binary_sensor, object_id=cheap_hour.
-	staleTopics := []string{
+	// Clear any retained discovery topics from a previous session that may
+	// not have been cleaned up (e.g. SIGKILL during shutdown, uninstall
+	// without graceful stop). This runs on every startup to guarantee no
+	// orphaned ghost sensors survive across restarts.
+	allTopics := []string{
+		// Legacy (rc34)
 		"homeassistant/sensor/synctacles_energy/binary_sensor.synctacles_cheap_hour/config",
+		// Current entities — discovery + state
+		"homeassistant/sensor/synctacles_energy/current_price/config",
+		"homeassistant/sensor/synctacles_energy/next_hour_price/config",
+		"homeassistant/sensor/synctacles_energy/today_average/config",
+		"homeassistant/sensor/synctacles_energy/today_min/config",
+		"homeassistant/sensor/synctacles_energy/today_max/config",
+		"homeassistant/sensor/synctacles_energy/tomorrow_average/config",
+		"homeassistant/sensor/synctacles_energy/price_ratio/config",
+		"homeassistant/sensor/synctacles_energy/hours_until_go/config",
+		"homeassistant/sensor/synctacles_energy/best_start/config",
+		"homeassistant/sensor/synctacles_energy/price_trend/config",
+		"homeassistant/sensor/synctacles_energy/renewable_share/config",
+		"homeassistant/binary_sensor/synctacles_energy/green_energy/config",
+		"homeassistant/binary_sensor/synctacles_energy/green_window/config",
+		"homeassistant/binary_sensor/synctacles_energy/cheap_hour/config",
+		"homeassistant/binary_sensor/synctacles_energy/price_alert/config",
 	}
 
-	for _, topic := range staleTopics {
+	cleared := 0
+	for _, topic := range allTopics {
 		if err := p.doPublish(topic, []byte{}, true); err != nil {
 			slog.Debug("mqtt: failed to clear stale topic", "topic", topic, "error", err)
-			return // don't write marker if we couldn't clear
+			continue
 		}
-		slog.Info("mqtt: cleared stale discovery topic", "topic", topic)
+		cleared++
 	}
 
-	// Mark as done so we never publish to the stale topic again
-	_ = os.WriteFile(markerFile, []byte("cleaned"), 0644)
+	if cleared > 0 {
+		slog.Info("mqtt: cleared stale discovery topics on startup", "count", cleared)
+	}
 }
 
 // RemoveAllDiscovery publishes empty retained messages to all previously
