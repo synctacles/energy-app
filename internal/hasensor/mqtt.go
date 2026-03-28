@@ -123,10 +123,11 @@ func (p *MQTTPublisher) CleanupStaleTopics() {
 	// not have been cleaned up (e.g. SIGKILL during shutdown, uninstall
 	// without graceful stop). This runs on every startup to guarantee no
 	// orphaned ghost sensors survive across restarts.
+	//
+	// IMPORTANT: keep this list in sync with publisher.go entities.
 	allTopics := []string{
-		// Legacy (rc34)
+		// Legacy names (renamed in previous versions)
 		"homeassistant/sensor/synctacles_energy/binary_sensor.synctacles_cheap_hour/config",
-		// Current entities — discovery + state
 		"homeassistant/sensor/synctacles_energy/current_price/config",
 		"homeassistant/sensor/synctacles_energy/next_hour_price/config",
 		"homeassistant/sensor/synctacles_energy/today_average/config",
@@ -137,11 +138,25 @@ func (p *MQTTPublisher) CleanupStaleTopics() {
 		"homeassistant/sensor/synctacles_energy/hours_until_go/config",
 		"homeassistant/sensor/synctacles_energy/best_start/config",
 		"homeassistant/sensor/synctacles_energy/price_trend/config",
+		"homeassistant/sensor/synctacles_energy/price_alert/config",
+		// Current sensors (publisher.go)
+		"homeassistant/sensor/synctacles_energy/energy_price/config",
+		"homeassistant/sensor/synctacles_energy/cheapest_hour/config",
+		"homeassistant/sensor/synctacles_energy/expensive_hour/config",
+		"homeassistant/sensor/synctacles_energy/prices_today/config",
+		"homeassistant/sensor/synctacles_energy/prices_tomorrow/config",
+		"homeassistant/sensor/synctacles_energy/energy_action/config",
+		"homeassistant/sensor/synctacles_energy/best_window/config",
+		"homeassistant/sensor/synctacles_energy/tomorrow_preview/config",
 		"homeassistant/sensor/synctacles_energy/renewable_share/config",
+		"homeassistant/sensor/synctacles_energy/live_cost/config",
+		"homeassistant/sensor/synctacles_energy/savings/config",
+		"homeassistant/sensor/synctacles_energy/usage_score/config",
+		"homeassistant/sensor/synctacles_energy/daily_cost/config",
+		// Current binary sensors (publisher.go)
+		"homeassistant/binary_sensor/synctacles_energy/cheap_hour/config",
 		"homeassistant/binary_sensor/synctacles_energy/green_energy/config",
 		"homeassistant/binary_sensor/synctacles_energy/green_window/config",
-		"homeassistant/binary_sensor/synctacles_energy/cheap_hour/config",
-		"homeassistant/binary_sensor/synctacles_energy/price_alert/config",
 	}
 
 	cleared := 0
