@@ -317,18 +317,17 @@ func TestNormalizer_ToConsumer_NegativeWholesale(t *testing.T) {
 	assert.Less(t, result[0].PriceEUR, 0.20)
 }
 
-func TestNormalizer_ToConsumer_DeltaApplied(t *testing.T) {
+func TestNormalizer_ToConsumer_PriceLookupApplied(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 
-	// Set a delta lookup that returns +0.005 EUR/kWh for any hour
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
-		return 0.005, true
+	// ADR_016: PriceLookup returns the full consumer price directly
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
+		return 0.2758, true // pre-computed consumer price
 	}, true)
 
 	ts := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
 
-	// Wholesale price: delta replaces supplier markup in the tax formula
 	prices := []models.HourlyPrice{{
 		Timestamp: ts,
 		PriceEUR:  80.0,
@@ -340,17 +339,17 @@ func TestNormalizer_ToConsumer_DeltaApplied(t *testing.T) {
 	result := norm.ToConsumer(prices)
 	assert.Len(t, result, 1)
 	assert.True(t, result[0].IsConsumer)
-	// (0.08 + 0.005 [delta] + 0.09161 + 0) × 1.21 ≈ 0.21375
-	assert.InDelta(t, 0.21375, result[0].PriceEUR, 0.002)
+	// Price lookup overrides — uses consumer price directly
+	assert.InDelta(t, 0.2758, result[0].PriceEUR, 0.0001)
 }
 
-func TestNormalizer_ToConsumer_DeltaAppliedToConsumerPrice(t *testing.T) {
+func TestNormalizer_ToConsumer_PriceLookupOverridesConsumer(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 
-	// Delta on consumer prices: added as delta × (1 + VAT)
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
-		return 0.01, true
+	// ADR_016: PriceLookup returns pre-computed price, overrides existing consumer price
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
+		return 0.2255, true
 	}, true)
 
 	consumerPrice := 0.2134
@@ -364,18 +363,18 @@ func TestNormalizer_ToConsumer_DeltaAppliedToConsumerPrice(t *testing.T) {
 	}}
 
 	result := norm.ToConsumer(prices)
-	// 0.2134 + 0.01 × (1 + 0.21) = 0.2134 + 0.0121 = 0.2255
+	// Pre-computed price used directly
 	assert.InDelta(t, 0.2255, result[0].PriceEUR, 0.0001)
 }
 
-func TestNormalizer_ToConsumer_SensorMode_SupplierSpecificDelta(t *testing.T) {
+func TestNormalizer_ToConsumer_SensorMode_SupplierSpecificPrice(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 	norm.SetPricingMode("external_sensor")
 
-	// Supplier-specific delta: MUST be applied even in sensor mode
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
-		return 0.008, true
+	// Supplier-specific price: MUST be applied even in sensor mode
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
+		return 0.25968, true
 	}, true) // supplierSpecific = true
 
 	consumerPrice := 0.25
@@ -389,18 +388,18 @@ func TestNormalizer_ToConsumer_SensorMode_SupplierSpecificDelta(t *testing.T) {
 	}}
 
 	result := norm.ToConsumer(prices)
-	// Delta applied: 0.25 + 0.008 × (1 + 0.21) = 0.25 + 0.00968 ≈ 0.25968
+	// Pre-computed price used directly
 	assert.InDelta(t, 0.25968, result[0].PriceEUR, 0.0001)
 }
 
-func TestNormalizer_ToConsumer_SensorMode_AverageDelta_Skipped(t *testing.T) {
+func TestNormalizer_ToConsumer_SensorMode_AveragePrice_Skipped(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 	norm.SetPricingMode("external_sensor")
 
-	// _average delta: should be SKIPPED in sensor mode (can make prices less accurate)
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
-		return 0.008, true
+	// _average price: should be SKIPPED in sensor mode (sensor is more accurate)
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
+		return 0.30, true
 	}, false) // supplierSpecific = false (_average)
 
 	consumerPrice := 0.25
@@ -414,7 +413,7 @@ func TestNormalizer_ToConsumer_SensorMode_AverageDelta_Skipped(t *testing.T) {
 	}}
 
 	result := norm.ToConsumer(prices)
-	// No delta applied, no markup in sensor mode → price unchanged
+	// _average skipped in sensor mode → price unchanged
 	assert.Equal(t, consumerPrice, result[0].PriceEUR)
 }
 
@@ -438,13 +437,13 @@ func TestNormalizer_ToConsumer_SensorMode_FixedMarkup_Skipped(t *testing.T) {
 	assert.Equal(t, consumerPrice, result[0].PriceEUR)
 }
 
-func TestNormalizer_ToConsumer_ZeroDelta(t *testing.T) {
+func TestNormalizer_ToConsumer_PriceLookupReturnsLowPrice(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
 
-	// Zero delta = consumer should equal wholesale + tax (no correction)
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
-		return 0.0, true
+	// Even a very low price should be used directly
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
+		return 0.05, true
 	}, true)
 
 	prices := []models.HourlyPrice{{
@@ -456,14 +455,14 @@ func TestNormalizer_ToConsumer_ZeroDelta(t *testing.T) {
 	}}
 
 	result := norm.ToConsumer(prices)
-	// (0.08 + 0.0 [zero delta] + 0.09161 + 0) × 1.21 ≈ 0.2076
-	assert.InDelta(t, 0.2076, result[0].PriceEUR, 0.002)
+	assert.InDelta(t, 0.05, result[0].PriceEUR, 0.0001)
+	assert.True(t, result[0].IsConsumer)
 }
 
-func TestNormalizer_ToConsumer_NilDeltaLookup(t *testing.T) {
+func TestNormalizer_ToConsumer_NilPriceLookup(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache)
-	// No SetDeltaLookup call — deltaLookup is nil
+	// No SetPriceLookup call — priceLookup is nil
 
 	prices := []models.HourlyPrice{{
 		Timestamp: time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC),
@@ -474,18 +473,18 @@ func TestNormalizer_ToConsumer_NilDeltaLookup(t *testing.T) {
 	}}
 
 	result := norm.ToConsumer(prices)
-	// No delta, no markup → just wholesale + tax
+	// No price lookup → falls back to tax-based normalization
 	// (0.08 + 0 + 0.09161 + 0) × 1.21 ≈ 0.2076
 	assert.InDelta(t, 0.2076, result[0].PriceEUR, 0.002)
 	assert.True(t, result[0].IsConsumer)
 }
 
-func TestNormalizer_ToConsumer_DeltaNotAvailable_FallsBackToMarkup(t *testing.T) {
+func TestNormalizer_ToConsumer_PriceNotAvailable_FallsBackToMarkup(t *testing.T) {
 	cache := testTaxCache()
 	norm := NewNormalizer(cache, 0.003) // fixed markup as fallback
 
-	// Delta lookup exists but returns false for this hour
-	norm.SetDeltaLookup(func(t time.Time) (float64, bool) {
+	// Price lookup exists but returns false for this hour
+	norm.SetPriceLookup(func(t time.Time) (float64, bool) {
 		return 0, false
 	}, true)
 
@@ -498,7 +497,7 @@ func TestNormalizer_ToConsumer_DeltaNotAvailable_FallsBackToMarkup(t *testing.T)
 	}}
 
 	result := norm.ToConsumer(prices)
-	// Delta unavailable → falls back to supplierMarkupOverride
+	// Price unavailable → falls back to tax-based normalization with markup
 	// (0.08 + 0.003 + 0.09161 + 0) × 1.21 ≈ 0.2113
 	assert.InDelta(t, 0.2113, result[0].PriceEUR, 0.002)
 }

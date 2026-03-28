@@ -677,21 +677,21 @@ func main() {
 		}
 	}
 
-	// ADR_010: delta cache for chart calibration (all dynamic modes).
-	// MUST be initialized BEFORE scheduler.Run — first fetch needs delta for normalization.
-	var deltaCache *delta.Cache
+	// ADR_016: supplier price cache — pre-computed consumer prices from Worker.
+	// MUST be initialized BEFORE scheduler.Run — first fetch needs prices for normalization.
+	var supplierPriceCache *delta.Cache
 	if (cfg.PricingMode == config.ModeAuto || cfg.PricingMode == config.ModeExternalSensor) && cfg.BiddingZone != "" {
-		deltaSupplier := cfg.SupplierID
-		if deltaSupplier == "" && cfg.P1SensorEntity != "" {
-			deltaSupplier = hasensor.SupplierHintFromEntity(cfg.P1SensorEntity)
+		priceSupplier := cfg.SupplierID
+		if priceSupplier == "" && cfg.P1SensorEntity != "" {
+			priceSupplier = hasensor.SupplierHintFromEntity(cfg.P1SensorEntity)
 		}
-		if deltaSupplier == "" {
-			deltaSupplier = "_average"
+		if priceSupplier == "" {
+			priceSupplier = "_average"
 		}
-		deltaCache = delta.NewCache(dataPath)
-		go deltaCache.RunFetcher(ctx, cfg.BiddingZone, deltaSupplier)
-		normalizer.SetDeltaLookup(deltaCache.Get, deltaSupplier != "_average")
-		slog.Info("delta: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", deltaSupplier)
+		supplierPriceCache = delta.NewCache(dataPath)
+		go supplierPriceCache.RunFetcher(ctx, cfg.BiddingZone, priceSupplier)
+		normalizer.SetPriceLookup(supplierPriceCache.Get, priceSupplier != "_average")
+		slog.Info("price: consumer cache enabled", "zone", cfg.BiddingZone, "supplier", priceSupplier)
 	}
 
 	go scheduler.Run(ctx)
@@ -739,52 +739,9 @@ func main() {
 	}).Run(ctx)
 	slog.Info("heartbeat sender started", "uuid", installUUID)
 
-	// Start delta submitter for per-hour supplier correction factors (ADR_010)
-	if cfg.BiddingZone != "" {
-		// Submit deltas for ALL detected tariff sensors
-		if supervisor != nil {
-			allSensors := hasensor.DetectAllTariffSensors(ctx, supervisor)
-			svDelta := supervisor
-			for _, ds := range allSensors {
-				entityID := ds.EntityID
-				supplier := ds.Supplier
-				go delta.NewSubmitter(delta.SubmitterConfig{
-					InstallUUID: installUUID,
-					Zone:        cfg.BiddingZone,
-					Source:      "sensor",
-					TaxCache:    taxCache,
-					GetWholesalePrices: func(ctx context.Context, zone string) ([]delta.WholesalePrice, error) {
-						return delta.FetchWholesalePrices(ctx, zone)
-					},
-					GetDayAheadPrices: func(ctx context.Context, _ string) ([]delta.HourlyConsumerPrice, error) {
-						forecast, err := delta.ReadSensorForecast(ctx, svDelta, entityID)
-						if err != nil {
-							return nil, err
-						}
-						result := make([]delta.HourlyConsumerPrice, 0, len(forecast))
-						for _, f := range forecast {
-							if f.PriceKWh > 0 {
-								result = append(result, delta.HourlyConsumerPrice{
-									Timestamp: f.Timestamp,
-									PriceKWh:  f.PriceKWh,
-								})
-							}
-						}
-						return result, nil
-					},
-					Suppliers: func() []string { return []string{supplier} },
-				ReadLivePrice: func(ctx context.Context) (float64, error) {
-					return readExternalSensorPrice(ctx, svDelta, entityID)
-				},
-				}).Run(ctx)
-				slog.Info("delta submitter started (sensor)", "supplier", supplier, "entity", entityID)
-			}
-		}
-	}
-
-	// Set delta cache on web server (initialized before scheduler.Run above)
-	if deltaCache != nil {
-		srv.SetDeltaCache(deltaCache)
+	// Set price cache on web server (initialized before scheduler.Run above)
+	if supplierPriceCache != nil {
+		srv.SetDeltaCache(supplierPriceCache)
 	}
 
 	addr := ":" + strconv.Itoa(cfg.IngressPort)

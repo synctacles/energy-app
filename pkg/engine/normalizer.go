@@ -8,9 +8,10 @@ import (
 	"github.com/synctacles/energy-app/pkg/models"
 )
 
-// DeltaLookup returns the per-hour supplier delta for a given timestamp.
-// Returns (delta, true) when available, (0, false) when not.
-type DeltaLookup func(t time.Time) (float64, bool)
+// PriceLookup returns the per-hour consumer price for a given timestamp.
+// Returns (consumer_kwh, true) when available, (0, false) when not.
+// Source: GET /api/v1/energy/supplier-prices (ADR_016).
+type PriceLookup func(t time.Time) (float64, bool)
 
 // Normalizer converts wholesale prices to consumer prices.
 // Behavior depends on PricingMode:
@@ -25,8 +26,8 @@ type Normalizer struct {
 	pricingMode           string                 // "auto", "manual", "p1_meter"
 	manualTaxProfile      *models.TaxProfile     // User-defined components for manual mode
 	lastTaxSource         string                 // "worker", "embedded", "none" — for degraded banner
-	deltaLookup           DeltaLookup            // ADR_010: per-hour supplier delta (replaces fixed markup)
-	deltaIsSupplierSpecific bool                 // true = from known supplier, false = _average (skip in sensor mode)
+	priceLookup           PriceLookup            // ADR_016: per-hour consumer price (replaces delta reconstruction)
+	priceIsSupplierSpecific bool                 // true = from known supplier, false = _average
 }
 
 // NewNormalizer creates a normalizer backed by the Worker tax profile cache.
@@ -67,14 +68,14 @@ func (n *Normalizer) SetSupplierMarkup(markup float64) {
 	n.supplierMarkupOverride = markup
 }
 
-// SetDeltaLookup sets the per-hour delta lookup function (ADR_010).
-// When set, deltas are preferred over supplierMarkupOverride for wholesale→consumer conversion.
-// supplierSpecific indicates whether deltas are from a known supplier (true) or _average (false).
-func (n *Normalizer) SetDeltaLookup(fn DeltaLookup, supplierSpecific bool) {
+// SetPriceLookup sets the per-hour consumer price lookup function (ADR_016).
+// When set, prices from the Worker are used directly — no delta reconstruction.
+// supplierSpecific indicates whether prices are from a known supplier (true) or _average (false).
+func (n *Normalizer) SetPriceLookup(fn PriceLookup, supplierSpecific bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.deltaLookup = fn
-	n.deltaIsSupplierSpecific = supplierSpecific
+	n.priceLookup = fn
+	n.priceIsSupplierSpecific = supplierSpecific
 }
 
 // TaxSource returns the tax data source used for the last normalization.
@@ -93,8 +94,8 @@ type normalizerSnapshot struct {
 	supplierMarkupOverride float64
 	pricingMode            string
 	manualTaxProfile       *models.TaxProfile
-	deltaLookup            DeltaLookup
-	deltaIsSupplierSpecific bool
+	priceLookup            PriceLookup
+	priceIsSupplierSpecific bool
 }
 
 func (n *Normalizer) snapshot() normalizerSnapshot {
@@ -106,8 +107,8 @@ func (n *Normalizer) snapshot() normalizerSnapshot {
 		supplierMarkupOverride: n.supplierMarkupOverride,
 		pricingMode:            n.pricingMode,
 		manualTaxProfile:       n.manualTaxProfile,
-		deltaLookup:            n.deltaLookup,
-		deltaIsSupplierSpecific: n.deltaIsSupplierSpecific,
+		priceLookup:            n.priceLookup,
+		priceIsSupplierSpecific: n.priceIsSupplierSpecific,
 	}
 }
 
@@ -157,24 +158,26 @@ func (n *Normalizer) setLastTaxSourceIfNone(src string) {
 }
 
 // normalizeAuto handles auto mode: consumer prices pass through, wholesale → tax cache.
+// ADR_016: When priceLookup is available, use pre-computed consumer price directly.
 func (n *Normalizer) normalizeAuto(snap normalizerSnapshot, p models.HourlyPrice) models.HourlyPrice {
-	if p.IsConsumer {
-		// Consumer prices already include taxes — no normalization needed.
-		// Update lastTaxSource so the degraded banner doesn't trigger.
-		n.setLastTaxSourceIfNone("consumer")
-		// Apply supplier correction to consumer prices.
-		// Supplier-specific delta: always apply (feedback loop from own sensor).
-		// _average delta: skip in sensor mode (can make prices LESS accurate).
-		// Fixed markup: skip in sensor mode (sensor is the truth).
-		isSensorMode := snap.pricingMode == "external_sensor" || snap.pricingMode == "p1_meter" || snap.pricingMode == "meter_tariff"
-		vatRate := n.vatRateForZone(snap, p.Zone)
-		if snap.deltaLookup != nil && (!isSensorMode || snap.deltaIsSupplierSpecific) {
-			if d, ok := snap.deltaLookup(p.Timestamp); ok {
-				p.PriceEUR += d * (1 + vatRate)
-				return p
-			}
+	// ADR_016: If we have a pre-computed consumer price for this hour, use it directly.
+	// This replaces the delta reconstruction (ADR_010). The Worker already computed:
+	// consumer_kwh = (wholesale + markup + energy_tax) × (1 + VAT)
+	isSensorMode := snap.pricingMode == "external_sensor" || snap.pricingMode == "p1_meter" || snap.pricingMode == "meter_tariff"
+	if snap.priceLookup != nil && (!isSensorMode || snap.priceIsSupplierSpecific) {
+		if consumerPrice, ok := snap.priceLookup(p.Timestamp); ok {
+			p.PriceEUR = consumerPrice
+			p.IsConsumer = true
+			n.setLastTaxSource("worker")
+			return p
 		}
+	}
+
+	// Fallback: if consumer price not available in cache, use existing tax-based normalization
+	if p.IsConsumer {
+		n.setLastTaxSourceIfNone("consumer")
 		if !isSensorMode && snap.supplierMarkupOverride > 0 {
+			vatRate := n.vatRateForZone(snap, p.Zone)
 			p.PriceEUR += snap.supplierMarkupOverride * (1 + vatRate)
 		}
 		return p
@@ -195,14 +198,7 @@ func (n *Normalizer) normalizeAuto(snap normalizerSnapshot, p models.HourlyPrice
 			Surcharges:       override.Surcharges,
 			NetworkTariffAvg: override.NetworkTariffAvg,
 		}
-		// ADR_010: per-hour delta preferred over fixed markup
-		if snap.deltaLookup != nil {
-			if d, ok := snap.deltaLookup(p.Timestamp); ok {
-				tp.SupplierMarkup = d
-			} else if snap.supplierMarkupOverride > 0 {
-				tp.SupplierMarkup = snap.supplierMarkupOverride
-			}
-		} else if snap.supplierMarkupOverride > 0 {
+		if snap.supplierMarkupOverride > 0 {
 			tp.SupplierMarkup = snap.supplierMarkupOverride
 		}
 		p.PriceEUR = tp.WholesaleToConsumer(p.PriceEUR, p.Timestamp)

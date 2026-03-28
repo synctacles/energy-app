@@ -11,45 +11,54 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/synctacles/energy-app/pkg/platform"
 )
 
-// diskCache is the on-disk format for delta persistence.
+// diskCache is the on-disk format for price persistence.
 type diskCache struct {
 	Zone      string             `json:"zone"`
 	Supplier  string             `json:"supplier"`
 	FetchedAt string             `json:"fetched_at"`
-	Deltas    map[string]float64 `json:"deltas"` // key: "2006-01-02T15"
+	Prices    map[string]float64 `json:"prices"` // key: "2006-01-02T15" → consumer EUR/kWh
 }
 
-// Cache holds per-hour supplier deltas fetched from the energy-data Worker.
+// Cache holds per-hour consumer prices fetched from the energy-data Worker.
 // Thread-safe for concurrent reads and writes. Persists to disk for offline use.
 type Cache struct {
 	mu        sync.RWMutex
-	deltas    map[string]float64 // key: "2006-01-02T15" → delta EUR/kWh
+	prices    map[string]float64 // key: "2006-01-02T15" → consumer EUR/kWh
 	zone      string
 	supplier  string
 	fetchedAt time.Time
 	diskPath  string
 }
 
-// NewCache creates a new delta cache. If dataPath is non-empty, loads cached
-// deltas from disk (survives restarts).
+// NewCache creates a new price cache. If dataPath is non-empty, loads cached
+// prices from disk (survives restarts).
 func NewCache(dataPath ...string) *Cache {
-	c := &Cache{deltas: make(map[string]float64)}
+	c := &Cache{prices: make(map[string]float64)}
 	if len(dataPath) > 0 && dataPath[0] != "" {
-		c.diskPath = filepath.Join(dataPath[0], "delta_cache.json")
+		c.diskPath = filepath.Join(dataPath[0], "price_cache.json")
 		c.loadFromDisk()
+		// Migration: try loading old delta_cache.json if price_cache.json doesn't exist
+		if len(c.prices) == 0 {
+			oldPath := filepath.Join(dataPath[0], "delta_cache.json")
+			if _, err := os.Stat(oldPath); err == nil {
+				slog.Info("price: migrating from delta_cache.json (will be ignored)")
+			}
+		}
 	}
 	return c
 }
 
-// Get returns the delta for a specific hour, or (0, false) if not available.
+// Get returns the consumer price for a specific hour, or (0, false) if not available.
 func (c *Cache) Get(t time.Time) (float64, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	key := t.UTC().Format("2006-01-02T15")
-	d, ok := c.deltas[key]
-	return d, ok
+	p, ok := c.prices[key]
+	return p, ok
 }
 
 // IsStale returns true if the cache hasn't been updated in over 26 hours.
@@ -59,26 +68,26 @@ func (c *Cache) IsStale() bool {
 	return c.fetchedAt.IsZero() || time.Since(c.fetchedAt) > 26*time.Hour
 }
 
-// Len returns the number of cached delta entries.
+// Len returns the number of cached price entries.
 func (c *Cache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return len(c.deltas)
+	return len(c.prices)
 }
 
-// Fetch retrieves supplier deltas from the energy-data Worker and updates the cache.
+// Fetch retrieves supplier prices from the energy-data Worker and updates the cache.
 func (c *Cache) Fetch(ctx context.Context, zone, supplier string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	url := fmt.Sprintf("%s/api/v1/energy/supplier-deltas?zone=%s&supplier=%s",
-		energyDataBaseURL, zone, supplier)
+	url := fmt.Sprintf("%s/api/v1/energy/supplier-prices?zone=%s&supplier=%s",
+		platform.EnergyDataBaseURL, zone, supplier)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "SynctaclesEnergy/delta")
+	req.Header.Set("User-Agent", "SynctaclesEnergy/prices")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -87,40 +96,40 @@ func (c *Cache) Fetch(ctx context.Context, zone, supplier string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("supplier-deltas returned %d", resp.StatusCode)
+		return fmt.Errorf("supplier-prices returned %d", resp.StatusCode)
 	}
 
 	var result struct {
 		Available bool `json:"available"`
-		Deltas    []struct {
-			TS    string  `json:"ts"`
-			Delta float64 `json:"delta"`
-		} `json:"deltas"`
+		Prices    []struct {
+			TS          string  `json:"ts"`
+			ConsumerKWh float64 `json:"consumer_kwh"`
+		} `json:"prices"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 10*1024*1024)).Decode(&result); err != nil {
 		return err
 	}
 
-	if !result.Available || len(result.Deltas) == 0 {
-		slog.Debug("delta: no deltas available from Worker", "zone", zone, "supplier", supplier)
+	if !result.Available || len(result.Prices) == 0 {
+		slog.Debug("price: no prices available from Worker", "zone", zone, "supplier", supplier)
 		return nil
 	}
 
-	newDeltas := make(map[string]float64, len(result.Deltas))
-	for _, d := range result.Deltas {
-		t, err := time.Parse(time.RFC3339, d.TS)
+	newPrices := make(map[string]float64, len(result.Prices))
+	for _, p := range result.Prices {
+		t, err := time.Parse(time.RFC3339, p.TS)
 		if err != nil {
-			t, err = time.Parse("2006-01-02T15:04:05Z", d.TS)
+			t, err = time.Parse("2006-01-02T15:04:05Z", p.TS)
 			if err != nil {
 				continue
 			}
 		}
 		key := t.UTC().Format("2006-01-02T15")
-		newDeltas[key] = d.Delta
+		newPrices[key] = p.ConsumerKWh
 	}
 
 	c.mu.Lock()
-	c.deltas = newDeltas
+	c.prices = newPrices
 	c.zone = zone
 	c.supplier = supplier
 	c.fetchedAt = time.Now()
@@ -128,14 +137,13 @@ func (c *Cache) Fetch(ctx context.Context, zone, supplier string) error {
 
 	c.saveToDisk()
 
-	slog.Info("delta: cache updated", "zone", zone, "supplier", supplier, "hours", len(newDeltas))
+	slog.Info("price: cache updated", "zone", zone, "supplier", supplier, "hours", len(newPrices))
 	return nil
 }
 
-// RunFetcher periodically fetches deltas from the Worker.
+// RunFetcher periodically fetches prices from the Worker.
 // Runs once at startup (after stabilization), then at each hour boundary
-// + 30s (picks up live corrections submitted at HH:00:15), plus a regular
-// 15-minute background refresh.
+// + 30s, plus a regular 15-minute background refresh.
 func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 	// Wait for app stabilization
 	select {
@@ -145,10 +153,10 @@ func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 	}
 
 	if err := c.Fetch(ctx, zone, supplier); err != nil {
-		slog.Warn("delta: initial fetch failed, using disk cache", "error", err)
+		slog.Warn("price: initial fetch failed, using disk cache", "error", err)
 	}
 
-	// Hour-boundary refresh at HH:00:30 — picks up live corrections
+	// Hour-boundary refresh at HH:00:30
 	nextHourFetch := time.Now().Truncate(time.Hour).Add(time.Hour).Add(30 * time.Second)
 	hourTimer := time.NewTimer(time.Until(nextHourFetch))
 	defer hourTimer.Stop()
@@ -163,19 +171,19 @@ func (c *Cache) RunFetcher(ctx context.Context, zone, supplier string) {
 			return
 		case <-hourTimer.C:
 			if err := c.Fetch(ctx, zone, supplier); err != nil {
-				slog.Warn("delta: hour-boundary fetch failed", "error", err)
+				slog.Warn("price: hour-boundary fetch failed", "error", err)
 			}
 			nextHourFetch = time.Now().Truncate(time.Hour).Add(time.Hour).Add(30 * time.Second)
 			hourTimer.Reset(time.Until(nextHourFetch))
 		case <-ticker.C:
 			if err := c.Fetch(ctx, zone, supplier); err != nil {
-				slog.Warn("delta: fetch failed, using cached deltas", "error", err)
+				slog.Warn("price: fetch failed, using cached prices", "error", err)
 			}
 		}
 	}
 }
 
-// saveToDisk persists the current deltas to a JSON file.
+// saveToDisk persists the current prices to a JSON file.
 func (c *Cache) saveToDisk() {
 	if c.diskPath == "" {
 		return
@@ -185,21 +193,21 @@ func (c *Cache) saveToDisk() {
 		Zone:      c.zone,
 		Supplier:  c.supplier,
 		FetchedAt: c.fetchedAt.UTC().Format(time.RFC3339),
-		Deltas:    c.deltas,
+		Prices:    c.prices,
 	}
 	c.mu.RUnlock()
 
 	data, err := json.MarshalIndent(dc, "", "  ")
 	if err != nil {
-		slog.Warn("delta: failed to marshal cache", "error", err)
+		slog.Warn("price: failed to marshal cache", "error", err)
 		return
 	}
 	if err := os.WriteFile(c.diskPath, data, 0644); err != nil {
-		slog.Warn("delta: failed to save cache to disk", "error", err)
+		slog.Warn("price: failed to save cache to disk", "error", err)
 	}
 }
 
-// loadFromDisk restores deltas from the JSON file.
+// loadFromDisk restores prices from the JSON file.
 func (c *Cache) loadFromDisk() {
 	if c.diskPath == "" {
 		return
@@ -210,7 +218,7 @@ func (c *Cache) loadFromDisk() {
 	}
 	var dc diskCache
 	if err := json.Unmarshal(data, &dc); err != nil {
-		slog.Warn("delta: failed to parse disk cache", "error", err)
+		slog.Warn("price: failed to parse disk cache", "error", err)
 		return
 	}
 
@@ -222,17 +230,17 @@ func (c *Cache) loadFromDisk() {
 
 	// Don't load caches older than 72 hours — data too stale
 	if time.Since(fetchedAt) > 72*time.Hour {
-		slog.Info("delta: disk cache too old, discarding", "age", time.Since(fetchedAt).Round(time.Hour))
+		slog.Info("price: disk cache too old, discarding", "age", time.Since(fetchedAt).Round(time.Hour))
 		return
 	}
 
 	c.mu.Lock()
-	c.deltas = dc.Deltas
+	c.prices = dc.Prices
 	c.zone = dc.Zone
 	c.supplier = dc.Supplier
 	c.fetchedAt = fetchedAt
 	c.mu.Unlock()
 
-	slog.Info("delta: loaded from disk cache", "zone", dc.Zone, "supplier", dc.Supplier,
-		"hours", len(dc.Deltas), "age", time.Since(fetchedAt).Round(time.Minute))
+	slog.Info("price: loaded from disk cache", "zone", dc.Zone, "supplier", dc.Supplier,
+		"hours", len(dc.Prices), "age", time.Since(fetchedAt).Round(time.Minute))
 }
