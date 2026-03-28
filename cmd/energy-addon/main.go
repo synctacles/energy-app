@@ -297,6 +297,8 @@ func main() {
 				mqttPub = nil
 			} else {
 				mqttPub.CleanupStaleTopics()
+				// Allow HA time to process discovery removals before re-announcing
+				time.Sleep(2 * time.Second)
 				publishers = append(publishers, mqttPub)
 				slog.Info("MQTT publisher enabled (dual publishing)")
 			}
