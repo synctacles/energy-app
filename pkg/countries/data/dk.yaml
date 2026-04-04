@@ -1,0 +1,24 @@
+country: DK
+name: Denmark
+currency: DKK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.00107
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
+zones:
+- code: DK1
+  eic: 10YDK-1--------W
+  name: West Denmark (Jutland)
+  country: DK
+  timezone: Europe/Copenhagen
+  lat: 56.26
+  lon: 9.5
+- code: DK2
+  eic: 10YDK-2--------M
+  name: East Denmark (Zealand)
+  country: DK
+  timezone: Europe/Copenhagen
+  lat: 55.46
+  lon: 11.72

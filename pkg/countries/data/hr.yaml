@@ -1,0 +1,17 @@
+country: HR
+name: Croatia
+currency: EUR
+tou_presets:
+  - id: visa_niza
+    name: "Peak/Off-peak (HERA)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "07:00"
+        end: "21:00"
+        rate: peak
+zones:
+- code: HR
+  name: Croatia
+  timezone: Europe/Zagreb
+  lat: 45.1
+  lon: 15.2

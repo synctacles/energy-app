@@ -1,0 +1,30 @@
+country: NL
+name: Netherlands
+currency: EUR
+tax_defaults:
+  vat_rate: 0.21
+  energy_tax: 0.09161
+  surcharges: 0
+  network_tariff_avg: 0.095
+  valid_from: "2026-01-01"
+suppliers:
+  - id: tibber
+    name: Tibber
+    markup: 0.021
+  - id: zonneplan
+    name: Zonneplan
+    markup: 0
+  - id: vandebron
+    name: Vandebron
+    markup: 0.018
+  - id: frank
+    name: Frank Energie
+    markup: 0.015
+zones:
+- code: NL
+  eic: 10YNL----------L
+  name: Netherlands
+  country: NL
+  timezone: Europe/Amsterdam
+  lat: 52.37
+  lon: 5.3

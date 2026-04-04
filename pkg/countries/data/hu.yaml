@@ -1,0 +1,11 @@
+country: HU
+name: Hungary
+currency: HUF
+zones:
+- code: HU
+  eic: 10YHU-MAVIR----U
+  name: Hungary
+  country: HU
+  timezone: Europe/Budapest
+  lat: 47.16
+  lon: 19.5

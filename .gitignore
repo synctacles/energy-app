@@ -1,0 +1,25 @@
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+.env
+/tmp/
+scripts/venv/
+
+# Binaries (only at root level)
+/energy-api
+/energy-server
+/energy-addon
+
+# Benchmark scripts (temporary)
+benchmark*.sh
+*.tar.gz
+
+# Logs
+*.log
+
+# Claude Code
+CLAUDE.md

@@ -1,0 +1,17 @@
+country: FI
+name: Finland
+currency: EUR
+tax_defaults:
+  vat_rate: 0.255
+  energy_tax: 0.02253
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2024-01-01"
+zones:
+- code: FI
+  eic: 10YFI-1--------U
+  name: Finland
+  country: FI
+  timezone: Europe/Helsinki
+  lat: 64.0
+  lon: 26.0

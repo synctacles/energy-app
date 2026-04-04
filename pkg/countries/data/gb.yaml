@@ -1,0 +1,81 @@
+# Great Britain — post-Brexit, not in ENTSO-E
+# Wholesale: EPEX Spot GB 30-min + Nord Pool N2EX (via agilerates proxy) + Elexon BMRS settlement
+# Resolution: PT30M (48 half-hour slots per day)
+# Currency: GBP
+# See ADR_013 (synctacles-platform) for day-ahead source details
+#
+# Supplier markups are initial estimates. Once sensor submissions arrive,
+# per-supplier deltas will replace these defaults automatically (ADR_010).
+# Suppliers without sensor data receive the _average delta.
+
+country: GB
+name: United Kingdom
+currency: GBP
+tax_defaults:
+  vat_rate: 0.05
+  energy_tax: 0.00079        # Climate Change Levy (CCL) — GBP/kWh, domestic exempt but included for completeness
+  surcharges: 0               # policy costs bundled into supplier markup (RO, FIT, ECO, WHD)
+  network_tariff_avg: 0.082   # DUoS + TNUoS + BSUoS average — GBP/kWh (varies by DNO region)
+  valid_from: "2025-04-01"    # Ofgem Q2 2025 price cap period
+suppliers:
+  # Tier 1: True wholesale pass-through (half-hourly or daily tracking)
+  - id: octopus_agile
+    name: Octopus Energy Agile
+    markup: 0.04              # estimate: regional multiplier ~2.0-2.4x includes DUoS/TNUoS/margin
+  - id: octopus_tracker
+    name: Octopus Energy Tracker
+    markup: 0.035             # estimate: daily N2EX baseload + regional adder
+  - id: edf_freephase
+    name: EDF FreePhase Dynamic
+    markup: 0.038             # estimate: 3-band wholesale tracking
+  - id: ecotricity
+    name: Ecotricity Dynamic
+    markup: 0.04              # estimate: half-hourly, limited data available
+
+  # Tier 2: Time-of-use / EV tariffs (fixed bands, not wholesale-linked)
+  - id: octopus_go
+    name: Octopus Energy Go
+    markup: 0.03              # estimate: overnight discount + standard peak
+  - id: octopus_cosy
+    name: Octopus Energy Cosy
+    markup: 0.03              # estimate: heat pump optimised
+  - id: eon_smart_saver
+    name: E.ON Next Smart Saver
+    markup: 0.035             # estimate: 3-band fixed TOU
+  - id: british_gas
+    name: British Gas
+    markup: 0.04              # estimate: standard variable + EV saver
+
+  # Tier 3: Standard variable (no wholesale tracking, uses _average delta)
+  - id: ovo
+    name: OVO Energy
+    markup: 0.04              # estimate: quarterly variable, no pass-through
+  - id: scottish_power
+    name: Scottish Power
+    markup: 0.04              # estimate: standard variable
+  - id: edf
+    name: EDF Energy
+    markup: 0.04              # estimate: standard variable (non-FreePhase)
+  - id: eon
+    name: E.ON Next
+    markup: 0.04              # estimate: standard variable (non-Smart Saver)
+  - id: shell
+    name: Shell Energy
+    markup: 0.04              # estimate: business only since 2023, domestic → Octopus
+  - id: utilita
+    name: Utilita
+    markup: 0.04              # estimate: prepayment specialist
+  - id: good_energy
+    name: Good Energy
+    markup: 0.045             # estimate: 100% renewable premium
+  - id: so_energy
+    name: So Energy
+    markup: 0.04              # estimate: standard variable
+zones:
+  - code: GB
+    name: Great Britain
+    country: GB
+    timezone: Europe/London
+    wholesale: true           # Has wholesale via EPEX Spot / Nord Pool (not ENTSO-E)
+    lat: 51.51
+    lon: -0.13

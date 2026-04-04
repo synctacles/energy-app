@@ -1,0 +1,48 @@
+name: "Synctacles Energy"
+version: "0.2.1-beta"
+slug: "synctacles_energy"
+description: "EU electricity prices with GO/WAIT/AVOID recommendations for 30 bidding zones"
+url: "https://github.com/synctacles/energy-app"
+documentation: "https://github.com/synctacles/energy-app/blob/main/DOCS.md"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+image: "ghcr.io/synctacles/{arch}-energy"
+ingress: true
+ingress_port: 8098
+panel_icon: "mdi:lightning-bolt"
+panel_title: "Synctacles Energy"
+homeassistant_api: true
+hassio_api: true
+init: false
+options:
+  pricing_mode: "auto"
+  zone: "NL"
+  go_threshold: -15
+  avoid_threshold: 20
+  best_window_hours: 3
+  supplier_markup: 0
+  manual_vat_rate: 0
+  manual_energy_tax: 0
+  manual_surcharges: 0
+  manual_network_tariff: 0
+  p1_sensor_entity: ""
+  power_sensor: ""
+  synctacles_url: ""
+  debug_mode: false
+schema:
+  pricing_mode: "str?"
+  zone: str
+  go_threshold: float
+  avoid_threshold: float
+  best_window_hours: "int(1,8)"
+  supplier_markup: "float?"
+  manual_vat_rate: "float?"
+  manual_energy_tax: "float?"
+  manual_surcharges: "float?"
+  manual_network_tariff: "float?"
+  p1_sensor_entity: "str?"
+  power_sensor: "str?"
+  synctacles_url: "str?"
+  debug_mode: bool

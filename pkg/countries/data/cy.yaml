@@ -1,0 +1,41 @@
+country: CY
+name: Cyprus
+currency: EUR
+tax_defaults:
+  vat_rate: 0.09
+  energy_tax: 0
+  surcharges: 0.005
+  network_tariff_avg: 0.04
+  valid_from: "2026-01-01"
+suppliers:
+  - id: eac
+    name: "EAC (Electricity Authority of Cyprus)"
+    markup: 0
+zones:
+- code: CY
+  eic: ""
+  name: Cyprus
+  country: CY
+  timezone: Asia/Nicosia
+  lat: 35.13
+  lon: 33.43
+  tax_defaults:
+    vat_rate: 0.09
+    energy_tax: 0
+    surcharges: 0.005
+    network_tariff_avg: 0.04
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1916
+    tou:
+      day_night:
+        peak: 0.2389
+        offpeak: 0.1173
+  tou_presets:
+    - id: day_night
+      name: "Day/Night"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "06:00"
+          end: "23:00"
+          rate: peak

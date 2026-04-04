@@ -1,0 +1,73 @@
+country: IT
+name: Italy
+currency: EUR
+tou_presets:
+  - id: f1_f2_f3
+    name: "F1/F2/F3 (ARERA)"
+    periods:
+      - days: [1,2,3,4,5]
+        start: "08:00"
+        end: "19:00"
+        rate: peak
+      - days: [1,2,3,4,5]
+        start: "07:00"
+        end: "08:00"
+        rate: midpeak
+      - days: [1,2,3,4,5]
+        start: "19:00"
+        end: "23:00"
+        rate: midpeak
+      - days: [6]
+        start: "07:00"
+        end: "23:00"
+        rate: midpeak
+  - id: bi_oraria
+    name: "Bi-oraria (F1/F23)"
+    periods:
+      - days: [1,2,3,4,5]
+        start: "08:00"
+        end: "19:00"
+        rate: peak
+zones:
+- code: IT-NORTH
+  eic: 10Y1001A1001A73I
+  name: Northern Italy
+  country: IT
+  timezone: Europe/Rome
+  lat: 45.46
+  lon: 10.95
+- code: IT-CNORTH
+  eic: 10Y1001A1001A70O
+  name: Central North Italy
+  country: IT
+  timezone: Europe/Rome
+  lat: 43.5
+  lon: 11.5
+- code: IT-CSOUTH
+  eic: 10Y1001A1001A71M
+  name: Central South Italy
+  country: IT
+  timezone: Europe/Rome
+  lat: 41.3
+  lon: 15.0
+- code: IT-SOUTH
+  eic: 10Y1001A1001A788
+  name: Southern Italy
+  country: IT
+  timezone: Europe/Rome
+  lat: 40.0
+  lon: 16.5
+- code: IT-Sicily
+  eic: 10Y1001A1001A74G
+  name: Sicily
+  country: IT
+  timezone: Europe/Rome
+  lat: 37.6
+  lon: 14.02
+- code: IT-Sardinia
+  eic: 10Y1001A1001A75E
+  name: Sardinia
+  country: IT
+  timezone: Europe/Rome
+  lat: 40.12
+  lon: 9.01

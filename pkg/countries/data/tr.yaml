@@ -1,0 +1,76 @@
+country: TR
+name: Turkey
+currency: TRY
+tax_defaults:
+  vat_rate: 0.10
+  energy_tax: 0
+  surcharges: 0.05
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
+suppliers:
+  - id: enerjisa
+    name: Enerjisa
+    markup: 0
+  - id: ck_enerji
+    name: CK Enerji
+    markup: 0
+  - id: aydem
+    name: Aydem
+    markup: 0
+  - id: toroslar
+    name: Toroslar EDAS
+    markup: 0
+  - id: dicle
+    name: Dicle EDAS
+    markup: 0
+tou_presets:
+  - id: smart_meter
+    name: "Smart meter (3-period)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "17:00"
+        end: "22:00"
+        rate: peak
+      - days: [0,1,2,3,4,5,6]
+        start: "06:00"
+        end: "17:00"
+        rate: midpeak
+zones:
+- code: TR
+  eic: ""
+  name: Turkey
+  country: TR
+  timezone: Europe/Istanbul
+  lat: 39.93
+  lon: 32.86
+  tax_defaults:
+    vat_rate: 0.10
+    energy_tax: 0
+    surcharges: 0.05
+    network_tariff_avg: 0
+    valid_from: "2026-04-01"
+  regulated_tariffs:
+    fixed: 2.33
+    tou:
+      smart_meter:
+        peak: 5.09
+        offpeak: 2.22
+        midpeak: 3.50
+  tou_presets:
+    - id: smart_meter
+      name: "Smart meter (3-period)"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "17:00"
+          end: "22:00"
+          rate: peak
+        - days: [0,1,2,3,4,5,6]
+          start: "06:00"
+          end: "17:00"
+          rate: midpeak
+  # EPDK regulated tariffs (April 2025, TRY/kWh incl. distribution, excl. taxes)
+  # Tier 1 (≤8 kWh/day): 2.33 TRY/kWh — used as fixed default
+  # Tier 2 (>8 kWh/day): 3.45 TRY/kWh — user can adjust
+  # TOU (smart meter): Night 2.22, Day 3.50, Peak 5.09
+  # Taxes: 10% VAT (residential) + 5% municipal consumption tax
+  # Source: EPDK tariff tables, piagrid.com, aydemperakende.com

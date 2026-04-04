@@ -1,0 +1,26 @@
+country: PL
+name: Poland
+currency: PLN
+tou_presets:
+  - id: g12
+    name: "G12 (dzień/noc)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "06:00"
+        end: "21:00"
+        rate: peak
+  - id: g12w
+    name: "G12w (dzień/noc + weekend)"
+    periods:
+      - days: [1,2,3,4,5]
+        start: "06:00"
+        end: "21:00"
+        rate: peak
+zones:
+- code: PL
+  eic: 10YPL-AREA-----S
+  name: Poland
+  country: PL
+  timezone: Europe/Warsaw
+  lat: 51.92
+  lon: 19.15

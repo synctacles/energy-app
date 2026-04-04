@@ -1,0 +1,17 @@
+country: RO
+name: Romania
+currency: EUR
+tou_presets:
+  - id: day_night
+    name: "Zi/Noapte (ANRE)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "07:00"
+        end: "22:00"
+        rate: peak
+zones:
+- code: RO
+  name: Romania
+  timezone: Europe/Bucharest
+  lat: 45.94
+  lon: 24.97

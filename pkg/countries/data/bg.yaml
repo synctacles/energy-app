@@ -1,0 +1,17 @@
+country: BG
+name: Bulgaria
+currency: EUR
+tou_presets:
+  - id: day_night
+    name: "Дневна/Нощна (EWRC)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "07:00"
+        end: "23:00"
+        rate: peak
+zones:
+- code: BG
+  name: Bulgaria
+  timezone: Europe/Sofia
+  lat: 42.73
+  lon: 25.49

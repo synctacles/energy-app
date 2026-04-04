@@ -1,0 +1,270 @@
+package engine
+
+import (
+	"context"
+	"log/slog"
+	"math/rand/v2"
+	"time"
+
+	"github.com/synctacles/energy-app/pkg/models"
+)
+
+// FeatureGate controls whether price fetching is allowed.
+type FeatureGate interface {
+	CanFetchPrices() bool
+}
+
+// Scheduler manages periodic price fetching and sensor updates.
+type Scheduler struct {
+	fallback     *FallbackManager
+	normalizer   *Normalizer
+	action       *ActionEngine
+	zone         string
+	hasWholesale bool // false for non-ENTSO-E zones (e.g. Madeira, Azores)
+	pricingMode  string
+	updateFn     func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error
+	stopCh       chan struct{}
+	triggerCh    chan struct{}
+	gate         FeatureGate
+
+	// Event-driven fetch state: prices are fetched only when needed,
+	// but re-normalized every tick for fresh delta application.
+	hasTomorrowData bool           // true once tomorrow's prices are available
+	lastResult      *FetchResult   // cached result from last successful fetch
+	lastFetchDay    int            // local day-of-year of last successful fetch
+	zoneLoc         *time.Location // zone timezone for local day boundary
+}
+
+// NewScheduler creates a price fetch scheduler.
+func NewScheduler(
+	fallback *FallbackManager,
+	normalizer *Normalizer,
+	action *ActionEngine,
+	zone string,
+	updateFn func(ctx context.Context, prices []models.HourlyPrice, result *FetchResult) error,
+	gate ...FeatureGate,
+) *Scheduler {
+	s := &Scheduler{
+		fallback:   fallback,
+		normalizer: normalizer,
+		action:     action,
+		zone:       zone,
+		updateFn:   updateFn,
+		stopCh:     make(chan struct{}),
+		triggerCh:  make(chan struct{}, 1),
+	}
+	if len(gate) > 0 {
+		s.gate = gate[0]
+	}
+	return s
+}
+
+// Run starts the scheduler loop. Blocks until Stop() is called or ctx is cancelled.
+func (s *Scheduler) Run(ctx context.Context) {
+	// Initial fetch immediately
+	s.fetchAndUpdate(ctx)
+
+	// Post-startup re-normalize: after cache (2min) and submitter (3min)
+	// have completed their initial work, re-normalize with fresh delta.
+	startupTimer := time.NewTimer(4 * time.Minute)
+	defer startupTimer.Stop()
+
+	// Calculate time until next hour boundary for instant updates
+	nextHour := time.Now().Truncate(time.Hour).Add(time.Hour)
+	hourTimer := time.NewTimer(time.Until(nextHour))
+	defer hourTimer.Stop()
+
+	// Delta-sync re-normalize at HH:00:45 — applies fresh delta from
+	// hour-boundary cache refresh (cache fetches at HH:00:30, submitter
+	// sends live correction at HH:00:15).
+	nextDeltaSync := time.Now().Truncate(time.Hour).Add(time.Hour).Add(45 * time.Second)
+	deltaSyncTimer := time.NewTimer(time.Until(nextDeltaSync))
+	defer deltaSyncTimer.Stop()
+
+	// Regular 15-minute refresh
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+
+	// Day-ahead fetch: 13:00 CET + random jitter (0-30 min)
+	dayAheadTimer := s.nextDayAheadTimer()
+	defer dayAheadTimer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-startupTimer.C:
+			// Post-startup: re-normalize with fresh delta after cache+submitter init
+			slog.Info("post-startup delta re-normalize")
+			s.fetchAndUpdate(ctx)
+			startupTimer.Stop() // one-shot
+		case <-ticker.C:
+			// Regular tick: re-normalize with fresh delta, only fetch if needed
+			s.fetchAndUpdate(ctx)
+		case <-hourTimer.C:
+			// Hour boundary: re-normalize for fresh delta application
+			slog.Info("hour boundary update")
+			s.fetchAndUpdate(ctx)
+			nextHour = time.Now().Truncate(time.Hour).Add(time.Hour)
+			hourTimer.Reset(time.Until(nextHour))
+		case <-deltaSyncTimer.C:
+			// Delta-sync: re-normalize with live-corrected delta
+			slog.Info("delta-sync re-normalize")
+			s.fetchAndUpdate(ctx)
+			nextDeltaSync = time.Now().Truncate(time.Hour).Add(time.Hour).Add(45 * time.Second)
+			deltaSyncTimer.Reset(time.Until(nextDeltaSync))
+		case <-dayAheadTimer.C:
+			// Day-ahead publication window: always fetch fresh
+			slog.Info("day-ahead fetch triggered")
+			s.doFetchAndUpdate(ctx, true)
+			dayAheadTimer = s.nextDayAheadTimer()
+		case <-s.triggerCh:
+			// Manual trigger: always fetch fresh
+			slog.Info("manual fetch triggered")
+			s.doFetchAndUpdate(ctx, true)
+		}
+	}
+}
+
+// Stop signals the scheduler to stop.
+func (s *Scheduler) Stop() {
+	close(s.stopCh)
+}
+
+// TriggerFetch requests an immediate fetch cycle. Non-blocking.
+func (s *Scheduler) TriggerFetch() {
+	select {
+	case s.triggerCh <- struct{}{}:
+	default: // trigger already pending
+	}
+}
+
+// SetZoneInfo configures whether the zone has wholesale data and the pricing mode.
+// Non-wholesale zones in fixed/tou mode skip price fetching entirely.
+func (s *Scheduler) SetZoneInfo(hasWholesale bool, pricingMode string, loc *time.Location) {
+	s.hasWholesale = hasWholesale
+	s.pricingMode = pricingMode
+	s.zoneLoc = loc
+}
+
+// needsFreshFetch decides whether we should hit the API or re-use cached prices.
+// Day-ahead prices are published once (~13:00 CET) and don't change after that.
+// We only need fresh fetches when:
+//   - We've never fetched successfully (lastResult == nil)
+//   - The local day has changed since the last fetch (day rollover)
+//   - We don't have tomorrow's data yet AND we're in the day-ahead publication window (13-14 UTC)
+//   - A manual trigger was used (always fetches fresh — handled by caller)
+func (s *Scheduler) needsFreshFetch() bool {
+	if s.lastResult == nil {
+		return true
+	}
+	now := time.Now().UTC()
+	// Day rollover: local day changed since last fetch → need today's full prices
+	if s.zoneLoc != nil {
+		if now.In(s.zoneLoc).YearDay() != s.lastFetchDay {
+			return true
+		}
+	} else if now.YearDay() != s.lastFetchDay {
+		return true
+	}
+	// During day-ahead window (13:00-14:00 UTC): fetch if we don't have tomorrow's data
+	if now.Hour() >= 13 && now.Hour() < 14 && !s.hasTomorrowData {
+		return true
+	}
+	return false
+}
+
+func (s *Scheduler) fetchAndUpdate(ctx context.Context) {
+	s.doFetchAndUpdate(ctx, false)
+}
+
+func (s *Scheduler) doFetchAndUpdate(ctx context.Context, forceFresh bool) {
+	if s.gate != nil && !s.gate.CanFetchPrices() {
+		slog.Debug("price fetch skipped — install purged")
+		return
+	}
+	// Non-wholesale zones with fixed/TOU pricing don't need external price data
+	if !s.hasWholesale && (s.pricingMode == "fixed" || s.pricingMode == "tou") {
+		slog.Debug("price fetch skipped — non-wholesale zone with regulated pricing", "zone", s.zone, "mode", s.pricingMode)
+		return
+	}
+
+	if !forceFresh && !s.needsFreshFetch() && s.lastResult != nil {
+		// Re-normalize existing prices with fresh delta (no API call)
+		slog.Debug("re-normalizing cached prices (no fetch needed)", "zone", s.zone, "source", s.lastResult.Source)
+		consumerPrices := s.normalizer.ToConsumer(s.lastResult.Prices)
+		if s.updateFn != nil {
+			if err := s.updateFn(ctx, consumerPrices, s.lastResult); err != nil {
+				slog.Error("update callback failed", "error", err)
+			}
+		}
+		return
+	}
+
+	// Use local time so the FallbackManager cache key matches the local day.
+	// Without this, CET zones fetch yesterday's UTC date for up to 1 hour
+	// after local midnight, leaving the chart with only ~4 price slots.
+	fetchDate := time.Now().UTC()
+	if s.zoneLoc != nil {
+		fetchDate = time.Now().In(s.zoneLoc)
+	}
+	result, err := s.fallback.Fetch(ctx, s.zone, fetchDate)
+	if err != nil {
+		slog.Error("price fetch failed", "zone", s.zone, "error", err)
+		return
+	}
+
+	// Track fetch state for day-rollover detection
+	s.lastResult = result
+	s.hasTomorrowData = hasTomorrowPrices(result.Prices)
+	if s.zoneLoc != nil {
+		s.lastFetchDay = time.Now().In(s.zoneLoc).YearDay()
+	} else {
+		s.lastFetchDay = time.Now().UTC().YearDay()
+	}
+
+	// Normalize to consumer prices
+	consumerPrices := s.normalizer.ToConsumer(result.Prices)
+
+	if s.updateFn != nil {
+		if err := s.updateFn(ctx, consumerPrices, result); err != nil {
+			slog.Error("update callback failed", "error", err)
+		}
+	}
+}
+
+// hasTomorrowPrices checks if any price in the result is for tomorrow (UTC).
+func hasTomorrowPrices(prices []models.HourlyPrice) bool {
+	tomorrow := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
+	for _, p := range prices {
+		if !p.Timestamp.Before(tomorrow) {
+			return true
+		}
+	}
+	return false
+}
+
+// nextDayAheadTimer returns a timer that fires at 13:00 CET + 0-30min jitter.
+// This is when EPEX Spot publishes day-ahead prices.
+func (s *Scheduler) nextDayAheadTimer() *time.Timer {
+	loc, err := time.LoadLocation("Europe/Amsterdam")
+	if err != nil {
+		loc = time.UTC
+	}
+
+	now := time.Now().In(loc)
+	target := time.Date(now.Year(), now.Month(), now.Day(), 13, 0, 0, 0, loc)
+
+	// Add random jitter (0-30 minutes) to prevent thundering herd
+	jitter := time.Duration(rand.IntN(30)) * time.Minute
+	target = target.Add(jitter)
+
+	// If target is in the past, schedule for tomorrow
+	if target.Before(now) {
+		target = target.Add(24 * time.Hour)
+	}
+
+	return time.NewTimer(time.Until(target))
+}

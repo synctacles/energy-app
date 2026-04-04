@@ -1,0 +1,11 @@
+country: CH
+name: Switzerland
+currency: CHF
+zones:
+- code: CH
+  eic: 10YCH-SWISSGRIDZ
+  name: Switzerland
+  country: CH
+  timezone: Europe/Zurich
+  lat: 46.82
+  lon: 8.23

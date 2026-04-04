@@ -1,0 +1,62 @@
+country: GR
+name: Greece
+currency: EUR
+tax_defaults:
+  vat_rate: 0.06
+  energy_tax: 0.022
+  surcharges: 0.008
+  network_tariff_avg: 0.04
+  valid_from: "2026-01-01"
+suppliers:
+  - id: dei
+    name: "DEI (PPC)"
+    markup: 0.015
+  - id: protergia
+    name: Protergia
+    markup: 0.012
+  - id: elpedison
+    name: Elpedison
+    markup: 0.013
+tou_presets:
+  - id: night_tariff
+    name: "Night tariff"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "07:00"
+        end: "23:00"
+        rate: peak
+zones:
+- code: GR
+  eic: 10YGR-HTSO-----Y
+  name: Greece
+  country: GR
+  timezone: Europe/Athens
+  lat: 39.07
+  lon: 21.82
+- code: GR-ISL
+  eic: ""
+  name: Greek Islands (non-interconnected)
+  country: GR
+  timezone: Europe/Athens
+  lat: 37.45
+  lon: 25.37
+  tax_defaults:
+    vat_rate: 0.06
+    energy_tax: 0.022
+    surcharges: 0.008
+    network_tariff_avg: 0.04
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.12
+    tou:
+      night_tariff:
+        peak: 0.145
+        offpeak: 0.085
+  tou_presets:
+    - id: night_tariff
+      name: "Night tariff"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "07:00"
+          end: "23:00"
+          rate: peak

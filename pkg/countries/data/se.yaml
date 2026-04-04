@@ -1,0 +1,45 @@
+country: SE
+name: Sweden
+currency: SEK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.0313
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
+suppliers:
+  - id: tibber
+    name: Tibber
+    markup: 0.124
+  - id: fortum
+    name: Fortum
+    markup: 0.039
+zones:
+- code: SE1
+  eic: 10Y1001A1001A44P
+  name: Luleå / Northern Sweden
+  country: SE
+  timezone: Europe/Stockholm
+  lat: 67.85
+  lon: 20.22
+- code: SE2
+  eic: 10Y1001A1001A45N
+  name: Sundsvall / Central North
+  country: SE
+  timezone: Europe/Stockholm
+  lat: 64.0
+  lon: 18.0
+- code: SE3
+  eic: 10Y1001A1001A46L
+  name: Stockholm / Central South
+  country: SE
+  timezone: Europe/Stockholm
+  lat: 59.33
+  lon: 18.07
+- code: SE4
+  eic: 10Y1001A1001A47J
+  name: Malmö / Southern Sweden
+  country: SE
+  timezone: Europe/Stockholm
+  lat: 55.6
+  lon: 13.0

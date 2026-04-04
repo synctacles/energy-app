@@ -1,0 +1,52 @@
+country: 'NO'
+name: Norway
+currency: NOK
+tax_defaults:
+  vat_rate: 0.25
+  energy_tax: 0.0062
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
+suppliers:
+  - id: tibber
+    name: Tibber
+    markup: 0.044
+  - id: fortum
+    name: Fortum
+    markup: 0.059
+zones:
+- code: NO1
+  eic: 10YNO-1--------2
+  name: Oslo / East Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+  lat: 59.91
+  lon: 10.75
+- code: NO2
+  eic: 10YNO-2--------T
+  name: Kristiansand / South Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+  lat: 58.16
+  lon: 7.99
+- code: NO3
+  eic: 10YNO-3--------J
+  name: Trondheim / Central Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+  lat: 63.43
+  lon: 10.39
+- code: NO4
+  eic: 10YNO-4--------9
+  name: Tromsoe / North Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+  lat: 68.44
+  lon: 17.43
+- code: NO5
+  eic: 10Y1001A1001A48H
+  name: Bergen / West Norway
+  country: 'NO'
+  timezone: Europe/Oslo
+  lat: 60.39
+  lon: 5.32

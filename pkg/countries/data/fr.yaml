@@ -1,0 +1,36 @@
+country: FR
+name: France
+currency: EUR
+tax_defaults:
+  vat_rate: 0.2
+  energy_tax: 0.03085
+  surcharges: 0
+  network_tariff_avg: 0.055
+  valid_from: "2026-01-01"
+tou_presets:
+  - id: hc_hp_standard
+    name: "Heures Creuses / Pleines"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "06:00"
+        end: "22:00"
+        rate: peak
+  - id: hc_hp_split
+    name: "HC/HP midi (split)"
+    periods:
+      - days: [0,1,2,3,4,5,6]
+        start: "06:00"
+        end: "12:00"
+        rate: peak
+      - days: [0,1,2,3,4,5,6]
+        start: "14:00"
+        end: "22:00"
+        rate: peak
+zones:
+- code: FR
+  eic: 10YFR-RTE------C
+  name: France
+  country: FR
+  timezone: Europe/Paris
+  lat: 46.23
+  lon: 2.21

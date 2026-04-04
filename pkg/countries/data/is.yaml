@@ -1,0 +1,47 @@
+country: IS
+name: Iceland
+currency: ISK
+tax_defaults:
+  vat_rate: 0.11
+  energy_tax: 0
+  surcharges: 0.0048
+  network_tariff_avg: 0.025
+  valid_from: "2026-01-01"
+suppliers:
+  - id: or
+    name: "OR (Orkuveita Reykjavikur)"
+    markup: 0
+  - id: hs
+    name: "HS Veitur"
+    markup: 0
+  - id: rarik
+    name: "RARIK"
+    markup: 0
+zones:
+- code: IS
+  eic: ""
+  name: Iceland
+  country: IS
+  timezone: Atlantic/Reykjavik
+  lat: 64.15
+  lon: -21.95
+  tax_defaults:
+    vat_rate: 0.11
+    energy_tax: 0
+    surcharges: 0.0048
+    network_tariff_avg: 0.025
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.018
+    tou:
+      day_night:
+        peak: 0.022
+        offpeak: 0.014
+  tou_presets:
+    - id: day_night
+      name: "Day/Night"
+      periods:
+        - days: [0,1,2,3,4,5,6]
+          start: "08:00"
+          end: "23:00"
+          rate: peak

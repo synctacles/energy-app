@@ -1,0 +1,11 @@
+country: SI
+name: Slovenia
+currency: EUR
+zones:
+- code: SI
+  eic: 10YSI-ELES-----O
+  name: Slovenia
+  country: SI
+  timezone: Europe/Ljubljana
+  lat: 46.15
+  lon: 14.99

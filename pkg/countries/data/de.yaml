@@ -1,0 +1,27 @@
+country: DE
+name: Germany
+currency: EUR
+tax_defaults:
+  vat_rate: 0.19
+  energy_tax: 0.0205
+  surcharges: 0.02946
+  network_tariff_avg: 0.088
+  valid_from: "2024-01-01"
+suppliers:
+  - id: tibber
+    name: Tibber
+    markup: 0.0215
+  - id: awattar
+    name: aWATTar
+    markup: 0.015
+  - id: ostrom
+    name: Ostrom
+    markup: 0.0
+zones:
+- code: DE-LU
+  eic: 10Y1001A1001A82H
+  name: Germany/Luxembourg
+  country: DE
+  timezone: Europe/Berlin
+  lat: 51.16
+  lon: 10.45

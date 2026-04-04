@@ -1,0 +1,35 @@
+country: MT
+name: Malta
+currency: EUR
+tax_defaults:
+  vat_rate: 0.05
+  energy_tax: 0
+  surcharges: 0
+  network_tariff_avg: 0
+  valid_from: "2026-01-01"
+suppliers:
+  - id: enemalta
+    name: Enemalta
+    markup: 0
+zones:
+- code: MT
+  eic: ""
+  name: Malta
+  country: MT
+  timezone: Europe/Malta
+  lat: 35.9
+  lon: 14.51
+  tax_defaults:
+    vat_rate: 0.05
+    energy_tax: 0
+    surcharges: 0
+    network_tariff_avg: 0
+    valid_from: "2026-01-01"
+  regulated_tariffs:
+    fixed: 0.1047
+    tou:
+      residential:
+        peak: 0.1047
+        offpeak: 0.1047
+  # Note: Malta uses tiered pricing (Band 1: 0-2000 kWh/yr = €0.1047, Band 2: 2001-4000 = €0.1279, Band 3: 4001+ = €0.1687)
+  # Modeled as flat rate at Band 1. Users with higher consumption can adjust in settings.
