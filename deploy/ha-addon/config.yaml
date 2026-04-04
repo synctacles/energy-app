@@ -1,5 +1,5 @@
 name: "Synctacles Energy"
-version: "0.2.1-beta"
+version: "1.0.0"
 slug: "synctacles_energy"
 description: "EU electricity prices with GO/WAIT/AVOID recommendations for 30 bidding zones"
 url: "https://github.com/synctacles/energy-app"
