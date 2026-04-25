@@ -425,7 +425,7 @@ func (s *Server) handleCrowdsourceSubmit(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", energyDataBaseURL+"/api/v1/energy/submit-price", bytes.NewReader(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", energyDataBaseURL+"/api/v1/energy/submit-tax", bytes.NewReader(jsonData))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create request")
 		return
